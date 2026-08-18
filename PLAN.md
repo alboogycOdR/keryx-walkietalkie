@@ -369,7 +369,7 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 
 ### TASK-008
 **Title:** Settings & persistence layer: encrypted prefs, channel memory (KRX-004)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** CX
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1 (Persistence row), §11 E1 (KRX-004), FR-009, FR-023, FR-046, FR-061, FR-062
@@ -387,12 +387,13 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 **Started_At:** 2026-08-18T14:35:54Z
 **Progress_Notes:**
 - [2026-08-18T14:35:54Z] [CX] Claimed TASK-008; reviewing existing app dependencies and state-management conventions.
+- [2026-08-18T14:37:00Z] [CX] Preflight: `[preflight] TASK-008 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-codex-walkietalkie-keryx`; 2 entries, `lib/core/settings/**` and `test/core/settings/**` each match nothing yet (new territory). Starting typed secure settings repository and in-memory test fake.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-18T14:35:54Z
+**Updated_At:** 2026-08-18T14:37:00Z
 
 ### TASK-009
 **Title:** Identity: peerId derivation + NATO callsign generator (KRX-075 + §8.6 identity)
