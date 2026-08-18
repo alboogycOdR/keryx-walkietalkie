@@ -59,7 +59,7 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 
 ### TASK-002
 **Title:** Relay stack: LiveKit + Redis + Caddy + coturn Docker compose (KRX-050)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1 (Relay row), §8.4, §11 E6 (KRX-050), §9 NFR-05, NFR-09
@@ -67,12 +67,12 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 **Depends_On:** —
 **Description:** Build the self-hosted relay deployment under `relay/`: a single Docker compose with LiveKit SFU, Redis, Caddy (TLS), and coturn (TURN), configured for a single-VPS deployment (clawsrv-class, 4 vCPU/8 GB) per TS §8.1. Include livekit.yaml, Caddyfile, turnserver.conf, an `.env.example` (domains, keys, secrets — no real secrets committed), a `relay/README.md` runbook (bring-up, ports, firewall), and a hardening checklist per KRX-050. Provide a compose config-validation script/test (`docker compose config`) runnable without a live VPS.
 **Acceptance_Criteria:**
-- [ ] `relay/docker-compose.yml` defines LiveKit + Redis + Caddy TLS + coturn per TS §8.1 ("Self-hosted LiveKit (single Docker compose: LiveKit + Redis + Caddy TLS + coturn) on one VPS")
-- [ ] coturn is bundled and wired into LiveKit config per TS §8.4 ("TURN (coturn) bundled for hostile NATs; target ≥ 97% connection success")
-- [ ] No secrets in-repo: `.env.example` documents every required variable; compose interpolates from env
-- [ ] Hardening checklist delivered per TS §11 KRX-050 ("Relay deployment: LiveKit + Redis + coturn + Caddy compose; hardening checklist")
-- [ ] Scale-out path documented per TS §9 NFR-09 ("1 VPS serves ≥ 500 concurrent channel-joins; scale-out documented")
-- [ ] `docker compose config` validates cleanly (evidence pasted)
+- [x] `relay/docker-compose.yml` defines LiveKit + Redis + Caddy TLS + coturn per TS §8.1 ("Self-hosted LiveKit (single Docker compose: LiveKit + Redis + Caddy TLS + coturn) on one VPS")
+- [x] coturn is bundled and wired into LiveKit config per TS §8.4 ("TURN (coturn) bundled for hostile NATs; target ≥ 97% connection success")
+- [x] No secrets in-repo: `.env.example` documents every required variable; compose interpolates from env
+- [x] Hardening checklist delivered per TS §11 KRX-050 ("Relay deployment: LiveKit + Redis + coturn + Caddy compose; hardening checklist")
+- [x] Scale-out path documented per TS §9 NFR-09 ("1 VPS serves ≥ 500 concurrent channel-joins; scale-out documented")
+- [x] `docker compose config` validates cleanly (evidence pasted)
 **Branch:** task/TASK-002-gb
 **Started_At:** 2026-08-18T09:32:00Z
 **Progress_Notes:**
@@ -84,12 +84,27 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 New territory under relay/**. Implementing LiveKit+Redis+Caddy+coturn compose, env templates, runbook, hardening checklist, and `docker compose config` validator.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-18T09:40:37Z] [GB] Relay stack complete on `task/TASK-002-gb` (commit 1234447). Compose: livekit/livekit-server:v1.9.11 + redis:7.4.2-alpine + caddy:2.9.1-alpine + coturn/coturn:4.6.3-alpine, host network, no egress/ingress. coturn wired via livekit.yaml turn_servers (UDP/TCP 3478 + TLS 5349). Secrets only in .env.example placeholders. Ready for review.
+**Artifacts:**
+- relay/docker-compose.yml
+- relay/.env.example
+- relay/.gitignore
+- relay/Caddyfile
+- relay/livekit.yaml.tmpl
+- relay/turnserver.conf.tmpl
+- relay/redis.conf
+- relay/README.md
+- relay/HARDENING.md
+- relay/scripts/render_config.py
+- relay/scripts/validate.ps1
+- relay/scripts/validate.sh
+- relay/tests/test_relay_config.py
+**Test_Evidence:**
+- [2026-08-18T09:40:37Z] [GB] `python relay/tests/test_relay_config.py` — 16/16 OK (includes `docker compose --env-file .env.example config --format json`). Services: caddy, coturn, livekit, redis. Images: caddy:2.9.1-alpine, coturn/coturn:4.6.3-alpine, livekit/livekit-server:v1.9.11, redis:7.4.2-alpine. Also `powershell -File relay/scripts/validate.ps1` — render + compose config + unit checks green. No live VPS bring-up (not required).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-18T09:35:00Z
+**Updated_At:** 2026-08-18T09:40:37Z
 
 ### TASK-003
 **Title:** Token service: FastAPI LiveKit JWT mint + rate limiting (KRX-051)
