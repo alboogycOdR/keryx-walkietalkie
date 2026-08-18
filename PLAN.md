@@ -118,7 +118,7 @@ New territory under relay/**. Implementing LiveKit+Redis+Caddy+coturn compose, e
 
 ### TASK-003
 **Title:** Token service: FastAPI LiveKit JWT mint + rate limiting (KRX-051)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1 (Signaling glue row), §8.4, §8.7, §11 E6 (KRX-051), FR-044
@@ -134,13 +134,21 @@ New territory under relay/**. Implementing LiveKit+Redis+Caddy+coturn compose, e
 - [ ] Full pytest suite green (evidence pasted)
 **Branch:** task/TASK-003-gb
 **Started_At:** 2026-08-18T09:59:39Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-18T10:02:00Z] [GB] Claimed TASK-003. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-003 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-grok-walkietalkie-keryx
+[preflight] 1 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   token-svc/**  -> matches nothing yet (new territory)
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+New territory under token-svc/**. Implementing FastAPI JWT mint, event-token expiry, IP rate limits, logging-policy tests.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-18T09:59:39Z
+**Updated_At:** 2026-08-18T10:02:00Z
 
 ### TASK-004
 **Title:** Radio state machine reducer + 100%-branch test suite (KRX-003)
