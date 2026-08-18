@@ -369,7 +369,7 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 
 ### TASK-008
 **Title:** Settings & persistence layer: encrypted prefs, channel memory (KRX-004)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1 (Persistence row), §11 E1 (KRX-004), FR-009, FR-023, FR-046, FR-061, FR-062
@@ -377,23 +377,29 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 **Depends_On:** TASK-001
 **Description:** Local-only persistence under `lib/core/settings/`: encrypted prefs store (flutter_secure_storage-backed with in-memory fake for tests) holding all Phase-1 settings — squelch level (FR-061), roger-beep variant (FR-062), TOT duration 30–120 s (FR-023), busy-lockout on/off (FR-022), latch mode (FR-021), character-DSP intensity (TS §7.2), force-LOCAL-only toggle (FR-046), region (FR-008), Pro flag placeholder — plus channel memory of the last 6 tuned channels (FR-009). Typed repository API with Riverpod providers; zero server-side persistence.
 **Acceptance_Criteria:**
-- [ ] Storage is "Local only: settings + channel memory in encrypted prefs. No server-side persistence of anything." per TS §8.1
-- [ ] Channel memory keeps the last 6 tuned channels per FR-009 ("Channel memory: last 6 tuned channels accessible via quick-recall")
-- [ ] TOT setting is configurable 30–120 s with 60 s default per FR-023 ("max continuous TX 60 s (configurable 30–120 s)")
-- [ ] A force-LOCAL-only toggle is persisted per FR-046 ("A 'force LOCAL only' privacy toggle that hard-disables all WAN traffic")
-- [ ] Character-DSP intensity persists Off/Light/Full with default Light per TS §7.2 ("Character DSP intensity: Off / Light / Full (default Light)")
-- [ ] Repository unit tests green against the in-memory fake
+- [x] Storage is "Local only: settings + channel memory in encrypted prefs. No server-side persistence of anything." per TS §8.1
+- [x] Channel memory keeps the last 6 tuned channels per FR-009 ("Channel memory: last 6 tuned channels accessible via quick-recall")
+- [x] TOT setting is configurable 30–120 s with 60 s default per FR-023 ("max continuous TX 60 s (configurable 30–120 s)")
+- [x] A force-LOCAL-only toggle is persisted per FR-046 ("A 'force LOCAL only' privacy toggle that hard-disables all WAN traffic")
+- [x] Character-DSP intensity persists Off/Light/Full with default Light per TS §7.2 ("Character DSP intensity: Off / Light / Full (default Light)")
+- [x] Repository unit tests green against the in-memory fake
 **Branch:** task/TASK-008-cx
 **Started_At:** 2026-08-18T14:35:54Z
 **Progress_Notes:**
 - [2026-08-18T14:35:54Z] [CX] Claimed TASK-008; reviewing existing app dependencies and state-management conventions.
 - [2026-08-18T14:37:00Z] [CX] Preflight: `[preflight] TASK-008 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-codex-walkietalkie-keryx`; 2 entries, `lib/core/settings/**` and `test/core/settings/**` each match nothing yet (new territory). Starting typed secure settings repository and in-memory test fake.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-18T14:39:00Z] [CX] Implemented the encrypted local-only settings repository, secure-storage adapter, Riverpod providers, six-slot quick recall, and test fake; committed `ee6f6c8` on `task/TASK-008-cx`.
+**Artifacts:**
+- lib/core/settings/settings_repository.dart
+- test/core/settings/settings_repository_test.dart
+**Test_Evidence:**
+- [2026-08-18T14:39:00Z] [CX] `flutter test test/core/settings/settings_repository_test.dart` — 5/5 passed, exit 0.
+- [2026-08-18T14:39:00Z] [CX] `flutter analyze` — passed: No issues found! exit 0.
+- [2026-08-18T14:39:00Z] [CX] `flutter test` — 76/76 passed, exit 0.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-18T14:37:00Z
+**Updated_At:** 2026-08-18T14:39:00Z
 
 ### TASK-009
 **Title:** Identity: peerId derivation + NATO callsign generator (KRX-075 + §8.6 identity)
