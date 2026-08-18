@@ -849,7 +849,7 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 
 ### TASK-022
 **Title:** Floor control runtime: arbiter election, leases, lockout, TOT, emergency (KRX-041/042/043)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 step 4, §8.6, FR-022, FR-023, FR-025, §11 E5 (KRX-041, KRX-042, KRX-043)
@@ -864,15 +864,15 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 - [ ] "emergency TX_REQ(prio=1) pre-empts an active lease" per TS §8.6; overrides busy lockout and pins EMG until cleared per FR-025
 - [ ] TX_REQ retry 150 ms / 3 attempts per TS §8.6 timing table
 - [ ] Deterministic unit tests green with injected clock/transport
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-022-gb
+**Started_At:** 2026-08-18T14:39:34Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-18T14:39:34Z
 
 ### TASK-023
 **Title:** Floor-control simulation soak harness: 500-run churn/loss, zero double-grants (KRX-044)
