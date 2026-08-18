@@ -332,7 +332,7 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 
 ### TASK-010
 **Title:** SFX engine: dual-bus mixer, ducking, loop beds, roger variants (KRX-021 + KRX-024 playback)
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §7.1, §7.2, §11 E3 (KRX-021, KRX-024), FR-006, FR-062; specs/keryx-face-prototype.html (audio engine section)
@@ -340,22 +340,52 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 **Depends_On:** TASK-001
 **Description:** The SFX half of the audio stack under `lib/core/audio/`: a dual-bus mixer (Voice bus / SFX bus), the §7.1 asset manifest as a typed registry loading from `assets/sfx/v1/`, seamless-loop static beds with squelch-level crossfade, ducking rules (SFX ducks voice −3 dB ≤ 150 ms; voice never ducks for cosmetics), and roger-beep variant playback (off/classic K/dual-tone). Commissioned audio (KRX-020) is out of scope — generate placeholder synthesized WAVs (48 kHz 16-bit, −16 LUFS target; emergency −12 LUFS) mirroring PT's synthesis so the manifest is exercised end-to-end. Tests via a fake audio sink asserting bus routing and ducking envelopes.
 **Acceptance_Criteria:**
-- [ ] Two buses exist and SFX never traverses the network per TS §7.2 ("Two buses: Voice bus (network audio) and SFX bus (local assets). SFX never traverses the network")
-- [ ] All SFX play from local assets on a dedicated bus per P4 ("All SFX play from local assets on a dedicated bus — instant and identical regardless of network conditions")
-- [ ] Every §7.1 manifest asset has a registry entry and a placeholder file (squelch_open/tail, static_bed_1/2/3, tune_burst, scan_tick, roger_k/dual/moto, deny_buzz, tot_warn/cut, link_lost/up, emg_alert, rchk_ok, key_click, knob_tick, slider_thunk, power_on/off)
-- [ ] Ducking: "SFX ducks voice by −3 dB during overlap ≤ 150 ms; voice never ducks for cosmetics" per TS §7.2
-- [ ] Static beds loop seamlessly and crossfade with the squelch knob per TS §7.1 ("Seamless loop points; squelch knob crossfades")
-- [ ] Assets are 48 kHz 16-bit WAV normalised to −16 LUFS, emergency at −12 LUFS, per TS §7 preamble
-- [ ] Mixer/ducking unit tests green
+- [x] Two buses exist and SFX never traverses the network per TS §7.2 ("Two buses: Voice bus (network audio) and SFX bus (local assets). SFX never traverses the network")
+- [x] All SFX play from local assets on a dedicated bus per P4 ("All SFX play from local assets on a dedicated bus — instant and identical regardless of network conditions")
+- [x] Every §7.1 manifest asset has a registry entry and a placeholder file (squelch_open/tail, static_bed_1/2/3, tune_burst, scan_tick, roger_k/dual/moto, deny_buzz, tot_warn/cut, link_lost/up, emg_alert, rchk_ok, key_click, knob_tick, slider_thunk, power_on/off)
+- [x] Ducking: "SFX ducks voice by −3 dB during overlap ≤ 150 ms; voice never ducks for cosmetics" per TS §7.2
+- [x] Static beds loop seamlessly and crossfade with the squelch knob per TS §7.1 ("Seamless loop points; squelch knob crossfades")
+- [x] Assets are 48 kHz 16-bit WAV normalised to −16 LUFS, emergency at −12 LUFS, per TS §7 preamble
+- [x] Mixer/ducking unit tests green
 **Branch:** task/TASK-010-gb
 **Started_At:** 2026-08-18T10:25:46Z
-**Progress_Notes:** —
-**Artifacts:** —
-**Test_Evidence:** —
+**Progress_Notes:**
+- [2026-08-18T10:26:30Z] [GB] Claimed TASK-010. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-010 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-grok-walkietalkie-keryx
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/audio/**  -> matches nothing yet (new territory)
+  GLOB   test/core/audio/**  -> matches nothing yet (new territory)
+  GLOB   assets/sfx/**  -> matches nothing yet (new territory)
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because only .gitkeep). Implementing dual-bus mixer, §7.1 manifest, placeholder WAVs, ducking, bed crossfade. pubspec is frozen with no playback package — engine will use an injectable AudioSink; real device playback is the host's job, not flutter_webrtc.
+- [2026-08-18T10:34:04Z] [GB] SFX engine complete on `task/TASK-010-gb` (commit a0cc2c5). Dual-bus mixer + DuckController (−3 dB / ≤150 ms; cosmetics/beds do not duck), §7.1 typed manifest, seeded placeholder WAV generator, roger off/K/dual/moto. No pubspec change; host injects AudioSink.
+**Artifacts:**
+- `lib/core/audio/audio.dart`
+- `lib/core/audio/audio_bus.dart`
+- `lib/core/audio/audio_mix.dart`
+- `lib/core/audio/audio_sink.dart`
+- `lib/core/audio/bed_mixer.dart`
+- `lib/core/audio/ducking.dart`
+- `lib/core/audio/roger.dart`
+- `lib/core/audio/sfx_engine.dart`
+- `lib/core/audio/sfx_id.dart`
+- `lib/core/audio/sfx_manifest.dart`
+- `assets/sfx/README.md`
+- `assets/sfx/tools/generate_placeholders.py`
+- `assets/sfx/v1/*.wav` (22 placeholders)
+- `test/core/audio/sfx_engine_test.dart`
+- `test/core/audio/bed_mixer_test.dart`
+- `test/core/audio/manifest_and_assets_test.dart`
+- `test/core/audio/wav_lufs.dart`
+**Test_Evidence:**
+- [2026-08-18T10:33:20Z] [GB] `flutter test --reporter expanded` — 23/23 passed (22 audio + 1 existing widget). Suites: bed_mixer 6, manifest_and_assets 5, sfx_engine 11, widget_test 1.
+- [2026-08-18T10:33:50Z] [GB] `flutter analyze` — passed: No issues found! (ran in 3.3s).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-18T10:25:46Z
+**Updated_At:** 2026-08-18T10:34:04Z
 
 ### TASK-011
 **Title:** Radio character DSP + squelch gate wiring (KRX-022, KRX-023)
