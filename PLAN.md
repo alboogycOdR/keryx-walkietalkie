@@ -262,7 +262,7 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 
 ### TASK-005
 **Title:** Theme system: design tokens, typography, materials (KRX-010 token half)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_UI_Design_Specification_v1.0.md §2, §3, §4, §9 (KRX-010 amended); specs/keryx-face-prototype.html (:root CSS tokens); specs/KERYX_Product_Technical_Spec_v1.1.md FR-106
@@ -284,7 +284,7 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-18T13:30:45Z
+**Updated_At:** 2026-08-18T13:34:00Z
 
 ### TASK-006
 **Title:** Floor control protocol v1: message codec, versioning, timing constants (KRX-040)
