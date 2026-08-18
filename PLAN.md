@@ -695,7 +695,7 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 
 ### TASK-019
 **Title:** NSD discovery platform channel + MulticastLock lifecycle (KRX-030)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1 (Local discovery row), §8.3 step 1, FR-041, FR-042, §9 NFR-04, §11 E4 (KRX-030)
@@ -703,12 +703,12 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 **Depends_On:** TASK-001
 **Description:** Native Android NSD (mDNS) via a platform channel (TS §8.1: "Native reliability > plugin roulette"): Kotlin-side register/browse of `_keryx._tcp` with TXT records `cs` (callsign), `ch` (channel-hash prefix), `v` (protocol version) — plus the signaling port for TASK-020's WebSocket — MulticastLock acquired only while the radio is on, and a Dart facade under `lib/services/discovery/` exposing peer-found/lost streams. Includes the UDP broadcast beacon fallback trigger surface (beacon implementation detail: 2 s intervals for 30 s after tuning, per §8.3 step 5) and a `LAN?` state output. Dart-side tests against a mocked channel; Kotlin unit-testable where feasible.
 **Acceptance_Criteria:**
-- [ ] "LOCAL discovery via mDNS/NSD, service type `_keryx._tcp`, TXT records: cs (callsign), ch (channel hash prefix), v (protocol version)" per FR-041
-- [ ] "MulticastLock acquired while radio is on" per FR-041 — and released on power-off (TS §8.8: "MulticastLock only while LOCAL discovery active")
-- [ ] TXT carries a channel-hash prefix, never plaintext channel/code, per TS §8.3 ("privacy: full channel/code never broadcast in plaintext")
-- [ ] Fallback: "a UDP broadcast beacon fallback runs at 2 s intervals for 30 s after tuning; if both fail the display shows `LAN?`" per TS §8.3 step 5
-- [ ] Implemented via Android NSD platform channel per TS §8.1 ("Android NSD (mDNS) via platform channel")
-- [ ] Dart facade tests green with mocked platform channel
+- [x] "LOCAL discovery via mDNS/NSD, service type `_keryx._tcp`, TXT records: cs (callsign), ch (channel hash prefix), v (protocol version)" per FR-041
+- [x] "MulticastLock acquired while radio is on" per FR-041 — and released on power-off (TS §8.8: "MulticastLock only while LOCAL discovery active")
+- [x] TXT carries a channel-hash prefix, never plaintext channel/code, per TS §8.3 ("privacy: full channel/code never broadcast in plaintext")
+- [x] Fallback: "a UDP broadcast beacon fallback runs at 2 s intervals for 30 s after tuning; if both fail the display shows `LAN?`" per TS §8.3 step 5
+- [x] Implemented via Android NSD platform channel per TS §8.1 ("Android NSD (mDNS) via platform channel")
+- [x] Dart facade tests green with mocked platform channel
 **Branch:** task/TASK-019-gb
 **Started_At:** 2026-08-18T13:31:20Z
 **Progress_Notes:**
@@ -736,12 +736,33 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 ```
 android/** exists (scaffold from TASK-001). New territory under lib/services/discovery/** and test/services/discovery/**. Implementing NSD platform channel, MulticastLock lifecycle, UDP beacon fallback, LAN? state.
 - [2026-08-18T13:33:00Z] [GB] Status → in_progress. Starting Kotlin NsdPlugin + Dart facade. Will not touch lib/services/services.dart (outside Owned_Paths).
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-18T13:40:58Z] [GB] TASK-019 complete on `task/TASK-019-gb` (commit 7a1f9d4). Kotlin NsdPlugin registers/browses `_keryx._tcp.` with TXT cs/ch/v/p; MulticastLock acquire on start / release on stop; Dart facade + UDP beacon (2 s × 30 s) + `lanTrouble`→`LAN?`. Channel-hash prefix is hex(SHA-256(utf8(region|ch|code)))[:8] — not §8.7 roomId. Ready for review.
+**Artifacts:**
+- android/app/src/main/kotlin/za/co/basileia/keryx/NsdPlugin.kt
+- android/app/src/main/kotlin/za/co/basileia/keryx/MainActivity.kt
+- android/app/src/main/AndroidManifest.xml
+- lib/services/discovery/discovery.dart
+- lib/services/discovery/discovery_service.dart
+- lib/services/discovery/nsd_platform.dart
+- lib/services/discovery/broadcast_fallback.dart
+- lib/services/discovery/channel_hash_prefix.dart
+- lib/services/discovery/discovery_config.dart
+- lib/services/discovery/discovery_constants.dart
+- lib/services/discovery/discovery_scheduler.dart
+- lib/services/discovery/discovery_state.dart
+- lib/services/discovery/discovered_peer.dart
+- lib/services/discovery/nsd_events.dart
+- lib/services/discovery/README.md
+- test/services/discovery/nsd_discovery_service_test.dart
+- test/services/discovery/broadcast_fallback_test.dart
+- test/services/discovery/channel_hash_prefix_test.dart
+**Test_Evidence:**
+- [2026-08-18T13:40:58Z] [GB] `flutter analyze` — passed: No issues found! (ran in 7.0s).
+- [2026-08-18T13:40:58Z] [GB] `flutter test --reporter expanded` — 68/68 passed, exit 0. New: discovery facade 9 + beacon 3 + hash prefix 3; existing audio 22 + protocol 17 + state 14 + widget 1 unchanged.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-18T13:33:00Z
+**Updated_At:** 2026-08-18T13:40:58Z
 
 ### TASK-020
 **Title:** LAN signaling WebSocket + peer session management (KRX-031)
