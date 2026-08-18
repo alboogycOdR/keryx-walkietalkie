@@ -1,8 +1,8 @@
 ---
 plan_version: 1.4
-last_updated: 2026-08-18T10:53:36Z
+last_updated: 2026-08-18T11:12:00Z
 overall_status: in_progress
-orchestrator_notes: "Plan v1.0 — first real decomposition from 3 specs (KERYX_Product_Technical_Spec_v1.1.md, KERYX_UI_Design_Specification_v1.0.md, keryx-face-prototype.html). 26 tasks. Territory rules: pubspec.yaml/analysis_options.yaml/.github/**/.gitignore/README.md are FROZEN (as of TASK-001's merge, 2c40de2). android/** is a serialized chain (001 → 019 → 026). lib/core/audio/** is a serialized chain (010 → 011). Dossiers exist for every task in dossiers/TASK-NNN.md. S5/S5B are INACTIVE — never assign them. Review/incident history lives in git log / REVIEW.md — see commits 196218e/b8171fe/c66becf/e18e820/2c40de2 if revisiting. Known unresolved risk: plan_commit doesn't re-diff immediately before its commit (lost-update race, last seen c66becf). THREE FOLLOW-UPS OWED from TASK-001's review (detail in Review_Findings/REVIEW.md): (a) font OFL/LICENSE missing from assets/fonts/ — before any release build; (b)+(c) one shared .github/** task for a flutter-version pin + --coverage threshold (sequence (c) after TASK-004). No git remote — CI has never run, static-inspection only. NEW SPEC uncommitted in specs/: KERYX_World_Band_Radio_Spec_v1.0.md (Phase 2, not now). STATUS SCAN (2026-08-18T10:36Z): GB self-selected TASK-010 (SFX engine) from wave 2 and already finished — needs_review, territory clean (38 files, all lib/core/audio+test/core/audio+assets/sfx, tagged [TASK-010]), commit a0cc2c5. CX self-selected TASK-004 (state machine, correctly the critical-priority pick) — in_progress, one commit so far (9731221, radio_state.dart + tests), territory clean, healthy heartbeat for a ~10min-old dispatch, not stale (100%-branch-coverage requirement likely means more commits coming). TWO tasks now awaiting review: TASK-003 (GB, token-svc) and TASK-010 (GB, SFX engine) — GB is idle again (both its wave-2 candidates resolved fast). No blocked tasks, no critical findings. Next: /devteam-review TASK-003 and TASK-010 (GB idle, review these before dispatching GB further — it has no other in-flight work); CX continues TASK-004 unattended. REVIEW (2026-08-18T10:53:36Z): TASK-003 APPROVED first-pass, merged faaa657, branch deleted — GB now 2/2 first-pass. Nothing unlocked: sole dependent TASK-024 also needs TASK-007 (still pending). FOUR NEW FOLLOW-UPS OWED from TASK-003's review (detail in Review_Findings/REVIEW.md): (d) **BLOCKING FOR TASK-007** — TS §8.7 never fixes the base32 alphabet/case/padding for roomId; token-svc has pinned RFC 4648 uppercase-unpadded `^[A-Z2-7]{16}$` by implementation, so clarify §8.7 in the spec BEFORE dispatching TASK-007 (KRX-053) or the derivation lib and the mint endpoint will disagree and every request 422s; (e) token-svc trusts `X-Forwarded-For` with no trusted-proxy allowlist — the relay-compose task must restrict ingress to Caddy and document it, else IP rate limiting is trivially bypassed (R4); (f) R4's "per-room caps" half unbuilt — needs its own task; (g) the `keryx-evt.v1` event-token contract in token-svc/README.md is normative for TASK-025 and differs in shape from FR-044's prose — reconcile in spec. Also fold token-svc into follow-up (c)'s coverage task (no pytest-cov). Still awaiting review: TASK-010 (GB) — run that next, deliberately sequential to avoid the PLAN.md lost-update race."
+orchestrator_notes: "Plan v1.0 — first real decomposition from 3 specs. 26 tasks. Territory rules: pubspec.yaml/analysis_options.yaml/.github/**/.gitignore/README.md FROZEN since 2c40de2. android/** serialized 001→019→026. lib/core/audio/** serialized 010→011. Dossiers in dossiers/TASK-NNN.md. S5/S5B INACTIVE — never assign. Review/incident history in git log / REVIEW.md, not repeated here. Known unresolved risk: plan_commit doesn't re-diff before commit (lost-update race, last seen c66becf; a second live instance just seen on TASK-004, see below). FOLLOW-UPS OWED (all detail in respective Review_Findings + REVIEW.md, none blocking current dispatch): (a) font OFL/LICENSE missing from assets/fonts/; (b)+(c) one .github/** task for flutter-version pin + --coverage threshold (after TASK-004); (d) **BLOCKS TASK-007** — TS §8.7 doesn't fix the base32 alphabet for roomId; token-svc pinned RFC 4648 uppercase-unpadded by implementation — clarify spec before dispatching TASK-007 or every mint request 422s; (e) token-svc trusts X-Forwarded-For unconditionally — relay-compose task must restrict ingress to Caddy; (f) R4 per-room caps unbuilt; (g) keryx-evt.v1 contract vs FR-044 prose needs reconciling; (h) tune_burst ducking direction: TS §7.1/FR-006 say burst attenuates voice, §7.2 (the actual acceptance-criterion source) says the reverse — GB built to §7.2, unresolved which is correct, matters for TASK-011; (i) KRX-024's 60ms end-of-TX marker has no spec asset id and no code; (j) ducking release only fires from inside tick(), nothing schedules tick() yet — voice stays ducked until a host wires a driver (TASK-011-or-later). No git remote — CI has never run. NEW SPEC uncommitted in specs/: KERYX_World_Band_Radio_Spec_v1.0.md (Phase 2, not now). STATUS SCAN (2026-08-18T11:12Z): TASK-001/002/003/010 done and merged; TASK-004 (CX) and nothing else in flight for CX. GB is fully idle (worktree detached, no active task). LOST-UPDATE RACE #2: CX finished TASK-004 (100% branch coverage 44/44, flutter analyze clean, 13/13 tests — verified from its own transcript, not just its claim) and attempted the needs_review handoff, but found a concurrent uncommitted TASK-010 edit on the shared PLAN.md at that moment and correctly self-aborted rather than overwrite it (same discipline GB showed earlier) — left Status: in_progress and exited. ORCH reconciled this scan: TASK-004 is now needs_review with CX's exact self-reported evidence applied verbatim from its transcript, territory re-verified clean (2 files, lib/core/state+test/core/state only). This confirms the race is not a one-off — worth the real fix (plan_commit re-diffing immediately pre-commit) rather than continuing to rely on every builder session happening to self-detect it. No blocked tasks, no other critical findings. Minor housekeeping: GB's worktree carries an uncommitted dossiers/TASK-010.md edit (orphaned Work Log append from its finished session) — harmless, will get overwritten cleanly on next dispatch refresh. Next: /devteam-review TASK-004 (unlocks nothing new — no task depends on TASK-004 alone, but it's needed for TASK-017/022 which have other deps too); dispatch GB (fully idle) against one of {006,007,009,019} — NOT 007 until follow-up (d) is resolved."
 ---
 
 # Project Plan
@@ -187,7 +187,7 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 
 ### TASK-004
 **Title:** Radio state machine reducer + 100%-branch test suite (KRX-003)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2, §11 E1 (KRX-003), §9 NFR-10, FR-040, FR-045
@@ -195,14 +195,14 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 **Depends_On:** TASK-001
 **Description:** Implement the authoritative radio state machine of TS §8.2 as a single pure reducer (Riverpod-hosted): states OFF/BOOT/IDLE(RX)/TUNING/TX_REQ/TX/RX_ACTIVE/LINK_DEGRADED with the transition graph exactly as specified, plus the mode dimension (LOCAL/AUTO/LINKED, FR-040) and channel/code tuning state (CH 1–99, code 00–38, FR-001/FR-002 ranges). Events in, state out — no IO, no widgets, no network. UI/audio/haptics/network consume it as projections. 100% branch coverage unit suite.
 **Acceptance_Criteria:**
-- [ ] Reducer implements `OFF → BOOT → IDLE(RX) ⇄ TUNING`, `IDLE → TX_REQ → TX (granted) → IDLE`, `IDLE → RX_ACTIVE (remote floor) → IDLE`, `any → LINK_DEGRADED → IDLE|LOCAL_FALLBACK` per TS §8.2 diagram
-- [ ] Exactly one reducer owns the state per TS §8.2 ("One reducer owns this. UI, audio, haptics, and network are all projections of it")
-- [ ] Channel domain is 1–99 and privacy code 00–38 with 00 = open per FR-001/FR-002
-- [ ] Mode is a three-position LOCAL/AUTO/LINKED value, default AUTO, per FR-040
-- [ ] LINK_DEGRADED path drops to LOCAL without any modal error per FR-045 ("never a modal error dialog")
-- [ ] 100% branch coverage on the reducer per NFR-10 ("Reducer/state machine 100% branch"); coverage report pasted as evidence
+- [x] Reducer implements `OFF → BOOT → IDLE(RX) ⇄ TUNING`, `IDLE → TX_REQ → TX (granted) → IDLE`, `IDLE → RX_ACTIVE (remote floor) → IDLE`, `any → LINK_DEGRADED → IDLE|LOCAL_FALLBACK` per TS §8.2 diagram
+- [x] Exactly one reducer owns the state per TS §8.2 ("One reducer owns this. UI, audio, haptics, and network are all projections of it")
+- [x] Channel domain is 1–99 and privacy code 00–38 with 00 = open per FR-001/FR-002
+- [x] Mode is a three-position LOCAL/AUTO/LINKED value, default AUTO, per FR-040
+- [x] LINK_DEGRADED path drops to LOCAL without any modal error per FR-045 ("never a modal error dialog")
+- [x] 100% branch coverage on the reducer per NFR-10 ("Reducer/state machine 100% branch"); coverage report pasted as evidence
 **Branch:** task/TASK-004-cx
-**Started_At:** 2026-08-18T14:32:00Z
+**Started_At:** 2026-08-18T10:25:15Z
 **Progress_Notes:**
 - [2026-08-18T10:25:15Z] [CX] Preflight complete:
   [preflight] TASK-004 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-codex-walkietalkie-keryx
@@ -210,12 +210,19 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
     GLOB   lib/core/state/**  -> matches nothing yet (new territory)
     GLOB   test/core/state/**  -> matches nothing yet (new territory)
   [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-18T10:28:28Z] [CX] Implemented and committed authoritative pure reducer plus Riverpod controller/providers on `task/TASK-004-cx` at `9731221`; all transitions, domains, AUTO default, and local fallback are covered.
+- [2026-08-18T11:12:00Z] [ORCH] Reconciling: CX's own `needs_review` handoff was blocked at the time because the main checkout had a concurrent uncommitted TASK-010 edit in flight, and CX correctly refused to overwrite it rather than risk the lost-update race documented earlier this session — it left `Status: in_progress` and exited cleanly instead. The branch (single commit `9731221`, territory-clean) and the evidence below are exactly what CX recorded in its own transcript; this is only now applying the handoff CX had already completed the work for, once the board was quiescent.
+**Artifacts:**
+- `lib/core/state/radio_state.dart`
+- `test/core/state/radio_state_test.dart`
+**Test_Evidence:**
+- [2026-08-18T10:28:28Z] [CX] `flutter test test/core/state/radio_state_test.dart --branch-coverage --coverage-path %TEMP%\keryx-task-004-lcov.info` — passed 12/12; LCOV branch records: 44/44 hit (100%).
+- [2026-08-18T10:28:28Z] [CX] `flutter analyze` — passed: No issues found.
+- [2026-08-18T10:28:28Z] [CX] `flutter test` — passed: 13/13 tests.
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** CX
-**Updated_At:** 2026-08-18T10:25:15Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-08-18T11:12:00Z
 
 ### TASK-005
 **Title:** Theme system: design tokens, typography, materials (KRX-010 token half)
