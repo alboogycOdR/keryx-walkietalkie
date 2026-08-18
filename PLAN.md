@@ -332,7 +332,7 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 
 ### TASK-010
 **Title:** SFX engine: dual-bus mixer, ducking, loop beds, roger variants (KRX-021 + KRX-024 playback)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §7.1, §7.2, §11 E3 (KRX-021, KRX-024), FR-006, FR-062; specs/keryx-face-prototype.html (audio engine section)
@@ -347,15 +347,15 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 - [ ] Static beds loop seamlessly and crossfade with the squelch knob per TS §7.1 ("Seamless loop points; squelch knob crossfades")
 - [ ] Assets are 48 kHz 16-bit WAV normalised to −16 LUFS, emergency at −12 LUFS, per TS §7 preamble
 - [ ] Mixer/ducking unit tests green
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-010-gb
+**Started_At:** 2026-08-18T10:25:46Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-18T10:25:46Z
 
 ### TASK-011
 **Title:** Radio character DSP + squelch gate wiring (KRX-022, KRX-023)
