@@ -170,7 +170,7 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 
 ### TASK-004
 **Title:** Radio state machine reducer + 100%-branch test suite (KRX-003)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** CX
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2, §11 E1 (KRX-003), §9 NFR-10, FR-040, FR-045
@@ -184,15 +184,15 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 - [ ] Mode is a three-position LOCAL/AUTO/LINKED value, default AUTO, per FR-040
 - [ ] LINK_DEGRADED path drops to LOCAL without any modal error per FR-045 ("never a modal error dialog")
 - [ ] 100% branch coverage on the reducer per NFR-10 ("Reducer/state machine 100% branch"); coverage report pasted as evidence
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-004-cx
+**Started_At:** 2026-08-18T14:32:00Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** CX
+**Updated_At:** 2026-08-18T14:32:00Z
 
 ### TASK-005
 **Title:** Theme system: design tokens, typography, materials (KRX-010 token half)
