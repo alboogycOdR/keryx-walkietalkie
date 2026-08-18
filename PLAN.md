@@ -286,10 +286,11 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 **Test_Evidence:**
 - `flutter test test/core/theme/theme_test.dart` — 3 passed, 0 failed.
 - `flutter analyze` — No issues found.
+- `flutter test` — 56 passed, 0 failed.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-18T13:38:00Z
+**Updated_At:** 2026-08-18T13:40:00Z
 
 ### TASK-006
 **Title:** Floor control protocol v1: message codec, versioning, timing constants (KRX-040)
