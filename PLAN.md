@@ -1,8 +1,8 @@
 ---
 plan_version: 1.9
-last_updated: 2026-08-18T14:35:00Z
+last_updated: 2026-08-18T14:45:00Z
 overall_status: in_progress
-orchestrator_notes: "Plan v1.0 — 26 tasks from 3 specs. Territory: pubspec.yaml/analysis_options.yaml/.github/**/.gitignore/README.md, lib/core/theme/**, android/**+lib/services/discovery/**+test/services/discovery/** all FROZEN. android/** serialized 001→019→026. lib/core/audio/** serialized 010→011. Dossiers in dossiers/TASK-NNN.md. S5/S5B INACTIVE. Full review/incident history in git log / REVIEW.md, not repeated here. Known unresolved risk: plan_commit doesn't re-diff before commit — lost-update race hit twice, self-healed both times. SPEC/PLAN FOLLOW-UPS OWED (index only — full detail in each task's Review_Findings + REVIEW.md): (a) font OFL/LICENSE missing; (b)+(c) .github/** CI pin+coverage task; (d) roomId base32 alphabet undefined — BLOCKS TASK-007 (now Status:blocked, fenced); (e) token-svc X-Forwarded-For trust; (f) R4 per-room caps unbuilt; (g) keryx-evt.v1 vs FR-044 prose; (h) tune_burst ducking contradiction; (i) KRX-024 60ms marker unspecified; (j) SFX ducking release has no driver; (k) channel/code wrap-vs-clamp undefined — BLOCKS TASK-013/014 (now Status:blocked, fenced; TASK-012 confirmed NOT affected, dispatchable); (l) LINK_DEGRADED/LOCAL_FALLBACK undefined; (m) MANDATORY — lib/core/state/** successor task needed before TASK-017 (010→011 pattern) — NOT YET CREATED; (n) peerId same base32 gap, rests on TASK-009 (TASK-019 confirmed clean of it); (o) protocol ts/quality/seq types normative-by-implementation; (p) BLOCKS TASK-016 — DS §4 'ease-out' vs PT's actual cubic-bezier for settle, TASK-005 correctly followed PT; (q) MANDATORY — lib/core/theme/** successor task needed before 012/013/014/015/016/017 fully integrate (missing key-travel/noise-overlay/faceplate-seam tokens) — NOT YET CREATED; (r) DS §3 vs PT telltale font family mismatch, settle before TASK-012; (s) BLOCKS TASK-020 interop — LOCAL discovery wire contract (hash-prefix construction, beacon port/payload/address) is spec-silent and now normative-by-implementation from TASK-019, write into §8.1/§8.3 first. No git remote — CI has never run. NEW SPEC uncommitted in specs/: KERYX_World_Band_Radio_Spec_v1.0.md (Phase 2, not now). PROGRESS: TASK-001/002/003/004/005/006/010/019 all done and merged. TASK-005's merge unlocked TASK-012/013/014/015/016 (each Depends_On TASK-005 only). TASK-019's merge unlocked TASK-026 (TBD, needs owner). TASK-022 assigned GB, unclaimed. DISPATCH (2026-08-18T14:35Z): fenced TASK-007/013/014 to Status:blocked (mechanically eligible but sit on unresolved spec gaps (d)/(k) — builders' own claim logic can't see spec ambiguity, only Depends_On, so without fencing they could self-select straight into a landmine); TASK-012 confirmed clean and left dispatchable. Dispatched GB (self-selects from {009,011,022}, transcript GB-20260818-143510.log) and CX (self-selects from {008,012,015}, transcript CX-20260818-143511.log). Next: /devteam-status once landed; still owed — create the (m) and (q) successor tasks, rule on (d)/(k)/(p) to unblock the fenced tasks."
+orchestrator_notes: "Plan v1.0 — 26 tasks from 3 specs. Territory: pubspec.yaml/analysis_options.yaml/.github/**/.gitignore/README.md, lib/core/theme/**, android/**+lib/services/discovery/**+test/services/discovery/** all FROZEN. android/** serialized 001→019→026. lib/core/audio/** serialized 010→011. Dossiers in dossiers/TASK-NNN.md. S5/S5B INACTIVE. Full review/incident history in git log / REVIEW.md, not repeated here. Known unresolved risk: plan_commit doesn't re-diff before commit — lost-update race hit twice, self-healed both times. SPEC/PLAN FOLLOW-UPS OWED (index only — full detail in each task's Review_Findings + REVIEW.md): (a) font OFL/LICENSE missing; (b)+(c) .github/** CI pin+coverage task; (d) roomId base32 alphabet undefined — BLOCKS TASK-007 (blocked, fenced) — RECOMMENDATION: rule RFC 4648 uppercase-unpadded, matching token-svc's already-deployed validator, then unblock; (e) token-svc X-Forwarded-For trust; (f) R4 per-room caps unbuilt; (g) keryx-evt.v1 vs FR-044 prose; (h) tune_burst ducking contradiction; (i) KRX-024 60ms marker unspecified; (j) SFX ducking release has no driver; (k) channel/code wrap-vs-clamp undefined — BLOCKS TASK-013/014 (blocked, fenced; TASK-012 confirmed clean, dispatchable) — RECOMMENDATION: rule clamp (not wrap) at 99/1 and 38/00, simpler and matches most physical-radio conventions, then unblock; (l) LINK_DEGRADED/LOCAL_FALLBACK undefined; (m) MANDATORY — lib/core/state/** successor task before TASK-017 (010→011 pattern) — NOT YET CREATED; (n) peerId same base32 gap, rests on TASK-009; (o) protocol ts/quality/seq types normative-by-implementation; (p) BLOCKS TASK-016 — DS §4 'ease-out' vs PT's actual cubic-bezier for settle, TASK-005 correctly followed PT — RECOMMENDATION: amend DS §4 to the PT value, since PT is the executable ground truth and TASK-005 already shipped against it; (q) MANDATORY — lib/core/theme/** successor task before 012/013/014/015/016/017 fully integrate (missing key-travel/noise-overlay/faceplate-seam tokens) — NOT YET CREATED; (r) DS §3 vs PT telltale font mismatch; (s) BLOCKS TASK-020 interop — LOCAL discovery wire contract spec-silent, now normative-by-implementation from TASK-019, write into §8.1/§8.3 first. No git remote — CI has never run. NEW SPEC uncommitted in specs/: KERYX_World_Band_Radio_Spec_v1.0.md (Phase 2, not now). PROGRESS: TASK-001-006/010/019 done and merged. TASK-005 unlocked 012-016; TASK-019 unlocked 026 (TBD). STATUS SCAN (2026-08-18T14:45Z): TASK-008 (CX, settings repository) — needs_review, territory clean (2 files, lib/core/settings+test/core/settings), commit ee6f6c8 tagged. TASK-022 (GB, floor control runtime) — claimed, no code yet, dossier work-log updated, not stale (dispatched minutes ago). No blocked-task triage action taken beyond the recommendations above (three fenced tasks still sit blocked pending an explicit go-ahead — not acted on unprompted, per standing instruction to dispatch only what's clean). Next: /devteam-review TASK-008; let TASK-022 keep running."
 ---
 
 # Project Plan
@@ -849,7 +849,7 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 
 ### TASK-022
 **Title:** Floor control runtime: arbiter election, leases, lockout, TOT, emergency (KRX-041/042/043)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 step 4, §8.6, FR-022, FR-023, FR-025, §11 E5 (KRX-041, KRX-042, KRX-043)
@@ -866,13 +866,22 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 - [ ] Deterministic unit tests green with injected clock/transport
 **Branch:** task/TASK-022-gb
 **Started_At:** 2026-08-18T14:39:34Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-18T14:40:20Z] [GB] Claimed TASK-022. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-022 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-grok-walkietalkie-keryx
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/floor/**  -> matches nothing yet (new territory)
+  GLOB   test/core/floor/**  -> matches nothing yet (new territory)
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injected clock + transport. Protocol (`lib/core/protocol/**`) and reducer (`lib/core/state/**`) are frozen — imported, not edited.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-18T14:39:34Z
+**Updated_At:** 2026-08-18T14:40:20Z
 
 ### TASK-023
 **Title:** Floor-control simulation soak harness: 500-run churn/loss, zero double-grants (KRX-044)
