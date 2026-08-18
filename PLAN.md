@@ -695,7 +695,7 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 
 ### TASK-019
 **Title:** NSD discovery platform channel + MulticastLock lifecycle (KRX-030)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1 (Local discovery row), §8.3 step 1, FR-041, FR-042, §9 NFR-04, §11 E4 (KRX-030)
@@ -709,15 +709,38 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 - [ ] Fallback: "a UDP broadcast beacon fallback runs at 2 s intervals for 30 s after tuning; if both fail the display shows `LAN?`" per TS §8.3 step 5
 - [ ] Implemented via Android NSD platform channel per TS §8.1 ("Android NSD (mDNS) via platform channel")
 - [ ] Dart facade tests green with mocked platform channel
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-019-gb
+**Started_At:** 2026-08-18T13:31:20Z
+**Progress_Notes:**
+- [2026-08-18T13:31:20Z] [GB] Claimed TASK-019. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-019 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-grok-walkietalkie-keryx
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   android/**  -> 20 file(s):
+           android/app/build.gradle.kts
+           android/app/src/debug/AndroidManifest.xml
+           android/app/src/main/AndroidManifest.xml
+           android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+           android/app/src/main/kotlin/za/co/basileia/keryx/MainActivity.kt
+           android/app/src/main/res/drawable-v21/launch_background.xml
+           android/app/src/main/res/drawable/launch_background.xml
+           android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+           android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+           android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+           android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+           android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+           ... and 8 more
+  GLOB   lib/services/discovery/**  -> matches nothing yet (new territory)
+  GLOB   test/services/discovery/**  -> matches nothing yet (new territory)
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+android/** exists (scaffold from TASK-001). New territory under lib/services/discovery/** and test/services/discovery/**. Implementing NSD platform channel, MulticastLock lifecycle, UDP beacon fallback, LAN? state.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-18T13:31:20Z
 
 ### TASK-020
 **Title:** LAN signaling WebSocket + peer session management (KRX-031)
