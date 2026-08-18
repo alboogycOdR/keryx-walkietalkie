@@ -272,7 +272,7 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 
 ### TASK-006
 **Title:** Floor control protocol v1: message codec, versioning, timing constants (KRX-040)
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.6, §11 E5 (KRX-040), FR-025
@@ -280,12 +280,12 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 **Depends_On:** TASK-001
 **Description:** Implement the floor-control protocol v1 wire layer under `lib/core/protocol/`: JSON codec for TX_REQ/TX_GRANT/TX_DENY/TX_START/TX_END/PRESENCE/RCHK/RCHK_ACK/EMG/EMG_CLR with the exact fields of TS §8.6, protocol-version tagging with unknown-version tolerance, and the locked timing constants table exported as a single constants module (heartbeat 5 s / 3 misses, lease TOT+2 s, re-election ≤ 500 ms, TX_REQ retry 150 ms ×3, floor-idle debounce 750 ms). Pure Dart, transport-agnostic (data-channel and LiveKit data-message transports plug in later). Round-trip and forward-compat tests.
 **Acceptance_Criteria:**
-- [ ] All ten message types with the exact fields of the TS §8.6 table (e.g. `TX_REQ {peer, prio, ts}`, `TX_GRANT {peer, lease_ms}`, `TX_DENY {peer, reason: BUSY|LOCKOUT}`, `PRESENCE {peer, cs, seq}`)
-- [ ] Every message carries a protocol version and unknown versions are ignored per TS §8.6 ("All messages carry protocol version; unknown versions are ignored (forward compatibility)")
-- [ ] `TX_REQ` prio supports 0 normal / 1 emergency per TS §8.6 ("prio: 0 normal, 1 emergency")
-- [ ] Timing constants exactly match TS §8.6 locked table (5 s/3 missed, TOT+2 s default 62 s, ≤ 500 ms, 150 ms/3 attempts, 750 ms) and are asserted by tests
-- [ ] Encoding is JSON per TS §8.6 ("JSON over data channels; protobuf reserved for v2")
-- [ ] Codec round-trip + malformed-input tests green
+- [x] All ten message types with the exact fields of the TS §8.6 table (e.g. `TX_REQ {peer, prio, ts}`, `TX_GRANT {peer, lease_ms}`, `TX_DENY {peer, reason: BUSY|LOCKOUT}`, `PRESENCE {peer, cs, seq}`)
+- [x] Every message carries a protocol version and unknown versions are ignored per TS §8.6 ("All messages carry protocol version; unknown versions are ignored (forward compatibility)")
+- [x] `TX_REQ` prio supports 0 normal / 1 emergency per TS §8.6 ("prio: 0 normal, 1 emergency")
+- [x] Timing constants exactly match TS §8.6 locked table (5 s/3 missed, TOT+2 s default 62 s, ≤ 500 ms, 150 ms/3 attempts, 750 ms) and are asserted by tests
+- [x] Encoding is JSON per TS §8.6 ("JSON over data channels; protobuf reserved for v2")
+- [x] Codec round-trip + malformed-input tests green
 **Branch:** task/TASK-006-gb
 **Started_At:** 2026-08-18T12:16:00Z
 **Progress_Notes:**
@@ -298,12 +298,22 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 New territory under lib/core/protocol/** and test/core/protocol/**. Implementing §8.6 codec, versioned envelope, FloorTiming constants.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-18T12:19:13Z] [GB] Protocol v1 complete on `task/TASK-006-gb` (commit ccfbb01). Sealed FloorMessage × 10 types, FloorCodec envelope `{v:1,t,...}` (unknown v/t and malformed → null, never throws), FloorTiming locked table. Implementation pins (spec-silent types): `ts` = Unix epoch ms; `quality` = S-meter int (FR-066 / §8.9). Ready for review.
+**Artifacts:**
+- `lib/core/protocol/protocol.dart`
+- `lib/core/protocol/messages.dart`
+- `lib/core/protocol/codec.dart`
+- `lib/core/protocol/timing.dart`
+- `lib/core/protocol/README.md`
+- `test/core/protocol/codec_test.dart`
+- `test/core/protocol/timing_test.dart`
+**Test_Evidence:**
+- [2026-08-18T12:18:30Z] [GB] `flutter analyze` — passed: No issues found! (ran in 4.6s).
+- [2026-08-18T12:18:30Z] [GB] `flutter test --reporter expanded` — 40/40 passed, exit 0. New: codec 12 + timing 5; existing audio 22 + widget 1 unchanged.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-18T12:16:00Z
+**Updated_At:** 2026-08-18T12:19:13Z
 
 ### TASK-007
 **Title:** Room derivation library: numbered/keyed/scrypt + test vectors (KRX-053)
