@@ -17,7 +17,7 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 
 ### TASK-001
 **Title:** Repo scaffold: Flutter app + CI (KRX-001, app half)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** CX
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1, §11 E1 (KRX-001), §9 NFR-10; specs/KERYX_UI_Design_Specification_v1.0.md §3
@@ -32,15 +32,15 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 - [ ] `assets/sfx/v1/` exists as the versioned sound asset root per TS §7 ("Sound is a first-class, versioned asset set (/assets/sfx/v1/)")
 - [ ] CI workflow runs `flutter analyze`, `flutter test`, and builds a debug APK per TS §11 KRX-001 ("CI (analyze, test, build APK)")
 - [ ] `flutter analyze` and `flutter test` pass locally; no pre-existing repo file outside Owned_Paths modified
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-001-cx
+**Started_At:** 2026-08-18T09:41:16Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** CX
+**Updated_At:** 2026-08-18T09:41:16Z
 
 ### TASK-002
 **Title:** Relay stack: LiveKit + Redis + Caddy + coturn Docker compose (KRX-050)
