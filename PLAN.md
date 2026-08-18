@@ -546,7 +546,7 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 
 ### TASK-012
 **Title:** Segment LCD glass component: channel/code, telltales, dot-matrix line (KRX-012)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §6.1, §6.3, §11 E2 (KRX-012), FR-001, FR-002, FR-007; specs/KERYX_UI_Design_Specification_v1.0.md §1, §5.2, §9 (FR-109); specs/keryx-face-prototype.html (.glass markup)
@@ -554,23 +554,30 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 **Depends_On:** TASK-005
 **Description:** The glass: a self-contained widget under `lib/features/display/` rendering channel · code in DSEG7 amber segments with ghost segments behind (7% opacity), the mode label, the dot-matrix secondary line (active speaker/status), and the telltale row (TX, MON, PRV, VOX, EMG, NO LINK, replay) — driven entirely by an immutable display-model input (no state ownership). Includes backlight bloom, warm-black glass substrate, the BOOT all-segments flash (`88 · 88`, per DS FR-109/PT power-on), night-dimming input (DS FR-108), and `PRV` + label rendering for keyed channels. Widget tests for every telltale and content mode.
 **Acceptance_Criteria:**
-- [ ] Channels display as segment-style `CH 01`–`CH 99` per FR-001; code as `CH 07 · 21` per FR-002
-- [ ] Keyed channels render as `PRV` + user label per FR-007 ("Rendered as PRV + user label on the display")
-- [ ] Amber appears only inside the glass; ghost segments at 7% opacity per DS §2 rules
-- [ ] Telltale icons only — "no toasts, no snackbars, no dialogs on the face" per TS §6.3
-- [ ] Power-up shows the all-segments flash per DS §1 ("including the classic 'all segments on' flash at power-up") and DS §9 FR-109
-- [ ] Display/legend luminance follows a dim input per DS §9 FR-108 ("Night dimming — display and legend luminance follow an auto/manual dim setting")
-- [ ] Widget tests cover telltales TX/MON/PRV/VOX/EMG/NO LINK per TS §6.1 diagram; green
+- [x] Channels display as segment-style `CH 01`–`CH 99` per FR-001; code as `CH 07 · 21` per FR-002
+- [x] Keyed channels render as `PRV` + user label per FR-007 ("Rendered as PRV + user label on the display")
+- [x] Amber appears only inside the glass; ghost segments at 7% opacity per DS §2 rules
+- [x] Telltale icons only — "no toasts, no snackbars, no dialogs on the face" per TS §6.3
+- [x] Power-up shows the all-segments flash per DS §1 ("including the classic 'all segments on' flash at power-up") and DS §9 FR-109
+- [x] Display/legend luminance follows a dim input per DS §9 FR-108 ("Night dimming — display and legend luminance follow an auto/manual dim setting")
+- [x] Widget tests cover telltales TX/MON/PRV/VOX/EMG/NO LINK per TS §6.1 diagram; green
 **Branch:** task/TASK-012-cx
 **Started_At:** 2026-08-18T15:14:49Z
 **Progress_Notes:**
 - [2026-08-18T15:14:49Z] [CX] Claimed TASK-012 and completed the c8b9872 preflight: `lib/features/display/**` and `test/features/display/**` are new, exclusive territory. Implementing the immutable LCD display model and self-contained glass widget against the frozen theme tokens.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-18T15:22:00Z] [CX] Completed immutable numbered/private display model and self-contained LCD glass on `task/TASK-012-cx` (commit `6f08e5f`). It consumes `KeryxTheme` only; no state, floor, or theme territory was changed. Ready for review.
+**Artifacts:**
+- `lib/features/display/display.dart`
+- `lib/features/display/keryx_lcd_display.dart`
+- `test/features/display/keryx_lcd_display_test.dart`
+**Test_Evidence:**
+- [2026-08-18T15:21:00Z] [CX] `flutter analyze` — passed: No issues found.
+- [2026-08-18T15:21:00Z] [CX] `flutter test test/features/display --reporter expanded` — passed: 5/5 widget tests.
+- [2026-08-18T15:22:00Z] [CX] `flutter test --reporter compact` — passed: 109/109 tests, 0 failed.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-18T15:16:30Z
+**Updated_At:** 2026-08-18T15:22:00Z
 
 ### TASK-013
 **Title:** Rotary knob widget: arc drag, detents, flywheel, haptic hooks (KRX-011)
