@@ -147,81 +147,64 @@ class LinkRecovered extends RadioEvent {
 class RadioReducer {
   const RadioReducer();
 
-  RadioState reduce(RadioState state, RadioEvent event) {
-    if (event is LinkDegraded) {
-      return state.copyWith(phase: RadioPhase.linkDegraded);
-    }
-    if (event is PowerOn) {
-      return state.phase == RadioPhase.off
+  RadioState reduce(RadioState state, RadioEvent event) => switch (event) {
+    LinkDegraded() => state.copyWith(phase: RadioPhase.linkDegraded),
+    PowerOn() =>
+      state.phase == RadioPhase.off
           ? state.copyWith(phase: RadioPhase.boot)
-          : state;
-    }
-    if (event is BootCompleted) {
-      return state.phase == RadioPhase.boot
+          : state,
+    BootCompleted() =>
+      state.phase == RadioPhase.boot
           ? state.copyWith(phase: RadioPhase.idle)
-          : state;
-    }
-    if (event is BeginTuning) {
-      return state.phase == RadioPhase.idle
+          : state,
+    BeginTuning() =>
+      state.phase == RadioPhase.idle
           ? state.copyWith(phase: RadioPhase.tuning)
-          : state;
-    }
-    if (event is FinishTuning) {
-      return state.phase == RadioPhase.tuning
+          : state,
+    FinishTuning() =>
+      state.phase == RadioPhase.tuning
           ? state.copyWith(phase: RadioPhase.idle)
-          : state;
-    }
-    if (event is TuneTo) {
-      return _isValidTuning(event)
+          : state,
+    TuneTo() =>
+      _isValidTuning(event)
           ? state.copyWith(
               channel: event.channel,
               privacyCode: event.privacyCode,
             )
-          : state;
-    }
-    if (event is SetMode) {
-      return state.copyWith(mode: event.mode);
-    }
-    if (event is RequestTransmit) {
-      return state.phase == RadioPhase.idle
+          : state,
+    SetMode() => state.copyWith(mode: event.mode),
+    RequestTransmit() =>
+      state.phase == RadioPhase.idle
           ? state.copyWith(phase: RadioPhase.txRequest)
-          : state;
-    }
-    if (event is TransmitGranted) {
-      return state.phase == RadioPhase.txRequest
+          : state,
+    TransmitGranted() =>
+      state.phase == RadioPhase.txRequest
           ? state.copyWith(phase: RadioPhase.tx)
-          : state;
-    }
-    if (event is TransmitDenied) {
-      return state.phase == RadioPhase.txRequest
+          : state,
+    TransmitDenied() =>
+      state.phase == RadioPhase.txRequest
           ? state.copyWith(phase: RadioPhase.idle)
-          : state;
-    }
-    if (event is EndTransmit) {
-      return state.phase == RadioPhase.tx
+          : state,
+    EndTransmit() =>
+      state.phase == RadioPhase.tx
           ? state.copyWith(phase: RadioPhase.idle)
-          : state;
-    }
-    if (event is RemoteFloorStarted) {
-      return state.phase == RadioPhase.idle
+          : state,
+    RemoteFloorStarted() =>
+      state.phase == RadioPhase.idle
           ? state.copyWith(phase: RadioPhase.rxActive)
-          : state;
-    }
-    if (event is RemoteFloorEnded) {
-      return state.phase == RadioPhase.rxActive
+          : state,
+    RemoteFloorEnded() =>
+      state.phase == RadioPhase.rxActive
           ? state.copyWith(phase: RadioPhase.idle)
-          : state;
-    }
-    if (event is LinkRecovered) {
-      return state.phase == RadioPhase.linkDegraded
+          : state,
+    LinkRecovered() =>
+      state.phase == RadioPhase.linkDegraded
           ? state.copyWith(
               phase: RadioPhase.idle,
               mode: event.fallbackToLocal ? RadioMode.local : state.mode,
             )
-          : state;
-    }
-    return state;
-  }
+          : state,
+  };
 
   bool _isValidTuning(TuneTo event) =>
       event.channel >= RadioState.minimumChannel &&

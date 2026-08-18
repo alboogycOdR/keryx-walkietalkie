@@ -11,6 +11,50 @@ void main() {
   );
 
   group('RadioReducer lifecycle', () {
+    test('has an exhaustive phase by event transition matrix', () {
+      const events = <RadioEvent>[
+        PowerOn(),
+        BootCompleted(),
+        BeginTuning(),
+        FinishTuning(),
+        TuneTo(channel: 42, privacyCode: 16),
+        SetMode(RadioMode.local),
+        RequestTransmit(),
+        TransmitGranted(),
+        TransmitDenied(),
+        EndTransmit(),
+        RemoteFloorStarted(),
+        RemoteFloorEnded(),
+        LinkDegraded(),
+        LinkRecovered(),
+      ];
+      var legalTransitions = 0;
+      var illegalNoOps = 0;
+
+      for (final phase in RadioPhase.values) {
+        for (final event in events) {
+          final state = RadioState(
+            phase: phase,
+            mode: RadioMode.linked,
+            channel: 7,
+            privacyCode: 5,
+          );
+          final actual = reducer.reduce(state, event);
+          final expected = _expectedMatrixResult(state, event);
+
+          expect(actual, expected, reason: '$phase + $event');
+          if (identical(expected, state)) {
+            illegalNoOps++;
+          } else {
+            legalTransitions++;
+          }
+        }
+      }
+
+      expect(legalTransitions, 35);
+      expect(illegalNoOps, 77);
+    });
+
     test('moves OFF to BOOT to IDLE and ignores invalid lifecycle events', () {
       const off = RadioState.off();
 
@@ -201,4 +245,46 @@ void main() {
     container.read(radioStateProvider.notifier).dispatch(const PowerOn());
     expect(container.read(radioStateProvider).phase, RadioPhase.boot);
   });
+}
+
+RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
+  return switch (event) {
+    LinkDegraded() => state.copyWith(phase: RadioPhase.linkDegraded),
+    PowerOn() when state.phase == RadioPhase.off => state.copyWith(
+      phase: RadioPhase.boot,
+    ),
+    BootCompleted() when state.phase == RadioPhase.boot => state.copyWith(
+      phase: RadioPhase.idle,
+    ),
+    BeginTuning() when state.phase == RadioPhase.idle => state.copyWith(
+      phase: RadioPhase.tuning,
+    ),
+    FinishTuning() when state.phase == RadioPhase.tuning => state.copyWith(
+      phase: RadioPhase.idle,
+    ),
+    TuneTo() => state.copyWith(
+      channel: event.channel,
+      privacyCode: event.privacyCode,
+    ),
+    SetMode() => state.copyWith(mode: event.mode),
+    RequestTransmit() when state.phase == RadioPhase.idle => state.copyWith(
+      phase: RadioPhase.txRequest,
+    ),
+    TransmitGranted() when state.phase == RadioPhase.txRequest =>
+      state.copyWith(phase: RadioPhase.tx),
+    TransmitDenied() when state.phase == RadioPhase.txRequest => state.copyWith(
+      phase: RadioPhase.idle,
+    ),
+    EndTransmit() when state.phase == RadioPhase.tx => state.copyWith(
+      phase: RadioPhase.idle,
+    ),
+    RemoteFloorStarted() when state.phase == RadioPhase.idle => state.copyWith(
+      phase: RadioPhase.rxActive,
+    ),
+    RemoteFloorEnded() when state.phase == RadioPhase.rxActive =>
+      state.copyWith(phase: RadioPhase.idle),
+    LinkRecovered() when state.phase == RadioPhase.linkDegraded =>
+      state.copyWith(phase: RadioPhase.idle),
+    _ => state,
+  };
 }
