@@ -118,7 +118,7 @@ New territory under relay/**. Implementing LiveKit+Redis+Caddy+coturn compose, e
 
 ### TASK-003
 **Title:** Token service: FastAPI LiveKit JWT mint + rate limiting (KRX-051)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1 (Signaling glue row), §8.4, §8.7, §11 E6 (KRX-051), FR-044
@@ -126,12 +126,12 @@ New territory under relay/**. Implementing LiveKit+Redis+Caddy+coturn compose, e
 **Depends_On:** —
 **Description:** Implement the stateless FastAPI token service under `token-svc/`: accepts a room derivation (roomId per TS §8.7 — computed client-side; the service never sees passphrases) plus callsign, mints a short-lived LiveKit JWT (identity = callsign + random suffix), enforces IP-scoped rate limits, and refuses expired Event-QR tokens (FR-044). No user DB, no persistent user records. Include pytest suite covering mint, expiry refusal, rate limiting, and a logging-policy test asserting nothing beyond ephemeral rate-limit counters is logged. Dockerfile + README so it can join the relay compose later (compose wiring itself belongs to relay/** — do not edit relay/**).
 **Acceptance_Criteria:**
-- [ ] Service is a small stateless FastAPI app minting LiveKit JWTs from room derivations with no user DB per TS §8.1 ("Tiny stateless token service (FastAPI, ~200 LOC): mints LiveKit JWTs from room derivations; no user DB")
-- [ ] JWT identity is callsign + random suffix and short-lived per TS §8.4 ("token service issues a short-lived LiveKit JWT (identity = callsign + random suffix)")
-- [ ] Expired event tokens are refused per FR-044 ("Expired tokens are refused by the token service so temporary event channels do not linger on the relay")
-- [ ] Rate limiting is IP-scoped, counters expire ≤ 1 h per TS §8.7 ("logs nothing beyond ephemeral, IP-scoped rate-limit counters (no callsigns, no room-join histories; counters expire ≤ 1 h)")
-- [ ] Logging-policy test asserts no callsigns/room-join histories are ever logged per TS §8.7 ("asserted by a logging-policy test in KRX-051")
-- [ ] Full pytest suite green (evidence pasted)
+- [x] Service is a small stateless FastAPI app minting LiveKit JWTs from room derivations with no user DB per TS §8.1 ("Tiny stateless token service (FastAPI, ~200 LOC): mints LiveKit JWTs from room derivations; no user DB")
+- [x] JWT identity is callsign + random suffix and short-lived per TS §8.4 ("token service issues a short-lived LiveKit JWT (identity = callsign + random suffix)")
+- [x] Expired event tokens are refused per FR-044 ("Expired tokens are refused by the token service so temporary event channels do not linger on the relay")
+- [x] Rate limiting is IP-scoped, counters expire ≤ 1 h per TS §8.7 ("logs nothing beyond ephemeral, IP-scoped rate-limit counters (no callsigns, no room-join histories; counters expire ≤ 1 h)")
+- [x] Logging-policy test asserts no callsigns/room-join histories are ever logged per TS §8.7 ("asserted by a logging-policy test in KRX-051")
+- [x] Full pytest suite green (evidence pasted)
 **Branch:** task/TASK-003-gb
 **Started_At:** 2026-08-18T09:59:39Z
 **Progress_Notes:**
@@ -143,12 +143,30 @@ New territory under relay/**. Implementing LiveKit+Redis+Caddy+coturn compose, e
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 New territory under token-svc/**. Implementing FastAPI JWT mint, event-token expiry, IP rate limits, logging-policy tests.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-18T10:09:43Z] [GB] Token service complete on `task/TASK-003-gb` (commit f22a26c). FastAPI POST /token mints HS256 LiveKit JWTs (identity=`callsign#<8 hex>`), refuses expired/forged Event-QR tokens (keryx-evt.v1 contract in README), IP rate limiter with ≤1h counter TTL, logging policy + suite. Dockerfile included; did not touch relay/**.
+**Artifacts:**
+- token-svc/app/main.py
+- token-svc/app/config.py
+- token-svc/app/models.py
+- token-svc/app/jwt_mint.py
+- token-svc/app/event_token.py
+- token-svc/app/rate_limit.py
+- token-svc/app/logging_policy.py
+- token-svc/Dockerfile
+- token-svc/README.md
+- token-svc/.env.example
+- token-svc/requirements.txt
+- token-svc/tests/test_mint.py
+- token-svc/tests/test_event_token.py
+- token-svc/tests/test_rate_limit.py
+- token-svc/tests/test_logging_policy.py
+- token-svc/tests/test_validation.py
+**Test_Evidence:**
+- [2026-08-18T10:09:43Z] [GB] `Set-Location token-svc; .\.venv\Scripts\python.exe -m pytest -v` — 23 passed, 0 failed, 0.94s. Suites: test_event_token 7, test_logging_policy 2, test_mint 5, test_rate_limit 5, test_validation 4.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-18T10:02:00Z
+**Updated_At:** 2026-08-18T10:09:43Z
 
 ### TASK-004
 **Title:** Radio state machine reducer + 100%-branch test suite (KRX-003)
