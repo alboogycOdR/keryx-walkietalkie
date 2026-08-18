@@ -342,7 +342,7 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 
 ### TASK-007
 **Title:** Room derivation library: numbered/keyed/scrypt + test vectors (KRX-053)
-**Status:** pending
+**Status:** blocked
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.7, §11 E6 (KRX-053), FR-002, FR-007, FR-008
@@ -358,13 +358,14 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 - [ ] Frozen test vectors committed and green
 **Branch:** —
 **Started_At:** —
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-18T14:20:00Z] [ORCH] Blocked pending a spec ruling: TS §8.7's `b32(...)` never fixes the base32 alphabet/case/padding for roomId. token-svc (TASK-003, merged) already pinned RFC 4648 uppercase-unpadded (`^[A-Z2-7]{16}$`) by implementation and validates against it — if this task picks a different alphabet, every mint request 422s against already-deployed code. Mechanically fenced off (Status: blocked) so GB's own claim logic doesn't self-select into it despite Depends_On being satisfied. ORCH to rule (RFC 4648, matching precedent) then unblock.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
-**Blocked_Reason:** —
+**Blocked_Reason:** SPEC_AMBIGUITY
 **Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_At:** 2026-08-18T14:20:00Z
 
 ### TASK-008
 **Title:** Settings & persistence layer: encrypted prefs, channel memory (KRX-004)
@@ -540,7 +541,7 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 
 ### TASK-013
 **Title:** Rotary knob widget: arc drag, detents, flywheel, haptic hooks (KRX-011)
-**Status:** pending
+**Status:** blocked
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §3 D1, §6.2, §6.4, FR-003, §11 E2 (KRX-011); specs/KERYX_UI_Design_Specification_v1.0.md §5.1; specs/keryx-face-prototype.html (knob physics script)
@@ -556,17 +557,18 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 - [ ] Widget tests green (drag N detents → N channel deltas; fling respects 12/s cap)
 **Branch:** —
 **Started_At:** —
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-18T14:20:00Z] [ORCH] Blocked pending a spec ruling: channel/code wrap-vs-clamp at 99/1 and 38/00 is undefined in both specs (grep-confirmed absent), and TASK-004's reducer exposes only absolute TuneTo, no tuneDelta. This widget emits channel-delta events per its own description, so it needs the decision to implement correctly. Mechanically fenced off (Status: blocked) so CX's own claim logic doesn't self-select into it. Same issue blocks TASK-014; does NOT block TASK-012 (display-only, no state ownership, doesn't compute deltas).
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
-**Blocked_Reason:** —
+**Blocked_Reason:** SPEC_AMBIGUITY
 **Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_At:** 2026-08-18T14:20:00Z
 
 ### TASK-014
 **Title:** CH steppers with auto-repeat + keypad direct-entry sheet (KRX-013)
-**Status:** pending
+**Status:** blocked
 **Assigned_To:** CX
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §3 D1, FR-004, FR-005, FR-009, FR-106, §11 E2 (KRX-013); specs/keryx-face-prototype.html (stepper script)
@@ -582,13 +584,14 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 - [ ] Widget tests green (auto-repeat acceleration, keypad range validation 1–99 / 00–38)
 **Branch:** —
 **Started_At:** —
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-18T14:20:00Z] [ORCH] Blocked pending the same spec ruling as TASK-013: channel/code wrap-vs-clamp at 99/1 and 38/00 undefined in both specs. Steppers emit tuning intents per their own description and directly hit this at the CH▲/CH▼ boundary. Mechanically fenced off (Status: blocked) so CX's own claim logic doesn't self-select into it.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
-**Blocked_Reason:** —
+**Blocked_Reason:** SPEC_AMBIGUITY
 **Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_At:** 2026-08-18T14:20:00Z
 
 ### TASK-015
 **Title:** PTT button, secondary key row, EMG side key (KRX-015)
