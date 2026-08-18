@@ -1,0 +1,11 @@
+# Operator secrets — never commit a real .env
+.env
+.env.local
+.env.*.local
+
+# Rendered from templates + .env (see scripts/render_config.py)
+generated/
+
+# Caddy local data if someone bind-mounts the dir instead of a named volume
+caddy_data/
+caddy_config/

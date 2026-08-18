@@ -1,0 +1,63 @@
+# Rendered by scripts/render_config.py — do not commit the generated file.
+# LiveKit SFU for Keryx LINKED mode (TS §8.4). Audio-only PTT rooms.
+# Ingress/egress/recording are intentionally absent (TS §8.7).
+
+port: 7880
+bind_addresses:
+  - "0.0.0.0"
+
+rtc:
+  port_range_start: ${LIVEKIT_RTC_PORT_START}
+  port_range_end: ${LIVEKIT_RTC_PORT_END}
+  tcp_port: 7881
+  use_external_ip: true
+  allow_tcp_fallback: true
+  # Packet buffer sized for audio PTT, not video conferencing.
+  packet_buffer_size_audio: 200
+  packet_buffer_size_video: 0
+  use_mdns: false
+  stun_servers:
+    - stun.l.google.com:19302
+  # Bundled coturn (TS §8.4) — hostile-NAT path toward NFR-05 ≥ 97%.
+  # Shared secret must match turnserver.conf static-auth-secret.
+  turn_servers:
+    - host: ${TURN_DOMAIN}
+      port: 3478
+      protocol: udp
+      secret: ${TURN_SHARED_SECRET}
+    - host: ${TURN_DOMAIN}
+      port: 3478
+      protocol: tcp
+      secret: ${TURN_SHARED_SECRET}
+    - host: ${TURN_DOMAIN}
+      port: 5349
+      protocol: tls
+      secret: ${TURN_SHARED_SECRET}
+
+redis:
+  address: 127.0.0.1:6379
+
+keys:
+  "${LIVEKIT_API_KEY}": "${LIVEKIT_API_SECRET}"
+
+logging:
+  level: info
+  pion_level: error
+  json: true
+  sample: true
+
+room:
+  auto_create: true
+  empty_timeout: 300
+  departure_timeout: 20
+  enabled_codecs:
+    - mime: audio/opus
+  max_participants: 64
+
+# No webhook: nothing to persist, nothing to notify.
+# No prometheus_port: do not expose metrics on the public interface.
+# No ingress / egress blocks: recording and RTMP ingest stay off.
+
+limit:
+  subscription_limit_audio: 32
+  subscription_limit_video: 0

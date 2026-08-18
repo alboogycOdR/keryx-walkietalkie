@@ -1,0 +1,51 @@
+# Rendered by scripts/render_config.py — do not commit the generated file.
+# coturn for Keryx LINKED (TS §8.4). Relays ICE when host/srflx fail.
+
+listening-ip=0.0.0.0
+listening-port=3478
+tls-listening-port=5349
+realm=${TURN_REALM}
+server-name=${TURN_DOMAIN}
+external-ip=${EXTERNAL_IP}
+
+fingerprint
+lt-cred-mech
+use-auth-secret
+static-auth-secret=${TURN_SHARED_SECRET}
+
+# Relay port range — disjoint from LiveKit RTC 50000-50200.
+min-port=${COTURN_MIN_PORT}
+max-port=${COTURN_MAX_PORT}
+
+# Do not become an open relay into RFC1918 / loopback.
+no-multicast-peers
+denied-peer-ip=0.0.0.0-0.255.255.255
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=100.64.0.0-100.127.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.0.2.0-192.0.2.255
+denied-peer-ip=192.168.0.0-192.168.255.255
+denied-peer-ip=198.18.0.0-198.19.255.255
+denied-peer-ip=198.51.100.0-198.51.100.255
+denied-peer-ip=203.0.113.0-203.0.113.255
+denied-peer-ip=224.0.0.0-239.255.255.255
+denied-peer-ip=240.0.0.0-255.255.255.255
+
+# TLS 1.0/1.1 off. Media itself is DTLS-SRTP regardless.
+no-tlsv1
+no-tlsv1_1
+no-sslv3
+
+no-cli
+no-software-attribute
+stale-nonce=600
+
+# Logs: allocations only. Never dump media. stdout so Docker collects it.
+log-file=stdout
+simple-log
+verbose
+
+# Prometheus stays off the public NIC; enable only behind a local bind if needed.
+# prometheus
