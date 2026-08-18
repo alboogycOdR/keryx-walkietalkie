@@ -44,7 +44,7 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 
 ### TASK-002
 **Title:** Relay stack: LiveKit + Redis + Caddy + coturn Docker compose (KRX-050)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1 (Relay row), §8.4, §11 E6 (KRX-050), §9 NFR-05, NFR-09
@@ -60,13 +60,21 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 - [ ] `docker compose config` validates cleanly (evidence pasted)
 **Branch:** task/TASK-002-gb
 **Started_At:** 2026-08-18T09:32:00Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-18T09:35:00Z] [GB] Claimed TASK-002. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-002 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-grok-walkietalkie-keryx
+[preflight] 1 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   relay/**  -> matches nothing yet (new territory)
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+New territory under relay/**. Implementing LiveKit+Redis+Caddy+coturn compose, env templates, runbook, hardening checklist, and `docker compose config` validator.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-18T09:32:00Z
+**Updated_At:** 2026-08-18T09:35:00Z
 
 ### TASK-003
 **Title:** Token service: FastAPI LiveKit JWT mint + rate limiting (KRX-051)
