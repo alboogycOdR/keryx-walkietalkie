@@ -170,7 +170,7 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 
 ### TASK-004
 **Title:** Radio state machine reducer + 100%-branch test suite (KRX-003)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** CX
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2, §11 E1 (KRX-003), §9 NFR-10, FR-040, FR-045
@@ -186,13 +186,19 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 - [ ] 100% branch coverage on the reducer per NFR-10 ("Reducer/state machine 100% branch"); coverage report pasted as evidence
 **Branch:** task/TASK-004-cx
 **Started_At:** 2026-08-18T14:32:00Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-18T10:25:15Z] [CX] Preflight complete:
+  [preflight] TASK-004 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-codex-walkietalkie-keryx
+  [preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+    GLOB   lib/core/state/**  -> matches nothing yet (new territory)
+    GLOB   test/core/state/**  -> matches nothing yet (new territory)
+  [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-18T14:32:00Z
+**Updated_At:** 2026-08-18T10:25:15Z
 
 ### TASK-005
 **Title:** Theme system: design tokens, typography, materials (KRX-010 token half)
