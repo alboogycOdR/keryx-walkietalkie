@@ -39,6 +39,18 @@ function Get-PythonCmd {
 }
 $Py = Get-PythonCmd
 
+# Integration branch from autopilot.json git.base_branch. Fail-safe default:
+# "main". Computed once, up front, so every use below (worktree creation,
+# worktree refresh, and the builder-facing prompt text) agrees -- previously
+# the prompt text and the worktree-creation fallback both hardcoded "main"
+# literally while only the worktree-refresh path read this from config,
+# which broke on this project (integration branch is "master").
+$BaseBranch = "main"
+try {
+    $GitCfg = Get-Content (Join-Path $RepoRoot "autopilot.json") -Raw -ErrorAction Stop | ConvertFrom-Json
+    if ($GitCfg.git -and $GitCfg.git.base_branch) { $BaseBranch = $GitCfg.git.base_branch }
+} catch { $BaseBranch = "main" }
+
 # Worktree paths are namespaced by this project's own folder name (not just
 # "wt-grok"/"wt-codex") because they're created as SIBLINGS of the project
 # root, not siblings of DEVDEPARTMENT itself. Two DEVDEPARTMENT-onboarded
@@ -165,11 +177,6 @@ if (Test-Path $Wt) {
     $wtBranch = (git -C $Wt rev-parse --abbrev-ref HEAD 2>$null)
     $wtDirty  = @(git -C $Wt status --porcelain 2>$null | Where-Object { $_ -and $_ -notmatch '\.serena' })
     if ($wtBranch -eq "HEAD" -and $wtDirty.Count -eq 0) {
-        $BaseBranch = "main"
-        try {
-            $GitCfg = Get-Content "$RepoRoot\autopilot.json" -Raw | ConvertFrom-Json
-            if ($GitCfg.git -and $GitCfg.git.base_branch) { $BaseBranch = $GitCfg.git.base_branch }
-        } catch { $BaseBranch = "main" }
         $before = (git -C $Wt rev-parse --short HEAD 2>$null)
         git -C $Wt checkout --detach $BaseBranch --quiet 2>$null
         $after = (git -C $Wt rev-parse --short HEAD 2>$null)
@@ -183,7 +190,7 @@ if (Test-Path $Wt) {
     }
 } else {
     Write-Host "[dispatch] Creating worktree at $Wt..." -ForegroundColor Cyan
-    git worktree add --detach $Wt main
+    git worktree add --detach $Wt $BaseBranch
     if ($LASTEXITCODE -ne 0) { Write-Error "[dispatch] git worktree add failed."; exit 1 }
 }
 
@@ -261,7 +268,7 @@ if ($AutoLoadsContext -and $Identity -eq "agent") {
 
 if ($ControlMode -eq "strict") {
     $Prompt = $IdentityOverride + @"
-You are $Id, a builder in a multi-agent dev team. Working directory: $Wt (your isolated git worktree; coordination PLAN.md lives at $PlanPath on main - control.mode=strict: you never write PLAN.md yourself).
+You are $Id, a builder in a multi-agent dev team. Working directory: $Wt (your isolated git worktree; coordination PLAN.md lives at $PlanPath on $BaseBranch - control.mode=strict: you never write PLAN.md yourself).
 Your task is $TaskId ($ResumeOrClaim by the dispatcher before this session started - do not re-claim or re-branch).
 Procedure: (1) Read AGENTS.md and $Briefing, then PLAN.md, fresh from disk, for $TaskId's Spec_References/Owned_Paths/Acceptance_Criteria. Read dossiers/$TaskId.md in full if it exists (your prior work log) before acting. (2) If resuming: continue on the existing branch task/$TaskId-$Suffix at the exact stopping point recorded in the dossier. If newly claimed: create branch task/$TaskId-$Suffix in your worktree. (3) Implement strictly against Spec_References, touching ONLY files under Owned_Paths plus your own dossier (dossiers/$TaskId.md - append a Work Log entry at minimum every ~30 minutes of work and at every stopping point; it is your heartbeat, since you never touch PLAN.md for this). (4) Test everything. (5) Emit a devteam-control block as the LAST thing you print, fenced exactly like this:
 ${Fence}devteam-control
@@ -271,8 +278,8 @@ status must be exactly one of in_progress (mid-session checkpoint - dossier note
 "@
 } else {
     $Prompt = $IdentityOverride + @"
-You are $Id, a builder in a multi-agent dev team. Working directory: $Wt - your isolated git worktree on your own task branch. ALL CODE changes are made and committed there; never put code on main (merging is ORCHs, after review). PLAN.md is the deliberate exception: it is the shared coordination blackboard living at $PlanPath on main. READ and EDIT it at that path so you both see and publish current state. To record ANY PLAN.md change (claim, status transition, Progress_Note, needs_review) run: scripts/plan_commit.sh 'chore(plan): <what> [$Id]'  (PowerShell: powershell -ExecutionPolicy Bypass -File scripts\plan_commit.ps1 'chore(plan): <what> [$Id]'). That script commits PLAN.md alone, directly onto main, and cannot carry code. DO NOT run 'git push . HEAD:main' - that is the old procedure and it is a trap: it works on claim, but by needs_review your HEAD sits on top of your code commits and that push lands them all on the integration branch unreviewed, bypassing review. A PLAN.md commit left on your task branch is invisible to ORCH and the other builders until merge, which defeats the whole point of a blackboard. Code to your branch; PLAN.md to main; never the reverse.
-Procedure: (1) Read AGENTS.md and $Briefing, then PLAN.md, fresh from disk. If dossiers/TASK-NNN.md exists for your task, read it in full before acting and append a Work Log entry each session - never ask for re-explanation of anything in the dossier. (2) RESUME CHECK FIRST - scan PLAN.md for any task with Assigned_To: $Id and Status: in_progress or claimed. If found, resume that task immediately: re-read its Owned_Paths files and the last Progress_Note to find the exact stopping point, then continue on the existing branch (do not re-claim or re-branch). Only if NO in_progress/claimed task exists: claim the highest-priority pending task Assigned_To: $Id whose dependencies are done - one atomic edit+commit setting Status: claimed, Branch: task/TASK-NNN-$Suffix, Started_At. (3) Create (or switch to) the task branch in your worktree and implement strictly against the task's Spec_References, touching ONLY files under its Owned_Paths. (4) Test everything; append Test_Evidence. (5) Append-only Progress_Notes with UTC timestamps and [$Id] tags - if your context is approaching its limit, write a detailed stopping-point note (what is done, what file, exact next step) and commit before stopping. (6) Finish at needs_review (never done), or blocked with a vocabulary reason. Conventional Commits ending [TASK-NNN]. Never write to specs/, docs/, REVIEW.md, scripts/, .claude/, other task blocks, or main.
+You are $Id, a builder in a multi-agent dev team. Working directory: $Wt - your isolated git worktree on your own task branch. ALL CODE changes are made and committed there; never put code on $BaseBranch (merging is ORCHs, after review). PLAN.md is the deliberate exception: it is the shared coordination blackboard living at $PlanPath on $BaseBranch. READ and EDIT it at that path so you both see and publish current state. To record ANY PLAN.md change (claim, status transition, Progress_Note, needs_review) run: scripts/plan_commit.sh 'chore(plan): <what> [$Id]'  (PowerShell: powershell -ExecutionPolicy Bypass -File scripts\plan_commit.ps1 'chore(plan): <what> [$Id]'). That script commits PLAN.md alone, directly onto $BaseBranch, and cannot carry code. DO NOT run 'git push . HEAD:$BaseBranch' - that is the old procedure and it is a trap: it works on claim, but by needs_review your HEAD sits on top of your code commits and that push lands them all on the integration branch unreviewed, bypassing review. A PLAN.md commit left on your task branch is invisible to ORCH and the other builders until merge, which defeats the whole point of a blackboard. Code to your branch; PLAN.md to $BaseBranch; never the reverse.
+Procedure: (1) Read AGENTS.md and $Briefing, then PLAN.md, fresh from disk. If dossiers/TASK-NNN.md exists for your task, read it in full before acting and append a Work Log entry each session - never ask for re-explanation of anything in the dossier. (2) RESUME CHECK FIRST - scan PLAN.md for any task with Assigned_To: $Id and Status: in_progress or claimed. If found, resume that task immediately: re-read its Owned_Paths files and the last Progress_Note to find the exact stopping point, then continue on the existing branch (do not re-claim or re-branch). Only if NO in_progress/claimed task exists: claim the highest-priority pending task Assigned_To: $Id whose dependencies are done - one atomic edit+commit setting Status: claimed, Branch: task/TASK-NNN-$Suffix, Started_At. (3) Create (or switch to) the task branch in your worktree and implement strictly against the task's Spec_References, touching ONLY files under its Owned_Paths. (4) Test everything; append Test_Evidence. (5) Append-only Progress_Notes with UTC timestamps and [$Id] tags - if your context is approaching its limit, write a detailed stopping-point note (what is done, what file, exact next step) and commit before stopping. (6) Finish at needs_review (never done), or blocked with a vocabulary reason. Conventional Commits ending [TASK-NNN]. Never write to specs/, docs/, REVIEW.md, scripts/, .claude/, other task blocks, or $BaseBranch.
 "@
 }
 

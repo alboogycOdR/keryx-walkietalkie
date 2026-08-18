@@ -41,7 +41,17 @@ switch ($Action) {
     "create" {
         foreach ($t in $Targets) {
             if (Test-Path $t.Path) { Write-Host "[worktree] $($t.Name): already exists at $($t.Path)"; continue }
-            git worktree add $t.Path $BaseBranch
+            # --detach: $BaseBranch is very likely already checked out in the
+            # main repo checkout, and git refuses to check out the same
+            # branch in two worktrees. Native-command failures don't trip
+            # $ErrorActionPreference, so $LASTEXITCODE must be checked
+            # explicitly or a failed `git worktree add` silently falls
+            # through to the "created" success message below.
+            git worktree add --detach $t.Path $BaseBranch
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "[worktree] $($t.Name): git worktree add failed (exit $LASTEXITCODE) - not created."
+                continue
+            }
             Write-Host "[worktree] $($t.Name): created at $($t.Path)" -ForegroundColor Green
         }
     }
