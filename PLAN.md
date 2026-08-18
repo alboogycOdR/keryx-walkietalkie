@@ -427,7 +427,7 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 
 ### TASK-009
 **Title:** Identity: peerId derivation + NATO callsign generator (KRX-075 + §8.6 identity)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.6 (Peer identity), FR-068, §11 E8 (KRX-075)
@@ -441,15 +441,15 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 - [ ] Collision rendering: later joiners get a numeric suffix by join order; peerIds never collide, per TS §8.6 ("later joiners render with a numeric suffix (BRAVO-7, BRAVO-7 (2)) derived from join order")
 - [ ] Callsigns are display-only (not used in election) per TS §8.6 ("Callsigns are display-only")
 - [ ] Unit/property tests green
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-009-gb
+**Started_At:** 2026-08-18T15:16:00Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-18T15:16:00Z
 
 ### TASK-010
 **Title:** SFX engine: dual-bus mixer, ducking, loop beds, roger variants (KRX-021 + KRX-024 playback)
