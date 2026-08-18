@@ -118,7 +118,7 @@ New territory under relay/**. Implementing LiveKit+Redis+Caddy+coturn compose, e
 
 ### TASK-003
 **Title:** Token service: FastAPI LiveKit JWT mint + rate limiting (KRX-051)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1 (Signaling glue row), §8.4, §8.7, §11 E6 (KRX-051), FR-044
@@ -132,15 +132,15 @@ New territory under relay/**. Implementing LiveKit+Redis+Caddy+coturn compose, e
 - [ ] Rate limiting is IP-scoped, counters expire ≤ 1 h per TS §8.7 ("logs nothing beyond ephemeral, IP-scoped rate-limit counters (no callsigns, no room-join histories; counters expire ≤ 1 h)")
 - [ ] Logging-policy test asserts no callsigns/room-join histories are ever logged per TS §8.7 ("asserted by a logging-policy test in KRX-051")
 - [ ] Full pytest suite green (evidence pasted)
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-003-gb
+**Started_At:** 2026-08-18T09:59:39Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-18T09:59:39Z
 
 ### TASK-004
 **Title:** Radio state machine reducer + 100%-branch test suite (KRX-003)
