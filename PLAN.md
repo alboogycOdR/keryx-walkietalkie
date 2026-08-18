@@ -262,7 +262,7 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 
 ### TASK-005
 **Title:** Theme system: design tokens, typography, materials (KRX-010 token half)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_UI_Design_Specification_v1.0.md §2, §3, §4, §9 (KRX-010 amended); specs/keryx-face-prototype.html (:root CSS tokens); specs/KERYX_Product_Technical_Spec_v1.1.md FR-106
@@ -270,21 +270,26 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 **Depends_On:** TASK-001
 **Description:** Implement DS §2–§4 as a single Dart theme source under `lib/core/theme/`: the six shell/glass/lcd/legend colour tokens, the four signal colours (tx/rx/emg/olive), typography roles and scale (DSEG7 for channel numerals, Share Tech Mono glass, Barlow Condensed legends, Inter panels), the two motion curves (`snap` 140 ms cubic-bezier(.2,.9,.3,1); `settle` 320 ms ease-out), 8 dp grid constants, face vertical-allocation ratios, and the lip/inner-edge material treatment. Values must match PT's `:root` exactly. Unit tests assert token values and that no other library file will need literal colours (export a lint-friendly single import surface).
 **Acceptance_Criteria:**
-- [ ] All six colour tokens match DS §2 hexes exactly (`--shell-900 #15181B` … `--legend #CFCBC0`) and signal colours `--tx #E23D2E`, `--rx #7FD1A0`, `--emg #FF7A18`, `--olive #6B7052`
-- [ ] Unlit segments render as `--lcd` at 7% opacity per DS §2 ("Unlit segments = --lcd at 7% opacity (ghost segments)") — exposed as a token
-- [ ] Typography scale per DS §3: channel numerals 56/1.0, secondary glass 15/1.2, telltales 11/1.0, legends 11/1.0 at 0.14em, panel body 15/1.5
-- [ ] Motion: only `snap` (140 ms, cubic-bezier(.2,.9,.3,1)) and `settle` (320 ms, ease-out) exist per DS §4 ("Two curves only")
-- [ ] Theme is the single source per DS §9 KRX-010 amendment ("implement the token system of §2–§4 as a single theme source; no literal colour or duration values elsewhere in the widget tree")
-- [ ] Token/typography unit tests green
+- [x] All six colour tokens match DS §2 hexes exactly (`--shell-900 #15181B` … `--legend #CFCBC0`) and signal colours `--tx #E23D2E`, `--rx #7FD1A0`, `--emg #FF7A18`, `--olive #6B7052`
+- [x] Unlit segments render as `--lcd` at 7% opacity per DS §2 ("Unlit segments = --lcd at 7% opacity (ghost segments)") — exposed as a token
+- [x] Typography scale per DS §3: channel numerals 56/1.0, secondary glass 15/1.2, telltales 11/1.0, legends 11/1.0 at 0.14em, panel body 15/1.5
+- [x] Motion: only `snap` (140 ms, cubic-bezier(.2,.9,.3,1)) and `settle` (320 ms, ease-out) exist per DS §4 ("Two curves only")
+- [x] Theme is the single source per DS §9 KRX-010 amendment ("implement the token system of §2–§4 as a single theme source; no literal colour or duration values elsewhere in the widget tree")
+- [x] Token/typography unit tests green
 **Branch:** task/TASK-005-cx
 **Started_At:** 2026-08-18T13:30:45Z
-**Progress_Notes:** —
-**Artifacts:** —
-**Test_Evidence:** —
+**Progress_Notes:**
+- [2026-08-18T13:38:00Z] [CX] Implemented the single-import token surface, including ratified prototype curves, material edges, typography roles, grid, and face ratios.
+**Artifacts:**
+- `lib/core/theme/theme.dart` — single public theme token surface
+- `test/core/theme/theme_test.dart` — token, typography, motion, and allocation tests
+**Test_Evidence:**
+- `flutter test test/core/theme/theme_test.dart` — 3 passed, 0 failed.
+- `flutter analyze` — No issues found.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-18T13:34:00Z
+**Updated_At:** 2026-08-18T13:38:00Z
 
 ### TASK-006
 **Title:** Floor control protocol v1: message codec, versioning, timing constants (KRX-040)
