@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KERYX — Face Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=Share+Tech+Mono&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --shell-900:#15181B; --shell-700:#22262A; --shell-500:#31363B;
+  --glass:#0F1512; --lcd:#F2A93B; --legend:#CFCBC0;
+  --tx:#E23D2E; --rx:#7FD1A0; --emg:#FF7A18; --olive:#6B7052;
+  --snap:140ms cubic-bezier(.2,.9,.3,1);
+  --settle:320ms cubic-bezier(.16,1,.3,1);
+  --lip: inset 0 1px 0 rgba(255,255,255,.06), inset 0 -1px 0 rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:#0A0C0D;overflow:hidden;
+  font-family:Inter,system-ui,sans-serif;color:var(--legend);
+  user-select:none;-webkit-user-select:none;touch-action:none}
+body{display:flex;align-items:center;justify-content:center}
+
+/* ---------- housing ---------- */
+.radio{
+  position:relative;width:min(100vw,420px);height:100dvh;max-height:900px;
+  background:var(--shell-700);
+  display:flex;flex-direction:column;gap:0;padding:14px 16px 18px;
+  box-shadow:0 0 0 1px #0b0d0e, 0 40px 80px -20px #000;
+  border-radius:22px;overflow:hidden;
+}
+.radio::after{ /* moulded texture + single top-left light */
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:22px;
+  background:
+    radial-gradient(120% 60% at 12% -10%, rgba(255,255,255,.055), transparent 60%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence baseFrequency='.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='.035'/></svg>");
+}
+.off .glass,.off .grille{filter:saturate(.15) brightness(.35)}
+
+/* ---------- status strip ---------- */
+.strip{display:flex;align-items:center;justify-content:space-between;
+  font-family:'Barlow Condensed',sans-serif;letter-spacing:.14em;font-size:11px;
+  color:#8C918F;padding:2px 4px 10px}
+.strip b{color:var(--legend);font-weight:600}
+.smeter{display:flex;gap:2px;align-items:flex-end;height:12px}
+.smeter i{width:3px;background:#3A403E;border-radius:1px}
+.smeter i.on{background:var(--rx)}
+
+/* ---------- glass ---------- */
+.glass{
+  position:relative;background:var(--glass);border-radius:6px;padding:12px 14px 10px;
+  box-shadow:inset 0 3px 10px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.05);
+  border:1px solid #0a0f0c;overflow:hidden;transition:filter var(--snap);
+}
+.glass::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(80% 120% at 50% 120%, rgba(242,169,59,.06), transparent 70%)}
+.dim .glass{filter:brightness(.55)}
+.row1{display:flex;align-items:baseline;justify-content:space-between}
+.chan{font-family:'Share Tech Mono',monospace;font-size:54px;line-height:1;
+  color:var(--lcd);text-shadow:0 0 14px rgba(242,169,59,.35);position:relative}
+.chan .ghost{position:absolute;inset:0;color:var(--lcd);opacity:.07}
+.mode{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:.16em;
+  color:var(--lcd);opacity:.85}
+.row2{display:flex;align-items:center;justify-content:space-between;margin-top:8px;
+  font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--lcd);min-height:18px}
+.tell{display:flex;gap:7px;font-family:'Barlow Condensed',sans-serif;font-size:11px;
+  letter-spacing:.12em}
+.tell span{opacity:.09;transition:opacity var(--snap)}
+.tell span.on{opacity:1}
+.tell span.tx{color:var(--tx)} .tell span.emg{color:var(--emg)}
+.blink{animation:bl .5s steps(1,end) infinite}
+@keyframes bl{50%{opacity:.15}}
+
+/* ---------- grille ---------- */
+.grille{flex:1;margin:14px 2px;border-radius:8px;background:var(--shell-900);
+  box-shadow:var(--lip), inset 0 6px 14px rgba(0,0,0,.6);
+  display:flex;flex-direction:column;justify-content:center;gap:5px;padding:14px 18px;overflow:hidden}
+.grille i{display:block;height:5px;border-radius:3px;background:#0d0f10;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045);
+  transform-origin:center;transition:transform 90ms linear, background 200ms}
+.grille.live i{background:#12211a}
+
+/* ---------- controls ---------- */
+.cluster{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 2px}
+.step{width:54px;height:54px;border-radius:12px;background:var(--shell-500);
+  box-shadow:var(--lip),0 2px 0 #14171a;color:var(--legend);border:0;
+  font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:.1em;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px}
+.step:active{transform:translateY(1px);box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
+.knobwrap{position:relative;width:106px;height:106px;flex:none}
+.knob{position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%, #3d4348, #23272b 62%, #16191c);
+  box-shadow:0 3px 0 #101315, inset 0 1px 0 rgba(255,255,255,.09), 0 8px 18px rgba(0,0,0,.5);
+  cursor:grab}
+.knob.grabbing{cursor:grabbing}
+.knurl{position:absolute;inset:0;border-radius:50%;overflow:hidden;opacity:.5}
+.knurl i{position:absolute;left:50%;top:0;width:2px;height:12px;background:#0c0e10;
+  transform-origin:50% 53px}
+.mark{position:absolute;left:50%;top:9px;width:3px;height:22px;margin-left:-1.5px;
+  background:var(--olive);border-radius:2px;box-shadow:0 0 6px rgba(107,112,82,.7)}
+.dial{position:absolute;inset:-9px;border-radius:50%;border:1px solid #191d20;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)}
+
+.keys{display:flex;gap:8px;margin:14px 2px 12px}
+.key{flex:1;height:44px;border:0;border-radius:10px;background:var(--shell-500);
+  box-shadow:var(--lip),0 2px 0 #14171a;color:var(--legend);
+  font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.14em}
+.key:active,.key.held{transform:translateY(1px);box-shadow:inset 0 2px 6px rgba(0,0,0,.6);color:var(--lcd)}
+.key.locked{color:#5A5F5D}
+.key.locked::after{content:" ✦";opacity:.5}
+
+.ptt{height:104px;border:0;border-radius:16px;width:100%;
+  background:linear-gradient(#3A4045,#272C30);
+  box-shadow:var(--lip),0 4px 0 #131619,0 10px 22px rgba(0,0,0,.45);
+  font-family:'Barlow Condensed',sans-serif;font-size:20px;letter-spacing:.42em;
+  color:var(--legend);text-indent:.42em;transition:background var(--snap),color var(--snap)}
+.ptt.on{background:linear-gradient(#5a1d18,#3a1310);color:#ffd9d4;
+  box-shadow:inset 0 3px 10px rgba(0,0,0,.6);transform:translateY(2px)}
+.ptt.deny{background:linear-gradient(#3a2b18,#2a1f12)}
+.radio.txing{box-shadow:0 0 0 1px #0b0d0e, inset 0 0 60px -20px var(--tx), 0 40px 80px -20px #000}
+
+.emgkey{position:absolute;right:-4px;top:34%;width:14px;height:76px;border:0;
+  border-radius:6px 0 0 6px;background:linear-gradient(#7a3a12,#4a2109);box-shadow:var(--lip)}
+
+/* dev panel */
+.dev{position:fixed;left:8px;bottom:8px;font:11px/1.4 Inter,sans-serif;color:#6b7370;
+  background:#0e1113cc;border:1px solid #1b1f22;border-radius:8px;padding:6px 9px;max-width:44vw}
+.dev b{color:var(--lcd);font-weight:600}
+@media (prefers-reduced-motion:reduce){.grille i{transition:none}.blink{animation:none}}
+</style>
+</head>
+<body>
+<div class="radio off" id="radio">
+  <div class="strip">
+    <div class="smeter" id="smeter"></div>
+    <div><b id="stn">STN 0</b> · <span id="modeLbl">LOCAL</span></div>
+    <div>BAT <b>84%</b></div>
+  </div>
+
+  <div class="glass" id="glass">
+    <div class="row1">
+      <div class="chan"><span class="ghost">88 · 88</span><span id="chan">-- · --</span></div>
+      <div class="mode" id="modeGlass">OFF</div>
+    </div>
+    <div class="row2">
+      <div id="status">&nbsp;</div>
+      <div class="tell" id="tell">
+        <span data-t="TX" class="tx">TX</span><span data-t="MON">MON</span>
+        <span data-t="PRV">PRV</span><span data-t="VOX">VOX</span>
+        <span data-t="EMG" class="emg">EMG</span><span data-t="NOLINK">NO LINK</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grille" id="grille"></div>
+
+  <div class="cluster">
+    <button class="step" id="chdn">CH<br>▼</button>
+    <div class="knobwrap">
+      <div class="dial"></div>
+      <div class="knob" id="knob">
+        <div class="knurl" id="knurl"></div>
+        <div class="mark" id="mark"></div>
+      </div>
+    </div>
+    <button class="step" id="chup">CH<br>▲</button>
+  </div>
+
+  <div class="keys">
+    <button class="key" id="mon">MONITOR</button>
+    <button class="key locked" id="scan">SCAN</button>
+    <button class="key locked" id="again">SAY AGAIN</button>
+    <button class="key" id="pwr">POWER</button>
+  </div>
+
+  <button class="ptt" id="ptt">PTT</button>
+  <button class="emgkey" id="emg" title="Emergency"></button>
+</div>
+
+<div class="dev" id="dev">Tap <b>POWER</b> to switch the radio on. Drag or fling the knob to tune. Hold <b>PTT</b> to transmit.</div>
+
+<script>
+/* ============ audio engine: two buses, all SFX synthesised locally ============ */
+let ac=null, sfxBus=null, voiceBus=null, hiss=null, hissGain=null;
+function audio(){
+  if(ac) return ac;
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  sfxBus=ac.createGain(); sfxBus.gain.value=.9; sfxBus.connect(ac.destination);
+  voiceBus=ac.createGain(); voiceBus.gain.value=.5; voiceBus.connect(ac.destination);
+  // continuous noise bed -> band-pass = the squelch hiss floor
+  const buf=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  hiss=ac.createBufferSource(); hiss.buffer=buf; hiss.loop=true;
+  const bp=ac.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=1800; bp.Q.value=.7;
+  hissGain=ac.createGain(); hissGain.gain.value=0;
+  hiss.connect(bp).connect(hissGain).connect(sfxBus); hiss.start();
+  return ac;
+}
+function noiseBurst(dur=.28,peak=.5,f=2000){
+  const t=audio().currentTime, n=ac.createBufferSource();
+  const b=ac.createBuffer(1,ac.sampleRate*dur,ac.sampleRate), d=b.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+  n.buffer=b;
+  const bp=ac.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=f; bp.Q.value=.6;
+  const g=ac.createGain(); g.gain.setValueAtTime(peak,t);
+  g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  n.connect(bp).connect(g).connect(sfxBus); n.start(); n.stop(t+dur);
+}
+function tone(f,dur=.08,type='square',vol=.16,delay=0){
+  const t=audio().currentTime+delay, o=ac.createOscillator(), g=ac.createGain();
+  o.type=type; o.frequency.value=f;
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.006);
+  g.gain.setValueAtTime(vol,t+dur-.02); g.gain.linearRampToValueAtTime(0,t+dur);
+  o.connect(g).connect(sfxBus); o.start(t); o.stop(t+dur+.02);
+}
+const SFX={
+  tick(){ noiseBurst(.02,.16,4200); },
+  tuneBurst(){ noiseBurst(.30,.45,2200); },
+  squelchOpen(){ noiseBurst(.05,.4,3000); },
+  rogerK(){ tone(1180,.09,'square',.15); },
+  deny(){ tone(180,.09,'sawtooth',.14); tone(150,.09,'sawtooth',.14,.11); },
+  grant(){ tone(900,.045,'sine',.12); },
+  powerOn(){ tone(520,.07,'sine',.12); tone(780,.07,'sine',.12,.07); tone(1040,.11,'sine',.12,.14); },
+  powerOff(){ tone(780,.07,'sine',.1); tone(430,.13,'sine',.1,.07); },
+  totWarn(){ tone(1400,.05,'square',.13); tone(1400,.05,'square',.13,.12); },
+  emg(){ for(let i=0;i<4;i++){tone(1600,.1,'square',.18,i*.22); tone(1100,.1,'square',.18,i*.22+.1);} }
+};
+function setHiss(v){ if(hissGain) hissGain.gain.setTargetAtTime(v,ac.currentTime,.05); }
+
+/* ============ radio state machine (single source of truth) ============ */
+const S={ on:false, ch:1, code:0, mode:'LOCAL', tx:false, rx:false, mon:false,
+          emg:false, squelch:.028, stations:0, s:0, txStart:0 };
+const TOT=60000, WARN=5000;
+
+const $=id=>document.getElementById(id);
+const radio=$('radio');
+
+/* grille + s-meter construction */
+const grille=$('grille');
+for(let i=0;i<9;i++) grille.appendChild(document.createElement('i'));
+const bars=[...grille.querySelectorAll('i')];
+const smeter=$('smeter');
+for(let i=0;i<9;i++){ const b=document.createElement('i'); b.style.height=(4+i*1.1)+'px'; smeter.appendChild(b); }
+const sbars=[...smeter.querySelectorAll('i')];
+/* knurling */
+const knurl=$('knurl');
+for(let a=0;a<36;a++){ const i=document.createElement('i'); i.style.transform=`rotate(${a*10}deg)`; knurl.appendChild(i); }
+
+function tell(name,on){ document.querySelector(`[data-t="${name}"]`).classList.toggle('on',on); }
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function render(){
+  $('chan').textContent = S.on ? `${pad(S.ch)} · ${pad(S.code)}` : '-- · --';
+  $('modeGlass').textContent = S.on ? S.mode : 'OFF';
+  $('modeLbl').textContent = S.on ? S.mode : '—';
+  $('stn').textContent = 'STN '+S.stations;
+  tell('TX',S.tx); tell('MON',S.mon); tell('EMG',S.emg);
+  tell('PRV',false); tell('VOX',false); tell('NOLINK',false);
+  radio.classList.toggle('off',!S.on);
+  radio.classList.toggle('txing',S.tx);
+  grille.classList.toggle('live',S.rx);
+  $('status').textContent = !S.on ? '\u00a0'
+    : S.tx ? 'TRANSMITTING'
+    : S.rx ? '◄ BRAVO-7' : (S.stations? 'CHANNEL CLEAR':'NO STATIONS');
+  sbars.forEach((b,i)=> b.classList.toggle('on', S.on && i < S.s));
+  $('mark').style.transform=`rotate(${(S.ch%12)*30}deg)`;
+  $('knob').style.transform=`rotate(${knobAngle}deg)`;
+}
+
+/* ---- power ---- */
+$('pwr').onclick=()=>{
+  audio();
+  S.on=!S.on;
+  if(S.on){
+    SFX.powerOn();
+    $('chan').textContent='88 · 88';                    // all-segments flash
+    setTimeout(()=>{ S.stations=3; S.s=7; setHiss(S.squelch); render(); dev('Powered on · CH 01 · 3 stations found on this network'); },420);
+  } else {
+    SFX.powerOff(); setHiss(0); S.tx=S.rx=S.mon=S.emg=false; S.stations=0; S.s=0;
+    dev('Powered off');
+  }
+  render();
+};
+
+/* ---- tuning: knob physics with detents ---- */
+let knobAngle=0, dragging=false, lastA=0, vel=0, lastT=0, raf=null;
+const DETENT=30; // degrees per channel
+function angleFrom(e,el){ const r=el.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-(r.left+r.width/2);
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-(r.top+r.height/2);
+  return Math.atan2(y,x)*180/Math.PI; }
+function applyAngle(delta){
+  if(!S.on) return;
+  const before=Math.round(knobAngle/DETENT);
+  knobAngle+=delta;
+  const after=Math.round(knobAngle/DETENT);
+  if(after!==before){ tuneBy(after-before); }
+  render();
+}
+let tuneTimer=null;
+function tuneBy(n){
+  S.ch=((S.ch-1+n)%99+99)%99+1;
+  SFX.tick(); if(navigator.vibrate) navigator.vibrate(8);
+  S.rx=false;
+  clearTimeout(tuneTimer);
+  tuneTimer=setTimeout(()=>{ SFX.tuneBurst(); S.stations=1+Math.floor(Math.random()*4);
+    S.s=4+Math.floor(Math.random()*6); dev(`Tuned to CH ${pad(S.ch)} · ${S.stations} station(s)`); render(); },140);
+  render();
+}
+const knob=$('knob');
+function down(e){ if(!S.on) return; dragging=true; knob.classList.add('grabbing');
+  lastA=angleFrom(e,knob); lastT=performance.now(); vel=0; cancelAnimationFrame(raf); e.preventDefault(); }
+function move(e){ if(!dragging) return;
+  const a=angleFrom(e,knob); let d=a-lastA; if(d>180)d-=360; if(d<-180)d+=360;
+  const now=performance.now(); vel=d/Math.max(1,now-lastT)*16; lastA=a; lastT=now;
+  applyAngle(d); e.preventDefault(); }
+function up(){ if(!dragging) return; dragging=false; knob.classList.remove('grabbing');
+  vel=Math.max(-22,Math.min(22,vel));            // cap ≈ 12 detents/sec
+  const spin=()=>{ if(Math.abs(vel)<.4){ knobAngle=Math.round(knobAngle/DETENT)*DETENT; render(); return; }
+    applyAngle(vel); vel*=0.94; raf=requestAnimationFrame(spin); };  // friction decay, not a spring
+  raf=requestAnimationFrame(spin); }
+knob.addEventListener('mousedown',down); knob.addEventListener('touchstart',down,{passive:false});
+addEventListener('mousemove',move); addEventListener('touchmove',move,{passive:false});
+addEventListener('mouseup',up); addEventListener('touchend',up);
+
+/* steppers with accelerating auto-repeat (the accessible tuning path) */
+function stepper(el,dir){
+  let t1,t2,rate;
+  const go=()=>{ knobAngle+=DETENT*dir; tuneBy(dir); };
+  const start=e=>{ e.preventDefault(); if(!S.on) return; go(); rate=260;
+    t1=setTimeout(function rep(){ go(); rate=Math.max(60,rate*0.82); t2=setTimeout(rep,rate); },420); };
+  const stop=()=>{ clearTimeout(t1); clearTimeout(t2); };
+  el.addEventListener('mousedown',start); el.addEventListener('touchstart',start,{passive:false});
+  ['mouseup','mouseleave','touchend'].forEach(ev=>el.addEventListener(ev,stop));
+}
+stepper($('chup'),1); stepper($('chdn'),-1);
+
+/* ---- PTT: grant/deny, TOT, roger ---- */
+let totT=null, warnT=null;
+function pttDown(e){
+  e.preventDefault(); if(!S.on) return;
+  if(S.rx){ // busy channel lockout
+    SFX.deny(); if(navigator.vibrate) navigator.vibrate([18,40,18]);
+    $('ptt').classList.add('deny'); dev('PTT denied — channel busy (busy lockout)');
+    setTimeout(()=>$('ptt').classList.remove('deny'),260); return;
+  }
+  S.tx=true; S.txStart=performance.now();
+  SFX.grant(); if(navigator.vibrate) navigator.vibrate(14);   // grant tone+haptic = the ≤80ms perceived key-up
+  setHiss(0);
+  $('ptt').classList.add('on'); render();
+  warnT=setTimeout(()=>{ SFX.totWarn(); dev('Time-out timer: 5 seconds'); },TOT-WARN);
+  totT=setTimeout(()=>{ dev('Time-out timer — transmission cut'); pttUp(null,true); },TOT);
+}
+function pttUp(e,timedOut){
+  if(e) e.preventDefault();
+  if(!S.tx) return;
+  clearTimeout(totT); clearTimeout(warnT);
+  S.tx=false; $('ptt').classList.remove('on');
+  SFX.rogerK(); setHiss(S.mon?.12:S.squelch);
+  const ms=Math.round(performance.now()-S.txStart);
+  dev(`Transmitted ${(ms/1000).toFixed(1)}s${timedOut?' (cut by TOT)':''} · floor released`);
+  render();
+}
+const ptt=$('ptt');
+ptt.addEventListener('mousedown',pttDown); ptt.addEventListener('touchstart',pttDown,{passive:false});
+addEventListener('mouseup',pttUp); ptt.addEventListener('touchend',pttUp);
+addEventListener('keydown',e=>{ if(e.code==='Space'&&!e.repeat) pttDown(e); });
+addEventListener('keyup',e=>{ if(e.code==='Space') pttUp(e); });
+
+/* ---- monitor: opens the squelch ---- */
+const mon=$('mon');
+function monOn(e){ e.preventDefault(); if(!S.on) return; S.mon=true; mon.classList.add('held');
+  SFX.squelchOpen(); setHiss(.12); dev('Monitor — squelch open, raw channel bed'); render(); }
+function monOff(){ if(!S.mon) return; S.mon=false; mon.classList.remove('held'); setHiss(S.squelch); render(); }
+mon.addEventListener('mousedown',monOn); mon.addEventListener('touchstart',monOn,{passive:false});
+['mouseup','mouseleave','touchend'].forEach(ev=>mon.addEventListener(ev,monOff));
+
+/* ---- pro-locked keys demonstrate the gate, in-world ---- */
+[['scan','Scan'],['again','Say Again']].forEach(([id,name])=>{
+  $(id).onclick=()=>{ if(!S.on) return; SFX.deny(); dev(`${name} is a Pro feature — unlock once, keep forever`); };
+});
+
+/* ---- emergency ---- */
+let emgT;
+$('emg').addEventListener('mousedown',()=>{ if(!S.on) return; emgT=setTimeout(()=>{
+  S.emg=!S.emg; if(S.emg){ SFX.emg(); dev('EMERGENCY — priority pre-emption sent'); }
+  else dev('Emergency cleared'); render(); },600); });
+['mouseup','mouseleave','touchend'].forEach(ev=>$('emg').addEventListener(ev,()=>clearTimeout(emgT)));
+
+/* ---- simulated RX traffic so the grille + squelch behaviour can be felt ---- */
+setInterval(()=>{
+  if(!S.on||S.tx||S.stations===0) return;
+  if(!S.rx && Math.random()<.16){
+    S.rx=true; SFX.squelchOpen(); setHiss(.05); render();
+    setTimeout(()=>{ S.rx=false; SFX.rogerK(); setHiss(S.mon?.12:S.squelch); render(); }, 2200+Math.random()*3000);
+  }
+},1200);
+
+/* grille tremble driven by amplitude (settle curve, mass) */
+const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+function frame(){
+  if(!reduce){
+    const amp = S.rx?1:(S.mon?.25:0);
+    bars.forEach((b,i)=>{
+      const v = amp? 1+Math.sin(performance.now()/90+i)*0.5*amp*(0.6+Math.random()*0.6):1;
+      b.style.transform=`scaleY(${v.toFixed(3)})`;
+    });
+  }
+  requestAnimationFrame(frame);
+}
+frame();
+
+/* dev readout — prototype instrumentation only, never ships */
+let devT;
+function dev(msg){ $('dev').innerHTML=msg; clearTimeout(devT);
+  devT=setTimeout(()=>$('dev').innerHTML='Space bar = PTT · knob drag/fling to tune · hold MONITOR',4000); }
+render();
+</script>
+</body>
+</html>
