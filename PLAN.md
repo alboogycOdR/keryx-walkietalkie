@@ -546,7 +546,7 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 
 ### TASK-012
 **Title:** Segment LCD glass component: channel/code, telltales, dot-matrix line (KRX-012)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §6.1, §6.3, §11 E2 (KRX-012), FR-001, FR-002, FR-007; specs/KERYX_UI_Design_Specification_v1.0.md §1, §5.2, §9 (FR-109); specs/keryx-face-prototype.html (.glass markup)
@@ -563,13 +563,14 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 - [ ] Widget tests cover telltales TX/MON/PRV/VOX/EMG/NO LINK per TS §6.1 diagram; green
 **Branch:** task/TASK-012-cx
 **Started_At:** 2026-08-18T15:14:49Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-18T15:14:49Z] [CX] Claimed TASK-012 and completed the c8b9872 preflight: `lib/features/display/**` and `test/features/display/**` are new, exclusive territory. Implementing the immutable LCD display model and self-contained glass widget against the frozen theme tokens.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-18T15:14:49Z
+**Updated_At:** 2026-08-18T15:16:30Z
 
 ### TASK-013
 **Title:** Rotary knob widget: arc drag, detents, flywheel, haptic hooks (KRX-011)
