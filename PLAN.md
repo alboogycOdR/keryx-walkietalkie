@@ -272,7 +272,7 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 
 ### TASK-006
 **Title:** Floor control protocol v1: message codec, versioning, timing constants (KRX-040)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.6, §11 E5 (KRX-040), FR-025
@@ -286,15 +286,24 @@ New territory under token-svc/**. Implementing FastAPI JWT mint, event-token exp
 - [ ] Timing constants exactly match TS §8.6 locked table (5 s/3 missed, TOT+2 s default 62 s, ≤ 500 ms, 150 ms/3 attempts, 750 ms) and are asserted by tests
 - [ ] Encoding is JSON per TS §8.6 ("JSON over data channels; protobuf reserved for v2")
 - [ ] Codec round-trip + malformed-input tests green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-006-gb
+**Started_At:** 2026-08-18T12:16:00Z
+**Progress_Notes:**
+- [2026-08-18T12:16:00Z] [GB] Claimed TASK-006. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-006 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-grok-walkietalkie-keryx
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/protocol/**  -> matches nothing yet (new territory)
+  GLOB   test/core/protocol/**  -> matches nothing yet (new territory)
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+New territory under lib/core/protocol/** and test/core/protocol/**. Implementing §8.6 codec, versioned envelope, FloorTiming constants.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-18T12:16:00Z
 
 ### TASK-007
 **Title:** Room derivation library: numbered/keyed/scrypt + test vectors (KRX-053)
