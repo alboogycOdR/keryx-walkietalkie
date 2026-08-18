@@ -17,7 +17,7 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 
 ### TASK-001
 **Title:** Repo scaffold: Flutter app + CI (KRX-001, app half)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** CX
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1, §11 E1 (KRX-001), §9 NFR-10; specs/KERYX_UI_Design_Specification_v1.0.md §3
@@ -34,13 +34,28 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 - [ ] `flutter analyze` and `flutter test` pass locally; no pre-existing repo file outside Owned_Paths modified
 **Branch:** task/TASK-001-cx
 **Started_At:** 2026-08-18T09:41:16Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-18T09:42:30Z] [CX] Preflight complete:
+  [preflight] TASK-001 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-codex-walkietalkie-keryx
+  [preflight] 11 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+    NEW    pubspec.yaml  -> does not exist; parent ./ exists
+    NEW    pubspec.lock  -> does not exist; parent ./ exists
+    NEW    analysis_options.yaml  -> does not exist; parent ./ exists
+    NEW    .metadata  -> does not exist; parent ./ exists
+    FILE   .gitignore  -> exists, 13 line(s), 340 bytes
+    NEW    README.md  -> does not exist; parent ./ exists
+    GLOB   lib/**  -> matches nothing yet (new territory)
+    GLOB   test/**  -> matches nothing yet (new territory)
+    GLOB   android/**  -> matches nothing yet (new territory)
+    GLOB   assets/**  -> matches nothing yet (new territory)
+    GLOB   .github/**  -> matches nothing yet (new territory)
+  [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-18T09:41:16Z
+**Updated_At:** 2026-08-18T09:42:30Z
 
 ### TASK-002
 **Title:** Relay stack: LiveKit + Redis + Caddy + coturn Docker compose (KRX-050)
