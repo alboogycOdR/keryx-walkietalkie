@@ -768,7 +768,7 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 ### TASK-022
 **Title:** Floor control runtime: arbiter election, leases, lockout, TOT, emergency (KRX-041/042/043)
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 step 4, §8.6, FR-022, FR-023, FR-025, §11 E5 (KRX-041, KRX-042, KRX-043)
 **Owned_Paths:** lib/core/floor/**, test/core/floor/**
