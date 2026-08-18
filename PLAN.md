@@ -44,7 +44,7 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 
 ### TASK-002
 **Title:** Relay stack: LiveKit + Redis + Caddy + coturn Docker compose (KRX-050)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1 (Relay row), §8.4, §11 E6 (KRX-050), §9 NFR-05, NFR-09
@@ -58,15 +58,15 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 - [ ] Hardening checklist delivered per TS §11 KRX-050 ("Relay deployment: LiveKit + Redis + coturn + Caddy compose; hardening checklist")
 - [ ] Scale-out path documented per TS §9 NFR-09 ("1 VPS serves ≥ 500 concurrent channel-joins; scale-out documented")
 - [ ] `docker compose config` validates cleanly (evidence pasted)
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-002-gb
+**Started_At:** 2026-08-18T09:32:00Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-18T09:32:00Z
 
 ### TASK-003
 **Title:** Token service: FastAPI LiveKit JWT mint + rate limiting (KRX-051)
