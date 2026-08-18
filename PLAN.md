@@ -427,7 +427,7 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 
 ### TASK-009
 **Title:** Identity: peerId derivation + NATO callsign generator (KRX-075 + §8.6 identity)
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.6 (Peer identity), FR-068, §11 E8 (KRX-075)
@@ -435,21 +435,47 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 **Depends_On:** TASK-001
 **Description:** Under `lib/core/identity/`: install-time UUID generation (persisted via its own tiny storage adapter, not TASK-008's territory), `peerId = base32(SHA-256(installUUID))[:10]`, NATO-phonetic callsign auto-generation (e.g. `BRAVO-7`, `SIERRA-19`), callsign editing with 2–12 char validation, and per-channel collision suffixing logic (`BRAVO-7 (2)` by join order) as a pure function over a peer list. Property tests on peerId distribution/stability and collision suffixing.
 **Acceptance_Criteria:**
-- [ ] `peerId = base32(SHA-256(installUUID))[:10]`, generated once at install, independent of callsign, per TS §8.6 ("Peer identity (normative)")
-- [ ] Callsigns are auto-generated NATO-phonetic on first run, editable, 2–12 chars, per FR-068
-- [ ] No uniqueness enforcement beyond per-channel collision suffixing per FR-068 ("No accounts, no uniqueness enforcement beyond per-channel collision suffixing")
-- [ ] Collision rendering: later joiners get a numeric suffix by join order; peerIds never collide, per TS §8.6 ("later joiners render with a numeric suffix (BRAVO-7, BRAVO-7 (2)) derived from join order")
-- [ ] Callsigns are display-only (not used in election) per TS §8.6 ("Callsigns are display-only")
-- [ ] Unit/property tests green
+- [x] `peerId = base32(SHA-256(installUUID))[:10]`, generated once at install, independent of callsign, per TS §8.6 ("Peer identity (normative)")
+- [x] Callsigns are auto-generated NATO-phonetic on first run, editable, 2–12 chars, per FR-068
+- [x] No uniqueness enforcement beyond per-channel collision suffixing per FR-068 ("No accounts, no uniqueness enforcement beyond per-channel collision suffixing")
+- [x] Collision rendering: later joiners get a numeric suffix by join order; peerIds never collide, per TS §8.6 ("later joiners render with a numeric suffix (BRAVO-7, BRAVO-7 (2)) derived from join order")
+- [x] Callsigns are display-only (not used in election) per TS §8.6 ("Callsigns are display-only")
+- [x] Unit/property tests green
 **Branch:** task/TASK-009-gb
 **Started_At:** 2026-08-18T15:16:00Z
-**Progress_Notes:** —
-**Artifacts:** —
-**Test_Evidence:** —
+**Progress_Notes:**
+- [2026-08-18T15:16:30Z] [GB] Claimed TASK-009. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-009 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-grok-walkietalkie-keryx
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/identity/**  -> matches nothing yet (new territory)
+  GLOB   test/core/identity/**  -> matches nothing yet (new territory)
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+New territory. Implementing install UUID, peerId derivation, NATO callsigns, collision display. Will not import lib/core/settings (TASK-008).
+- [2026-08-18T15:21:05Z] [GB] Identity complete on `task/TASK-009-gb` (commit 49eae05). Pins (spec-silent): RFC 4648 lowercase unpadded base32; hash input is the 16 raw UUID bytes; NATO number 1–99; callsign charset `[A-Za-z0-9-]{2,12}`; collision is exact-match join-order suffixing. Memory store lives in test/, not the production barrel. Ready for review.
+**Artifacts:**
+- `lib/core/identity/identity.dart`
+- `lib/core/identity/identity_repository.dart`
+- `lib/core/identity/identity_store.dart`
+- `lib/core/identity/install_uuid.dart`
+- `lib/core/identity/peer_id.dart`
+- `lib/core/identity/rfc4648_base32.dart`
+- `lib/core/identity/callsign.dart`
+- `lib/core/identity/collision.dart`
+- `lib/core/identity/README.md`
+- `test/core/identity/peer_id_test.dart`
+- `test/core/identity/callsign_test.dart`
+- `test/core/identity/collision_test.dart`
+- `test/core/identity/identity_repository_test.dart`
+- `test/core/identity/memory_identity_store.dart`
+**Test_Evidence:**
+- [2026-08-18T15:21:05Z] [GB] `flutter analyze` — passed: No issues found! (ran in 9.1s).
+- [2026-08-18T15:21:05Z] [GB] `flutter test --reporter expanded` — 132/132 passed, 0 failed, 0 skipped. New identity: callsign 6 + collision 7 + repository 6 + peerId 9 = 28; prior 104 unchanged.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-18T15:16:00Z
+**Updated_At:** 2026-08-18T15:21:05Z
 
 ### TASK-010
 **Title:** SFX engine: dual-bus mixer, ducking, loop beds, roger variants (KRX-021 + KRX-024 playback)
