@@ -546,7 +546,7 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 
 ### TASK-012
 **Title:** Segment LCD glass component: channel/code, telltales, dot-matrix line (KRX-012)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §6.1, §6.3, §11 E2 (KRX-012), FR-001, FR-002, FR-007; specs/KERYX_UI_Design_Specification_v1.0.md §1, §5.2, §9 (FR-109); specs/keryx-face-prototype.html (.glass markup)
@@ -561,15 +561,15 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 - [ ] Power-up shows the all-segments flash per DS §1 ("including the classic 'all segments on' flash at power-up") and DS §9 FR-109
 - [ ] Display/legend luminance follows a dim input per DS §9 FR-108 ("Night dimming — display and legend luminance follow an auto/manual dim setting")
 - [ ] Widget tests cover telltales TX/MON/PRV/VOX/EMG/NO LINK per TS §6.1 diagram; green
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-012-cx
+**Started_At:** 2026-08-18T15:14:49Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** CX
+**Updated_At:** 2026-08-18T15:14:49Z
 
 ### TASK-013
 **Title:** Rotary knob widget: arc drag, detents, flywheel, haptic hooks (KRX-011)
