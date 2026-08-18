@@ -17,7 +17,7 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 
 ### TASK-001
 **Title:** Repo scaffold: Flutter app + CI (KRX-001, app half)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1, §11 E1 (KRX-001), §9 NFR-10; specs/KERYX_UI_Design_Specification_v1.0.md §3
@@ -25,13 +25,13 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
 **Depends_On:** —
 **Description:** Create the Flutter application skeleton per TS §8.1 (Flutter/Dart 3, Android-first, min SDK 26, target latest) via `flutter create --platforms android` (org `za.co.basileia`, project `keryx`), plus CI (GitHub Actions: `flutter analyze`, `flutter test`, debug APK build). Pre-declare ALL anticipated Phase-1 pub dependencies (flutter_riverpod, flutter_webrtc, livekit_client, flutter_secure_storage/shared_preferences, crypto, qr_flutter, mobile_scanner, vibration) and bundle/declare the four font families from DS §3 (DSEG7 Classic, Share Tech Mono, Barlow Condensed, Inter) plus empty `assets/sfx/v1/` pipeline dir, so downstream feature tasks never need to touch pubspec.yaml. Create empty directory skeleton `lib/core/`, `lib/features/`, `lib/services/` with placeholder barrel comments. Must NOT touch existing DEVDEPARTMENT files (docs/, scripts/, tests/, hooks/, briefings/, board/, deploy/, specs/, *.md coordination files) — append Flutter ignores to the existing .gitignore, don't replace it.
 **Acceptance_Criteria:**
-- [ ] Flutter app targets Android with `minSdkVersion 26` per TS §8.1 ("Flutter (Dart 3), Android-first, min SDK 26, target latest")
-- [ ] Riverpod is the state-management dependency per TS §8.1 ("State mgmt: Riverpod (or Bloc — dev's standing convention wins)")
-- [ ] `flutter_webrtc` and `livekit_client` are declared per TS §8.1 ("WebRTC via flutter_webrtc (LOCAL) and livekit_client (LINKED)")
-- [ ] Font families DSEG7 Classic (7-segment channel numerals), Share Tech Mono, Barlow Condensed, Inter are bundled and declared per DS §3 typography table
-- [ ] `assets/sfx/v1/` exists as the versioned sound asset root per TS §7 ("Sound is a first-class, versioned asset set (/assets/sfx/v1/)")
-- [ ] CI workflow runs `flutter analyze`, `flutter test`, and builds a debug APK per TS §11 KRX-001 ("CI (analyze, test, build APK)")
-- [ ] `flutter analyze` and `flutter test` pass locally; no pre-existing repo file outside Owned_Paths modified
+- [x] Flutter app targets Android with `minSdkVersion 26` per TS §8.1 ("Flutter (Dart 3), Android-first, min SDK 26, target latest")
+- [x] Riverpod is the state-management dependency per TS §8.1 ("State mgmt: Riverpod (or Bloc — dev's standing convention wins)")
+- [x] `flutter_webrtc` and `livekit_client` are declared per TS §8.1 ("WebRTC via flutter_webrtc (LOCAL) and livekit_client (LINKED)")
+- [x] Font families DSEG7 Classic (7-segment channel numerals), Share Tech Mono, Barlow Condensed, Inter are bundled and declared per DS §3 typography table
+- [x] `assets/sfx/v1/` exists as the versioned sound asset root per TS §7 ("Sound is a first-class, versioned asset set (/assets/sfx/v1/)")
+- [x] CI workflow runs `flutter analyze`, `flutter test`, and builds a debug APK per TS §11 KRX-001 ("CI (analyze, test, build APK)")
+- [x] `flutter analyze` and `flutter test` pass locally; no pre-existing repo file outside Owned_Paths modified
 **Branch:** task/TASK-001-cx
 **Started_At:** 2026-08-18T09:41:16Z
 **Progress_Notes:**
@@ -50,12 +50,18 @@ Spec shorthand used below: **TS** = `specs/KERYX_Product_Technical_Spec_v1.1.md`
     GLOB   assets/**  -> matches nothing yet (new territory)
     GLOB   .github/**  -> matches nothing yet (new territory)
   [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-18T09:59:47Z] [CX] Flutter Android scaffold, Phase-1 dependencies, bundled font assets, versioned SFX root, CI workflow, and minimal Riverpod boot shell committed as 789d30a; ready for review. Local debug APK build was attempted after setting compileSdk 37 for flutter_secure_storage, but the environment timed out during Gradle without a final result.
+**Artifacts:**
+- `.github/workflows/flutter.yml`, `.gitignore`, `.metadata`, `README.md`, `analysis_options.yaml`, `pubspec.yaml`, `pubspec.lock`
+- `android/**`, `assets/fonts/**`, `assets/sfx/v1/.gitkeep`, `lib/main.dart`, `lib/core/core.dart`, `lib/features/features.dart`, `lib/services/services.dart`, `test/widget_test.dart`
+**Test_Evidence:**
+- [2026-08-18T09:58:00Z] [CX] `flutter analyze` — passed: No issues found.
+- [2026-08-18T09:58:00Z] [CX] `flutter test` — passed: 1/1 widget tests.
+- [2026-08-18T09:58:00Z] [CX] `flutter build apk --debug` — attempted twice; first exposed compileSdk 37 requirement from `flutter_secure_storage` and a shader output-write error, then retry timed out after 306 s in Gradle with no final artifact/result. CI independently runs this required command.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-18T09:42:30Z
+**Updated_At:** 2026-08-18T09:59:47Z
 
 ### TASK-002
 **Title:** Relay stack: LiveKit + Redis + Caddy + coturn Docker compose (KRX-050)
