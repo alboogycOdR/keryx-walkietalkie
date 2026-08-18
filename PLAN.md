@@ -695,7 +695,7 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 
 ### TASK-019
 **Title:** NSD discovery platform channel + MulticastLock lifecycle (KRX-030)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1 (Local discovery row), §8.3 step 1, FR-041, FR-042, §9 NFR-04, §11 E4 (KRX-030)
@@ -735,12 +735,13 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 android/** exists (scaffold from TASK-001). New territory under lib/services/discovery/** and test/services/discovery/**. Implementing NSD platform channel, MulticastLock lifecycle, UDP beacon fallback, LAN? state.
+- [2026-08-18T13:33:00Z] [GB] Status → in_progress. Starting Kotlin NsdPlugin + Dart facade. Will not touch lib/services/services.dart (outside Owned_Paths).
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-18T13:31:20Z
+**Updated_At:** 2026-08-18T13:33:00Z
 
 ### TASK-020
 **Title:** LAN signaling WebSocket + peer session management (KRX-031)
