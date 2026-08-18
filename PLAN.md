@@ -849,7 +849,7 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 
 ### TASK-022
 **Title:** Floor control runtime: arbiter election, leases, lockout, TOT, emergency (KRX-041/042/043)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 step 4, §8.6, FR-022, FR-023, FR-025, §11 E5 (KRX-041, KRX-042, KRX-043)
@@ -857,13 +857,13 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 **Depends_On:** TASK-004, TASK-006
 **Description:** Under `lib/core/floor/`: the floor-control engine consuming/emitting TASK-006 protocol messages over an injected transport — deterministic arbiter election (lexicographically lowest peerId, re-elected on churn, self-healing ≤ 500 ms), grant leases (TOT + 2 s, expiry frees a crashed speaker's floor), busy-channel lockout denials, TOT with T-5 s warning and hard cut, TX_REQ retry (150 ms ×3), and emergency pre-emption (prio=1 pre-empts an active lease, EMG pin until EMG_CLR). Drives the TASK-004 reducer via events. Deterministic (injected clock) unit tests.
 **Acceptance_Criteria:**
-- [ ] "Deterministic arbiter = lexicographically lowest peer ID currently in the channel (re-elected on churn); grants are idempotent and time-bounded, so arbiter loss self-heals within 500 ms" per TS §8.3 step 4
-- [ ] "Grants expire; a crashed speaker frees the floor automatically at lease end" per TS §8.6; lease = TOT + 2 s
-- [ ] Busy lockout: "if the floor is held, PTT press yields a denied buzz … Setting: on by default" per FR-022 (deny decision emitted; SFX/haptics are consumers)
-- [ ] TOT: "max continuous TX 60 s (configurable 30–120 s). Warning chirp at T-5 s, hard cut + penalty tone at 0, floor released" per FR-023 (warn/cut events emitted)
-- [ ] "emergency TX_REQ(prio=1) pre-empts an active lease" per TS §8.6; overrides busy lockout and pins EMG until cleared per FR-025
-- [ ] TX_REQ retry 150 ms / 3 attempts per TS §8.6 timing table
-- [ ] Deterministic unit tests green with injected clock/transport
+- [x] "Deterministic arbiter = lexicographically lowest peer ID currently in the channel (re-elected on churn); grants are idempotent and time-bounded, so arbiter loss self-heals within 500 ms" per TS §8.3 step 4
+- [x] "Grants expire; a crashed speaker frees the floor automatically at lease end" per TS §8.6; lease = TOT + 2 s
+- [x] Busy lockout: "if the floor is held, PTT press yields a denied buzz … Setting: on by default" per FR-022 (deny decision emitted; SFX/haptics are consumers)
+- [x] TOT: "max continuous TX 60 s (configurable 30–120 s). Warning chirp at T-5 s, hard cut + penalty tone at 0, floor released" per FR-023 (warn/cut events emitted)
+- [x] "emergency TX_REQ(prio=1) pre-empts an active lease" per TS §8.6; overrides busy lockout and pins EMG until cleared per FR-025
+- [x] TX_REQ retry 150 ms / 3 attempts per TS §8.6 timing table
+- [x] Deterministic unit tests green with injected clock/transport
 **Branch:** task/TASK-022-gb
 **Started_At:** 2026-08-18T14:39:34Z
 **Progress_Notes:**
@@ -876,12 +876,26 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injected clock + transport. Protocol (`lib/core/protocol/**`) and reducer (`lib/core/state/**`) are frozen — imported, not edited.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-18T14:50:22Z] [GB] Floor runtime complete on `task/TASK-022-gb` (commit 745c987). Pins (spec-silent): lockout is a local setting (default on) — PTT while a remote holds emits `DenyBuzz(LOCKOUT)` and never sends `TX_REQ`; arbiter still denies a held floor with `BUSY` (P5, one voice). Idempotent re-grant keeps remaining lease (cannot extend TOT). `TX_GRANT.peer` / `TX_DENY.peer` are the subject, not the sender. Ready for review.
+**Artifacts:**
+- `lib/core/floor/floor.dart`
+- `lib/core/floor/arbiter.dart`
+- `lib/core/floor/clock.dart`
+- `lib/core/floor/effects.dart`
+- `lib/core/floor/emergency.dart`
+- `lib/core/floor/floor_engine.dart`
+- `lib/core/floor/transport.dart`
+- `lib/core/floor/README.md`
+- `test/core/floor/arbiter_test.dart`
+- `test/core/floor/floor_engine_test.dart`
+**Test_Evidence:**
+- [2026-08-18T14:50:22Z] [GB] `flutter analyze` — passed: No issues found! (ran in 12.9s).
+- [2026-08-18T14:50:22Z] [GB] `flutter test test/core/floor --reporter expanded` — 28/28 passed (arbiter 11 + engine 17).
+- [2026-08-18T14:50:22Z] [GB] `flutter test --reporter compact` — 99/99 passed, 0 failed, 0 skipped (prior 71 + 28 floor).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-18T14:40:20Z
+**Updated_At:** 2026-08-18T14:50:22Z
 
 ### TASK-023
 **Title:** Floor-control simulation soak harness: 500-run churn/loss, zero double-grants (KRX-044)
