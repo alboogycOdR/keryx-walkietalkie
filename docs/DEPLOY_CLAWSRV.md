@@ -58,7 +58,7 @@ to verify (and this list is exactly what's still unverified as of v4.2):
    OAuth step that a headless server can't complete on its own.)
 2. Does `claude -p ... --dangerously-skip-permissions` on clawsrv have the
    same effective permissions/model access as on the laptop, including
-   `claude-opus-4-8` for review/triage and `claude-sonnet-5` for the S5
+   `claude-opus-5` for review/triage and `claude-sonnet-5` for the S5
    builder? (Model discipline table, CLAUDE.md.)
 3. Storage/CPU headroom on clawsrv for three concurrent agentic CLI
    sessions plus the supervisor's own monitoring profile — not evaluated.

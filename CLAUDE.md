@@ -58,9 +58,9 @@ Full reasoning for each row (and the S5 reviewer-parity decision of 2026-07-19 b
 
 | Operation | Model |
 |---|---|
-| Architectural decisions — `/devteam-decompose`, spec authoring, Owned_Paths design | `claude-fable-5` (medium reasoning effort minimum; high for complex waves) |
-| `/devteam-review` — full territory diff + spec verification + test run | `claude-opus-4-8` |
-| Scope triage — unblocking, re-carving territories, dependency re-sequencing | `claude-opus-4-8` |
+| Architectural decisions — `/devteam-decompose`, spec authoring, Owned_Paths design | `claude-opus-5` (medium reasoning effort minimum; high for complex waves) |
+| `/devteam-review` — full territory diff + spec verification + test run | `claude-opus-5` |
+| Scope triage — unblocking, re-carving territories, dependency re-sequencing | `claude-opus-5` |
 | `/devteam-status` — sync scan, health report, PLAN.md read | `claude-sonnet-4-6` |
 | PLAN.md updates — frontmatter, orchestrator_notes, status writes | `claude-sonnet-4-6` |
 | `/devteam-dispatch` — validate + launch builders | `claude-sonnet-4-6` |
@@ -71,7 +71,7 @@ Hard rules that follow from it:
 - The Wave C distiller stays on `claude-sonnet-5` (`autopilot.json` → `learning.model`) deliberately — it is not a gate.
 - Keep `autopilot.json`'s `review_cmd` and `judgment_model` aligned with this table. The unattended autopilot path is where a silently-downgraded reviewer does the most damage.
 
-**How to switch — batch, don't thrash.** Each model keeps its own prompt cache, so every mid-session `/model` swap re-reads the whole prefix at full price. Group mechanical operations together on sonnet-4-6, then switch once for the judgment operation — don't alternate turn by turn. For a self-contained judgment op, prefer a separate headless invocation (`claude -p "/devteam-review" --model claude-opus-4-8 --dangerously-skip-permissions`): it gets its own clean cache and leaves the interactive session's prefix intact. That's already how the autopilot runs every judgment call.
+**How to switch — batch, don't thrash.** Each model keeps its own prompt cache, so every mid-session `/model` swap re-reads the whole prefix at full price. Group mechanical operations together on sonnet-4-6, then switch once for the judgment operation — don't alternate turn by turn. For a self-contained judgment op, prefer a separate headless invocation (`claude -p "/devteam-review" --model claude-opus-5 --dangerously-skip-permissions`): it gets its own clean cache and leaves the interactive session's prefix intact. That's already how the autopilot runs every judgment call.
 
 ## Context & prefix hygiene
 

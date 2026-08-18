@@ -9,7 +9,7 @@
     "file",
     "telegram"
   ],
-  "review_cmd": "claude -p \"You are ORCH in this repository. Read .claude/commands/devteam-review.md and execute that review workflow end-to-end now for every task with Status: needs_review. The integration branch is per autopilot.json git.base_branch.\" --model claude-opus-4-8 --dangerously-skip-permissions",
+  "review_cmd": "claude -p \"You are ORCH in this repository. Read .claude/commands/devteam-review.md and execute that review workflow end-to-end now for every task with Status: needs_review. The integration branch is per autopilot.json git.base_branch.\" --model claude-opus-5 --dangerously-skip-permissions",
   "_review_cmd_note": "Slash commands do NOT expand in claude -p on this CLI version — verified live 2026-08-13: '/devteam-review' as the -p prompt produced a no-op session ('I don't see a specific request'). The explicit read-and-execute prompt is the working form.",
   "builders": {
     "active": [
@@ -117,7 +117,7 @@
     "defer_above_pct": 90,
     "critical_overrides": true
   },
-  "judgment_model": "claude-opus-4-8",
+  "judgment_model": "claude-opus-5",
   "atlas": {
     "enabled": false,
     "budget_tokens": 3000,
