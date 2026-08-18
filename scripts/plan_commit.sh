@@ -37,8 +37,24 @@ if [ -z "$MSG" ]; then
   exit 2
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Repo root MUST be resolved independent of where this script's own file
+# lives (was: derived from ${BASH_SOURCE[0]}'s directory). Every git worktree
+# carries its own full copy of tracked files, including this script -- so a
+# builder invoking it by the instructed relative path
+# ("scripts/plan_commit.sh") from inside its own worktree ends up running
+# THAT worktree's copy, and the old SCRIPT_DIR-derived path resolved to the
+# worktree root instead of the main checkout, tripping the integration-branch
+# check below for every builder. `git rev-parse --git-common-dir` is
+# worktree-independent: it always points at the shared .git directory inside
+# the MAIN checkout, from any worktree. Confirmed live 2026-08-18: CX blocked
+# on exactly this before claiming TASK-001, running from
+# wt-codex-walkietalkie-keryx.
+if GIT_COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null)"; then
+  REPO_ROOT="$(cd "$GIT_COMMON_DIR/.." && pwd)"
+else
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
 PLAN="$REPO_ROOT/PLAN.md"
 
 if [ ! -f "$PLAN" ]; then

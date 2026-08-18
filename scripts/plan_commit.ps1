@@ -32,7 +32,27 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$RepoRoot = Split-Path -Parent $PSScriptRoot
+
+# Repo root MUST be resolved independent of where this script's own file
+# lives, not via $PSScriptRoot. Every git worktree carries its own full copy
+# of tracked files, including this script -- so a builder invoking it by the
+# instructed relative path ("scripts\plan_commit.ps1") from inside its own
+# worktree ends up running THAT worktree's copy, and $PSScriptRoot then
+# resolves to the worktree root instead of the main checkout. The main-branch
+# check below then fails (worktree HEAD is detached/on a task branch, never
+# the integration branch), and the builder is wrongly refused.
+# `git rev-parse --git-common-dir` is worktree-independent: it always points
+# at the shared .git directory inside the MAIN checkout, from any worktree.
+# Confirmed live 2026-08-18: CX blocked on exactly this before claiming
+# TASK-001, running from wt-codex-walkietalkie-keryx.
+$GitCommonDir = (git rev-parse --git-common-dir 2>$null)
+if ($LASTEXITCODE -eq 0 -and $GitCommonDir) {
+    $RepoRoot = Split-Path (Resolve-Path $GitCommonDir) -Parent
+} else {
+    # Not inside a git repo at all (or git unavailable) -- fall back to the
+    # old behaviour rather than fail outright.
+    $RepoRoot = Split-Path -Parent $PSScriptRoot
+}
 $Plan = Join-Path $RepoRoot "PLAN.md"
 
 if (-not (Test-Path $Plan)) {
