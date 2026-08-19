@@ -549,7 +549,7 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 
 ### TASK-011
 **Title:** Radio character DSP + squelch gate wiring (KRX-022, KRX-023)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §7.2 (RX chain), §11 E3 (KRX-022, KRX-023), FR-061
@@ -557,10 +557,10 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 **Depends_On:** TASK-010
 **Description:** Extend `lib/core/audio/` (same territory as TASK-010, sequenced after it) with the voice-bus RX chain: 300–3400 Hz band-pass, 3:1 soft-knee compression, +0…+6 dB makeup, optional hiss floor mixed at squelch-knob level, with Off/Light/Full intensity; plus squelch wiring — the squelch setting drives both the RX gate threshold and the resting hiss bed level. DSP as a pure sample-transform pipeline with golden-audio unit tests (process known buffers, assert spectra/envelope), independent of WebRTC plumbing.
 **Acceptance_Criteria:**
-- [ ] RX chain implements "radio character DSP (300–3400 Hz band-pass, 3:1 soft-knee compression, +0…+6 dB makeup, optional hiss floor mixed at squelch-knob level)" per TS §7.2
-- [ ] Intensity setting Off/Light/Full with default Light per TS §7.2
-- [ ] Squelch "sets RX gate threshold and the resting hiss level (from silent to faint bed)" per FR-061
-- [ ] DSP is testable without network: pure buffer-in/buffer-out pipeline; unit tests green
+- [x] RX chain implements "radio character DSP (300–3400 Hz band-pass, 3:1 soft-knee compression, +0…+6 dB makeup, optional hiss floor mixed at squelch-knob level)" per TS §7.2
+- [x] Intensity setting Off/Light/Full with default Light per TS §7.2
+- [x] Squelch "sets RX gate threshold and the resting hiss level (from silent to faint bed)" per FR-061
+- [x] DSP is testable without network: pure buffer-in/buffer-out pipeline; unit tests green
 **Branch:** task/TASK-011-gb
 **Started_At:** 2026-08-19T05:21:54Z
 **Progress_Notes:**
@@ -601,12 +601,34 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Existing TASK-010 territory. Implementing character DSP + squelch wiring; will also absorb in-territory TASK-010 follow-ups (equal-power bed crossfade, duck-release scheduler). tune_burst ducking contradiction left as §7.2 (SFX ducks voice) pending ORCH ruling (h).
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-19T05:35:18Z] [GB] Character DSP + squelch complete on `task/TASK-011-gb` (commit 8630464). `VoiceRxProcessor` = `RxGate` + `RadioCharacterChain` (Off bypass / Light default / Full; 300–3400 Hz HP+LP; 3:1 soft-knee; makeup 0/3/6 dB; hiss mixed at squelch level while gate is open). `SfxEngine.applySquelch(0–10)` maps to faint bed 0..0.12. Absorbed TASK-010 follow-ups (1) optional `scheduleDuckRelease` and (5) equal-power `BedMixer` + regenerated `static_bed_*.wav`. tune_burst still follows §7.2 (SFX ducks voice). Ready for review.
+**Artifacts:**
+- `lib/core/audio/README.md`
+- `lib/core/audio/audio.dart`
+- `lib/core/audio/audio_mix.dart`
+- `lib/core/audio/bed_mixer.dart`
+- `lib/core/audio/character_chain.dart`
+- `lib/core/audio/dsp/biquad.dart`
+- `lib/core/audio/dsp/compressor.dart`
+- `lib/core/audio/dsp/hiss_floor.dart`
+- `lib/core/audio/ducking.dart`
+- `lib/core/audio/rx_processor.dart`
+- `lib/core/audio/sfx_engine.dart`
+- `lib/core/audio/squelch.dart`
+- `assets/sfx/tools/generate_placeholders.py`
+- `assets/sfx/v1/static_bed_1.wav`
+- `assets/sfx/v1/static_bed_2.wav`
+- `assets/sfx/v1/static_bed_3.wav`
+- `test/core/audio/bed_mixer_test.dart`
+- `test/core/audio/character_dsp_test.dart`
+- `test/core/audio/squelch_test.dart`
+**Test_Evidence:**
+- [2026-08-19T05:35:18Z] [GB] `flutter test --reporter compact` — 159/159 passed (full suite). Audio slice 44/44 (bed_mixer 7, character_dsp 9, manifest_and_assets 5, sfx_engine 11, squelch 12).
+- [2026-08-19T05:35:18Z] [GB] `flutter analyze` — passed: No issues found! (ran in 2.2s).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-19T05:24:30Z
+**Updated_At:** 2026-08-19T05:35:18Z
 
 ### TASK-012
 **Title:** Segment LCD glass component: channel/code, telltales, dot-matrix line (KRX-012)
