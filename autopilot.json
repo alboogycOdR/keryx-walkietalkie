@@ -69,7 +69,8 @@
         "briefing": "briefings/S5_BUILD_BRIEFING.md",
         "auto_loads_ambient_context": true,
         "usage_provider": null,
-        "_comment": "Defined but NOT active: activate by adding 'S5B' to builders.active AFTER the live CLAUDE_CONFIG_DIR verification in docs/BUILDER_REGISTRY.md. usage_provider stays null until the per-account probe (increment 9) exists."
+        "_comment": "Defined but NOT active: activate by adding 'S5B' to builders.active AFTER the live CLAUDE_CONFIG_DIR verification in docs/BUILDER_REGISTRY.md. usage_provider stays null until the per-account probe (increment 9) exists.",
+        "_blocked_2026_08_19": "ABANDONED for this project, not merely deferred: the project owner has NO second Anthropic account. S5B exists solely to supply a second independent usage window; on a single account it adds concurrency with ZERO added quota while both Claude builders contend for the same window ORCH's own opus-5 reviews draw from -- strictly worse than sequencing. Do NOT add S5B to builders.active until a second subscription exists. Verified-and-still-valid prereqs if revisited: claude 2.1.235 >= required 2.1.225; dispatch.ps1 config_dir scoping (CLAUDE_CONFIG_DIR set per-launch, restored in finally) confirmed via -DryRun. NOT done: the CLAUDE_CONFIG_DIR live verification; ~/.claude-s5b does not exist. Effective roster is GB + S5."
       }
     }
   },
