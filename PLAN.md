@@ -549,7 +549,7 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 
 ### TASK-011
 **Title:** Radio character DSP + squelch gate wiring (KRX-022, KRX-023)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §7.2 (RX chain), §11 E3 (KRX-022, KRX-023), FR-061
@@ -561,15 +561,15 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 - [ ] Intensity setting Off/Light/Full with default Light per TS §7.2
 - [ ] Squelch "sets RX gate threshold and the resting hiss level (from silent to faint bed)" per FR-061
 - [ ] DSP is testable without network: pure buffer-in/buffer-out pipeline; unit tests green
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-011-gb
+**Started_At:** 2026-08-19T05:21:54Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-19T05:21:54Z
 
 ### TASK-012
 **Title:** Segment LCD glass component: channel/code, telltales, dot-matrix line (KRX-012)
