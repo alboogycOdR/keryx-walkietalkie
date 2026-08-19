@@ -801,7 +801,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 
 ### TASK-016
 **Title:** Speaker-grille RX visualiser (KRX-014)
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §6.1, §11 E2 (KRX-014); specs/KERYX_UI_Design_Specification_v1.0.md §4 (motion), §5.3; specs/keryx-face-prototype.html (grille script)
@@ -809,19 +809,37 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 **Depends_On:** TASK-005
 **Description:** Under `lib/features/grille/`: the speaker-grille widget whose bars tremble with incoming RX audio amplitude (amplitude stream input), using the `settle` curve (the grille "has mass"), with a live/idle tint state and `prefers-reduced-motion` handling that removes the tremble while keeping the widget inert-but-correct. The only ambient animation allowed in the product.
 **Acceptance_Criteria:**
-- [ ] "grille bars tremble with incoming audio amplitude" per TS §6.1 ("the only 'animation for its own sake' allowed")
-- [ ] Grille motion uses the `settle` curve per DS §4 ("`settle` (320 ms, `cubic-bezier(.16,1,.3,1)`) for the grille and meter, which have mass") — easing RATIFIED to the PT value by DS §10 (2026-08-19, closes (p)); consume the theme token, never re-declare the curve
-- [ ] Reduced-motion "removes the grille tremble … but keeps every haptic and sound" per DS §4 — widget exposes a motion-off mode without dropping amplitude input plumbing
-- [ ] Amplitude is an injected stream (no audio-engine import from grille code) so the widget is testable; widget tests green
+- [x] "grille bars tremble with incoming audio amplitude" per TS §6.1 ("the only 'animation for its own sake' allowed")
+- [x] Grille motion uses the `settle` curve per DS §4 ("`settle` (320 ms, `cubic-bezier(.16,1,.3,1)`) for the grille and meter, which have mass") — easing RATIFIED to the PT value by DS §10 (2026-08-19, closes (p)); consume the theme token, never re-declare the curve
+- [x] Reduced-motion "removes the grille tremble … but keeps every haptic and sound" per DS §4 — widget exposes a motion-off mode without dropping amplitude input plumbing
+- [x] Amplitude is an injected stream (no audio-engine import from grille code) so the widget is testable; widget tests green
 **Branch:** task/TASK-016-gb
 **Started_At:** 2026-08-19T20:48:46Z
-**Progress_Notes:** —
-**Artifacts:** —
-**Test_Evidence:** —
+**Progress_Notes:**
+- [2026-08-19T20:48:46Z] [GB] Claimed TASK-016. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-016 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/grille/**  -> matches nothing yet (new territory)
+  GLOB   test/features/grille/**  -> matches nothing yet (new territory)
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+- [2026-08-19T20:55:03Z] [GB] Grille shipped on task/TASK-016-gb (e47c607). Injected amplitude stream, settle-token mass, PT 9-slot tremble, live/idle tint, reduced-motion freeze with live subscription. No audio-engine import. Ready for review.
+**Artifacts:**
+- `lib/features/grille/grille.dart`
+- `lib/features/grille/grille_motion.dart`
+- `lib/features/grille/keryx_speaker_grille.dart`
+- `lib/features/grille/README.md`
+- `test/features/grille/grille_motion_test.dart`
+- `test/features/grille/keryx_speaker_grille_test.dart`
+**Test_Evidence:**
+- [2026-08-19T20:54:30Z] [GB] `flutter analyze` — No issues found! (exit 0)
+- [2026-08-19T20:54:30Z] [GB] `flutter test` — 207/207 passed (full suite; 14 new in test/features/grille/)
+- [2026-08-19T20:54:30Z] [GB] `flutter test test/features/grille` — 14/14 passed
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-19T20:48:46Z
+**Updated_At:** 2026-08-19T20:55:03Z
 
 ### TASK-017
 **Title:** Face assembly: layout, status strip, station-list flip, app wiring (KRX-010 assembly)
