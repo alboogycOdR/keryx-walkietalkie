@@ -295,6 +295,19 @@ void main() {
     );
   });
 
+  test('rejects an out-of-domain roster update as a no-op', () {
+    final state = RadioState(phase: RadioPhase.idle, stationCount: 2);
+
+    expect(reducer.reduce(state, const RosterUpdated(-1)), state);
+  });
+
+  test('rejects out-of-domain signal-quality updates at both endpoints', () {
+    final state = RadioState(phase: RadioPhase.idle, signalQuality: 5);
+
+    expect(reducer.reduce(state, const SignalQualityUpdated(0)), state);
+    expect(reducer.reduce(state, const SignalQualityUpdated(10)), state);
+  });
+
   test('PowerOff and a changed channel clear replay', () {
     const replaying = RadioState(
       phase: RadioPhase.idle,
@@ -413,8 +426,8 @@ RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
     EmergencyPinned() => state.copyWith(isEmergency: true),
     EmergencyCleared() => state.copyWith(isEmergency: false),
     ActiveSpeakerChanged() => state.copyWith(
-      activeSpeaker: event.callsign,
-      clearActiveSpeaker: event.callsign == null,
+      activeSpeaker: event.speaker,
+      clearActiveSpeaker: event.speaker == null,
     ),
     ArbiterIdentityChanged() => state.copyWith(
       arbiterId: event.peerId,

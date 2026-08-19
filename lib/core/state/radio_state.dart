@@ -244,9 +244,17 @@ class EmergencyCleared extends RadioEvent {
   const EmergencyCleared();
 }
 
+/// Identity of the station currently holding the floor, or `null` when no
+/// station is transmitting/receiving.
+///
+/// This carries a **peerId**, not a display callsign — the bridge feeds it
+/// `FloorEngine.holder`/`localPeerId` (raw peer identifiers). Mapping a
+/// peerId to a human-readable callsign is TASK-009's `displayNames` roster,
+/// applied downstream by the UI layer (TASK-017); this reducer does not
+/// perform that mapping and must not, since it has no roster to consult.
 class ActiveSpeakerChanged extends RadioEvent {
-  const ActiveSpeakerChanged(this.callsign);
-  final String? callsign;
+  const ActiveSpeakerChanged(this.speaker);
+  final String? speaker;
 }
 
 class ArbiterIdentityChanged extends RadioEvent {
@@ -369,8 +377,8 @@ class RadioReducer {
     EmergencyPinned() => state.copyWith(isEmergency: true),
     EmergencyCleared() => state.copyWith(isEmergency: false),
     ActiveSpeakerChanged() => state.copyWith(
-      activeSpeaker: event.callsign,
-      clearActiveSpeaker: event.callsign == null,
+      activeSpeaker: event.speaker,
+      clearActiveSpeaker: event.speaker == null,
     ),
     ArbiterIdentityChanged() => state.copyWith(
       arbiterId: event.peerId,
