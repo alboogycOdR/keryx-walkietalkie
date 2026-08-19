@@ -16,3 +16,5 @@ The grille widget in `lib/features/grille/`: horizontal slot bars that tremble w
 4. Widget tests: amplitude > 0 changes transforms, reduced-motion keeps them static, live tint toggles, zero-amplitude rest state.
 
 ## Work Log
+
+- [2026-08-19T20:55:03Z] [GB] Implemented KRX-014 under `lib/features/grille/` + `test/features/grille/`. `KeryxSpeakerGrille` takes an injected `Stream<double>` (no audio-engine import), settles level via `KeryxTheme.settleDuration`/`settleCurve` (not re-declared), trembles 9 slots with the PT `sin(t/90+i)*0.5*amp*rand` formula, live tint `#12211a` / idle `#0d0f10`. Reduced motion (`reduceMotion` or `MediaQuery.disableAnimations`) freezes scales at 1 while the stream still updates `lastAmplitude`. `flutter analyze` clean; `flutter test` 207/207. Handing off `needs_review`.
