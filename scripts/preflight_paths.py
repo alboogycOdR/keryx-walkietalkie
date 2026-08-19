@@ -115,7 +115,11 @@ def main() -> int:
 
     entries = owned_paths_for(plan.read_text(encoding="utf-8"), task_id)
 
-    print(f"[preflight] {task_id} Owned_Paths inspected in {root}")
+    # as_posix(): this output is pasted verbatim into PLAN.md, and a Windows
+    # backslash path round-trips badly there (a "\t" in a path has already
+    # survived as a literal tab — TASK-024). Per-entry paths are already
+    # normalised in describe(); the header must match.
+    print(f"[preflight] {task_id} Owned_Paths inspected in {root.as_posix()}")
     print(f"[preflight] {len(entries)} entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.")
     for entry in entries:
         for line in describe(root, entry):
