@@ -1141,7 +1141,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-027
 **Title:** RadioState projection fields + floor→reducer bridge (state successor, follow-up (m))
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** CX
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2, §8.4, §8.6, §8.9, FR-025, FR-045, FR-065, FR-067, FR-069, §9 NFR-10; specs/KERYX_UI_Design_Specification_v1.0.md §6 (State Catalogue, KRX-018)
@@ -1162,15 +1162,16 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 - [ ] Secondary items landed and scoped as secondary: `PowerOff` edge, Riverpod-host split + reducer purity test, `Notifier` migration, `LinkRecovered` fallback rename, `LinkDegraded` gated to powered-on phases, `SetMode` gated to floor-idle (TS §8.4 "at floor-idle only") — *ORCH-authored engineering criteria from TASK-004 Review_Findings*
 - [ ] `tuneDelta` added only if follow-up (k) is ruled before dispatch, else deferred; this task does not depend on (k) — *ORCH-authored, conditional (TASK-004 follow-up 2 + follow-up (k))*
 - [ ] 100%-branch discipline held via the table-driven `RadioPhase` × event matrix (TASK-004 pattern), evidence stated as the matrix + `LF/LH`, no `--branch-coverage` percentage claimed, per NFR-10 ("Reducer/state machine 100% branch") and TASK-004's documented LCOV limitation
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-027-cx
+**Started_At:** 2026-08-19T06:19:20Z
+**Progress_Notes:**
+- [2026-08-19T06:19:20Z] [CX] Claimed after confirming TASK-004 and TASK-022 are done; branch `task/TASK-027-cx` created. Exclusive territory preflight pending source/spec inspection.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-19T03:15:00Z
+**Updated_By:** CX
+**Updated_At:** 2026-08-19T06:19:20Z
 
 ### TASK-028
 **Title:** Theme material tokens + faceplate seam (theme successor, follow-up (q))
