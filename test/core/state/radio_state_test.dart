@@ -1,6 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:keryx/core/floor/floor.dart';
 import 'package:keryx/core/state/radio_state.dart';
+import 'package:keryx/core/state/radio_state_bridge.dart';
+import 'package:keryx/core/state/radio_state_controller.dart';
 
 void main() {
   const reducer = RadioReducer();
@@ -14,6 +19,7 @@ void main() {
     test('has an exhaustive phase by event transition matrix', () {
       const events = <RadioEvent>[
         PowerOn(),
+        PowerOff(),
         BootCompleted(),
         BeginTuning(),
         FinishTuning(),
@@ -26,7 +32,18 @@ void main() {
         RemoteFloorStarted(),
         RemoteFloorEnded(),
         LinkDegraded(),
-        LinkRecovered(),
+        LinkResolved(),
+        EmergencyPinned(),
+        EmergencyCleared(),
+        ActiveSpeakerChanged('BRAVO-7'),
+        ArbiterIdentityChanged('AAA2222222'),
+        RosterUpdated(3),
+        SignalQualityUpdated(7),
+        PrivateChannelChanged(true),
+        ReplayChanged(true),
+        MonitorChanged(true),
+        ScanChanged(true),
+        VoxChanged(true),
       ];
       var legalTransitions = 0;
       var illegalNoOps = 0;
@@ -51,8 +68,8 @@ void main() {
         }
       }
 
-      expect(legalTransitions, 35);
-      expect(illegalNoOps, 77);
+      expect(legalTransitions, 123);
+      expect(illegalNoOps, 85);
     });
 
     test('moves OFF to BOOT to IDLE and ignores invalid lifecycle events', () {
@@ -167,7 +184,7 @@ void main() {
     );
 
     test('defaults to AUTO and permits all three route selections', () {
-      const state = RadioState.off();
+      final state = bootToIdle();
 
       expect(state.mode, RadioMode.auto);
       expect(
@@ -192,9 +209,18 @@ void main() {
             RadioState(phase: phase, mode: RadioMode.linked),
             const LinkDegraded(),
           );
+          if (phase == RadioPhase.off) {
+            expect(degraded, RadioState(phase: phase, mode: RadioMode.linked));
+            continue;
+          }
           expect(degraded.phase, RadioPhase.linkDegraded);
+          expect(degraded.isNoLink, isTrue);
           expect(
-            reducer.reduce(degraded, const LinkRecovered()).phase,
+            reducer.reduce(degraded, const LinkResolved()).isNoLink,
+            isFalse,
+          );
+          expect(
+            reducer.reduce(degraded, const LinkResolved()).phase,
             RadioPhase.idle,
           );
         }
@@ -210,46 +236,156 @@ void main() {
         );
 
         expect(
-          reducer.reduce(state, const LinkRecovered(fallbackToLocal: true)),
+          reducer.reduce(state, const LinkResolved(useLocalFallback: true)),
           const RadioState(phase: RadioPhase.idle, mode: RadioMode.local),
         );
         expect(
-          reducer.reduce(bootToIdle(), const LinkRecovered()),
+          reducer.reduce(bootToIdle(), const LinkResolved()),
           bootToIdle(),
         );
       },
     );
   });
 
-  test('Riverpod controller projects the pure reducer state', () {
-    final controller = RadioStateController(reducer);
-
-    controller.dispatch(const PowerOn());
-    controller.dispatch(const BootCompleted());
-    controller.dispatch(const SetMode(RadioMode.linked));
-
-    expect(
-      controller.state,
-      const RadioState(phase: RadioPhase.idle, mode: RadioMode.linked),
-    );
-
-    expect(controller.state.toString(), contains('RadioPhase.idle'));
-    expect(controller.state.hashCode, isNot(0));
-  });
-
-  test('Riverpod providers expose the same authoritative reducer', () {
+  test('Riverpod Notifier host projects the pure reducer state', () {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
     expect(container.read(radioReducerProvider), isA<RadioReducer>());
     container.read(radioStateProvider.notifier).dispatch(const PowerOn());
     expect(container.read(radioStateProvider).phase, RadioPhase.boot);
+    container.read(radioStateProvider.notifier).dispatch(const BootCompleted());
+    container
+        .read(radioStateProvider.notifier)
+        .dispatch(const SetMode(RadioMode.linked));
+    expect(
+      container.read(radioStateProvider),
+      const RadioState(phase: RadioPhase.idle, mode: RadioMode.linked),
+    );
+  });
+
+  test('projection events own every display-only field', () {
+    const start = RadioState(phase: RadioPhase.idle);
+    final projected = [
+      const EmergencyPinned(),
+      const PrivateChannelChanged(true),
+      const ReplayChanged(true),
+      const MonitorChanged(true),
+      const ScanChanged(true),
+      const VoxChanged(true),
+      const RosterUpdated(4),
+      const ActiveSpeakerChanged('BRAVO-7'),
+      const ArbiterIdentityChanged('ALFA-1'),
+      const SignalQualityUpdated(9),
+    ].fold(start, reducer.reduce);
+
+    expect(projected.isEmergency, isTrue);
+    expect(projected.isPrivate, isTrue);
+    expect(projected.isReplay, isTrue);
+    expect(projected.isMonitorOpen, isTrue);
+    expect(projected.isScanning, isTrue);
+    expect(projected.isVoxArmed, isTrue);
+    expect(projected.stationCount, 4);
+    expect(projected.activeSpeaker, 'BRAVO-7');
+    expect(projected.arbiterId, 'ALFA-1');
+    expect(projected.signalQuality, 9);
+    expect(
+      reducer.reduce(projected, const EmergencyCleared()).isEmergency,
+      isFalse,
+    );
+  });
+
+  test('rejects an out-of-domain roster update as a no-op', () {
+    final state = RadioState(phase: RadioPhase.idle, stationCount: 2);
+
+    expect(reducer.reduce(state, const RosterUpdated(-1)), state);
+  });
+
+  test('rejects out-of-domain signal-quality updates at both endpoints', () {
+    final state = RadioState(phase: RadioPhase.idle, signalQuality: 5);
+
+    expect(reducer.reduce(state, const SignalQualityUpdated(0)), state);
+    expect(reducer.reduce(state, const SignalQualityUpdated(10)), state);
+  });
+
+  test('PowerOff and a changed channel clear replay', () {
+    const replaying = RadioState(
+      phase: RadioPhase.idle,
+      channel: 7,
+      privacyCode: 3,
+      isReplay: true,
+      activeSpeaker: 'BRAVO-7',
+    );
+    expect(
+      reducer
+          .reduce(replaying, const TuneTo(channel: 8, privacyCode: 3))
+          .isReplay,
+      isFalse,
+    );
+    final off = reducer.reduce(replaying, const PowerOff());
+    expect(off.phase, RadioPhase.off);
+    expect(off.isReplay, isFalse);
+    expect(off.activeSpeaker, isNull);
+  });
+
+  test('the reducer source has no framework dependency', () {
+    final source = File('lib/core/state/radio_state.dart').readAsStringSync();
+    expect(source, isNot(contains('package:flutter')));
+    expect(source, isNot(contains('package:riverpod')));
+  });
+
+  test('the one-way bridge projects floor, presence, and telemetry', () async {
+    final hub = LoopbackHub();
+    const peerId = 'AAA2222222';
+    final engine = FloorEngine(
+      localPeerId: peerId,
+      transport: hub.attach(peerId),
+      clock: VirtualClock(),
+    );
+    var state = const RadioState(phase: RadioPhase.idle);
+    final bridge = RadioStateBridge(
+      engine: engine,
+      dispatch: (event) => state = reducer.reduce(state, event),
+    );
+    addTearDown(() async {
+      await bridge.dispose();
+      engine.dispose();
+      hub.detach(peerId);
+    });
+
+    engine.updateRoster({peerId});
+    bridge.updateRoster(1);
+    bridge.updateSignalQuality(6);
+    bridge.updateVox(true);
+    engine.requestTransmit(emergency: true);
+
+    expect(state.phase, RadioPhase.tx);
+    expect(state.activeSpeaker, peerId);
+    expect(state.isEmergency, isTrue);
+    expect(state.arbiterId, peerId);
+    expect(state.stationCount, 1);
+    expect(state.signalQuality, 6);
+    expect(state.isVoxArmed, isTrue);
+
+    engine.clearEmergency();
+    engine.releaseTransmit();
+    expect(state.isEmergency, isFalse);
+    expect(state.activeSpeaker, isNull);
   });
 }
 
 RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
   return switch (event) {
-    LinkDegraded() => state.copyWith(phase: RadioPhase.linkDegraded),
+    PowerOff() => state.copyWith(
+      phase: RadioPhase.off,
+      isNoLink: false,
+      isReplay: false,
+      clearActiveSpeaker: true,
+    ),
+    LinkDegraded() when state.phase != RadioPhase.off => state.copyWith(
+      phase: RadioPhase.linkDegraded,
+      isNoLink: true,
+    ),
     PowerOn() when state.phase == RadioPhase.off => state.copyWith(
       phase: RadioPhase.boot,
     ),
@@ -266,7 +402,9 @@ RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
       channel: event.channel,
       privacyCode: event.privacyCode,
     ),
-    SetMode() => state.copyWith(mode: event.mode),
+    SetMode() when state.phase == RadioPhase.idle => state.copyWith(
+      mode: event.mode,
+    ),
     RequestTransmit() when state.phase == RadioPhase.idle => state.copyWith(
       phase: RadioPhase.txRequest,
     ),
@@ -283,8 +421,30 @@ RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
     ),
     RemoteFloorEnded() when state.phase == RadioPhase.rxActive =>
       state.copyWith(phase: RadioPhase.idle),
-    LinkRecovered() when state.phase == RadioPhase.linkDegraded =>
-      state.copyWith(phase: RadioPhase.idle),
+    LinkResolved() when state.phase == RadioPhase.linkDegraded =>
+      state.copyWith(phase: RadioPhase.idle, isNoLink: false),
+    EmergencyPinned() => state.copyWith(isEmergency: true),
+    EmergencyCleared() => state.copyWith(isEmergency: false),
+    ActiveSpeakerChanged() => state.copyWith(
+      activeSpeaker: event.speaker,
+      clearActiveSpeaker: event.speaker == null,
+    ),
+    ArbiterIdentityChanged() => state.copyWith(
+      arbiterId: event.peerId,
+      clearArbiterId: event.peerId == null,
+    ),
+    RosterUpdated() when event.stationCount >= 0 => state.copyWith(
+      stationCount: event.stationCount,
+    ),
+    SignalQualityUpdated()
+        when event.sMeter >= RadioState.minimumSignalQuality &&
+            event.sMeter <= RadioState.maximumSignalQuality =>
+      state.copyWith(signalQuality: event.sMeter),
+    PrivateChannelChanged() => state.copyWith(isPrivate: event.isPrivate),
+    ReplayChanged() => state.copyWith(isReplay: event.isActive),
+    MonitorChanged() => state.copyWith(isMonitorOpen: event.isOpen),
+    ScanChanged() => state.copyWith(isScanning: event.isActive),
+    VoxChanged() => state.copyWith(isVoxArmed: event.isArmed),
     _ => state,
   };
 }
