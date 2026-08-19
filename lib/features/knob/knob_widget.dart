@@ -30,6 +30,22 @@ typedef KnobDetentCallback = void Function(int delta);
 /// on a `tuneDelta` reducer event (none exists yet) — it resolves deltas
 /// locally and leaves dispatching `TuneTo(channel: current + delta, ...)`
 /// to the caller.
+///
+/// **Settle behaviour (TS §6.2 "detent snap at ±12° with critically-damped
+/// settle"):** PT's own `up()` handler snaps the rest angle to the nearest
+/// detent multiple unconditionally on release
+/// (`knobAngle=Math.round(knobAngle/DETENT)*DETENT`), whether or not a
+/// fling follows — read literally, PT has no separate ±12° tolerance band
+/// or spring-back animation; "critically-damped" describes the *character*
+/// of the friction-decay flywheel itself (no bounce/overshoot), not an
+/// independent settle pass. Round-to-nearest-detent (used throughout this
+/// widget) already snaps within a ±15° half-window, comfortably containing
+/// TS's ±12° figure. This widget mirrors PT exactly: a fast release hands
+/// off to [KnobFlywheel] (visibly critically-damped decay), a slow one
+/// snaps the residual sub-detent angle instantly, matching PT's own
+/// zero-frame snap. Disclosed per the same class of PT/TS numeric
+/// resolution as DS §10's settle-curve precedent (TASK-016) — flagged for
+/// ORCH, non-blocking.
 class KeryxTuningKnob extends StatefulWidget {
   const KeryxTuningKnob({
     super.key,
@@ -147,7 +163,22 @@ class KeryxTuningKnobState extends State<KeryxTuningKnob>
       initialVelocity: _lastMoveVelocity,
       startAngle: _angle,
     );
-    if (fling.isFinished) return;
+    if (fling.isFinished) {
+      // TS §6.2 "detent snap ... with critically-damped settle" / PT's own
+      // `up()`: a release too slow to fling still snaps the rest position
+      // to the nearest detent multiple (PT:
+      // `knobAngle=Math.round(knobAngle/DETENT)*DETENT`). Any detent this
+      // crossed already fired its `onDetent` mid-drag in
+      // `_applyAngleDelta`; this only cleans up the leftover sub-detent
+      // angle so the knob never rests visually off-detent.
+      final snapped =
+          KnobPhysics.detentIndexFor(_angle) * KnobPhysics.detentDegrees;
+      if (snapped != _angle) {
+        _angle = snapped;
+        if (mounted) setState(() {});
+      }
+      return;
+    }
     _flywheel = fling;
     _lastTickElapsed = Duration.zero;
     _ticker.start();

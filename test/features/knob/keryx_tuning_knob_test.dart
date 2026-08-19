@@ -176,6 +176,50 @@ void main() {
     );
   });
 
+  testWidgets(
+    'a slow release snaps any leftover sub-detent angle to the nearest '
+    'detent (TS §6.2 critically-damped settle)',
+    (tester) async {
+      final deltas = <int>[];
+      await tester.pumpWidget(
+        _Harness(initialChannel: 50, onDetent: deltas.add),
+      );
+      await tester.pump();
+
+      final knobState = tester.state<KeryxTuningKnobState>(
+        find.byType(KeryxTuningKnob),
+      );
+      final center = tester.getCenter(
+        find.byKey(const Key('keryx-knob-paint')),
+      );
+      const radius = 40.0;
+
+      final gesture = await tester.startGesture(
+        pointAt(center, radius, -90),
+      );
+      await tester.pump();
+      // One 20° jump crosses exactly one detent boundary and rests 10°
+      // short of the next detent centre (-60), leaving a real sub-detent
+      // residual to snap away.
+      await gesture.moveTo(pointAt(center, radius, -70));
+      await tester.pump();
+      // Zero-velocity re-touch — see the earlier tests' note — so release
+      // resolves as a slow settle, not a fling.
+      await gesture.moveTo(pointAt(center, radius, -70));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      // The widget's internal angle accumulates from 0 (not the pointer's
+      // absolute starting angle) — a +20° pointer delta lands the internal
+      // angle at 20°, one detent (30°) away from centre, which is where it
+      // must snap to.
+      expect(knobState.isFlinging, isFalse);
+      expect(deltas.fold<int>(0, (a, b) => a + b), 1);
+      expect(knobState.angle, closeTo(30, 1e-6));
+    },
+  );
+
   testWidgets('disabled knob ignores drags entirely', (tester) async {
     final deltas = <int>[];
     await tester.pumpWidget(
