@@ -93,7 +93,7 @@ The legend face doing double duty as the brand voice is intentional — condense
 
 **Layout grid.** 8 dp base. Vertical allocation of the face: status strip 6% · glass 18% · grille 26% · control cluster 22% · PTT 22% · safe area 6%. PTT owns the bottom fifth and full width because that is where a thumb lives. Controls never occupy the top third — hands cover the bottom, eyes read the top.
 
-**Motion.** Two curves only: `snap` (140 ms, `cubic-bezier(.2,.9,.3,1)`) for anything mechanical — key presses, detent settle, telltale on/off; and `settle` (320 ms, ease-out) for the grille and meter, which have mass. Nothing eases in. Nothing bounces except the knob flywheel, which follows real friction decay, not a spring preset. `prefers-reduced-motion` removes the grille tremble and flywheel animation but **keeps every haptic and sound** — the feedback loop survives, only the visuals quiet down (P4).
+**Motion.** Two curves only: `snap` (140 ms, `cubic-bezier(.2,.9,.3,1)`) for anything mechanical — key presses, detent settle, telltale on/off; and `settle` (320 ms, `cubic-bezier(.16,1,.3,1)`) for the grille and meter, which have mass. Nothing eases in. Nothing bounces except the knob flywheel, which follows real friction decay, not a spring preset. `prefers-reduced-motion` removes the grille tremble and flywheel animation but **keeps every haptic and sound** — the feedback loop survives, only the visuals quiet down (P4).
 
 **Key travel.** Pressed keys move 1 dp down, lose their top highlight, and gain an inner shadow — the same three changes on every control, so the whole face feels like one manufactured object.
 
@@ -145,6 +145,25 @@ Fold into KERYX v1.2:
 - **KRX-018 amended:** golden tests must cover the full state catalogue in §6, on every shipped faceplate.
 - **New KRX-019:** design gates G1–G4 as a documented pre-merge checklist for E2.
 - **New KRX-096:** per-faceplate contrast validation in CI.
+
+---
+
+## 10. Clarification Log (ORCH, versioned)
+
+Amendments made to resolve implementation-blocking ambiguity. Each entry names
+the follow-up it closes, the conflict, and the ratified value.
+
+- **2026-08-19 — closes follow-up (p). §4 `settle` easing pinned.**
+  §4 specified `settle` as "320 ms, ease-out" while the prototype
+  (`keryx-face-prototype.html` L16) specifies
+  `--settle:320ms cubic-bezier(.16,1,.3,1)`. These are not in conflict: the
+  durations agree, and the prototype's bezier *is* an ease-out — it is simply
+  the precise instance of the spec's generic term. **RATIFIED: the prototype
+  value is normative.** §4 now reads `cubic-bezier(.16,1,.3,1)` verbatim.
+  This matches what the frozen theme (TASK-005, `lib/core/theme/**`) already
+  implements and disclosed in dartdoc, so no merged code changes. Consumers
+  (TASK-016 grille, and the meter) must take the curve from the theme token,
+  never re-declare it.
 
 ---
 
