@@ -3,6 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/theme/theme.dart';
 
 void main() {
+  setUp(() {
+    // Every test starts from the default plate — a prior test's swap must
+    // never leak into the next one.
+    KeryxTheme.facePlate.value = KeryxFacePlate.fieldBlack;
+  });
+
   group('KeryxTheme colours', () {
     test('matches the ratified housing, glass, and signal tokens', () {
       expect(KeryxTheme.shell900, const Color(0xFF15181B));
@@ -42,5 +48,119 @@ void main() {
     expect(KeryxTheme.faceAllocation.total, closeTo(1, 0.000001));
     expect(KeryxTheme.faceAllocation.grille, 0.26);
     expect(KeryxTheme.raisedMaterialEdges, hasLength(2));
+  });
+
+  group('TASK-028 — glass-recess chrome (PT `.glass` L51-58)', () {
+    test('matches the values TASK-012 had to hardcode', () {
+      expect(KeryxTheme.glassBorder, const Color(0xFF0A0F0C));
+      expect(
+        KeryxTheme.glassInnerShadow.color,
+        const Color.fromRGBO(0, 0, 0, 0.85),
+      );
+      expect(KeryxTheme.glassInnerShadow.offset, const Offset(0, 3));
+      expect(KeryxTheme.glassInnerShadow.blurRadius, 10);
+      expect(KeryxTheme.glassInnerShadow.blurStyle, BlurStyle.inner);
+      expect(
+        KeryxTheme.glassHighlight.color,
+        const Color.fromRGBO(255, 255, 255, 0.05),
+      );
+      expect(KeryxTheme.glassBloomStop, Colors.transparent);
+    });
+  });
+
+  group('TASK-028 — new material/geometry constants', () {
+    test('key travel is 1 dp per DS §4 / TS §6.4', () {
+      expect(KeryxTheme.keyTravel, 1);
+    });
+
+    test('housing noise overlay is within DS §4\'s stated 2-3% range', () {
+      expect(KeryxTheme.housingNoiseOverlayOpacity, greaterThanOrEqualTo(0.02));
+      expect(KeryxTheme.housingNoiseOverlayOpacity, lessThanOrEqualTo(0.03));
+    });
+
+    test('max gradient height fraction is 20% per DS §4', () {
+      expect(KeryxTheme.maxGradientHeightFraction, 0.20);
+    });
+
+    test('panelBodyStrong carries a real Inter 600 wght axis, not synthesised bold', () {
+      expect(KeryxTheme.panelBodyStrong.fontFamily, 'Inter');
+      expect(KeryxTheme.panelBodyStrong.fontWeight, FontWeight.w600);
+      expect(
+        KeryxTheme.panelBodyStrong.fontVariations,
+        contains(const FontVariation('wght', 600)),
+      );
+    });
+  });
+
+  group('TASK-028 — faceplate seam (DS §8 / FR-101)', () {
+    test('default plate is the free "Field Black"', () {
+      expect(KeryxTheme.facePlate.value.name, 'Field Black');
+      expect(KeryxTheme.facePlate.value, KeryxFacePlate.fieldBlack);
+    });
+
+    test('swapping the active plate changes every colour projection at runtime', () {
+      const KeryxFacePlate probe = KeryxFacePlate(
+        name: 'Probe',
+        shell900: Color(0xFF000001),
+        shell700: Color(0xFF000002),
+        shell500: Color(0xFF000003),
+        glass: Color(0xFF000004),
+        lcd: Color(0xFF000005),
+        legend: Color(0xFF000006),
+        tx: Color(0xFF000007),
+        rx: Color(0xFF000008),
+        emergency: Color(0xFF000009),
+        olive: Color(0xFF00000A),
+        glassBorder: Color(0xFF00000B),
+        glassInnerShadowColor: Color.fromRGBO(1, 2, 3, 0.4),
+        glassHighlightColor: Color.fromRGBO(5, 6, 7, 0.8),
+      );
+
+      KeryxTheme.facePlate.value = probe;
+
+      expect(KeryxTheme.shell900, probe.shell900);
+      expect(KeryxTheme.shell700, probe.shell700);
+      expect(KeryxTheme.shell500, probe.shell500);
+      expect(KeryxTheme.glass, probe.glass);
+      expect(KeryxTheme.lcd, probe.lcd);
+      expect(KeryxTheme.legend, probe.legend);
+      expect(KeryxTheme.tx, probe.tx);
+      expect(KeryxTheme.rx, probe.rx);
+      expect(KeryxTheme.emergency, probe.emergency);
+      expect(KeryxTheme.olive, probe.olive);
+      expect(KeryxTheme.glassBorder, probe.glassBorder);
+      expect(KeryxTheme.glassInnerShadow.color, probe.glassInnerShadowColor);
+      expect(KeryxTheme.glassHighlight.color, probe.glassHighlightColor);
+
+      // Layout is untouched by a faceplate swap — DS §8's hard boundary.
+      expect(KeryxTheme.faceAllocation.grille, 0.26);
+      expect(KeryxTheme.keyTravel, 1);
+    });
+
+    test('notifies listeners on swap, so widgets can react live', () {
+      var notified = 0;
+      void listener() => notified++;
+      KeryxTheme.facePlate.addListener(listener);
+      addTearDown(() => KeryxTheme.facePlate.removeListener(listener));
+
+      KeryxTheme.facePlate.value = const KeryxFacePlate(
+        name: 'Probe',
+        shell900: Color(0xFF000001),
+        shell700: Color(0xFF000002),
+        shell500: Color(0xFF000003),
+        glass: Color(0xFF000004),
+        lcd: Color(0xFF000005),
+        legend: Color(0xFF000006),
+        tx: Color(0xFF000007),
+        rx: Color(0xFF000008),
+        emergency: Color(0xFF000009),
+        olive: Color(0xFF00000A),
+        glassBorder: Color(0xFF00000B),
+        glassInnerShadowColor: Color.fromRGBO(1, 2, 3, 0.4),
+        glassHighlightColor: Color.fromRGBO(5, 6, 7, 0.8),
+      );
+
+      expect(notified, 1);
+    });
   });
 }
