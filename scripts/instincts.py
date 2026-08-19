@@ -312,7 +312,15 @@ def main(argv: list[str] | None = None) -> int:
     inj = sub.add_parser("inject", help="print dispatch-prompt instinct section")
     inj.add_argument("--paths", default=None,
                      help="comma-separated Owned_Paths of the task being dispatched")
-    inj.add_argument("--unit", default=None, choices=["GB", "CX"],
+    # No choices= here: unit IDs come from the per-repo builder registry, and
+    # dispatch.* calls this with whatever unit it is launching (S5, S5B, ...).
+    # A hardcoded pair made argparse reject S5; because the call site is
+    # fail-open (stderr suppressed, empty result tolerated), that surfaced as
+    # S5 silently receiving no instincts at all rather than as an error —
+    # i.e. one builder quietly opted out of the Wave C learning loop.
+    # An unknown unit resolves to no matching task and yields empty output,
+    # which is the correct fail-open behaviour for an optional enrichment.
+    inj.add_argument("--unit", default=None,
                      help="resolve Owned_Paths from PLAN.md for this unit's next task "
                           "(alternative to --paths, for dispatch.sh/.ps1 which don't "
                           "pre-resolve a specific task before launch)")
