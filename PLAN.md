@@ -801,7 +801,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 
 ### TASK-016
 **Title:** Speaker-grille RX visualiser (KRX-014)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §6.1, §11 E2 (KRX-014); specs/KERYX_UI_Design_Specification_v1.0.md §4 (motion), §5.3; specs/keryx-face-prototype.html (grille script)
@@ -813,15 +813,15 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 - [ ] Grille motion uses the `settle` curve per DS §4 ("`settle` (320 ms, `cubic-bezier(.16,1,.3,1)`) for the grille and meter, which have mass") — easing RATIFIED to the PT value by DS §10 (2026-08-19, closes (p)); consume the theme token, never re-declare the curve
 - [ ] Reduced-motion "removes the grille tremble … but keeps every haptic and sound" per DS §4 — widget exposes a motion-off mode without dropping amplitude input plumbing
 - [ ] Amplitude is an injected stream (no audio-engine import from grille code) so the widget is testable; widget tests green
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-016-gb
+**Started_At:** 2026-08-19T20:48:46Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-19T20:48:46Z
 
 ### TASK-017
 **Title:** Face assembly: layout, status strip, station-list flip, app wiring (KRX-010 assembly)
