@@ -717,7 +717,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 
 ### TASK-013
 **Title:** Rotary knob widget: arc drag, detents, flywheel, haptic hooks (KRX-011)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §3 D1, §6.2, §6.4, FR-003, §11 E2 (KRX-011); specs/KERYX_UI_Design_Specification_v1.0.md §5.1; specs/keryx-face-prototype.html (knob physics script)
@@ -731,17 +731,18 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 - [ ] Knob is 96 dp, knurled, with olive indicator line per DS §5.1
 - [ ] Flywheel "follows real friction decay, not a spring preset" per DS §4
 - [ ] Widget tests green (drag N detents → N channel deltas; fling respects 12/s cap)
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-013-s5
+**Started_At:** 2026-08-20T00:00:00Z
 **Progress_Notes:**
 - [2026-08-18T14:20:00Z] [ORCH] Blocked pending a spec ruling: channel/code wrap-vs-clamp at 99/1 and 38/00 is undefined in both specs (grep-confirmed absent), and TASK-004's reducer exposes only absolute TuneTo, no tuneDelta. This widget emits channel-delta events per its own description, so it needs the decision to implement correctly. Mechanically fenced off (Status: blocked) so CX's own claim logic doesn't self-select into it. Same issue blocks TASK-014; does NOT block TASK-012 (display-only, no state ownership, doesn't compute deltas).
 - [2026-08-19T18:30:00Z] [ORCH] RULING (follow-up k): CLAMP, not wrap, at both boundaries — channel clamps at 1/99, privacy code clamps at 00/38. Simpler than wrap, matches the behavior of most physical radio channel selectors, and avoids a discontinuity a user could trigger accidentally via fling/auto-repeat overshoot. Unblocking. Reassigned CX→S5 (CX quota-blocked until 2026-08-21 16:27 SAST; see orchestrator_notes). tuneDelta still does not exist on the reducer (TASK-027's rework, in progress, deliberately did not add it) — this widget must emit channel-delta events per its Description; either add tuneDelta to TASK-027 in a follow-up once it lands, or compute the clamped delta locally and emit discrete TuneTo calls. Note for the assignee: TASK-004/027's reducer only exposes absolute TuneTo today.
+- [2026-08-20T00:00:00Z] [S5] Claimed. Resuming per orchestrator_notes dispatch instruction; picking TASK-013 first (both TASK-013/015 are high priority, TASK-013 listed first).
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-19T18:30:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-08-20T00:00:00Z
 
 ### TASK-014
 **Title:** CH steppers with auto-repeat + keypad direct-entry sheet (KRX-013)
