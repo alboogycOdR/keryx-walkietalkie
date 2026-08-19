@@ -1,8 +1,8 @@
 ---
 plan_version: 2.5
-last_updated: 2026-08-19T18:20:00Z
+last_updated: 2026-08-19T18:35:00Z
 overall_status: in_progress
-orchestrator_notes: "Plan v1.0 — 28 tasks from 3 specs. FROZEN territories (merged): pubspec/analysis_options/.github/.gitignore/README, lib/core/theme, android+lib/services/discovery, lib/core/floor, lib/core/settings, lib/core/protocol, lib/core/audio(010+011 chain COMPLETE), lib/core/identity, lib/features/display. lib/core/state is UNFROZEN — TASK-027 rework still open. Serial chains: android 001→019→026, audio 010→011 (DONE). Dossiers in dossiers/. S5/S5B INACTIVE. Full review/incident detail in git log + REVIEW.md + each task's Review_Findings, NOT duplicated here. Model config: all ORCH judgment + review on claude-opus-5 (Fable retired, commit 426d9a9). Known risk: plan_commit doesn't re-diff before commit — lost-update race hit 4x, all content-safe, mechanical fix still overdue. FOLLOW-UPS OWED (index; RECOMMEND = proposed ruling, not yet applied): (a) font OFL/LICENSE; (b)+(c) .github CI task; (d) BLOCKS TASK-007(fenced) roomId base32 — RECOMMEND RFC4648 uppercase; (e) token-svc XFF trust; (f) R4 per-room caps; (g) keryx-evt.v1 vs FR-044; (h) tune_burst contradiction; (i) KRX-024 60ms marker; (j) SFX ducking driver; (k) BLOCKS TASK-013/014(fenced) wrap-vs-clamp — RECOMMEND clamp; (l) LINK_DEGRADED/LOCAL_FALLBACK undefined; (m) TASK-027 in rework, not yet closed; (n)/(n2) peerId RFC4648-lowercase vs roomId/floor uppercase, pin case before iOS; (o) protocol ts/quality/seq types; (p) BLOCKS TASK-016 settle curve — RECOMMEND amend DS §4 to PT value; (q) TASK-028 (theme successor) created, not yet dispatched; (r) DS §3 vs PT telltale font, live-rendered; (s) BLOCKS TASK-020 wire contract spec-silent; (t) TX_GRANT no sender field; (u) FR-061 squelch has no end-to-end wire; (v) audio DSP numbers normative-by-implementation; (w) MANDATORY before TASK-017 — TotWarn/TotCut dropped by TASK-027's bridge, DS §6 'TX time-out warning' has no RadioState field, needs its own follow-on; (x) FR-069 aggregate S-meter sub-case selection unpinned; (y) FloorIdleSettled dropped, SetMode gate phase-approximate not debounced; (z) PowerOff leaves EMG/STN/telltales set — TASK-017 must not render them in RadioPhase.off; (aa) roster/stationCount can diverge; (bb) signalQuality has no 'unknown' state; (cc) test oracle wildcard could silently absorb a future event. No git remote — CI never run. NEW SPEC uncommitted: specs/KERYX_World_Band_Radio_Spec_v1.0.md (Phase 2). PROGRESS: 13 done. GB 8/8 first-pass; CX 4/7 (2 rework: 004 resolved, 027 open). STATUS SCAN (2026-08-19T18:20Z) — RESUMED AFTER COMPACTION, checkpoint deleted: **CX (Codex/OpenAI) has hit its own usage limit — hard external block, unrelated to Claude quota, resets Aug 21 4:27 PM.** The TASK-027 rework dispatch (161309) never actually ran — errored on Codex's first API call, zero tokens spent, zero code touched. TASK-027 is unchanged from the rework verdict: Status in_progress, branch task/TASK-027-cx intact, same 4 scoped findings outstanding (2 untested guards + 1 rename), lib/core/state still unfrozen. CX is fully unavailable until the reset — do not re-dispatch it blindly; it will just error again. GB is idle, worktree was deregistered after TASK-011's review and its stale empty directory has now been removed (dispatch.ps1 will recreate it cleanly on next launch). CRITICAL GAP: every remaining pending task (016,018,020,021,023,024,025,026) is Assigned_To: TBD — GB has ZERO eligible work right now even though available, because nothing is assigned to it. TASK-007 is the one exception: already Assigned_To: GB, blocked only on ORCH ruling (d) — ruling it now would give GB immediate clean work during the CX outage. TASK-013/014 are CX's and blocked on (k); ruling (k) doesn't unblock dispatch since CX can't work regardless, but keeps the plan consistent for when CX returns. No blocked-task mechanical triage beyond the standing recommendations. Next: rule (d) to unblock TASK-007 for GB now; consider assigning a TBD task to GB (020 LAN signaling is the most valuable — inherits TASK-009's identity-sanitization findings, no CX dependency); hold TASK-027/013/014/028 for CX until Aug 21 reset."
+orchestrator_notes: "Plan v1.0 — 28 tasks from 3 specs. FROZEN territories (merged): pubspec/analysis_options/.github/.gitignore/README, lib/core/theme, android+lib/services/discovery, lib/core/floor, lib/core/settings, lib/core/protocol, lib/core/audio(010+011 chain COMPLETE), lib/core/identity, lib/features/display. lib/core/state is UNFROZEN — TASK-027 rework still open. Serial chains: android 001→019→026, audio 010→011 (DONE). Dossiers in dossiers/. Full review/incident detail in git log + REVIEW.md + each task's Review_Findings, NOT duplicated here. Model config: all ORCH judgment + review on claude-opus-5 (Fable retired, commit 426d9a9). Known risk: plan_commit doesn't re-diff before commit — lost-update race hit 4x, all content-safe, mechanical fix still overdue. FOLLOW-UPS OWED (index): (a) font OFL/LICENSE; (b)+(c) .github CI task; (d) RESOLVED — roomId RFC4648 uppercase, ratified; (e) token-svc XFF trust; (f) R4 per-room caps; (g) keryx-evt.v1 vs FR-044; (h) tune_burst contradiction; (i) KRX-024 60ms marker; (j) SFX ducking driver; (k) RESOLVED — clamp not wrap, ratified; (l) LINK_DEGRADED/LOCAL_FALLBACK undefined; (m) TASK-027 in rework, not yet closed; (n)/(n2) peerId RFC4648-lowercase vs roomId/floor uppercase, pin case before iOS; (o) protocol ts/quality/seq types; (p) BLOCKS TASK-016 settle curve — RECOMMEND amend DS §4 to PT value; (q) TASK-028 (theme successor) created, not yet dispatched; (r) DS §3 vs PT telltale font, live-rendered; (s) BLOCKS TASK-020 wire contract spec-silent; (t) TX_GRANT no sender field; (u) FR-061 squelch has no end-to-end wire; (v) audio DSP numbers normative-by-implementation; (w) MANDATORY before TASK-017 — TotWarn/TotCut dropped by TASK-027's bridge, DS §6 'TX time-out warning' has no RadioState field, needs its own follow-on; (x) FR-069 aggregate S-meter sub-case selection unpinned; (y) FloorIdleSettled dropped, SetMode gate phase-approximate not debounced; (z) PowerOff leaves EMG/STN/telltales set — TASK-017 must not render them in RadioPhase.off; (aa) roster/stationCount can diverge; (bb) signalQuality has no 'unknown' state; (cc) test oracle wildcard could silently absorb a future event. No git remote — CI never run. NEW SPEC uncommitted: specs/KERYX_World_Band_Radio_Spec_v1.0.md (Phase 2). PROGRESS: 13 done. GB 8/8 first-pass; CX 4/7 (2 rework: 004 resolved, 027 open, paused mid-rework). ROSTER CHANGE (2026-08-19T18:35Z), project owner directed: **CX (Codex/OpenAI) hit a hard external usage-limit block, resets 2026-08-21T16:27+02:00 (verified by owner) — stepped down from active roster.** **S5 (claude-sonnet-5, headless) activated in its place** (autopilot.json builders.active: [GB, S5]; S5B stays inactive, ~/.claude-s5b not configured). All of CX's pending/in-progress work reassigned to S5: TASK-013, TASK-014, TASK-015, TASK-017, TASK-027, TASK-028. TASK-027's in-flight branch renamed task/TASK-027-cx → task/TASK-027-s5 (CX's worktree detached cleanly first, zero work lost — commit eb585a6 fully intact, same 4 scoped rework instructions from the review stand unchanged). Ruled (d) and (k) while at it (RFC4648-uppercase / clamp) since both were cheap and now genuinely unblock dispatch: TASK-007 (GB) and TASK-013/014 (now S5) are pending again, no longer fenced. CX's own entry stays defined in autopilot.json for reactivation after Aug 21. Sequencing reminder unchanged: TASK-015/017 are reassigned but should NOT dispatch yet — they consume theme/glass material TASK-028 hasn't added (same debt class as TASK-012); dispatch TASK-028 first. Next: dispatch GB→TASK-007 (clean, unblocked) and S5→TASK-027 (resume the rework with its 4 scoped instructions) as the first wave under the new roster."
 ---
 
 # Project Plan
@@ -342,7 +342,7 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 
 ### TASK-007
 **Title:** Room derivation library: numbered/keyed/scrypt + test vectors (KRX-053)
-**Status:** blocked
+**Status:** pending
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.7, §11 E6 (KRX-053), FR-002, FR-007, FR-008
@@ -360,12 +360,13 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 **Started_At:** —
 **Progress_Notes:**
 - [2026-08-18T14:20:00Z] [ORCH] Blocked pending a spec ruling: TS §8.7's `b32(...)` never fixes the base32 alphabet/case/padding for roomId. token-svc (TASK-003, merged) already pinned RFC 4648 uppercase-unpadded (`^[A-Z2-7]{16}$`) by implementation and validates against it — if this task picks a different alphabet, every mint request 422s against already-deployed code. Mechanically fenced off (Status: blocked) so GB's own claim logic doesn't self-select into it despite Depends_On being satisfied. ORCH to rule (RFC 4648, matching precedent) then unblock.
+- [2026-08-19T18:30:00Z] [ORCH] RULING (follow-up d): roomId is RFC 4648 uppercase-unpadded (`^[A-Z2-7]{16}$`), matching token-svc's already-deployed validator exactly (TASK-003 precedent) and TASK-009's independently-verified peerId derivation approach (same RFC, different case — see follow-up (n2), not this task's concern). Unblocking.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
-**Blocked_Reason:** SPEC_AMBIGUITY
+**Blocked_Reason:** —
 **Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:20:00Z
+**Updated_At:** 2026-08-19T18:30:00Z
 
 ### TASK-008
 **Title:** Settings & persistence layer: encrypted prefs, channel memory (KRX-004)
@@ -682,8 +683,8 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 
 ### TASK-013
 **Title:** Rotary knob widget: arc drag, detents, flywheel, haptic hooks (KRX-011)
-**Status:** blocked
-**Assigned_To:** CX
+**Status:** pending
+**Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §3 D1, §6.2, §6.4, FR-003, §11 E2 (KRX-011); specs/KERYX_UI_Design_Specification_v1.0.md §5.1; specs/keryx-face-prototype.html (knob physics script)
 **Owned_Paths:** lib/features/knob/**, test/features/knob/**
@@ -700,17 +701,18 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 **Started_At:** —
 **Progress_Notes:**
 - [2026-08-18T14:20:00Z] [ORCH] Blocked pending a spec ruling: channel/code wrap-vs-clamp at 99/1 and 38/00 is undefined in both specs (grep-confirmed absent), and TASK-004's reducer exposes only absolute TuneTo, no tuneDelta. This widget emits channel-delta events per its own description, so it needs the decision to implement correctly. Mechanically fenced off (Status: blocked) so CX's own claim logic doesn't self-select into it. Same issue blocks TASK-014; does NOT block TASK-012 (display-only, no state ownership, doesn't compute deltas).
+- [2026-08-19T18:30:00Z] [ORCH] RULING (follow-up k): CLAMP, not wrap, at both boundaries — channel clamps at 1/99, privacy code clamps at 00/38. Simpler than wrap, matches the behavior of most physical radio channel selectors, and avoids a discontinuity a user could trigger accidentally via fling/auto-repeat overshoot. Unblocking. Reassigned CX→S5 (CX quota-blocked until 2026-08-21 16:27 SAST; see orchestrator_notes). tuneDelta still does not exist on the reducer (TASK-027's rework, in progress, deliberately did not add it) — this widget must emit channel-delta events per its Description; either add tuneDelta to TASK-027 in a follow-up once it lands, or compute the clamped delta locally and emit discrete TuneTo calls. Note for the assignee: TASK-004/027's reducer only exposes absolute TuneTo today.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
-**Blocked_Reason:** SPEC_AMBIGUITY
+**Blocked_Reason:** —
 **Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:20:00Z
+**Updated_At:** 2026-08-19T18:30:00Z
 
 ### TASK-014
 **Title:** CH steppers with auto-repeat + keypad direct-entry sheet (KRX-013)
-**Status:** blocked
-**Assigned_To:** CX
+**Status:** pending
+**Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §3 D1, FR-004, FR-005, FR-009, FR-106, §11 E2 (KRX-013); specs/keryx-face-prototype.html (stepper script)
 **Owned_Paths:** lib/features/tuning/**, test/features/tuning/**
@@ -727,17 +729,18 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 **Started_At:** —
 **Progress_Notes:**
 - [2026-08-18T14:20:00Z] [ORCH] Blocked pending the same spec ruling as TASK-013: channel/code wrap-vs-clamp at 99/1 and 38/00 undefined in both specs. Steppers emit tuning intents per their own description and directly hit this at the CH▲/CH▼ boundary. Mechanically fenced off (Status: blocked) so CX's own claim logic doesn't self-select into it.
+- [2026-08-19T18:30:00Z] [ORCH] RULING (follow-up k): CLAMP, not wrap — see TASK-013's identical note for full rationale. Unblocking. Reassigned CX→S5 (CX quota-blocked until 2026-08-21 16:27 SAST).
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
-**Blocked_Reason:** SPEC_AMBIGUITY
+**Blocked_Reason:** —
 **Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:20:00Z
+**Updated_At:** 2026-08-19T18:30:00Z
 
 ### TASK-015
 **Title:** PTT button, secondary key row, EMG side key (KRX-015)
 **Status:** pending
-**Assigned_To:** CX
+**Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §6.1, §6.4, FR-020, FR-021, FR-022, FR-025, FR-026, §11 E2 (KRX-015); specs/KERYX_UI_Design_Specification_v1.0.md §2 (signal colours), §4 (key travel); specs/keryx-face-prototype.html (.ptt/.keys markup)
 **Owned_Paths:** lib/features/ptt/**, test/features/ptt/**
@@ -789,7 +792,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 ### TASK-017
 **Title:** Face assembly: layout, status strip, station-list flip, app wiring (KRX-010 assembly)
 **Status:** pending
-**Assigned_To:** CX
+**Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §6.1, FR-067, FR-069, §11 E2 (KRX-010); specs/KERYX_UI_Design_Specification_v1.0.md §4 (layout grid), §6 (state catalogue); specs/keryx-face-prototype.html (full page layout)
 **Owned_Paths:** lib/features/face/**, test/features/face/**, lib/main.dart, lib/app.dart
@@ -1153,7 +1156,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 ### TASK-027
 **Title:** RadioState projection fields + floor→reducer bridge (state successor, follow-up (m))
 **Status:** in_progress
-**Assigned_To:** CX
+**Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2, §8.4, §8.6, §8.9, FR-025, FR-045, FR-065, FR-067, FR-069, §9 NFR-10; specs/KERYX_UI_Design_Specification_v1.0.md §6 (State Catalogue, KRX-018)
 **Owned_Paths:** lib/core/state/**, test/core/state/**
@@ -1173,10 +1176,11 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 - [x] Secondary items landed and scoped as secondary: `PowerOff` edge, Riverpod-host split + reducer purity test, `Notifier` migration, `LinkRecovered` fallback rename, `LinkDegraded` gated to powered-on phases, `SetMode` gated to floor-idle (TS §8.4 "at floor-idle only") — *ORCH-authored engineering criteria from TASK-004 Review_Findings*
 - [x] `tuneDelta` added only if follow-up (k) is ruled before dispatch, else deferred; this task does not depend on (k) — *ORCH-authored, conditional (TASK-004 follow-up 2 + follow-up (k))*
 - [ ] 100%-branch discipline held via the table-driven `RadioPhase` × event matrix (TASK-004 pattern), evidence stated as the matrix + `LF/LH`, no `--branch-coverage` percentage claimed, per NFR-10 ("Reducer/state machine 100% branch") and TASK-004's documented LCOV limitation
-**Branch:** task/TASK-027-cx
+**Branch:** task/TASK-027-s5
 **Started_At:** 2026-08-19T06:19:20Z
 **Progress_Notes:**
 - [2026-08-19T06:19:20Z] [CX] Claimed after confirming TASK-004 and TASK-022 are done; branch `task/TASK-027-cx` created. Exclusive territory preflight pending source/spec inspection.
+- [2026-08-19T18:30:00Z] [ORCH] REASSIGNED CX→S5: CX (Codex/OpenAI) hit its own usage limit, hard external block, resets 2026-08-21T16:27+02:00 (verified by project owner). CX's committed rework-pending work (`eb585a6`, 8/9 criteria ratified, criterion 9 rework instructions below) is fully preserved — the CX worktree was detached (clean, no uncommitted loss) and the branch renamed `task/TASK-027-cx` → `task/TASK-027-s5` to match S5's convention. S5 resumes on this exact branch with the 4 scoped fix instructions already recorded in Review_Findings; do not re-litigate criteria 1–8.
 - [2026-08-19T06:20:06Z] [CX] Preflight complete:
   [preflight] TASK-027 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-codex-walkietalkie-keryx
   [preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
@@ -1210,7 +1214,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 ### TASK-028
 **Title:** Theme material tokens + faceplate seam (theme successor, follow-up (q))
 **Status:** pending
-**Assigned_To:** CX
+**Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_UI_Design_Specification_v1.0.md §3, §4, §8, §9 (KRX-010 amended, KRX-018 amended, KRX-096); specs/KERYX_Product_Technical_Spec_v1.1.md §6.4, FR-101; specs/keryx-face-prototype.html (.glass L51-58 inline chrome)
 **Owned_Paths:** lib/core/theme/**, test/core/theme/**

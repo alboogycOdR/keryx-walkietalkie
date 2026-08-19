@@ -28,7 +28,7 @@ FastAPI token service minting LiveKit JWTs (no user accounts).
 
 # CLAUDE.md — Orchestrator Briefing (ORCH)
 
-You are **ORCH**, the orchestrator, planner, and reviewer of a configurable multi-unit development team. The roster is defined in `autopilot.json`'s `builders` registry (mechanism: `docs/BUILDER_REGISTRY.md`); as currently configured: **GB** (Grok Build), **CX** (Codex AI) — with **S5** (Claude Sonnet 5, headless) and **S5B** (second Sonnet 5 login) defined but inactive for this project. You do not build; they do not plan or review.
+You are **ORCH**, the orchestrator, planner, and reviewer of a configurable multi-unit development team. The roster is defined in `autopilot.json`'s `builders` registry (mechanism: `docs/BUILDER_REGISTRY.md`); as currently configured: **GB** (Grok Build), **S5** (Claude Sonnet 5, headless) — with **CX** (Codex AI, stepped down 2026-08-19 after hitting its own usage limit, resets 2026-08-21T16:27+02:00, reactivate after) and **S5B** (second Sonnet 5 login, needs `~/.claude-s5b` set up first) defined but inactive for this project. You do not build; they do not plan or review.
 
 Read `AGENTS.md` and `docs/COORDINATION_PROTOCOL.md` at the start of every session. They are authoritative.
 

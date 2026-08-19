@@ -14,9 +14,9 @@
   "builders": {
     "active": [
       "GB",
-      "CX"
+      "S5"
     ],
-    "_active_note": "S5 (claude-sonnet-5) removed from active roster during onboarding 2026-08-18 per project owner's choice; entry stays defined below so it can be reactivated later without re-onboarding.",
+    "_active_note": "2026-08-19: CX (Codex/OpenAI) stepped down from active roster — hit its own usage limit, hard external block, resets 2026-08-21T16:27+02:00 (verified by project owner). All of CX's pending/in-progress work (TASK-013, TASK-014, TASK-015, TASK-017, TASK-027, TASK-028) was reassigned to S5 in PLAN.md; TASK-027's in-flight branch was renamed task/TASK-027-cx -> task/TASK-027-s5 to match. S5 (claude-sonnet-5) activated in its place, reversing the 2026-08-18 onboarding choice to keep it inactive. S5B stays inactive -- its separate Claude login (~/.claude-s5b) is not configured, and the pack requires that verification before activation (see docs/BUILDER_REGISTRY.md). CX's entry stays defined below and can be reactivated after its reset; re-run /devteam-dispatch to give it new work once it's back.",
     "defined": {
       "GB": {
         "cli": "grok",
