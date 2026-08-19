@@ -1121,7 +1121,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 **Title:** RadioState projection fields + floor→reducer bridge (state successor, follow-up (m))
 **Status:** pending
 **Assigned_To:** CX
-**Priority:** high
+**Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2, §8.4, §8.6, §8.9, FR-025, FR-045, FR-065, FR-067, FR-069, §9 NFR-10; specs/KERYX_UI_Design_Specification_v1.0.md §6 (State Catalogue, KRX-018)
 **Owned_Paths:** lib/core/state/**, test/core/state/**
 **Depends_On:** TASK-004, TASK-022
