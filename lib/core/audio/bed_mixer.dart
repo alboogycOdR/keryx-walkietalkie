@@ -1,9 +1,11 @@
+import 'dart:math' as math;
+
 import 'sfx_id.dart';
 
 /// Squelch-knob crossfade across the three static beds (TS §7.1).
 ///
 /// [level] 0 = silent (squelch closed). 1 = [SfxId.staticBed3] at unity.
-/// Intermediate values linearly crossfade silence → bed1 → bed2 → bed3.
+/// Intermediate values equal-power crossfade silence → bed1 → bed2 → bed3.
 final class BedGains {
   const BedGains({
     required this.bed1,
@@ -52,13 +54,16 @@ abstract final class BedMixer {
     }
     const third = 1.0 / 3.0;
     if (level <= third) {
-      return BedGains(bed1: level / third, bed2: 0, bed3: 0);
+      return BedGains(bed1: _eq(level / third), bed2: 0, bed3: 0);
     }
     if (level <= 2 * third) {
       final t = (level - third) / third;
-      return BedGains(bed1: 1.0 - t, bed2: t, bed3: 0);
+      return BedGains(bed1: _eq(1.0 - t), bed2: _eq(t), bed3: 0);
     }
     final t = (level - 2 * third) / third;
-    return BedGains(bed1: 0, bed2: 1.0 - t, bed3: t);
+    return BedGains(bed1: 0, bed2: _eq(1.0 - t), bed3: _eq(t));
   }
+
+  /// Equal-power (constant-intensity) fade weight.
+  static double _eq(double t) => math.sqrt(t.clamp(0.0, 1.0));
 }
