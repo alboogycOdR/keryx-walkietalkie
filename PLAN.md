@@ -549,7 +549,7 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 
 ### TASK-011
 **Title:** Radio character DSP + squelch gate wiring (KRX-022, KRX-023)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §7.2 (RX chain), §11 E3 (KRX-022, KRX-023), FR-061
@@ -563,13 +563,50 @@ New territory. `assets/sfx/v1/.gitkeep` exists from TASK-001 (empty glob because
 - [ ] DSP is testable without network: pure buffer-in/buffer-out pipeline; unit tests green
 **Branch:** task/TASK-011-gb
 **Started_At:** 2026-08-19T05:21:54Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-19T05:21:54Z] [GB] Claimed TASK-011. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-011 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-grok-walkietalkie-keryx
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/audio/**  -> 10 file(s):
+           lib/core/audio/audio.dart
+           lib/core/audio/audio_bus.dart
+           lib/core/audio/audio_mix.dart
+           lib/core/audio/audio_sink.dart
+           lib/core/audio/bed_mixer.dart
+           lib/core/audio/ducking.dart
+           lib/core/audio/roger.dart
+           lib/core/audio/sfx_engine.dart
+           lib/core/audio/sfx_id.dart
+           lib/core/audio/sfx_manifest.dart
+  GLOB   test/core/audio/**  -> 4 file(s):
+           test/core/audio/bed_mixer_test.dart
+           test/core/audio/manifest_and_assets_test.dart
+           test/core/audio/sfx_engine_test.dart
+           test/core/audio/wav_lufs.dart
+  GLOB   assets/sfx/**  -> 24 file(s):
+           assets/sfx/README.md
+           assets/sfx/tools/generate_placeholders.py
+           assets/sfx/v1/deny_buzz.wav
+           assets/sfx/v1/emg_alert.wav
+           assets/sfx/v1/key_click.wav
+           assets/sfx/v1/knob_tick.wav
+           assets/sfx/v1/link_lost.wav
+           assets/sfx/v1/link_up.wav
+           assets/sfx/v1/power_off.wav
+           assets/sfx/v1/power_on.wav
+           assets/sfx/v1/rchk_ok.wav
+           assets/sfx/v1/roger_dual.wav
+           ... and 12 more
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Existing TASK-010 territory. Implementing character DSP + squelch wiring; will also absorb in-territory TASK-010 follow-ups (equal-power bed crossfade, duck-release scheduler). tune_burst ducking contradiction left as §7.2 (SFX ducks voice) pending ORCH ruling (h).
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-19T05:21:54Z
+**Updated_At:** 2026-08-19T05:24:30Z
 
 ### TASK-012
 **Title:** Segment LCD glass component: channel/code, telltales, dot-matrix line (KRX-012)
