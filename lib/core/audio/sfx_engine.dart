@@ -8,6 +8,7 @@ import 'ducking.dart';
 import 'roger.dart';
 import 'sfx_id.dart';
 import 'sfx_manifest.dart';
+import 'squelch.dart';
 
 /// Dual-bus SFX engine (KRX-021 / KRX-024 playback).
 ///
@@ -17,11 +18,16 @@ final class SfxEngine {
   SfxEngine({
     required AudioSink sink,
     DateTime Function()? now,
+    void Function(Duration delay, void Function() onFire)? scheduleDuckRelease,
   })  : _sink = sink,
-        _duck = DuckController(now: now);
+        _duck = DuckController(now: now),
+        _scheduleDuckRelease = scheduleDuckRelease;
 
   final AudioSink _sink;
   final DuckController _duck;
+  final void Function(Duration delay, void Function() onFire)?
+      _scheduleDuckRelease;
+  int _duckGeneration = 0;
 
   double _bedLevel = 0;
   bool _bedsStarted = false;
@@ -84,6 +90,11 @@ final class SfxEngine {
     play(id);
   }
 
+  /// Map a TASK-008 squelch detent (0–10) onto the resting hiss bed (FR-061).
+  void applySquelch(int detent) {
+    setBedLevel(Squelch.bedLevelFromDetent(detent));
+  }
+
   /// Squelch knob 0..1 crossfades the three loopable static beds.
   void setBedLevel(double level) {
     _assertLive();
@@ -133,6 +144,7 @@ final class SfxEngine {
     if (_disposed) {
       return;
     }
+    _duckGeneration++;
     _sink.stopAll();
     _duck.reset();
     _sink.setBusGainDb(AudioBus.voice, 0);
@@ -142,10 +154,30 @@ final class SfxEngine {
   }
 
   void _applyDuck(SfxId id, Duration duration) {
+    if (!id.ducksVoice) {
+      return;
+    }
     final started = _duck.noteSfx(id, duration);
     if (started) {
       _sink.setBusGainDb(AudioBus.voice, AudioMix.sfxDuckVoiceDb);
     }
+    _armDuckRelease();
+  }
+
+  void _armDuckRelease() {
+    final schedule = _scheduleDuckRelease;
+    if (schedule == null) {
+      return;
+    }
+    _duckGeneration++;
+    final gen = _duckGeneration;
+    final delay = _duck.remaining;
+    schedule(delay, () {
+      if (_disposed || gen != _duckGeneration) {
+        return;
+      }
+      tick();
+    });
   }
 
   void _assertLive() {

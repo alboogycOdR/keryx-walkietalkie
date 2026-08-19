@@ -157,7 +157,8 @@ def seamless_loop(xs: list[float], fade_ms: float = 20.0) -> list[float]:
     head = xs[:n]
     tail = xs[-n:]
     faded = [
-        head[i] * (i / n) + tail[i] * (1.0 - i / n) for i in range(n)
+        head[i] * math.sqrt(i / n) + tail[i] * math.sqrt(1.0 - i / n)
+        for i in range(n)
     ]
     return faded + xs[n:-n]
 

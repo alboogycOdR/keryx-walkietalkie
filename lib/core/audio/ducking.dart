@@ -17,6 +17,17 @@ final class DuckController {
 
   double get voiceGainDb => isDucking ? AudioMix.sfxDuckVoiceDb : 0.0;
 
+  /// Time left on the current duck, or [Duration.zero] if idle.
+  Duration get remaining {
+    _expireIfNeeded();
+    final until = _duckUntil;
+    if (until == null) {
+      return Duration.zero;
+    }
+    final left = until.difference(_now());
+    return left.isNegative ? Duration.zero : left;
+  }
+
   /// Apply a one-shot's duck window. Returns true if voice gain changed.
   bool noteSfx(SfxId id, Duration duration) {
     _expireIfNeeded();

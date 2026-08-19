@@ -16,5 +16,16 @@ abstract final class AudioMix {
   /// Duck window is capped at 150 ms (TS §7.2).
   static const Duration maxDuck = Duration(milliseconds: 150);
 
+  /// Voice-bus character band (TS §7.2).
+  static const double characterHpHz = 300;
+  static const double characterLpHz = 3400;
+
+  /// Soft-knee compressor ratio (TS §7.2).
+  static const double compressorRatio = 3.0;
+
+  /// Makeup range after compression (TS §7.2).
+  static const double makeupMinDb = 0;
+  static const double makeupMaxDb = 6;
+
   static const String assetRoot = 'assets/sfx/v1/';
 }

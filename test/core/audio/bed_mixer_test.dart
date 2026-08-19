@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/audio/audio.dart';
 
@@ -30,11 +32,19 @@ void main() {
     expect(g.bed3, closeTo(1, 1e-12));
   });
 
-  test('mid first third crossfades silence into bed1', () {
+  test('mid first third equal-power fades silence into bed1', () {
     final g = BedMixer.gainsFor(1 / 6);
-    expect(g.bed1, closeTo(0.5, 1e-9));
+    expect(g.bed1, closeTo(math.sqrt(0.5), 1e-9));
     expect(g.bed2, 0);
     expect(g.bed3, 0);
+  });
+
+  test('adjacent beds crossfade at constant power', () {
+    final g = BedMixer.gainsFor(0.5);
+    expect(g.bed3, 0);
+    expect(g.bed1 * g.bed1 + g.bed2 * g.bed2, closeTo(1.0, 1e-9));
+    expect(g.bed1, closeTo(math.sqrt(0.5), 1e-9));
+    expect(g.bed2, closeTo(math.sqrt(0.5), 1e-9));
   });
 
   test('rejects out of range', () {
