@@ -342,7 +342,7 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 
 ### TASK-007
 **Title:** Room derivation library: numbered/keyed/scrypt + test vectors (KRX-053)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.7, §11 E6 (KRX-053), FR-002, FR-007, FR-008
@@ -356,17 +356,18 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 - [ ] Passphrase is scrypt-stretched and never leaves the client per TS §8.7 ("Keyed channels get real entropy from the passphrase (scrypt-stretched)"; "Server sees keyed-channel room hashes only, never passphrases")
 - [ ] Privacy code participates in room derivation per FR-002 ("on LINKED, code participates in room derivation (§8.7)")
 - [ ] Frozen test vectors committed and green
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-007-gb
+**Started_At:** 2026-08-19T17:53:00Z
 **Progress_Notes:**
 - [2026-08-18T14:20:00Z] [ORCH] Blocked pending a spec ruling: TS §8.7's `b32(...)` never fixes the base32 alphabet/case/padding for roomId. token-svc (TASK-003, merged) already pinned RFC 4648 uppercase-unpadded (`^[A-Z2-7]{16}$`) by implementation and validates against it — if this task picks a different alphabet, every mint request 422s against already-deployed code. Mechanically fenced off (Status: blocked) so GB's own claim logic doesn't self-select into it despite Depends_On being satisfied. ORCH to rule (RFC 4648, matching precedent) then unblock.
 - [2026-08-19T18:30:00Z] [ORCH] RULING (follow-up d): roomId is RFC 4648 uppercase-unpadded (`^[A-Z2-7]{16}$`), matching token-svc's already-deployed validator exactly (TASK-003 precedent) and TASK-009's independently-verified peerId derivation approach (same RFC, different case — see follow-up (n2), not this task's concern). Unblocking.
+- [2026-08-19T17:53:00Z] [GB] Claimed TASK-007. Branch `task/TASK-007-gb`. Encoding pin: RFC 4648 uppercase-unpadded per ruling (d), not the dossier's lowercase draft.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-19T18:30:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-19T17:53:00Z
 
 ### TASK-008
 **Title:** Settings & persistence layer: encrypted prefs, channel memory (KRX-004)
