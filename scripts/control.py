@@ -49,6 +49,33 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import tg_commands as tgc  # noqa: E402 — reuse git plumbing + PLAN.md line editor
 from validate_plan import Report, Task, parse_tasks  # noqa: E402
 
+try:  # noqa: E402 — the registry is the single source of truth for unit IDs
+    from builder_registry import all_unit_ids, branch_suffixes
+except Exception:  # pragma: no cover — fail safe to the pre-registry pair
+    def all_unit_ids(repo=".") -> set[str]:  # type: ignore[misc]
+        return {"GB", "CX"}
+
+    def branch_suffixes(repo=".") -> dict[str, str]:  # type: ignore[misc]
+        return {"GB": "gb", "CX": "cx"}
+
+
+def _known_units(repo) -> set[str]:
+    """Builder IDs this repo may claim for. Registry-driven, never hardcoded:
+    a project that activates S5/S5B (or any future unit) must not need a code
+    change here. Falls back to the historical pair if the registry is
+    unreadable, matching the fail-safe posture of every other consumer."""
+    try:
+        return {u for u in all_unit_ids(repo) if u not in {"ORCH", "SV"}}
+    except Exception:
+        return {"GB", "CX"}
+
+
+def _branch_suffix(unit: str, repo) -> str:
+    try:
+        return branch_suffixes(repo).get(unit, unit.lower())
+    except Exception:
+        return unit.lower()
+
 FENCE_RE = re.compile(
     r"```devteam-control\s*\n(.*?)\n```", re.DOTALL
 )
@@ -377,7 +404,7 @@ def claim_for_unit(repo: Path, unit: str, ts: str, dry_run: bool = False) -> Cla
         return ClaimResult("none", detail=f"no eligible task for {unit}")
     pending.sort(key=lambda t: (_PRIORITY_ORDER.get(t.get("Priority"), 4), t.task_id))
     target = pending[0]
-    suffix = {"GB": "gb", "CX": "cx"}.get(unit, unit.lower())
+    suffix = _branch_suffix(unit, repo)
     branch = f"task/{target.task_id}-{suffix}"
 
     if dry_run:
@@ -422,7 +449,9 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     c = sub.add_parser("claim", help="claim-at-dispatch: resume or claim a task for a unit")
-    c.add_argument("--unit", required=True, choices=["GB", "CX"])
+    # No argparse `choices=`: valid unit IDs come from the per-repo builder
+    # registry, which cannot be read until --repo is parsed. Validated below.
+    c.add_argument("--unit", required=True)
     c.add_argument("--repo", default=".")
     c.add_argument("--dry-run", action="store_true",
                    help="predict the outcome without writing PLAN.md/.devteam/inflight")
@@ -433,12 +462,28 @@ def main(argv: list[str] | None = None) -> int:
     e = sub.add_parser("extract", help="scan a captured run log for the CONTROL fence (dispatch.sh/.ps1)")
     e.add_argument("--log", required=True, help="path to the captured stdout log")
     e.add_argument("--task", required=True)
-    e.add_argument("--unit", required=True, choices=["GB", "CX"])
+    e.add_argument("--unit", required=True)
     e.add_argument("--repo", default=".")
 
     ns = ap.parse_args(argv)
     ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     repo = Path(ns.repo)
+
+    # Registry-driven unit validation. This must FAIL LOUDLY (exit 2) rather
+    # than fall through to the fail-open NONE: path below: dispatch.* treats
+    # NONE: as "nothing to do" and skips the launch silently, so a typo'd or
+    # unregistered unit would look exactly like an idle queue and the unit
+    # would never be dispatched again — with no escalation to notice it.
+    if getattr(ns, "unit", None) is not None:
+        known = _known_units(repo)
+        if ns.unit not in known:
+            print(
+                f"ERROR: unknown unit '{ns.unit}'. Known builder units for this "
+                f"repo: {', '.join(sorted(known)) or '(none)'}. Define it in "
+                f"autopilot.json's builders registry (docs/BUILDER_REGISTRY.md).",
+                file=sys.stderr,
+            )
+            return 2
 
     if ns.cmd == "claim":
         try:
