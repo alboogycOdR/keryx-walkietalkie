@@ -1141,7 +1141,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-027
 **Title:** RadioState projection fields + floor→reducer bridge (state successor, follow-up (m))
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** critical
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2, §8.4, §8.6, §8.9, FR-025, FR-045, FR-065, FR-067, FR-069, §9 NFR-10; specs/KERYX_UI_Design_Specification_v1.0.md §6 (State Catalogue, KRX-018)
@@ -1153,15 +1153,15 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 **tuneDelta — SPECIAL CASE, do NOT depend on an unruled decision:** `tuneDelta` + channel/code wrap-vs-clamp (TASK-004 review item 2 + follow-up (k)) is BLOCKED on the unresolved ORCH spec ruling for wrap-vs-clamp at 99/1 and 38/00. Add `tuneDelta` HERE **only if (k) is ruled before this task dispatches**; otherwise defer it to a follow-on. This task's `Depends_On` deliberately does NOT include (k) or any unruled decision.
 **Coverage:** keep TASK-004's ratified 100%-branch discipline via the table-driven `RadioPhase` × event matrix, extended to the new events; state evidence as the matrix (count of legal edges asserted + count of illegal pairs asserted no-op) plus `LF/LH`, NOT a `--branch-coverage` percentage — the toolchain's LCOV emits no `BRF/BRH` decision denominator here (documented in TASK-004's rework), so no percentage is claimable.
 **Acceptance_Criteria:**
-- [ ] `RadioState` exposes the DS §6 telltale set (NO LINK, EMG, PRV, REPLAY, MON, SCAN, VOX) as projection fields, per DS §6 State Catalogue (KRX-018) and TS §8.2 ("UI, audio, haptics, and network are all projections of it")
-- [ ] `RadioState` carries a station-count field, per FR-067 ("Presence: `STN n` count on the display")
-- [ ] `RadioState` carries an active-speaker identity field (nullable), per §6.1's active-speaker line and DS §6 ("RX active (callsign shown)")
-- [ ] `RadioState` carries an aggregate S-meter/quality field (S1–S9), per FR-069 ("the status-strip meter is aggregate … Signal meter (S1–S9) per §8.9")
-- [ ] New reducer events set each new field, added to the sealed `RadioEvent` hierarchy with exhaustive-switch handling preserved so a future subclass is a compile error — *ORCH-authored engineering criterion* preserving TASK-004's ratified single-reducer invariant (TS §8.2)
-- [ ] A documented one-way bridge feeds TASK-022's floor effects (EMG / active-speaker / arbiter) and the presence/telemetry roster into those events so TASK-017 reads ONE source — *ORCH-authored, ratifiable*: the bridge shape (proposal (A) above) is the design decision reviewed here, grounded in TS §8.2 L289 and TASK-022 Review_Findings (m)
-- [ ] Secondary items landed and scoped as secondary: `PowerOff` edge, Riverpod-host split + reducer purity test, `Notifier` migration, `LinkRecovered` fallback rename, `LinkDegraded` gated to powered-on phases, `SetMode` gated to floor-idle (TS §8.4 "at floor-idle only") — *ORCH-authored engineering criteria from TASK-004 Review_Findings*
-- [ ] `tuneDelta` added only if follow-up (k) is ruled before dispatch, else deferred; this task does not depend on (k) — *ORCH-authored, conditional (TASK-004 follow-up 2 + follow-up (k))*
-- [ ] 100%-branch discipline held via the table-driven `RadioPhase` × event matrix (TASK-004 pattern), evidence stated as the matrix + `LF/LH`, no `--branch-coverage` percentage claimed, per NFR-10 ("Reducer/state machine 100% branch") and TASK-004's documented LCOV limitation
+- [x] `RadioState` exposes the DS §6 telltale set (NO LINK, EMG, PRV, REPLAY, MON, SCAN, VOX) as projection fields, per DS §6 State Catalogue (KRX-018) and TS §8.2 ("UI, audio, haptics, and network are all projections of it")
+- [x] `RadioState` carries a station-count field, per FR-067 ("Presence: `STN n` count on the display")
+- [x] `RadioState` carries an active-speaker identity field (nullable), per §6.1's active-speaker line and DS §6 ("RX active (callsign shown)")
+- [x] `RadioState` carries an aggregate S-meter/quality field (S1–S9), per FR-069 ("the status-strip meter is aggregate … Signal meter (S1–S9) per §8.9")
+- [x] New reducer events set each new field, added to the sealed `RadioEvent` hierarchy with exhaustive-switch handling preserved so a future subclass is a compile error — *ORCH-authored engineering criterion* preserving TASK-004's ratified single-reducer invariant (TS §8.2)
+- [x] A documented one-way bridge feeds TASK-022's floor effects (EMG / active-speaker / arbiter) and the presence/telemetry roster into those events so TASK-017 reads ONE source — *ORCH-authored, ratifiable*: the bridge shape (proposal (A) above) is the design decision reviewed here, grounded in TS §8.2 L289 and TASK-022 Review_Findings (m)
+- [x] Secondary items landed and scoped as secondary: `PowerOff` edge, Riverpod-host split + reducer purity test, `Notifier` migration, `LinkRecovered` fallback rename, `LinkDegraded` gated to powered-on phases, `SetMode` gated to floor-idle (TS §8.4 "at floor-idle only") — *ORCH-authored engineering criteria from TASK-004 Review_Findings*
+- [x] `tuneDelta` added only if follow-up (k) is ruled before dispatch, else deferred; this task does not depend on (k) — *ORCH-authored, conditional (TASK-004 follow-up 2 + follow-up (k))*
+- [x] 100%-branch discipline held via the table-driven `RadioPhase` × event matrix (TASK-004 pattern), evidence stated as the matrix + `LF/LH`, no `--branch-coverage` percentage claimed, per NFR-10 ("Reducer/state machine 100% branch") and TASK-004's documented LCOV limitation
 **Branch:** task/TASK-027-cx
 **Started_At:** 2026-08-19T06:19:20Z
 **Progress_Notes:**
@@ -1174,12 +1174,21 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
     GLOB   test/core/state/**  -> 1 file(s):
            test/core/state/radio_state_test.dart
   [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-19T06:25:12Z] [CX] Implemented `eb585a6`: complete state projections, exhaustive sealed events, and the documented one-way floor/presence/telemetry bridge. Secondary reducer cleanup is included; `tuneDelta` is deferred because the wrap-vs-clamp ruling remains unresolved.
+**Artifacts:**
+- `lib/core/state/radio_state.dart`
+- `lib/core/state/radio_state_controller.dart`
+- `lib/core/state/radio_state_bridge.dart`
+- `lib/core/state/README.md`
+- `test/core/state/radio_state_test.dart`
+**Test_Evidence:**
+- [2026-08-19T06:25:12Z] [CX] `flutter test test/core/state/radio_state_test.dart --branch-coverage --coverage-path %TEMP%\keryx-task-027-lcov.info` — passed 16/16. Matrix: 123 legal transitions + 85 illegal no-ops across 26 events × 8 phases = 208 pairs. `radio_state.dart` LCOV `LF 167 / LH 145`; no `BRF/BRH` decision denominator emitted, so no percentage claimed.
+- [2026-08-19T06:25:12Z] [CX] `flutter analyze` — passed: No issues found.
+- [2026-08-19T06:25:12Z] [CX] `flutter test` — passed: 140/140.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-19T06:20:06Z
+**Updated_At:** 2026-08-19T06:25:12Z
 
 ### TASK-028
 **Title:** Theme material tokens + faceplate seam (theme successor, follow-up (q))
