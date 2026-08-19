@@ -1284,7 +1284,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-028
 **Title:** Theme material tokens + faceplate seam (theme successor, follow-up (q))
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_UI_Design_Specification_v1.0.md §3, §4, §8, §9 (KRX-010 amended, KRX-018 amended, KRX-096); specs/KERYX_Product_Technical_Spec_v1.1.md §6.4, FR-101; specs/keryx-face-prototype.html (.glass L51-58 inline chrome)
@@ -1293,14 +1293,14 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 **Description:** Reopen the frozen `lib/core/theme/**` territory (the 010→011 successor pattern) to add the material tokens TASK-005 could not ship because they were never in the prototype's `:root` block, and to introduce the faceplate seam. TASK-005 tokenized only PT's `:root` variables; TASK-012 then had to HARDCODE the glass-frame chrome (`Color(0xFF0A0F0C)` border + `Color.fromRGBO(0,0,0,0.85)` inner shadow + `Color.fromRGBO(255,255,255,0.05)` highlight + `Colors.transparent` bloom stop) because those are PT `.glass` L51-58 *inline* values the prototype never abstracts into `:root`, so the frozen theme exposes no token. This task ADDs: the glass-recess chrome tokens (border, inner shadow, highlight, backlight-bloom stop); the 1 dp key-travel constant (DS §4 "Pressed keys move 1 dp down, lose their top highlight, and gain an inner shadow" / TS §6.4); the 2–3% monochrome noise-overlay token (DS §4 housing material); the "no gradient longer than 20% of an element's height" constant (DS §4); an Inter 600 style/axis (DS §3 "Interface (panels) `Inter`, 400/600", currently synthesised); and — the load-bearing one — a **faceplate seam** so hue/material tokens are runtime-swappable per DS §8 ("Faceplates may change materials and hue but never layout") / FR-101 / KRX-018 (golden tests on every shipped faceplate) / KRX-096 (per-faceplate contrast validation in CI), replacing the flat `abstract final` / `static const` surface TASK-005 shipped. Layout tokens do NOT move: `FaceAllocation` is already a grouped instance class in the right shape; only the colour/material half becomes swappable. **Preserve every existing TASK-005 token value byte-for-byte** — colours, typography, motion, grid, faceAllocation, lip — this task only ADDs and introduces the seam; changing a shipped value would silently break TASK-012, which already consumes them.
 **COUPLED FOLLOW-ON TO NOTE (not owned here):** TASK-012's display widget must later be refactored to consume the new glass-recess tokens instead of its hardcoded chrome — but `lib/features/display/**` is FROZEN, so that refactor is a separate concern (a small re-open task, or folded into TASK-017 when it integrates the glass into the housing). TASK-028 owns only `lib/core/theme/**` and does not touch the display widget.
 **Acceptance_Criteria:**
-- [ ] Glass-recess chrome tokens added (border `0xFF0A0F0C`, inner shadow `rgba(0,0,0,0.85)`, highlight `rgba(255,255,255,0.05)`, backlight-bloom transparent stop) matching PT `.glass` L51-58 inline values that TASK-012 had to hardcode
-- [ ] 1 dp key-travel constant added, per DS §4 ("Pressed keys move 1 dp down, lose their top highlight, and gain an inner shadow") / TS §6.4
-- [ ] 2–3% monochrome noise-overlay token added, per DS §4 ("Housing = `--shell-700` with a 2–3% monochrome noise overlay (moulded texture)")
-- [ ] "No gradients longer than 20% of an element's height" exposed as a constant, per DS §4
-- [ ] An Inter 600 style/axis exposed so `w600` is a real weight not synthesised, per DS §3 ("Interface (panels) `Inter`, 400/600")
-- [ ] A faceplate seam makes hue/material tokens runtime-swappable without changing layout, per DS §8 ("Faceplates may change materials and hue but never layout"), FR-101, KRX-018 (amended) and KRX-096
-- [ ] Every existing TASK-005 token value preserved byte-for-byte (verified by test) — *ORCH-authored engineering criterion*: changing a shipped value would break TASK-012 which already consumes them
-- [ ] Token unit tests green; new tokens asserted against their spec/PT numbers, per DS §9 KRX-010 amendment ("the tests are the design reviewer") — *ORCH-authored*
+- [x] Glass-recess chrome tokens added (border `0xFF0A0F0C`, inner shadow `rgba(0,0,0,0.85)`, highlight `rgba(255,255,255,0.05)`, backlight-bloom transparent stop) matching PT `.glass` L51-58 inline values that TASK-012 had to hardcode
+- [x] 1 dp key-travel constant added, per DS §4 ("Pressed keys move 1 dp down, lose their top highlight, and gain an inner shadow") / TS §6.4
+- [x] 2–3% monochrome noise-overlay token added, per DS §4 ("Housing = `--shell-700` with a 2–3% monochrome noise overlay (moulded texture)")
+- [x] "No gradients longer than 20% of an element's height" exposed as a constant, per DS §4
+- [x] An Inter 600 style/axis exposed so `w600` is a real weight not synthesised, per DS §3 ("Interface (panels) `Inter`, 400/600")
+- [x] A faceplate seam makes hue/material tokens runtime-swappable without changing layout, per DS §8 ("Faceplates may change materials and hue but never layout"), FR-101, KRX-018 (amended) and KRX-096
+- [x] Every existing TASK-005 token value preserved byte-for-byte (verified by test) — *ORCH-authored engineering criterion*: changing a shipped value would break TASK-012 which already consumes them
+- [x] Token unit tests green; new tokens asserted against their spec/PT numbers, per DS §9 KRX-010 amendment ("the tests are the design reviewer") — *ORCH-authored*
 **Branch:** task/TASK-028-s5
 **Started_At:** 2026-08-19T22:35:00Z
 **Progress_Notes:**
@@ -1313,9 +1313,10 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
   GLOB   test/core/theme/**  -> 1 file(s):
            test/core/theme/theme_test.dart
 ```
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-19T23:10:00Z] [S5] Implementation was already committed on this branch (21997dc, prior session) but PLAN.md had not been advanced past `claimed` -- resuming meant verifying, not writing. Re-ran `flutter analyze` and the full `flutter test` suite fresh this session (evidence below) and cross-checked every acceptance criterion against the actual spec text: DS §4 L98 "Pressed keys move 1 dp down..." (keyTravel), DS §4 L92 "2-3% monochrome noise overlay" / "No gradients longer than 20% of an element's height" (housingNoiseOverlayOpacity, maxGradientHeightFraction), DS §3 L82 "Interface (panels) Inter, 400/600" (panelBodyStrong FontVariation), DS §8 L134 "Faceplates may change materials and hue but never layout" (KeryxFacePlate + facePlate ValueNotifier seam), and PT `.glass` L51-58 (`border:1px solid #0a0f0c`, `inset 0 3px 10px rgba(0,0,0,.85)`, `0 1px 0 rgba(255,255,255,.05)`) -- all match theme.dart's token values exactly. All 8 acceptance criteria verified and ticked. `git show --stat 21997dc` confirms the commit touches only lib/core/theme/theme.dart and test/core/theme/theme_test.dart -- inside Owned_Paths; no other files changed. -> needs_review.
+**Artifacts:** lib/core/theme/theme.dart, test/core/theme/theme_test.dart
+**Test_Evidence:** [2026-08-19T23:10:00Z] [S5] `flutter analyze` -- No issues found! (ran in 2.1s). `flutter test` (full suite, worktree wt-s5-walkietalkie-keryx) -- All tests passed! 201/201 (00:11). `flutter test test/core/theme/theme_test.dart` in isolation -- All tests passed! 12/12, incl. the 3 new TASK-028 groups (glass-recess chrome, new material/geometry constants, faceplate seam) and the pre-existing colour/type-scale/motion guard tests confirming every TASK-005 value is preserved byte-for-byte.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-08-19T22:35:00Z
+**Updated_At:** 2026-08-19T23:10:00Z
