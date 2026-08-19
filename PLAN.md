@@ -1266,7 +1266,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-028
 **Title:** Theme material tokens + faceplate seam (theme successor, follow-up (q))
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_UI_Design_Specification_v1.0.md §3, §4, §8, §9 (KRX-010 amended, KRX-018 amended, KRX-096); specs/KERYX_Product_Technical_Spec_v1.1.md §6.4, FR-101; specs/keryx-face-prototype.html (.glass L51-58 inline chrome)
@@ -1283,12 +1283,21 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 - [ ] A faceplate seam makes hue/material tokens runtime-swappable without changing layout, per DS §8 ("Faceplates may change materials and hue but never layout"), FR-101, KRX-018 (amended) and KRX-096
 - [ ] Every existing TASK-005 token value preserved byte-for-byte (verified by test) — *ORCH-authored engineering criterion*: changing a shipped value would break TASK-012 which already consumes them
 - [ ] Token unit tests green; new tokens asserted against their spec/PT numbers, per DS §9 KRX-010 amendment ("the tests are the design reviewer") — *ORCH-authored*
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-028-s5
+**Started_At:** 2026-08-19T22:35:00Z
+**Progress_Notes:**
+- [2026-08-19T22:35:00Z] [S5] Claimed. Only ready pending S5 task right now (TASK-013/014/015/017 all block on this landing first per orchestrator_notes / their Depends_On). Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-028 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/theme/**  -> 1 file(s):
+           lib/core/theme/theme.dart
+  GLOB   test/core/theme/**  -> 1 file(s):
+           test/core/theme/theme_test.dart
+```
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-19T03:15:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-08-19T22:35:00Z
