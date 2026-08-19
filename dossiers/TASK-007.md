@@ -19,3 +19,4 @@ Pure-Dart channel→roomId derivation in `lib/core/rooms/`, matching TS §8.7 ex
 3. `vectors_test.dart`: hand-computed frozen vectors (several numbered combos incl. code 00, region variants; keyed with known passphrases). Any future change that breaks a vector is a protocol break by definition.
 
 ## Work Log
+- [2026-08-19T18:04:13Z] [GB] Implemented TS §8.7 under `lib/core/rooms/`. Pins: numbered `utf8("$region|$ch|$code")` two-digit pads; keyed `utf8("PRV")||scrypt(dkLen=32)`; scrypt N=2^15 r=8 p=1 salt=`KERYX.v1` (RFC 7914 in-tree, `package:crypto` only — pointycastle is transitive and `depend_on_referenced_packages` would have required a frozen-pubspec dep). roomId RFC 4648 uppercase-unpadded `[:16]` per ruling (d). Frozen vectors independently computed with Python hashlib/hmac. Commit `baa61bf`. Ready for review.
