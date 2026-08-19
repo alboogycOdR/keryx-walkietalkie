@@ -342,7 +342,7 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 
 ### TASK-007
 **Title:** Room derivation library: numbered/keyed/scrypt + test vectors (KRX-053)
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.7, §11 E6 (KRX-053), FR-002, FR-007, FR-008
@@ -350,24 +350,45 @@ New territory under lib/core/protocol/** and test/core/protocol/**. Implementing
 **Depends_On:** TASK-001
 **Description:** Pure-Dart room derivation under `lib/core/rooms/`: `numbered: roomId = b32(HMAC-SHA256("KERYX.v1", region | ch | code))[:16]` and `keyed: roomId = b32(HMAC-SHA256("KERYX.v1", "PRV" | scrypt(passphrase)))[:16]` per TS §8.7, with region-salt input (FR-008) and fixed scrypt parameters (document chosen N/r/p in code — spec leaves them open, ORCH ratifies at review). Deliver a frozen test-vector suite (known inputs → known roomIds) so client and any future server tooling can never drift.
 **Acceptance_Criteria:**
-- [ ] Numbered derivation implements `b32(HMAC-SHA256("KERYX.v1", region | ch | code))[:16]` per TS §8.7
-- [ ] Keyed derivation implements `b32(HMAC-SHA256("KERYX.v1", "PRV" | scrypt(passphrase)))[:16]` per TS §8.7
-- [ ] Region participates in numbered derivation per FR-008 ("Region setting (region salt) partitions the numbered-channel namespace on LINKED")
-- [ ] Passphrase is scrypt-stretched and never leaves the client per TS §8.7 ("Keyed channels get real entropy from the passphrase (scrypt-stretched)"; "Server sees keyed-channel room hashes only, never passphrases")
-- [ ] Privacy code participates in room derivation per FR-002 ("on LINKED, code participates in room derivation (§8.7)")
-- [ ] Frozen test vectors committed and green
+- [x] Numbered derivation implements `b32(HMAC-SHA256("KERYX.v1", region | ch | code))[:16]` per TS §8.7
+- [x] Keyed derivation implements `b32(HMAC-SHA256("KERYX.v1", "PRV" | scrypt(passphrase)))[:16]` per TS §8.7
+- [x] Region participates in numbered derivation per FR-008 ("Region setting (region salt) partitions the numbered-channel namespace on LINKED")
+- [x] Passphrase is scrypt-stretched and never leaves the client per TS §8.7 ("Keyed channels get real entropy from the passphrase (scrypt-stretched)"; "Server sees keyed-channel room hashes only, never passphrases")
+- [x] Privacy code participates in room derivation per FR-002 ("on LINKED, code participates in room derivation (§8.7)")
+- [x] Frozen test vectors committed and green
 **Branch:** task/TASK-007-gb
 **Started_At:** 2026-08-19T17:53:00Z
 **Progress_Notes:**
 - [2026-08-18T14:20:00Z] [ORCH] Blocked pending a spec ruling: TS §8.7's `b32(...)` never fixes the base32 alphabet/case/padding for roomId. token-svc (TASK-003, merged) already pinned RFC 4648 uppercase-unpadded (`^[A-Z2-7]{16}$`) by implementation and validates against it — if this task picks a different alphabet, every mint request 422s against already-deployed code. Mechanically fenced off (Status: blocked) so GB's own claim logic doesn't self-select into it despite Depends_On being satisfied. ORCH to rule (RFC 4648, matching precedent) then unblock.
 - [2026-08-19T18:30:00Z] [ORCH] RULING (follow-up d): roomId is RFC 4648 uppercase-unpadded (`^[A-Z2-7]{16}$`), matching token-svc's already-deployed validator exactly (TASK-003 precedent) and TASK-009's independently-verified peerId derivation approach (same RFC, different case — see follow-up (n2), not this task's concern). Unblocking.
 - [2026-08-19T17:53:00Z] [GB] Claimed TASK-007. Branch `task/TASK-007-gb`. Encoding pin: RFC 4648 uppercase-unpadded per ruling (d), not the dossier's lowercase draft.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-19T17:54:30Z] [GB] Preflight complete:
+```
+[preflight] TASK-007 Owned_Paths inspected in C:\CLAUDECODE_TOOLSETS\wt-grok-walkietalkie-keryx
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/rooms/**  -> matches nothing yet (new territory)
+  GLOB   test/core/rooms/**  -> matches nothing yet (new territory)
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+New territory. Implementing numbered/keyed derivation + frozen vectors.
+- [2026-08-19T18:04:13Z] [GB] TASK-007 complete on `task/TASK-007-gb` (commit baa61bf). Spec-silent pins for ratification: numbered message `utf8("$region|$ch|$code")` with zero-padded two-digit ch/code; keyed message `utf8("PRV") || scrypt(passphrase)` (raw 32-byte concat); scrypt N=2^15 r=8 p=1 dkLen=32 salt=utf8("KERYX.v1"), RFC 7914 in-tree via `package:crypto` (pointycastle is transitive-only; analyzer `depend_on_referenced_packages` blocked importing it without touching frozen pubspec). roomId RFC 4648 uppercase unpadded `[:16]`. Ready for review.
+**Artifacts:**
+- lib/core/rooms/rooms.dart
+- lib/core/rooms/derivation.dart
+- lib/core/rooms/rfc4648_base32.dart
+- lib/core/rooms/scrypt_stretch.dart
+- lib/core/rooms/README.md
+- test/core/rooms/vectors_test.dart
+- test/core/rooms/derivation_test.dart
+- test/core/rooms/scrypt_rfc7914_test.dart
+**Test_Evidence:**
+- [2026-08-19T18:04:13Z] [GB] `flutter analyze lib/core/rooms test/core/rooms` — No issues found.
+- [2026-08-19T18:04:13Z] [GB] `flutter test test/core/rooms` — 29/29 pass (11 frozen vectors + RFC 7914 Appendix B + FR-002/FR-008 + passphrase-never-leaves-client).
+- [2026-08-19T18:04:13Z] [GB] `flutter test` — 188/188 pass.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-19T17:53:00Z
+**Updated_At:** 2026-08-19T18:04:13Z
 
 ### TASK-008
 **Title:** Settings & persistence layer: encrypted prefs, channel memory (KRX-004)
