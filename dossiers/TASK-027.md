@@ -60,3 +60,10 @@ source, not two.
    TASK-004 rework).
 
 ## Work Log
+- [2026-08-19T19:20:00Z] [S5] Resumed TASK-027 after ORCH reassignment from CX (branch `task/TASK-027-cx` renamed to `task/TASK-027-s5`, commit `eb585a6` preserved, 8/9 criteria ratified). Applied ORCH's 4 scoped fix instructions for criterion 9 on the existing branch, commit `59a8931` [TASK-027]:
+  1. Added a negative test asserting `RosterUpdated(-1)` is a no-op (stationCount preserved) — exercises the previously-untested false branch of `event.stationCount >= 0`.
+  2. Added negative tests asserting `SignalQualityUpdated(0)` and `SignalQualityUpdated(10)` are each a no-op at both S-meter domain endpoints — exercises the false branch of `_isValidSignalQuality`.
+  3. Renamed `ActiveSpeakerChanged`'s parameter `callsign` -> `speaker` in the reducer (and the test oracle's matching switch arm), with dartdoc explaining the bridge feeds a peerId (`FloorEngine.holder`/`localPeerId`), not a display callsign; the peerId->callsign mapping stays TASK-009's `displayNames`, applied downstream by TASK-017.
+  4. Restated Test_Evidence with refreshed counts (18/18 in `test/core/state/`, 142/142 full suite; matrix unchanged at 123 legal/85 illegal since the new tests are standalone negative cases outside the phase x event matrix; LCOV `LF 167 / LH 145` unchanged, still no `BRF/BRH` denominator, no percentage claimed).
+  Did not touch the reducer's transition logic, the bridge, the controller, the event hierarchy, or any of the 16 pre-existing tests; did not add `tuneDelta` (follow-up (k) still unruled). `flutter analyze` clean, full `flutter test` 142/142.
+  PLAN.md coordination note: encountered a live uncommitted edit from GB (TASK-007 block) sitting in the shared main checkout when first reading PLAN.md fresh; per plan_guard.py's refusal and the documented recovery path, discarded the stale working copy (`git checkout -- PLAN.md`, scoped to PLAN.md only — did not touch the concurrently-modified `specs/**` files, which are outside my path anyway) and reapplied only TASK-027's block against a fresh read before recording via `scripts/plan_commit.sh` (commit `dbfdf1d`). Status -> needs_review.
