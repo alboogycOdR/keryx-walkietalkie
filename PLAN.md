@@ -1204,7 +1204,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-023
 **Title:** Floor-control simulation soak harness: 500-run churn/loss, zero double-grants (KRX-044)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §11 E5 (KRX-044), §8.6, §9 NFR-10
