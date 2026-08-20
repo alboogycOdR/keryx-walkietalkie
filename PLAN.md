@@ -1,6 +1,6 @@
 ---
-plan_version: 3.9
-last_updated: 2026-08-20T10:45:00Z
+plan_version: 4.0
+last_updated: 2026-08-20T10:52:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 28 tasks from 3 specs. PRUNED 2026-08-20T10:45Z (was 3.8, grown unwieldy across ~15 sessions) — blow-by-blow dispatch/review narrative moved to REVIEW.md + git log, which already carry the full detail; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -20,7 +20,7 @@ FOLLOW-UPS OWED (full detail in each task's Review_Findings + REVIEW.md): (a) fo
 
 No git remote — CI never run. NEW SPEC uncommitted: specs/KERYX_World_Band_Radio_Spec_v1.0.md (Phase 2, out of scope, don't touch without asking).
 
-STATUS SCAN (2026-08-20T10:45Z): validate_plan.py clean. TASK-014 claimed by S5 (branch task/TASK-014-s5), no code yet — expected, claim just landed. Territory diff empty. Zero blocked tasks, no drift. Next: continue monitoring TASK-014; create the follow-up (w) successor task (RadioState TotWarn/TotCut/TransmitDenied fields) before TASK-017 is dispatchable even after 014 lands."
+STATUS SCAN (2026-08-20T10:52Z): TASK-014 landed needs_review (single commit 6b31e77, 11 files, all inside lib/features/tuning/**+test/features/tuning/**, tagged [TASK-014]). S5's 2 PLAN.md commits (144e42f/495fd3b) touched only the TASK-014 block. validate_plan.py clean, zero blocked tasks, no drift. PROGRESS: 20/28 done, 1 needs_review. Next: /devteam-review TASK-014 — approval would satisfy TASK-017's Depends_On 6/6, though follow-up (w) successor task is still needed before TASK-017 itself is dispatchable."
 ---
 
 # Project Plan
