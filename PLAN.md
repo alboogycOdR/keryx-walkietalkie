@@ -1,6 +1,6 @@
 ---
-plan_version: 5.8
-last_updated: 2026-08-20T21:40:00Z
+plan_version: 5.9
+last_updated: 2026-08-20T22:10:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -22,7 +22,11 @@ FOLLOW-UPS OWED (full detail in each task's Review_Findings + REVIEW.md): (a) fo
 
 No git remote — CI never run. NEW SPEC uncommitted: specs/KERYX_World_Band_Radio_Spec_v1.0.md (Phase 2, out of scope, don't touch without asking).
 
-STATUS SCAN (2026-08-20T20:50Z): TASK-021 landed needs_review (single commit 0b6d20d, 15 files, all inside lib/services/mesh/**+test/services/mesh/**, tagged (TASK-021)). S5's 2 PLAN.md commits (7c02761/baeb5d6) touched only the TASK-021 block. validate_plan.py clean, zero blocked tasks, no drift. REVIEW (2026-08-20T21:35Z): TASK-021 APPROVED first-pass — full detail in REVIEW.md and Review_Findings. Merged onto master, lib/services/mesh+test now FROZEN. Territory clean (15 files), spec verification and independent test run (flutter analyze clean, 378/378 full suite, 28/28 mesh-scoped exact per-file match) both confirmed S5's claims exactly — no reporter discrepancy this time, unlike the last three reviews. Independently confirmed TX_START/TX_END RX-gating is real spec text, not an inference. One minor non-blocking finding: MeshConfig.minBitrateBps declared but unused anywhere in the diff — flag for whoever next opens this territory. **This completes the demo trilogy (TASK-017/020/021) — the app now has a real functional two-device voice path**, not just a visual one: boots to the real face, discovers LAN peers, carries WebRTC audio + the real floor-control protocol over a real data channel. Post-merge sanity check on actual master: flutter test 378/378. Next: TASK-018/023/024/025/026 remain TBD and need scoping before dispatch; TASK-024 (LINKED/LiveKit integration) is the next major networking milestone."
+STATUS SCAN (2026-08-20T20:50Z): TASK-021 landed needs_review (single commit 0b6d20d, 15 files, all inside lib/services/mesh/**+test/services/mesh/**, tagged (TASK-021)). S5's 2 PLAN.md commits (7c02761/baeb5d6) touched only the TASK-021 block. validate_plan.py clean, zero blocked tasks, no drift. REVIEW (2026-08-20T21:35Z): TASK-021 APPROVED first-pass — full detail in REVIEW.md and Review_Findings. Merged onto master, lib/services/mesh+test now FROZEN. Territory clean (15 files), spec verification and independent test run (flutter analyze clean, 378/378 full suite, 28/28 mesh-scoped exact per-file match) both confirmed S5's claims exactly — no reporter discrepancy this time, unlike the last three reviews. Independently confirmed TX_START/TX_END RX-gating is real spec text, not an inference. One minor non-blocking finding: MeshConfig.minBitrateBps declared but unused anywhere in the diff — flag for whoever next opens this territory. **This completes the demo trilogy (TASK-017/020/021) — the app now has a real functional two-device voice path**, not just a visual one: boots to the real face, discovers LAN peers, carries WebRTC audio + the real floor-control protocol over a real data channel. Post-merge sanity check on actual master: flutter test 378/378. ON-DEVICE TEST (2026-08-20, HONOR 90 Lite, arm64): app boots and renders correctly (face, knob, PTT, display, grille all live). Confirmed real gap: **the SFX/audio engine (TASK-010/011, built and frozen) was never wired into FaceScreen at all** — zero audio anywhere (no boot chime, tick, grant/deny tone, squelch, roger beep). Not a bug in TASK-017 itself (out of its declared scope) but a genuine missed follow-up nobody created a task for — new follow-up (jj): MANDATORY before this app is usable as an actual radio, needs its own successor task (own FaceScreen's audio-engine construction/wiring, mirroring how TASK-017 wired FloorEngine). Two other screenshot observations investigated and NOT bugs: the two-row channel/code display is the intended ghost-segment LCD design, not the (ii) overflow issue; the sparse-looking grille is very likely correct idle-state behavior (bars are deliberately near-invisible until actually receiving RX audio) — confirm once two devices are both running.
+
+TOOLING (2026-08-20T22:05Z): added `--effort` passthrough to claude-family builder dispatches (`-Effort` named param in dispatch.ps1, `EFFORT` env var in dispatch.sh) per the project owner's request to run this wave's S5 dispatches at medium effort. No-op for grok/codex.
+
+SCOPED FOR DISPATCH (2026-08-20T22:10Z): TASK-018/023/024/025/026, all assigned S5 per the project owner's explicit request to push through the remaining backlog with S5 only. TASK-018 (settings) and TASK-023 (soak harness) needed no real scoping fixes — Depends_On already correct, self-contained territory. TASK-024 and TASK-025 both inherited a MANDATORY-but-never-enforced constraint from TASK-007's review (deriveKeyed must run off the UI isolate) — promoted from prose into a real acceptance criterion on both. TASK-024 was also missing TASK-006 from Depends_On (implied by 'same §8.6 schema' but never listed) and now explicitly points at TASK-021's MeshFloorTransport as the concrete precedent for its own second FloorTransport implementation over LiveKit data messages. All 5 tasks' Owned_Paths confirmed pairwise disjoint. Since only S5 is dispatching (serially, one task at a time), S5 will self-select by priority — TASK-024 (high) will likely claim first over the four medium-priority tasks. Next: dispatch S5 with -Effort medium; work through the queue with review after each, same standard as every prior task this session."
 ---
 
 # Project Plan
@@ -927,7 +931,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 ### TASK-018
 **Title:** Settings-as-back-panel screen (KRX-016)
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-100, FR-061, FR-046, FR-023, §11 E2 (KRX-016); specs/KERYX_UI_Design_Specification_v1.0.md §3 (Interface role), §7 (copy voice)
 **Owned_Paths:** lib/features/settings_panel/**, test/features/settings_panel/**
@@ -1198,7 +1202,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 ### TASK-023
 **Title:** Floor-control simulation soak harness: 500-run churn/loss, zero double-grants (KRX-044)
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §11 E5 (KRX-044), §8.6, §9 NFR-10
 **Owned_Paths:** test/simulation/**
@@ -1222,23 +1226,25 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 ### TASK-024
 **Title:** LINKED integration: livekit_client join/publish/subscribe mirroring PTT (KRX-052 + KRX-055)
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** high
-**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.4, §8.5, FR-043, FR-045, §11 E6 (KRX-052, KRX-055)
+**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.4, §8.5, FR-043, FR-045, §11 E6 (KRX-052, KRX-055); lib/services/mesh/floor_data_channel_transport.dart (TASK-021's `FloorTransport` adapter over WebRTC — this task's LiveKit data-message adapter is the SAME pattern over a different transport; read it before writing code, do not invent a parallel abstraction); lib/core/rooms/** (TASK-007, deriveKeyed's isolate constraint)
 **Owned_Paths:** lib/services/linked/**, test/services/linked/**
-**Readiness:** READY as of 2026-08-19T19:22:00Z — both `Depends_On` (TASK-003, TASK-007) are `done`. Needs an owner (`Assigned_To: TBD`). Inherits TASK-007 finding (1): `deriveKeyed` MUST run off the UI isolate.
-**Depends_On:** TASK-003, TASK-007
-**Description:** Under `lib/services/linked/`: LINKED-path client — derive roomId (TASK-007), fetch JWT from the token service (TASK-003 contract), join the LiveKit room, pre-publish the muted audio track, mirror PTT state on it, ride floor-control messages over LiveKit data messages (same §8.6 schema), and implement link-loss/regain behaviour: `NO LINK` flag, link_lost/link_up chirp events, auto-fallback to LOCAL, never a modal. Tested against a LiveKit client abstraction; live-relay smoke test documented for review.
+**Depends_On:** TASK-003, TASK-006, TASK-007
+**Description:** Under `lib/services/linked/`: LINKED-path client — derive roomId (TASK-007), fetch JWT from the token service (TASK-003 contract), join the LiveKit room, pre-publish the muted audio track, mirror PTT state on it (same `TransmitGranted`/`EndTransmit`-driven `enabled` flip TASK-021 established for the LOCAL mesh — this is the second, not the first, implementation of that pattern), ride floor-control messages over LiveKit data messages using TASK-006's `FloorCodec` — **a second concrete `FloorTransport` implementation (`lib/core/floor/transport.dart`), this time wrapping LiveKit's data-message API instead of a WebRTC `RTCDataChannel`, mirroring TASK-021's `MeshFloorTransport` shape exactly** — and implement link-loss/regain behaviour: `NO LINK` flag, link_lost/link_up chirp events, auto-fallback to LOCAL, never a modal. **`deriveKeyed` (TASK-007's scrypt-backed keyed-channel derivation) is ~1-3s of pure-Dart computation and MUST run off the UI isolate (`compute()`/`Isolate.run()`) — this was flagged as mandatory before this task in TASK-007's own review and is now a hard acceptance criterion, not a note.** Tested against a LiveKit client abstraction; live-relay smoke test documented for review.
 **Acceptance_Criteria:**
 - [ ] "Channel → deterministic roomId (§8.7) → token service issues a short-lived LiveKit JWT … → join room" per TS §8.4
 - [ ] "One LiveKit room per channel; audio publish/subscribe mirrors PTT state; floor control messages ride LiveKit data messages (same schema as LOCAL)" per TS §8.4
+- [ ] The LiveKit data-message adapter implements `FloorTransport` exactly (`send(FloorMessage)`, `Stream<FloorMessage> get incoming`) using TASK-006's `FloorCodec` — *ORCH-authored*: same interface TASK-021 already implements for LOCAL, so `FloorEngine` runs unmodified over either transport
 - [ ] Muted pre-publish on join per TS §8.5 (same ≤ 50 ms attack design as LOCAL)
 - [ ] "relay unreachable → radio drops to LOCAL with an audible 'link lost' double-chirp and NO LINK display flag; never a modal error dialog" per FR-045
 - [ ] Join methods supported at the API level: numbered channel + code, keyed passphrase per FR-043
+- [ ] `deriveKeyed` runs off the UI isolate — *ORCH-authored, MANDATORY per TASK-007 follow-up (dd)*: verify via a test that the call does not block the UI thread (e.g. asserting it returns a `Future` that completes after other synchronous work, or a direct `compute()`/`Isolate.run()` usage check), not just that the result is correct
 - [ ] Unit tests green against the client abstraction
 **Branch:** —
 **Started_At:** —
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-20T22:10:00Z] [ORCH] Scoped for dispatch as part of the TASK-018/023/024/025/026 push. Added TASK-006 to Depends_On (already done — was implied by "same §8.6 schema" but never listed, same class of gap as TASK-020/024's earlier missing-dependency catches). Pointed at TASK-021's `MeshFloorTransport` as the concrete precedent for this task's own `FloorTransport` adapter, and promoted the previously-noted-but-not-enforced `deriveKeyed`-off-UI-isolate constraint (TASK-007 follow-up (dd), MANDATORY) from prose into a real acceptance criterion. Assigned S5.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
@@ -1249,22 +1255,23 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 ### TASK-025
 **Title:** Event QR generate/scan + keryx:// deep links (KRX-054)
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** medium
-**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-043, FR-044, §11 E6 (KRX-054)
+**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-043, FR-044, §11 E6 (KRX-054); lib/core/rooms/** (TASK-007, deriveKeyed's isolate constraint)
 **Owned_Paths:** lib/features/event_qr/**, test/features/event_qr/**
-**Readiness:** READY as of 2026-08-19T19:22:00Z — its only dependency (TASK-007) is `done`. Needs an owner (`Assigned_To: TBD`). Inherits TASK-007 finding (1): `deriveKeyed` MUST run off the UI isolate.
 **Depends_On:** TASK-007
-**Description:** Under `lib/features/event_qr/`: export any channel as a QR + `keryx://` deep link encoding region, channel, code (or keyed-channel token) and expiry, with expiry presets 4 h / 24 h (default) / 7 d / no-expiry (extra explicit tap); scanner flow that tunes the radio instantly on scan; deep-link intent handling payload parser (Android manifest registration itself lands with the android-chain tasks — parser and UI here). Token format versioned; unit tests for encode/decode/expiry.
+**Description:** Under `lib/features/event_qr/`: export any channel as a QR + `keryx://` deep link encoding region, channel, code (or keyed-channel token) and expiry, with expiry presets 4 h / 24 h (default) / 7 d / no-expiry (extra explicit tap); scanner flow that tunes the radio instantly on scan; deep-link intent handling payload parser (Android manifest registration itself lands with the android-chain tasks — parser and UI here). Token format versioned; unit tests for encode/decode/expiry. **A keyed-channel token calls `deriveKeyed` (TASK-007's scrypt-backed derivation, ~1-3s of pure-Dart computation) — MUST run off the UI isolate (`compute()`/`Isolate.run()`), same mandatory constraint as TASK-024, now a hard acceptance criterion here too.**
 **Acceptance_Criteria:**
 - [ ] "any channel can be exported as a QR code + keryx:// deep link encoding region, channel, code (or keyed-channel token), and expiry" per FR-044
 - [ ] "Default expiry: 24 h, with presets (4 h 'session', 24 h, 7 d, no expiry — the last requiring an explicit extra tap)" per FR-044
 - [ ] "Scanning tunes the radio instantly" per FR-044 — scan result emits a tuning intent
 - [ ] Event QR is a first-class LINKED join method per FR-043
+- [ ] `deriveKeyed` runs off the UI isolate for any keyed-channel QR/link generation or scan — *ORCH-authored, MANDATORY per TASK-007 follow-up (dd)* — same standard as TASK-024
 - [ ] Encode/decode/expiry unit tests green
 **Branch:** —
 **Started_At:** —
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-20T22:10:00Z] [ORCH] Scoped for dispatch as part of the TASK-018/023/024/025/026 push. Promoted the previously-noted-but-not-enforced deriveKeyed-off-UI-isolate constraint (TASK-007 follow-up (dd), MANDATORY) from prose into a real acceptance criterion, same as TASK-024. Assigned S5.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
@@ -1275,7 +1282,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 ### TASK-026
 **Title:** Foreground service + radio notification (KRX-080)
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-102, FR-103, §8.8, §9 NFR-06, §11 E9 (KRX-080)
 **Owned_Paths:** android/**, lib/services/platform/**, test/services/platform/**
