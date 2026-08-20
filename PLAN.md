@@ -1,6 +1,6 @@
 ---
-plan_version: 4.7
-last_updated: 2026-08-20T17:05:00Z
+plan_version: 4.8
+last_updated: 2026-08-20T17:11:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T17:05Z (was 4.6, grown large again since the last prune 6 entries ago) — blow-by-blow narrative moved to REVIEW.md + git log, which already carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -20,7 +20,7 @@ FOLLOW-UPS OWED (full detail in each task's Review_Findings + REVIEW.md): (a) fo
 
 No git remote — CI never run. NEW SPEC uncommitted: specs/KERYX_World_Band_Radio_Spec_v1.0.md (Phase 2, out of scope, don't touch without asking).
 
-REVIEW (2026-08-20T17:00Z): TASK-029 APPROVED first-pass — full detail in REVIEW.md and Review_Findings. Merged onto master, lib/core/state+test now FROZEN again. Territory clean (4 files), spec verification and independent test run (flutter analyze clean, 301/301 full suite) confirmed GB's claims; one test-count discrepancy (21 vs 22 for the state test file) surfaced and resolved via two independent cross-checks before concluding GB's number was correct — a reporter-tooling artifact, not a defect. GB proactively ran its own mutation-style regression check before submitting. **UNLOCKS TASK-017 to fully dispatchable (Depends_On 7/7).** Next: /devteam-dispatch to launch S5 onto TASK-017 (face assembly — the app-boots-to-a-screen milestone)."
+REVIEW (2026-08-20T17:00Z): TASK-029 APPROVED first-pass — full detail in REVIEW.md and Review_Findings. Merged onto master, lib/core/state+test now FROZEN again. Territory clean (4 files), spec verification and independent test run (flutter analyze clean, 301/301 full suite) confirmed GB's claims; one test-count discrepancy (21 vs 22 for the state test file) surfaced and resolved via two independent cross-checks before concluding GB's number was correct — a reporter-tooling artifact, not a defect. GB proactively ran its own mutation-style regression check before submitting. **UNLOCKS TASK-017 to fully dispatchable (Depends_On 7/7).** DISPATCH WAVE (2026-08-20T17:11Z): launched S5 headless (`claude -p --model claude-sonnet-5 --dangerously-skip-permissions --agent devteam-builder`, legacy self-claim mode) in a freshly-recreated `wt-s5-walkietalkie-keryx` (same stale-empty-dir pattern as before, cleared first), refreshed to master tip `680715e` (includes TASK-029's merge). TASK-017 is the only eligible task this wave — S5 will claim it directly. This is the milestone task: it's the sole owner of `lib/main.dart`/`lib/app.dart` and is what makes the app actually boot to a usable screen for the first time — every prior task (knob, PTT, steppers, theme, display, grille, state, floor engine) has been built and tested in isolation but never wired together into a running app. Transcript: .devteam/launch/S5-20260820-151025.log. GB idle (nothing pending assigned). TASK-018/020/021/023/024/025/026 remain TBD/unassigned. STOP file remains in place — manual dispatch, not autopilot. Next: /devteam-status to follow progress; this is the task to watch for a demoable build."
 ---
 
 # Project Plan
