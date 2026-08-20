@@ -1102,7 +1102,7 @@ Matches expectation: both globs are new territory. Status → in_progress. Imple
 
 ### TASK-021
 **Title:** WebRTC mesh audio: pre-published muted track, enable-on-grant (KRX-032)
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 step 3, §8.5, §8.1 (Codec row), FR-020, §9 NFR-01/NFR-03, §11 E4 (KRX-032); lib/core/floor/transport.dart (the `FloorTransport` interface this task's data channel must implement — read it before writing code, do not invent a parallel abstraction)
@@ -1110,23 +1110,25 @@ Matches expectation: both globs are new territory. Status → in_progress. Imple
 **Depends_On:** TASK-020, TASK-022
 **Description:** Under `lib/services/mesh/`: full-mesh WebRTC audio over the TASK-020 sessions using flutter_webrtc — Opus mono 16–24 kbps, 20 ms frames, in-band FEC on, DTX off during TX; the audio track pre-published muted on channel join with PTT grant flipping `enabled=true` (the ≤ 50 ms TX attack); RX rendering gated by TX_START/TX_END floor messages. **The floor-control data channel is a concrete `FloorTransport` implementation** (`lib/core/floor/transport.dart`, frozen — TASK-022's own dartdoc: "LOCAL data channels and LiveKit data messages both adapt to this; tests use `LoopbackHub`") wrapping a WebRTC `RTCDataChannel`'s `send`/`onMessage` in `FloorTransport.send(FloorMessage)`/`.incoming`, using TASK-006's `FloorCodec` to (de)serialize — this is the concrete adapter `FloorEngine` gets constructed with in production; `LoopbackEndpoint`/`LoopbackHub` are the test-only stand-in, not what ships. Testable via abstraction over the WebRTC plugin; on-device latency measurement is a later bench task.
 **Acceptance_Criteria:**
-- [ ] "full-mesh WebRTC audio. Mesh is safe here because PTT means at most one publisher at a time" per TS §8.3 step 3
-- [ ] "the audio track is pre-published muted on channel join; PTT grant flips enabled=true" per TS §8.5
-- [ ] TX attack ≤ 50 ms from grant designed-for per FR-020 ("TX attack ≤ 50 ms from grant to live audio (pre-published muted track, §8.5)")
-- [ ] Codec config: "Opus, mono, 16–24 kbps, 20 ms frames, in-band FEC on, DTX off during TX" per TS §8.1
-- [ ] The data-channel adapter implements `FloorTransport` exactly (`send(FloorMessage)`, `Stream<FloorMessage> get incoming`) using TASK-006's `FloorCodec` — *ORCH-authored, replaces the vaguer "floor-control data channel established" wording*: this is what lets `FloorEngine` (already built, unmodified) run unchanged over real WebRTC instead of `LoopbackHub`
-- [ ] Unit tests green against the plugin abstraction (publish-muted on join, enable on grant, gate on TX_START/END, `FloorTransport` round-trip send/receive)
+- [x] "full-mesh WebRTC audio. Mesh is safe here because PTT means at most one publisher at a time" per TS §8.3 step 3
+- [x] "the audio track is pre-published muted on channel join; PTT grant flips enabled=true" per TS §8.5
+- [x] TX attack ≤ 50 ms from grant designed-for per FR-020 ("TX attack ≤ 50 ms from grant to live audio (pre-published muted track, §8.5)")
+- [x] Codec config: "Opus, mono, 16–24 kbps, 20 ms frames, in-band FEC on, DTX off during TX" per TS §8.1
+- [x] The data-channel adapter implements `FloorTransport` exactly (`send(FloorMessage)`, `Stream<FloorMessage> get incoming`) using TASK-006's `FloorCodec` — *ORCH-authored, replaces the vaguer "floor-control data channel established" wording*: this is what lets `FloorEngine` (already built, unmodified) run unchanged over real WebRTC instead of `LoopbackHub`
+- [x] Unit tests green against the plugin abstraction (publish-muted on join, enable on grant, gate on TX_START/END, `FloorTransport` round-trip send/receive)
 **Branch:** task/TASK-021-s5
 **Started_At:** 2026-08-20T21:00:00Z
 **Progress_Notes:**
 - [2026-08-20T19:10:00Z] [ORCH] Scoped for dispatch. Added TASK-022 to Depends_On (already done — this task must implement its `FloorTransport` interface, not invent a parallel one) and tightened the data-channel acceptance criterion from vague "floor-control data channel established" to the exact interface TASK-022 already defined and is built against. Assigned S5 (currently on TASK-017; queued for once that lands and TASK-020 is done — not immediately dispatchable either way since Depends_On: TASK-020 isn't satisfied yet).
 - [2026-08-20T21:00:00Z] [S5] Claimed. TASK-020/TASK-022 both done, fully eligible. Read dossiers/TASK-021.md intended approach (RtcAdapter abstraction, mesh_connection/mesh_controller/rx_gate/floor_transport split), lib/core/floor/transport.dart (frozen FloorTransport interface), lib/core/floor/floor_engine.dart, lib/services/signaling/signaling_service.dart (incomingSignals/sendSignal are what mesh consumes). Proceeding on task/TASK-021-s5 in worktree wt-s5-walkietalkie-keryx.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-20T21:00:00Z] [S5] c8b9872 preflight: python scripts/preflight_paths.py TASK-021 output -- lib/services/mesh/** and test/services/mesh/** both reported as new territory (no existing files). No prior collision.
+- [2026-08-20T22:30:00Z] [S5] Implemented under lib/services/mesh/: rtc_adapter.dart (thin abstraction mirroring the flutter_webrtc surface used, mirrors the SignalingEndpoint/SignalingChannel split so this package is unit-testable without a platform channel), rtc_adapter_flutter_webrtc.dart (production pass-through), opus_sdp.dart (pure-string SDP munging for the section 8.1 Opus profile), mesh_config.dart (codec/ICE constants), floor_data_channel_transport.dart (MeshFloorTransport implements FloorTransport, the concrete adapter over lib/core/floor/transport.dart), mesh_connection.dart (per-peer offer/answer/ICE + track publish + data channel open/receive), mesh_controller.dart (wires TASK-020 SignalingService join/depart/signal events + TASK-022 FloorEngine.effects to the connection set and the local-track gate; lower peerId sends the offer, mirroring SignalingService's own dial rule), rx_gate.dart (RX gate on TX_START/END via FloorEngine.holder, pluggable LevelSource seam for the grille amplitude tap -- on-device calibration is the later bench task). Tests under test/services/mesh/ including a fakes/fake_rtc_adapter.dart test helper (in-memory RtcAdapter, not shipped). Rebased onto latest master before committing (branch had gone stale behind two concurrent ORCH plan/script commits) -- re-ran full analyze/test after rebase, still clean. git diff --stat master -- . excluding lib/services/mesh/** and test/services/mesh/** is empty: territory is exactly Owned_Paths.
+**Artifacts:** lib/services/mesh/rtc_adapter.dart, lib/services/mesh/rtc_adapter_flutter_webrtc.dart, lib/services/mesh/opus_sdp.dart, lib/services/mesh/mesh_config.dart, lib/services/mesh/floor_data_channel_transport.dart, lib/services/mesh/mesh_connection.dart, lib/services/mesh/mesh_controller.dart, lib/services/mesh/rx_gate.dart, lib/services/mesh/mesh.dart, test/services/mesh/opus_sdp_test.dart, test/services/mesh/floor_data_channel_transport_test.dart, test/services/mesh/mesh_connection_test.dart, test/services/mesh/mesh_controller_test.dart, test/services/mesh/rx_gate_test.dart, test/services/mesh/fakes/fake_rtc_adapter.dart
+**Test_Evidence:** [2026-08-20T22:35:00Z] [S5] flutter analyze (whole repo) -- No issues found! exit 0. flutter test test/services/mesh/ -- 28/28 pass (opus_sdp 5, floor_data_channel_transport 5, mesh_connection 6, mesh_controller 8, rx_gate 4). Full flutter test (whole repo, post-rebase) -- 378/378 pass, 0 failures -- no cross-package regression.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-08-20T21:00:00Z
+**Updated_At:** 2026-08-20T22:35:00Z
 
 ### TASK-022
 **Title:** Floor control runtime: arbiter election, leases, lockout, TOT, emergency (KRX-041/042/043)
