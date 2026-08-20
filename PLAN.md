@@ -784,7 +784,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 
 ### TASK-015
 **Title:** PTT button, secondary key row, EMG side key (KRX-015)
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §6.1, §6.4, FR-020, FR-021, FR-022, FR-025, FR-026, §11 E2 (KRX-015); specs/KERYX_UI_Design_Specification_v1.0.md §2 (signal colours), §4 (key travel); specs/keryx-face-prototype.html (.ptt/.keys markup)
@@ -792,24 +792,30 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 **Depends_On:** TASK-005, TASK-028
 **Description:** Under `lib/features/ptt/`: the full-width ≥ 96 dp PTT button (pressed/granted/denied/latched visual states, red TX treatment, screen edge-glow while transmitting), latch-mode gesture (double-tap lock, tap release), the secondary key row (MON, SCAN, SAY AGAIN, settings key — with Pro-locked dimmed state), and the orange EMG side key with long-press activation. Haptic composition hooks per TS §6.4 (grant QUICK_RISE, deny THUD ×2, TOT TICK ×3) with fallback patterns. Pure presentation + intent events; floor logic stays in TASK-022's territory.
 **Acceptance_Criteria:**
-- [ ] PTT is "≥ 96 dp tall, bottom third, full-width, thumb-native" per TS §6.1 face diagram
-- [ ] "red TX LED skeuomorph, screen edge-glow while transmitting, distinct grant/deny/timeout haptic compositions" per FR-026
-- [ ] Denied state: "PTT press yields a denied buzz + short haptic and the TX LED does not light" per FR-022 (visual/haptic hooks; deny decision is an input)
-- [ ] "Latch mode (double-tap to lock TX, tap to release)" per FR-021
-- [ ] EMG: "long-press dedicated orange key" pins an EMG indicator until cleared per FR-025
-- [ ] Red appears only while this device holds the floor per DS §2 ("Red appears only while the floor is held by this device")
-- [ ] Pressed keys move 1 dp down, lose top highlight, gain inner shadow per DS §4 ("the same three changes on every control")
-- [ ] Widget tests green for all states incl. Pro-locked keys ("Pro keys shown dimmed/locked when unowned", TS §6.1)
+- [x] PTT is "≥ 96 dp tall, bottom third, full-width, thumb-native" per TS §6.1 face diagram — PttButton.height defaults to PT's own 104 dp (clears the 96 dp floor), full-width (double.infinity); "bottom third" is a face-assembly placement concern owned by TASK-017, not this widget
+- [x] "red TX LED skeuomorph, screen edge-glow while transmitting, distinct grant/deny/timeout haptic compositions" per FR-026 — PT-exact granted gradient, standalone PttEdgeGlow overlay, PttHapticFeedback.grant()/denied()/totWarning() compositions (grant/denied auto-fire on state transition; totWarning is a composable primitive for the future floor-wiring task, TOT is not a PttState)
+- [x] Denied state: "PTT press yields a denied buzz + short haptic and the TX LED does not light" per FR-022 — denied() haptic + PT's exact 260 ms amber deny flash (PttButtonState.denyFlashDuration); no red rendered
+- [x] "Latch mode (double-tap to lock TX, tap to release)" per FR-021 — manual pointer-timestamp double-tap detection (not GestureDetector.onDoubleTap, which would delay every hold-to-talk press by kDoubleTapTimeout — see ptt_button.dart's library dartdoc); disclosed PT gap: prototype has no latch implementation at all, so kDoubleTapTimeout (300 ms) is this widget's own defensible default, not a ratified PT/TS figure — flagged for ORCH
+- [x] EMG: "long-press dedicated orange key" pins an EMG indicator until cleared per FR-025 — EmgKey fires onEmergencyToggled at PT's exact 600 ms threshold (L386-388); "until cleared" pin/clear semantics are externally owned (pinned is a pure visual input), per the widget's own presentation-only contract
+- [x] Red appears only while this device holds the floor per DS §2 — KeryxTheme.tx used only in PttButton's granted/latched visuals and PttEdgeGlow when active; verified by ptt_button_test.dart's "red only renders when granted" test
+- [x] Pressed keys move 1 dp down, lose top highlight, gain inner shadow per DS §4 — KeryxTheme.keyTravel applied uniformly incl. the PTT surface itself (DS §4's explicit "same three changes on every control" generalization, over PT's PTT-specific 2 px literal — disclosed non-blocking, same resolution direction TASK-016 took for the settle curve); raisedMaterialEdges (incl. top highlight) swapped for an inner shadow on press
+- [x] Widget tests green for all states incl. Pro-locked keys ("Pro keys shown dimmed/locked when unowned", TS §6.1) — 22/22 new tests pass, incl. key_row_test.dart's locked-key-still-fires-intent case
 **Branch:** task/TASK-015-s5
 **Started_At:** 2026-08-20T07:15:00Z
 **Progress_Notes:**
 - [2026-08-20T07:15:00Z] [S5] Claimed. TASK-015 (high priority) selected over TASK-014 (medium) per dispatch note. Beginning preflight next.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-20T07:16:00Z] [S5] Preflight (c8b9872 filesystem check): [preflight] TASK-015 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx; 2 entr(y/ies): GLOB lib/features/ptt/** -> matches nothing yet (new territory); GLOB test/features/ptt/** -> matches nothing yet (new territory). Branch task/TASK-015-s5 created off master@ea723e4 (fetched from the main checkout — no git remote configured for this repo). Read TS §6.1/§6.4, DS §2/§4, PT .ptt/.keys/.emgkey markup, lib/core/theme/theme.dart, and lib/features/knob/** in full (TASK-013's established conventions: haptic-abstraction shape, test/production injection seams, dartdoc style, PT/spec-tension disclosure pattern) before writing code. Note: TASK-022 (floor engine, lib/core/floor/**) is actually already done/merged per PLAN.md frontmatter's FROZEN list, contrary to this task's own Description text ("floor logic stays in TASK-022's territory" phrased as future) — treated FloorEngine/FloorEffect/RadioPhase as read-only reference only, never imported; this widget package still owns no floor state and never calls FloorEngine directly, same relationship the knob has to RadioReducer.
+- [2026-08-20T08:40:00Z] [S5] Implementation complete: ptt_state.dart (PttState enum), ptt_haptics.dart (PttHapticFeedback — grant/denied/totWarning compositions, mirrors knob_feedback.dart's never-throws shape), ptt_button.dart (PttButton — hold-to-talk via raw Listener pointer callbacks to avoid GestureDetector double-tap arena delay, manual double-tap latch detection, 260ms PT-exact deny flash, PT-exact idle/granted/denied gradients disclosed-hardcoded per no-theme-token precedent), edge_glow.dart (PttEdgeGlow — standalone TX overlay for TASK-017), key_row.dart (PttKeyRow — MON hold semantics, SCAN/SAY AGN/settings taps, Pro-locked dimmed+marker with intent still firing), emg_key.dart (EmgKey — 600ms PT-exact long-press arm), ptt.dart barrel, README.md. Two non-blocking PT/DS tensions disclosed inline (dartdoc + Acceptance_Criteria notes above): (1) latch double-tap timing has no PT source (prototype implements no latch at all) — used Flutter's own kDoubleTapTimeout; (2) PTT press-travel — followed DS §4's general 1dp "same three changes on every control" over PT's PTT-specific 2px literal, same resolution direction as TASK-016's settle-curve precedent.
+- [2026-08-20T08:55:00Z] [S5] Full verification: flutter analyze — No issues found! (4.3s), after fixing 4 initial lints (a use_null_aware_elements info in edge_glow.dart, 3 deprecated_member_use on Matrix4.translate across ptt_button.dart/key_row.dart/emg_key.dart, migrated to translateByDouble). flutter test test/features/ptt — 22/22 pass (ptt_button_test.dart 6, key_row_test.dart 5, emg_key_test.dart 4, edge_glow_test.dart 2, ptt_haptics_test.dart 5). One test-authoring bug caught and fixed during this run: a _Harness reused across two pumpWidget calls without a fresh Key kept its old late-initialized _state (Flutter updates the same State object rather than remounting) — fixed with UniqueKey() on the second pump. flutter test (FULL suite, per protocol) — 258/258 pass, 0 skipped, 0 failures (236 prior + 22 new — confirms zero regression). All acceptance criteria ticked with evidence inline above. Ready for review; handing to needs_review.
+**Artifacts:** lib/features/ptt/ptt_state.dart, lib/features/ptt/ptt_haptics.dart, lib/features/ptt/ptt_button.dart, lib/features/ptt/edge_glow.dart, lib/features/ptt/key_row.dart, lib/features/ptt/emg_key.dart, lib/features/ptt/ptt.dart, lib/features/ptt/README.md, test/features/ptt/ptt_haptics_test.dart, test/features/ptt/ptt_button_test.dart, test/features/ptt/key_row_test.dart, test/features/ptt/emg_key_test.dart, test/features/ptt/edge_glow_test.dart
+**Test_Evidence:**
+- [2026-08-20T08:55:00Z] [S5] flutter analyze (full project) — passed: "No issues found! (ran in 4.3s)".
+- [2026-08-20T08:55:00Z] [S5] flutter test test/features/ptt — passed: 22/22 (PttButton 6, PttKeyRow 5, EmgKey 4, PttEdgeGlow 2, PttHapticFeedback 5).
+- [2026-08-20T08:55:00Z] [S5] flutter test (FULL suite, project-wide, not scoped to this task) — passed: 258/258, 0 skipped. Pre-existing 236 tests unaffected; 22 net new from this task.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-08-20T07:15:00Z
+**Updated_At:** 2026-08-20T08:55:00Z
 
 ### TASK-016
 **Title:** Speaker-grille RX visualiser (KRX-014)
