@@ -1,6 +1,6 @@
 ---
-plan_version: 6.5
-last_updated: 2026-08-21T00:45:00Z
+plan_version: 6.6
+last_updated: 2026-08-21T01:00:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -948,13 +948,14 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 - [ ] Widget tests green; all settings round-trip through the repository
 **Branch:** —
 **Started_At:** —
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-21T01:00:00Z] [ORCH] **HELD — do not claim yet.** TASK-018 cannot satisfy its own Description from its own territory. TASK-008 Review_Findings (1)(2)(5)(6)(7) apply and `lib/core/settings/**` is FROZEN and outside this task Owned_Paths, so none are fixable from `lib/features/settings_panel/**`: (6) the "dim mode" control this Description explicitly requires has NO persisted key in `KeryxSettings` and this task cannot add one (same for `mode`, so AUTO/LOCAL/LINKED does not survive restart); (7) `settingsProvider` is a one-shot `FutureProvider` that never invalidates on write, so criterion 6 would pass at the repository level while the panel renders STALE values; (5) squelch has no unit contract — settings store `int 0-10`, merged `BedMixer.gainsFor(double)` throws outside `0.0-1.0`, nothing converts. Also (1) `load()` throws uncaught `_TypeError`/`_AssertionError` on corrupt storage and (2) release builds silently accept out-of-range values. **Needs a `lib/core/settings/**` successor task (the 010->011 pattern) added to Depends_On before dispatch.** Wave of 2026-08-21 dispatched TASK-023 instead.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_At:** 2026-08-21T01:00:00Z
 
 ### TASK-019
 **Title:** NSD discovery platform channel + MulticastLock lifecycle (KRX-030)
@@ -1205,7 +1206,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 **Title:** Floor-control simulation soak harness: 500-run churn/loss, zero double-grants (KRX-044)
 **Status:** pending
 **Assigned_To:** S5
-**Priority:** medium
+**Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §11 E5 (KRX-044), §8.6, §9 NFR-10
 **Owned_Paths:** test/simulation/**, dossiers/TASK-023.md
 **Depends_On:** TASK-022
