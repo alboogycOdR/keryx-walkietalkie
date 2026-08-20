@@ -1047,7 +1047,7 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 
 ### TASK-020
 **Title:** LAN signaling WebSocket + peer session management (KRX-031)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 steps 2–3, FR-042, §11 E4 (KRX-031, KRX-034); lib/services/discovery/README.md (the concrete NSD/beacon contract TASK-019 already shipped — read this, do not re-derive it)
@@ -1067,12 +1067,21 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 **Progress_Notes:**
 - [2026-08-20T19:10:00Z] [ORCH] Scoped for dispatch. Follow-up (s) — originally "BLOCKS TASK-020, wire contract spec-silent" — is now CLOSED as a blocker: TASK-019 shipped and documented the actual discovery/beacon contract (channel-hash algorithm, beacon port/payload, TXT keys including the `p` signaling-port key added specifically for this task) in `lib/services/discovery/README.md`; added TASK-019 to Depends_On, which was missing (this task functionally cannot dial a peer without TASK-019's resolved `host`/`port`). The one genuinely open spec-silent item — the WebRTC offer/answer/ICE envelope itself — is scoped as a normal disclosed implementation decision, not an ORCH ruling, since TS §8.3 names the exchange but no spec document anywhere defines a wire shape for it and it's outside TASK-006's floor-control-only codec. Assigned GB (idle since TASK-029, 11/11 first-pass).
 - [2026-08-20T16:48:00Z] [GB] Claimed TASK-020. Depends_On TASK-006/009/019 all `done`. Branch `task/TASK-020-gb`. Preflight next.
+- [2026-08-20T16:50:00Z] [GB] Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-020 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/services/signaling/**  -> matches nothing yet (new territory)
+  GLOB   test/services/signaling/**  -> matches nothing yet (new territory)
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Matches expectation: both globs are new territory. Status → in_progress. Implementing LAN signaling against TS §8.3 / FR-042 / TASK-019 discovery contract.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-20T16:48:00Z
+**Updated_At:** 2026-08-20T16:50:00Z
 
 ### TASK-021
 **Title:** WebRTC mesh audio: pre-published muted track, enable-on-grant (KRX-032)
