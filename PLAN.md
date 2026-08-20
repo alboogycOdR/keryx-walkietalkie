@@ -886,7 +886,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 
 ### TASK-017
 **Title:** Face assembly: layout, status strip, station-list flip, app wiring (KRX-010 assembly)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §6.1, FR-067, FR-069, §11 E2 (KRX-010); specs/KERYX_UI_Design_Specification_v1.0.md §4 (layout grid), §6 (state catalogue); specs/keryx-face-prototype.html (full page layout)
@@ -901,16 +901,17 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 - [ ] "Landscape supported (radio rotates to 'brick on its side' layout); portrait is primary" per TS §6.1
 - [ ] UI is a projection of the single reducer per TS §8.2 — no widget owns radio state
 - [ ] App boots to the face; widget tests for strip/flip green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-017-s5
+**Started_At:** 2026-08-20T15:11:15Z
 **Progress_Notes:**
 - [2026-08-20T14:45:00Z] [ORCH] Added TASK-029 to Depends_On — caught during dispatch prep that follow-up (w) (RadioState needs TotWarn/TotCut/deny fields, or this task can only render two of DS §6's face states from the floor stream directly, exactly the two-source rendering the reducer's single-source invariant exists to prevent) was tracked only in orchestrator_notes prose, not as a mechanical Depends_On edge — precisely the failure mode the 2026-08-19 RULE ESTABLISHED note warns about. Fixed before any scheduler (manual or autopilot) could treat this task as ready on the strength of its pre-existing 6 Depends_On alone.
+- [2026-08-20T15:11:15Z] [S5] Claimed. All 7 Depends_On (TASK-004, 012, 013, 014, 015, 016, 029) confirmed `done` on live PLAN.md read. Proceeding to preflight + implementation.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-08-20T15:11:15Z
 
 ### TASK-018
 **Title:** Settings-as-back-panel screen (KRX-016)
