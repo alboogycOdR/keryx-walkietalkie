@@ -1524,7 +1524,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-030
 **Title:** Settings core successor: crash-safe load, missing keys, live provider (unblocks TASK-018)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-023, FR-009, FR-040, FR-046, FR-061, FR-024, §8.2; specs/KERYX_UI_Design_Specification_v1.0.md FR-108 (dim mode); PLAN.md TASK-008 Review_Findings items (1), (2), (5), (6), (7), (8) — the authoritative statement of each defect, read them before writing code
@@ -1532,14 +1532,14 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 **Depends_On:** TASK-008
 **Description:** Successor task reopening the frozen `lib/core/settings/**` territory on the 010→011 pattern, to fix defects TASK-008's review proved empirically and to add the keys its dependents cannot add from their own territories. **This task exists because TASK-018 is currently un-dispatchable without it** (its Description requires a dim-mode control that has no persisted key, and its criterion 6 would pass at the repository level while the panel rendered stale values). Six things: (1) make `load()` crash-safe — it currently catches only `FormatException`/`ArgumentError`, so a non-object JSON blob (`[]`, `5`, `"hello"`, `null`) throws an uncaught `_TypeError` from the `as Map` cast and a well-formed-but-out-of-range blob (`totSeconds: 999`) throws an uncaught `_AssertionError`, taking down `settingsProvider`, `save()` and `rememberChannel()` alike; (2) close the debug/release split — asserts are stripped in release, so the same corrupt blob that crashes debug silently yields `totSeconds: 999` in release, defeating FR-023's 30–120 bound on the build users actually run: **validate and clamp on READ, do not rely on constructor asserts**; (3) add the missing persisted keys — `dimMode` (FR-108, auto/manual), `mode` (FR-040, default AUTO, so the user's LOCAL/AUTO/LINKED choice survives restart) and VOX sensitivity/hang-time (FR-024, persist keys now, feature later); (4) make `settingsProvider` live — it is a one-shot `FutureProvider` that never invalidates, so every watcher holds the first-loaded value for the process lifetime; convert to an `AsyncNotifier` (or equivalent) that re-emits after `save()`/`rememberChannel()`; (5) implement the squelch unit contract ruled below; (6) serialize `rememberChannel()`'s unguarded read-modify-write so overlapping calls cannot lose an update (TS §6.2 caps the knob at 12 channel crossings/second, so bursts are real). **ORCH RULING — squelch unit (closes TASK-008 finding (5), do not re-litigate):** the persisted value STAYS `int 0–10` (already shipped, and discrete steps are the right user-facing model), and this task adds a documented normalized accessor returning `level / 10.0` as a `double` in `0.0..1.0` for `BedMixer.gainsFor(double)`, which is merged, frozen, and throws outside that range. No storage migration; the conversion lives here, on the settings side, so no consumer re-derives it. **OUT OF SCOPE, do not attempt:** the `RogerBeepVariant` vs `RogerVariant` enum divergence (TASK-008 finding (4)) is a genuine FR-062-vs-§7.1 spec conflict and needs a spec amendment from ORCH first — leave both enums exactly as they are.
 **Acceptance_Criteria:**
-- [ ] `load()` never throws for ANY stored bytes — *closes TASK-008 finding (1)*: prove it with a table-driven test covering at minimum non-object JSON (`[]`, `5`, `"hello"`, `null`), malformed JSON (`'{bad json'`), a well-formed blob with an out-of-range value (`totSeconds: 999`, `squelchLevel: 99`), and empty/absent storage; every case returns usable settings rather than propagating
-- [ ] Out-of-range stored values are clamped or rejected **on read**, and the test suite proves debug and release agree — *closes TASK-008 finding (2)*: at least one test must fail if the guard were an `assert` (i.e. assert the returned VALUE, not that something throws), since asserts are stripped in release and FR-023's 30–120 TOT bound must hold on the build users run
-- [ ] FR-009's "last 6" channel-memory cap is enforced on the READ path as well as the write path — *closes TASK-008 finding (2), second half*: a stored blob carrying 9 entries must not load 9
-- [ ] `dimMode` (FR-108), `mode` (FR-040, default AUTO) and VOX sensitivity/hang-time (FR-024) are persisted keys that round-trip — *closes TASK-008 finding (6)*; `mode` default is AUTO per FR-040
-- [ ] `settingsProvider` re-emits after `save()` and after `rememberChannel()` — *closes TASK-008 finding (7)*: prove with a test that watches the provider, writes, and observes the NEW value without re-reading the repository directly. This is the criterion TASK-018 depends on; a one-shot `FutureProvider` fails it
-- [ ] Squelch exposes a normalized `0.0..1.0` `double` accessor per the ORCH ruling above, and a test asserts the boundary values feed `BedMixer.gainsFor` without throwing (0 → 0.0, 10 → 1.0)
-- [ ] `rememberChannel()` is safe under concurrent calls — *closes TASK-008 finding (8)*: a test issuing overlapping calls without awaiting between them must not lose an update
-- [ ] Full `flutter test` suite green (not just `test/core/settings/`) and `flutter analyze` clean
+- [x] `load()` never throws for ANY stored bytes — *closes TASK-008 finding (1)*: prove it with a table-driven test covering at minimum non-object JSON (`[]`, `5`, `"hello"`, `null`), malformed JSON (`'{bad json'`), a well-formed blob with an out-of-range value (`totSeconds: 999`, `squelchLevel: 99`), and empty/absent storage; every case returns usable settings rather than propagating
+- [x] Out-of-range stored values are clamped or rejected **on read**, and the test suite proves debug and release agree — *closes TASK-008 finding (2)*: at least one test must fail if the guard were an `assert` (i.e. assert the returned VALUE, not that something throws), since asserts are stripped in release and FR-023's 30–120 TOT bound must hold on the build users run
+- [x] FR-009's "last 6" channel-memory cap is enforced on the READ path as well as the write path — *closes TASK-008 finding (2), second half*: a stored blob carrying 9 entries must not load 9
+- [x] `dimMode` (FR-108), `mode` (FR-040, default AUTO) and VOX sensitivity/hang-time (FR-024) are persisted keys that round-trip — *closes TASK-008 finding (6)*; `mode` default is AUTO per FR-040
+- [x] `settingsProvider` re-emits after `save()` and after `rememberChannel()` — *closes TASK-008 finding (7)*: prove with a test that watches the provider, writes, and observes the NEW value without re-reading the repository directly. This is the criterion TASK-018 depends on; a one-shot `FutureProvider` fails it
+- [x] Squelch exposes a normalized `0.0..1.0` `double` accessor per the ORCH ruling above, and a test asserts the boundary values feed `BedMixer.gainsFor` without throwing (0 → 0.0, 10 → 1.0)
+- [x] `rememberChannel()` is safe under concurrent calls — *closes TASK-008 finding (8)*: a test issuing overlapping calls without awaiting between them must not lose an update
+- [x] Full `flutter test` suite green (not just `test/core/settings/`) and `flutter analyze` clean
 **Branch:** task/TASK-030-gb
 **Started_At:** 2026-08-21T01:25:00Z
 **Progress_Notes:**
@@ -1557,9 +1557,19 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Territory matches expectation: successor reopening TASK-008's two globs (both populated) plus the dossier. Implementing crash-safe clamp-on-read load, new persisted keys, live AsyncNotifier, squelch normalized accessor, serialized rememberChannel.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-21T01:42:00Z] [GB] Implementation on `task/TASK-030-gb` at `0888e68`. `load()` is total (`on Object` + per-field clamp/default, never throws). Out-of-range TOT/squelch are clamped on read (`totSeconds: 999` → `120`, asserted as the VALUE so an `assert` guard would fail this test). 9-entry memory blob loads 6. New keys round-trip: `dimMode`, `mode` (`RadioMode.auto` default — reused the existing enum rather than mint a third), `voxSensitivity` 0–10 / `voxHangTimeMs`. `settingsProvider` is `AsyncNotifierProvider` listening to repository `changes`; tests watch the provider, write via repository/`notifier`, observe the new value without `load()`. `squelchNormalized` is `level/10.0`; 0 and 10 feed `BedMixer.gainsFor`. `rememberChannel`/`save` share a FIFO write chain; overlapping slow-store calls keep `[6,5,4,3,2,1]`. `RogerBeepVariant` untouched. Finding (10) also closed opportunistically (unknown enum defaults that field only).
+**Artifacts:**
+- lib/core/settings/settings_model.dart
+- lib/core/settings/settings_store.dart
+- lib/core/settings/settings_repository.dart
+- lib/core/settings/README.md
+- test/core/settings/settings_repository_test.dart
+- dossiers/TASK-030.md
+**Test_Evidence:**
+- [2026-08-21T01:42:00Z] [GB] `flutter test test/core/settings/settings_repository_test.dart` — 22/22 passed, exit 0.
+- [2026-08-21T01:42:00Z] [GB] `flutter analyze` — No issues found! (ran in 27.2s), exit 0.
+- [2026-08-21T01:42:00Z] [GB] `flutter test` — **427/427 passed, 0 failed, 0 skipped, exit 0** (`00:49 +427: All tests passed!`). Prior merged suite was 410; this task adds 17 settings tests (5 inherited + 17 new = 22 in the settings file).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-21T01:26:00Z
+**Updated_At:** 2026-08-21T01:42:00Z
