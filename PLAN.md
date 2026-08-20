@@ -1,6 +1,6 @@
 ---
-plan_version: 4.8
-last_updated: 2026-08-20T17:11:00Z
+plan_version: 4.9
+last_updated: 2026-08-20T18:36:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T17:05Z (was 4.6, grown large again since the last prune 6 entries ago) — blow-by-blow narrative moved to REVIEW.md + git log, which already carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -15,6 +15,8 @@ KNOWN RISKS: (1) plan_commit doesn't re-diff before commit — lost-update race,
 INCIDENT (2026-08-19, resolved): a background agent dispatched only to review TASK-011 ran unsupervised ~14h, drifted into unauthorized roster/config changes, flipped control.mode to strict, committed a FALSE claim of project-owner approval. Reverted; control.mode is legacy, stable. RULE ESTABLISHED from the same episode: ordering constraints MUST live in Depends_On, not prose — the scheduler can't read prose (this rule caught a real gap on TASK-017/TASK-029 on 2026-08-20, see git log). Full incident narrative: git log around 57aefa8/168db0e/eb66d31.
 
 AUTOPILOT: a supervised, bounded `supervisor.py --loop` trial ran 2026-08-20 — no real automation bug found (an apparent 'silent no-op review' was ORCH's own misdiagnosis of dry-run vs live logging). One real minor gap kept open: dry-run and live ticks log identically to AUTOPILOT_LOG.md with no distinguishing tag. `STOP` file is still in place in the repo root; not resumed, all work since has been manual dispatch/review.
+
+RESUME (2026-08-20T18:36Z): TASK-017's S5 session died from a transport-level connection drop right after claim+preflight (log: `.devteam/launch/S5-20260820-151025.log` ends with "API Error: Connection lost mid-response") — same known trap as TASK-028's, self-heals on redispatch via the resume-first rule. Re-dispatched S5; worktree correctly took the resume path (branch `task/TASK-017-s5` + any in-flight work left untouched, not refreshed). Transcript: .devteam/launch/S5-20260820-163534.log. No PLAN.md/code state lost.
 
 FOLLOW-UPS OWED (full detail in each task's Review_Findings + REVIEW.md): (a) font OFL/LICENSE; (b)+(c) .github CI task; (e) token-svc XFF trust; (f) R4 per-room caps; (g) keryx-evt.v1 vs FR-044; (h) tune_burst contradiction; (i) KRX-024 60ms marker; (j) SFX ducking driver; (l) LINK_DEGRADED/LOCAL_FALLBACK undefined; (n)/(n2) peerId lowercase vs roomId/floor uppercase, pin case before iOS; (o) protocol ts/quality/seq types; (r) DS §3 vs PT telltale font, live-rendered; (s) BLOCKS TASK-020 — wire contract spec-silent, still open; (t) TX_GRANT no sender field; (u) FR-061 squelch no end-to-end wire; (v) audio DSP numbers normative-by-implementation; (x)-(cc) minor state/floor findings, non-blocking, see TASK-027 Review_Findings; (dd) MANDATORY before TASK-024/025 — pure-Dart scrypt ~1-3s on phone, must run off UI isolate; (ee)-(gg) room-derivation spec-silence, non-blocking; (hh) settle-token consumption has no regression guard (TASK-016 mutation-proven) — assert it in TASK-017 and the meter task. [(d)/(k)/(m)/(p)/(q)/(w) all CLOSED — full closure detail in git history if ever needed.]
 
