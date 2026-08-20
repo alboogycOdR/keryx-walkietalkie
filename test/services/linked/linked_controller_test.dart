@@ -212,5 +212,89 @@ void main() {
 
       expect(dispatched, contains(const LinkDegraded()));
     });
+
+    test(
+      'a real relay outage drives all the way to LinkResolved(useLocalFallback: true) — '
+      'the wiring, not just the LinkMonitor unit, is exercised (FR-045 / KRX-055)',
+      () async {
+        // Small backoffs so the give-up path completes without waiting
+        // through real exponential-backoff delays; production defaults are
+        // still exercised by the constructor default-argument values.
+        var relayReachable = true;
+        adapter = FakeLiveKitAdapter(
+          onConnect: (url, jwt) {
+            if (!relayReachable) throw StateError('relay unreachable');
+            return FakeLiveKitRoom();
+          },
+        );
+        controller = LinkedController(
+          adapter: adapter,
+          tokenClient: tokenClient,
+          relayUrl: Uri.parse('wss://relay.example/rtc'),
+          callsign: 'BRAVO-7',
+          floorEngine: engine,
+          dispatch: dispatched.add,
+          linkMonitorInitialBackoff: Duration.zero,
+          linkMonitorMaxBackoff: Duration.zero,
+          linkMonitorMaxAttempts: 2,
+        );
+        await controller.joinNumbered(region: 'za-cpt', channel: 7, code: 0, forceLocalOnly: false);
+        final room = adapter.lastRoom!;
+
+        // Every reconnect attempt re-mints a token against the (still
+        // healthy) fake server but the relay refuses to reconnect —
+        // simulating an outage that outlasts the whole retry budget.
+        relayReachable = false;
+
+        room.emitConnectionState(LiveKitConnectionState.disconnected);
+        // Pump real event-loop turns (not just microtasks) — each retry
+        // attempt makes a genuine loopback HTTP round trip via TokenClient,
+        // which needs actual async gaps, not just Future.delayed(zero).
+        for (var i = 0; i < 50 && dispatched.last != const LinkResolved(useLocalFallback: true); i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+
+        expect(dispatched, contains(const LinkDegraded()));
+        expect(dispatched.last, const LinkResolved(useLocalFallback: true));
+      },
+    );
+
+    test('a real reconnect() re-mints the token and swaps the controller onto the new room/transport', () async {
+      controller = LinkedController(
+        adapter: adapter,
+        tokenClient: tokenClient,
+        relayUrl: Uri.parse('wss://relay.example/rtc'),
+        callsign: 'BRAVO-7',
+        floorEngine: engine,
+        dispatch: dispatched.add,
+        linkMonitorInitialBackoff: Duration.zero,
+        linkMonitorMaxBackoff: Duration.zero,
+        linkMonitorMaxAttempts: 5,
+      );
+      await controller.joinNumbered(region: 'za-cpt', channel: 7, code: 0, forceLocalOnly: false);
+      final firstRoom = adapter.lastRoom!;
+      final firstTransport = controller.floorTransport;
+
+      firstRoom.emitConnectionState(LiveKitConnectionState.disconnected);
+      // Pump real event-loop turns — the reconnect makes a genuine loopback
+      // HTTP round trip via TokenClient before the second connect() lands.
+      for (var i = 0; i < 50 && adapter.connectCalls.length < 2; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+
+      // The reconnect callback re-requested a token (a fresh HTTP call, not
+      // a reuse of the original stale JWT) and connected a second room.
+      expect(adapter.connectCalls, hasLength(2));
+      final secondRoom = adapter.lastRoom!;
+      expect(secondRoom, isNot(same(firstRoom)));
+      expect(controller.floorTransport, isNot(same(firstTransport)));
+
+      secondRoom.emitConnectionState(LiveKitConnectionState.connected);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(dispatched, contains(const LinkDegraded()));
+      expect(dispatched.last, const LinkResolved());
+      expect(firstRoom.disconnected, isTrue); // stale room torn down, not leaked
+    });
   });
 }

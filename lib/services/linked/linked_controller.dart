@@ -35,12 +35,18 @@ class LinkedController {
     required String callsign,
     required FloorEngine floorEngine,
     required void Function(RadioEvent event) dispatch,
+    Duration linkMonitorInitialBackoff = const Duration(seconds: 1),
+    Duration linkMonitorMaxBackoff = const Duration(seconds: 30),
+    int linkMonitorMaxAttempts = 5,
   }) : _adapter = adapter,
        _tokenClient = tokenClient,
        _relayUrl = relayUrl,
        _callsign = callsign,
        _floorEngine = floorEngine,
-       _dispatch = dispatch {
+       _dispatch = dispatch,
+       _linkMonitorInitialBackoff = linkMonitorInitialBackoff,
+       _linkMonitorMaxBackoff = linkMonitorMaxBackoff,
+       _linkMonitorMaxAttempts = linkMonitorMaxAttempts {
     _effectsSub = _floorEngine.effects.listen(_onFloorEffect);
   }
 
@@ -50,6 +56,12 @@ class LinkedController {
   final String _callsign;
   final FloorEngine _floorEngine;
   final void Function(RadioEvent event) _dispatch;
+  // Exposed only so tests can drive LinkMonitor's give-up path without
+  // waiting through real exponential-backoff delays; production callers
+  // rely on the defaults above (matching LinkMonitor's own).
+  final Duration _linkMonitorInitialBackoff;
+  final Duration _linkMonitorMaxBackoff;
+  final int _linkMonitorMaxAttempts;
 
   late final StreamSubscription<FloorEffect> _effectsSub;
 
@@ -120,6 +132,66 @@ class LinkedController {
 
   Future<void> _join(String roomId, String? eventToken) async {
     if (_disposed) throw StateError('LinkedController is disposed');
+    final joined = await _connectAndPublish(roomId, eventToken);
+    if (_disposed) {
+      // dispose() landed while we were awaiting the token/connect/publish
+      // chain — unwind rather than adopt a room onto a disposed controller
+      // (would otherwise leak a live, published room forever).
+      await joined.room.disconnect();
+      return;
+    }
+    await leave(); // release any prior room before adopting the new one
+    _room = joined.room;
+    _localTrack = joined.track;
+    _floorTransport = LinkedFloorTransport(joined.room);
+    _linkMonitor = LinkMonitor(
+      room: joined.room,
+      dispatch: _dispatch,
+      // A LiveKit JWT is short-lived (TS §8.4), so a real reconnect must
+      // re-mint the token and re-join, not retry the stale one — this is
+      // what makes FR-045's auto-fallback-to-LOCAL reachable in production
+      // (a null/absent reconnect degrades to LOCAL via LinkMonitor's own
+      // give-up path, but a genuinely reachable relay must actually retry).
+      reconnect: () => _reconnectRoom(roomId, eventToken),
+      initialBackoff: _linkMonitorInitialBackoff,
+      maxBackoff: _linkMonitorMaxBackoff,
+      maxAttempts: _linkMonitorMaxAttempts,
+    );
+  }
+
+  /// Mints a fresh token and re-joins [roomId] from scratch (a LiveKit JWT
+  /// is short-lived, so reusing the original token on a long outage would
+  /// just fail again). Swaps the controller's live room/track/transport in
+  /// on success; the caller ([LinkMonitor]) re-attaches its connection-state
+  /// listener to the returned room.
+  Future<LiveKitRoom> _reconnectRoom(String roomId, String? eventToken) async {
+    final joined = await _connectAndPublish(roomId, eventToken);
+    if (_disposed) {
+      await joined.room.disconnect();
+      throw StateError('LinkedController disposed during reconnect');
+    }
+    final oldRoom = _room;
+    final oldTransport = _floorTransport;
+    _room = joined.room;
+    _localTrack = joined.track;
+    _floorTransport = LinkedFloorTransport(joined.room);
+    unawaited(oldTransport?.dispose());
+    if (oldRoom != null && !identical(oldRoom, joined.room)) {
+      unawaited(
+        oldRoom.disconnect().catchError((Object error, StackTrace stack) {
+          developer.log(
+            'linked: disconnect of pre-reconnect room failed: $error',
+            name: _logName,
+            error: error,
+            stackTrace: stack,
+          );
+        }),
+      );
+    }
+    return joined.room;
+  }
+
+  Future<_JoinedRoom> _connectAndPublish(String roomId, String? eventToken) async {
     final tokenResponse = await _tokenClient.requestToken(
       roomId: roomId,
       callsign: _callsign,
@@ -133,11 +205,7 @@ class LinkedController {
       await room.disconnect();
       rethrow;
     }
-    await leave(); // release any prior room before adopting the new one
-    _room = room;
-    _localTrack = track;
-    _floorTransport = LinkedFloorTransport(room);
-    _linkMonitor = LinkMonitor(room: room, dispatch: _dispatch);
+    return _JoinedRoom(room, track);
   }
 
   void _onFloorEffect(FloorEffect effect) {
@@ -182,6 +250,15 @@ class LinkedController {
 /// argument. Runs `deriveKeyed`'s scrypt stretch off the UI isolate.
 String _deriveKeyedOffUiIsolate(String passphrase) =>
     deriveKeyed(passphrase: passphrase);
+
+/// A freshly connected room plus its pre-published muted track — the pair
+/// [_join] and [_reconnectRoom] both need to adopt onto the controller.
+class _JoinedRoom {
+  const _JoinedRoom(this.room, this.track);
+
+  final LiveKitRoom room;
+  final LiveKitLocalAudioTrack track;
+}
 
 /// FR-046: force-LOCAL-only must hard-disable the LINKED path. Thrown
 /// before any network attempt — never a silent no-op.

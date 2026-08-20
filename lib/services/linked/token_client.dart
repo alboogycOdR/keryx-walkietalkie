@@ -17,12 +17,20 @@ const _logName = 'keryx.linked';
 /// Never logs `callsign`, `roomId`, or the returned token — mirrors the
 /// token service's own logging policy (TS §8.7).
 class TokenClient {
-  TokenClient({required Uri baseUrl, HttpClient? client})
+  TokenClient({required Uri baseUrl, HttpClient? client, Duration? requestTimeout})
     : _baseUrl = baseUrl,
-      _client = client ?? HttpClient();
+      _client = client ?? HttpClient(),
+      _requestTimeout = requestTimeout ?? const Duration(seconds: 10);
 
   final Uri _baseUrl;
   final HttpClient _client;
+
+  /// Bounds the whole request/response round trip. FR-045's "relay
+  /// unreachable" covers "reachable but wedged", not just outright
+  /// connection failure — without this, a token service that accepts the
+  /// TCP connection and then hangs blocks the join indefinitely with no
+  /// exception and no path to LOCAL fallback.
+  final Duration _requestTimeout;
 
   /// Requests a token for [roomId] (TASK-007's derived roomId) and
   /// [callsign], optionally carrying an Event-QR [eventToken] (TASK-025).
@@ -35,7 +43,7 @@ class TokenClient {
     required String callsign,
     String? eventToken,
   }) async {
-    final uri = _baseUrl.resolve('/token');
+    final uri = _resolveTokenUri();
     final body = utf8.encode(
       jsonEncode({
         'room_id': roomId,
@@ -47,16 +55,25 @@ class TokenClient {
     late final HttpClientRequest request;
     late final HttpClientResponse response;
     try {
-      request = await _client.postUrl(uri);
+      request = await _client.postUrl(uri).timeout(_requestTimeout);
       request.headers.contentType = ContentType('application', 'json', charset: 'utf-8');
       request.add(body);
-      response = await request.close();
+      response = await request.close().timeout(_requestTimeout);
+    } on TimeoutException catch (error, stack) {
+      developer.log('token request timed out', name: _logName, error: error, stackTrace: stack);
+      throw TokenTransportException('token service did not respond within $_requestTimeout: $error');
     } on Object catch (error, stack) {
       developer.log('token request transport failure', name: _logName, error: error, stackTrace: stack);
       throw TokenTransportException('failed to reach token service: $error');
     }
 
-    final rawBody = await response.transform(utf8.decoder).join();
+    final String rawBody;
+    try {
+      rawBody = await response.transform(utf8.decoder).join().timeout(_requestTimeout);
+    } on TimeoutException catch (error, stack) {
+      developer.log('token response body timed out', name: _logName, error: error, stackTrace: stack);
+      throw TokenTransportException('token service response body timed out: $error');
+    }
 
     if (response.statusCode != 200) {
       final detail = _extractDetail(rawBody);
@@ -96,6 +113,14 @@ class TokenClient {
       identity: identity,
       ttl: Duration(seconds: ttlSeconds.toInt()),
     );
+  }
+
+  /// Resolves the `/token` endpoint against [_baseUrl] without discarding
+  /// any path prefix the base URL carries (e.g. `https://host/api` must
+  /// resolve to `https://host/api/token`, not `https://host/token`).
+  Uri _resolveTokenUri() {
+    final base = _baseUrl.path.endsWith('/') ? _baseUrl : _baseUrl.replace(path: '${_baseUrl.path}/');
+    return base.resolve('token');
   }
 
   static String? _extractDetail(String rawBody) {

@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:livekit_client/livekit_client.dart' as lk;
 
 import 'livekit_adapter.dart';
+
+const _logName = 'keryx.linked';
 
 /// Production [LiveKitAdapter]: a thin pass-through to
 /// `package:livekit_client`. Exercised on-device / against the live relay,
@@ -58,12 +61,16 @@ class _LiveKitClientRoom implements LiveKitRoom {
     final track = await lk.LocalAudioTrack.create();
     final participant = _room.localParticipant;
     if (participant == null) {
+      await track.stop();
       throw StateError('publishMutedAudioTrack: room has no local participant yet');
     }
-    await participant.publishAudioTrack(track);
-    // TS §8.5: pre-published *muted*; PTT grant flips this flag, never
-    // re-publishes.
+    // TS §8.5: muted is a precondition of publishing, not a follow-up call —
+    // mute BEFORE publishAudioTrack so the mic is never live-and-publishing
+    // even for the brief window between the two calls (hot-mic privacy
+    // defect otherwise, on a PTT radio whose whole premise is a closed mic
+    // until keyed).
     await track.mute();
+    await participant.publishAudioTrack(track);
     return _LiveKitClientLocalAudioTrack(track);
   }
 
@@ -102,6 +109,15 @@ class _LiveKitClientLocalAudioTrack implements LiveKitLocalAudioTrack {
   final lk.LocalAudioTrack _track;
   bool _enabled = false;
 
+  // Serializes mute()/unmute() calls against the SDK. A fast key-up/key-down
+  // pair issues mute() then unmute() in quick succession; without an
+  // await-chained tail, the two SDK calls can race and complete out of
+  // order, leaving the mic unmuted after PTT release — a stuck-open mic,
+  // the worst failure mode this product has. Chaining onto this tail
+  // guarantees the SDK ends up applying transitions in call order, so the
+  // last-requested `enabled` value is always the one that actually sticks.
+  Future<void> _pending = Future<void>.value();
+
   @override
   bool get enabled => _enabled;
 
@@ -109,10 +125,23 @@ class _LiveKitClientLocalAudioTrack implements LiveKitLocalAudioTrack {
   set enabled(bool value) {
     if (value == _enabled) return;
     _enabled = value;
-    if (value) {
-      unawaited(_track.unmute());
-    } else {
-      unawaited(_track.mute());
+    _pending = _pending.then((_) => _applyMuteState(value));
+  }
+
+  Future<void> _applyMuteState(bool value) async {
+    try {
+      if (value) {
+        await _track.unmute();
+      } else {
+        await _track.mute();
+      }
+    } on Object catch (error, stack) {
+      developer.log(
+        'linked: local track ${value ? 'unmute' : 'mute'} failed: $error',
+        name: _logName,
+        error: error,
+        stackTrace: stack,
+      );
     }
   }
 }

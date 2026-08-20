@@ -16,7 +16,13 @@ void main() {
     });
 
     test('dispatches LinkDegraded on reconnecting, LinkResolved on regain', () async {
-      final monitor = LinkMonitor(room: room, dispatch: dispatched.add);
+      // A reconnect callback is supplied (never actually invoked here — the
+      // default 1s initial backoff never elapses within this test's
+      // zero-delay pumps) precisely so the give-up-on-null-reconnect branch
+      // does NOT fire; this test is about the SDK's own internal
+      // reconnecting → connected transition, not the app-level reconnect
+      // path (see the maxAttempts-focused tests below for that).
+      final monitor = LinkMonitor(room: room, dispatch: dispatched.add, reconnect: () async => room);
 
       room.emitConnectionState(LiveKitConnectionState.reconnecting);
       await Future<void>.delayed(Duration.zero);
@@ -32,7 +38,7 @@ void main() {
     });
 
     test('dispatches LinkDegraded only once for repeated loss events (no duplicate dispatch)', () async {
-      final monitor = LinkMonitor(room: room, dispatch: dispatched.add);
+      final monitor = LinkMonitor(room: room, dispatch: dispatched.add, reconnect: () async => room);
 
       room.emitConnectionState(LiveKitConnectionState.disconnected);
       room.emitConnectionState(LiveKitConnectionState.reconnecting);
@@ -41,6 +47,20 @@ void main() {
       expect(dispatched.whereType<LinkDegraded>().length, 1);
       monitor.dispose();
     });
+
+    test(
+      'a monitor with NO reconnect callback still falls back to LOCAL on loss, '
+      'instead of hanging on NO LINK forever (FR-045 regression guard)',
+      () async {
+        final monitor = LinkMonitor(room: room, dispatch: dispatched.add);
+
+        room.emitConnectionState(LiveKitConnectionState.disconnected);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(dispatched, [const LinkDegraded(), const LinkResolved(useLocalFallback: true)]);
+        monitor.dispose();
+      },
+    );
 
     test('connecting (initial join) never dispatches LinkDegraded', () async {
       final monitor = LinkMonitor(room: room, dispatch: dispatched.add);

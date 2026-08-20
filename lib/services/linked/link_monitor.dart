@@ -88,8 +88,12 @@ class LinkMonitor {
   }
 
   void _scheduleReconnect() {
-    if (_disposed || _reconnect == null) return;
-    if (_attempt >= _maxAttempts) {
+    if (_disposed) return;
+    // Give-up/fallback must be evaluated before the null-reconnect bail: a
+    // monitor with no reconnect callback (or one that has exhausted its
+    // attempts) must still degrade to LOCAL rather than hang on NO LINK
+    // forever (FR-045 / KRX-055).
+    if (_reconnect == null || _attempt >= _maxAttempts) {
       developer.log('link monitor: giving up after $_attempt attempts, falling back to LOCAL', name: _logName);
       _degraded = false;
       _dispatch(const LinkResolved(useLocalFallback: true));
