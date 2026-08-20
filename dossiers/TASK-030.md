@@ -38,3 +38,5 @@ results (e.g. the 10-case corrupt-storage probe, and probe case 8 loading
   here — persist the key, do not enforce it.
 
 ## Work Log
+- [2026-08-21T01:26:00Z] [GB] Claimed on `task/TASK-030-gb`. Preflight matched existing `settings_repository.dart` + its test + this dossier. Implementing clamp-on-read `load()`, new keys (`dimMode`, `mode`, VOX), `AsyncNotifier` `settingsProvider`, `squelchNormalized`, serialized `rememberChannel`. Roger-beep enums left untouched.
+- [2026-08-21T01:40:00Z] [GB] Implementation complete. `load()` is total (catch `Object`, clamp per-field on read). `settingsProvider` is `AsyncNotifierProvider` listening to repository `changes`. `mode` typed as existing `RadioMode` (default auto) so TASK-018 does not get a third enum. Tests: `flutter test test/core/settings/` 22/22; `flutter analyze` clean; full `flutter test` 427/427. Handing off needs_review.
