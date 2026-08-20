@@ -1,16 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/widgets.dart';
+import 'package:keryx/app.dart';
 
-void main() => runApp(const ProviderScope(child: KeryxApp()));
+// Re-exported so `package:keryx/main.dart` keeps exposing `KeryxApp`, the
+// same public surface the pre-existing root `test/widget_test.dart` (not in
+// this task's `Owned_Paths`) imports it through.
+export 'package:keryx/app.dart' show KeryxApp;
 
-/// Temporary boot shell. TASK-017 replaces this with the assembled radio face.
-class KeryxApp extends StatelessWidget {
-  const KeryxApp({super.key});
-
-  @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'Keryx',
-        debugShowCheckedModeBanner: false,
-        home: const Scaffold(body: Center(child: Text('KERYX'))),
-      );
-}
+void main() => runApp(const KeryxApp());
