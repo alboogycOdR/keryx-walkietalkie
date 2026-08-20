@@ -1047,7 +1047,7 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 
 ### TASK-020
 **Title:** LAN signaling WebSocket + peer session management (KRX-031)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 steps 2–3, FR-042, §11 E4 (KRX-031, KRX-034); lib/services/discovery/README.md (the concrete NSD/beacon contract TASK-019 already shipped — read this, do not re-derive it)
@@ -1062,16 +1062,17 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 - [ ] "N ≤ 16 peers per channel on LAN is the supported envelope (soft cap, warn beyond)" per TS §8.3 step 3 — cap state exposed
 - [ ] The offer/answer/ICE-candidate envelope is disclosed (dartdoc + README), not silently invented — *ORCH-authored, same disclosure discipline every prior spec-silent decision has followed*
 - [ ] Session-lifecycle tests green (join, churn, departure, cap)
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-020-gb
+**Started_At:** 2026-08-20T16:48:00Z
 **Progress_Notes:**
 - [2026-08-20T19:10:00Z] [ORCH] Scoped for dispatch. Follow-up (s) — originally "BLOCKS TASK-020, wire contract spec-silent" — is now CLOSED as a blocker: TASK-019 shipped and documented the actual discovery/beacon contract (channel-hash algorithm, beacon port/payload, TXT keys including the `p` signaling-port key added specifically for this task) in `lib/services/discovery/README.md`; added TASK-019 to Depends_On, which was missing (this task functionally cannot dial a peer without TASK-019's resolved `host`/`port`). The one genuinely open spec-silent item — the WebRTC offer/answer/ICE envelope itself — is scoped as a normal disclosed implementation decision, not an ORCH ruling, since TS §8.3 names the exchange but no spec document anywhere defines a wire shape for it and it's outside TASK-006's floor-control-only codec. Assigned GB (idle since TASK-029, 11/11 first-pass).
+- [2026-08-20T16:48:00Z] [GB] Claimed TASK-020. Depends_On TASK-006/009/019 all `done`. Branch `task/TASK-020-gb`. Preflight next.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-20T19:10:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-20T16:48:00Z
 
 ### TASK-021
 **Title:** WebRTC mesh audio: pre-published muted track, enable-on-grant (KRX-032)
