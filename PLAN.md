@@ -1225,7 +1225,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-024
 **Title:** LINKED integration: livekit_client join/publish/subscribe mirroring PTT (KRX-052 + KRX-055)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.4, §8.5, FR-043, FR-045, §11 E6 (KRX-052, KRX-055); lib/services/mesh/floor_data_channel_transport.dart (TASK-021's `FloorTransport` adapter over WebRTC — this task's LiveKit data-message adapter is the SAME pattern over a different transport; read it before writing code, do not invent a parallel abstraction); lib/core/rooms/** (TASK-007, deriveKeyed's isolate constraint)
@@ -1241,16 +1241,17 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 - [ ] Join methods supported at the API level: numbered channel + code, keyed passphrase per FR-043
 - [ ] `deriveKeyed` runs off the UI isolate — *ORCH-authored, MANDATORY per TASK-007 follow-up (dd)*: verify via a test that the call does not block the UI thread (e.g. asserting it returns a `Future` that completes after other synchronous work, or a direct `compute()`/`Isolate.run()` usage check), not just that the result is correct
 - [ ] Unit tests green against the client abstraction
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-024-s5
+**Started_At:** 2026-08-20T20:17:54Z
 **Progress_Notes:**
 - [2026-08-20T22:10:00Z] [ORCH] Scoped for dispatch as part of the TASK-018/023/024/025/026 push. Added TASK-006 to Depends_On (already done — was implied by "same §8.6 schema" but never listed, same class of gap as TASK-020/024's earlier missing-dependency catches). Pointed at TASK-021's `MeshFloorTransport` as the concrete precedent for this task's own `FloorTransport` adapter, and promoted the previously-noted-but-not-enforced `deriveKeyed`-off-UI-isolate constraint (TASK-007 follow-up (dd), MANDATORY) from prose into a real acceptance criterion. Assigned S5.
+- [2026-08-20T20:17:54Z] [S5] Claimed. Read AGENTS.md, S5 briefing, TASK-024 dossier, and surveyed precedent (MeshFloorTransport/MeshController split, FloorTransport/FloorCodec interfaces, deriveKeyed, token-svc /token contract, RadioStateBridge dispatch pattern, SfxId.linkLost/linkUp, RtcAdapter shape) before writing code. Plan: lib/services/linked/{livekit_adapter.dart, token_client.dart, linked_floor_transport.dart, linked_controller.dart, link_monitor.dart, linked.dart} mirroring lib/services/mesh/** exactly, hand-written fakes for tests (house style — no mockito), deriveKeyed offloaded via compute().
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-08-20T20:17:54Z
 
 ### TASK-025
 **Title:** Event QR generate/scan + keryx:// deep links (KRX-054)
