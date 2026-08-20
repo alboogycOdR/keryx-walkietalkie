@@ -1102,7 +1102,7 @@ Matches expectation: both globs are new territory. Status → in_progress. Imple
 
 ### TASK-021
 **Title:** WebRTC mesh audio: pre-published muted track, enable-on-grant (KRX-032)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 step 3, §8.5, §8.1 (Codec row), FR-020, §9 NFR-01/NFR-03, §11 E4 (KRX-032); lib/core/floor/transport.dart (the `FloorTransport` interface this task's data channel must implement — read it before writing code, do not invent a parallel abstraction)
@@ -1116,16 +1116,17 @@ Matches expectation: both globs are new territory. Status → in_progress. Imple
 - [ ] Codec config: "Opus, mono, 16–24 kbps, 20 ms frames, in-band FEC on, DTX off during TX" per TS §8.1
 - [ ] The data-channel adapter implements `FloorTransport` exactly (`send(FloorMessage)`, `Stream<FloorMessage> get incoming`) using TASK-006's `FloorCodec` — *ORCH-authored, replaces the vaguer "floor-control data channel established" wording*: this is what lets `FloorEngine` (already built, unmodified) run unchanged over real WebRTC instead of `LoopbackHub`
 - [ ] Unit tests green against the plugin abstraction (publish-muted on join, enable on grant, gate on TX_START/END, `FloorTransport` round-trip send/receive)
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-021-s5
+**Started_At:** 2026-08-20T21:00:00Z
 **Progress_Notes:**
 - [2026-08-20T19:10:00Z] [ORCH] Scoped for dispatch. Added TASK-022 to Depends_On (already done — this task must implement its `FloorTransport` interface, not invent a parallel one) and tightened the data-channel acceptance criterion from vague "floor-control data channel established" to the exact interface TASK-022 already defined and is built against. Assigned S5 (currently on TASK-017; queued for once that lands and TASK-020 is done — not immediately dispatchable either way since Depends_On: TASK-020 isn't satisfied yet).
+- [2026-08-20T21:00:00Z] [S5] Claimed. TASK-020/TASK-022 both done, fully eligible. Read dossiers/TASK-021.md intended approach (RtcAdapter abstraction, mesh_connection/mesh_controller/rx_gate/floor_transport split), lib/core/floor/transport.dart (frozen FloorTransport interface), lib/core/floor/floor_engine.dart, lib/services/signaling/signaling_service.dart (incomingSignals/sendSignal are what mesh consumes). Proceeding on task/TASK-021-s5 in worktree wt-s5-walkietalkie-keryx.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-20T19:10:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-08-20T21:00:00Z
 
 ### TASK-022
 **Title:** Floor control runtime: arbiter election, leases, lockout, TOT, emergency (KRX-041/042/043)
