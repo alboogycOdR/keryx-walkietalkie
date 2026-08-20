@@ -80,7 +80,12 @@ case "$CLI" in
   # .codex/config.toml, per that file's own comment.
   codex) CMD=(codex exec ${MODEL:+--model "$MODEL"} -s danger-full-access) ;;
   # claude: -p takes the prompt as a trailing positional argument.
-  claude) CMD=(claude -p ${MODEL:+--model "$MODEL"} --dangerously-skip-permissions) ;;
+  # EFFORT (env var, not a positional arg -- dispatch.ps1's mirror exposes a
+  # named -Effort parameter instead; this script's arg parser is positional
+  # and simpler, so an env var avoids reworking it) passes through as
+  # claude's own --effort <low|medium|high|xhigh|max>. No-op for grok/codex,
+  # neither of which exposes this knob.
+  claude) CMD=(claude -p ${MODEL:+--model "$MODEL"} ${EFFORT:+--effort "$EFFORT"} --dangerously-skip-permissions) ;;
   *) echo "[dispatch] ERROR: unknown CLI family '$CLI' for unit $ID — refusing to dispatch." >&2; exit 1 ;;
 esac
 

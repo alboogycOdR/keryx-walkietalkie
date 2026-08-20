@@ -23,7 +23,14 @@ param(
     # grandchild of that job -- and when the harness reaps the job, the builder dies
     # with it, mid-write, however healthy it was. Four sessions were lost that way on
     # 2026-08-02. A detached window is outside that process tree and survives.
-    [switch]$InProcess   # opt back in to the old blocking, same-console behaviour
+    [switch]$InProcess,  # opt back in to the old blocking, same-console behaviour
+    # Reasoning-effort override for a claude-family builder (low/medium/high/
+    # xhigh/max), passed straight through as `claude`'s own `--effort <level>`.
+    # No-op for grok/codex (neither CLI exposes this knob) -- silently ignored
+    # for those, not an error, so a mixed-roster dispatch script doesn't need
+    # per-CLI branching at the call site.
+    [ValidateSet("low", "medium", "high", "xhigh", "max")]
+    [string]$Effort
 )
 
 $ErrorActionPreference = "Stop"
@@ -115,6 +122,7 @@ switch ($Cli) {
         $Cmd = "claude"
         $CmdArgs = @("-p")
         if ($Model) { $CmdArgs += @("--model", $Model) }
+        if ($Effort) { $CmdArgs += @("--effort", $Effort) }
         $CmdArgs += @("--dangerously-skip-permissions")
     }
     default {
