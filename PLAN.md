@@ -1367,7 +1367,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-029
 **Title:** RadioState TX time-out/denied fields (state successor #2, closes follow-up (w))
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_UI_Design_Specification_v1.0.md §6 (State Catalogue, KRX-018); specs/KERYX_Product_Technical_Spec_v1.1.md §8.6, FR-022, FR-023, FR-026
@@ -1377,13 +1377,13 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 **FIELD/EVENT SHAPE — ORCH-proposed, ratifiable at review (same latitude TASK-027's bridge design was given).** Two reasonable shapes: (A) a persistent `isTotWarning` bool set true on `TotWarn`, cleared on `TotCut` or on the next event that ends TX (whichever the bridge already uses to mark TX end); plus a transient `isTransmitDenied`-style flag set true on the busy-lockout deny decision, cleared by the next state-changing `RadioEvent` (mirroring how `PttButtonState`'s own 260 ms deny-flash already works at the widget level in TASK-015 — this reducer field is the state-catalogue source of truth, not a replacement for that widget timing). (B) fold both into the existing telltale-flag pattern TASK-027 already established for NO LINK/EMG/PRV/REPLAY/MON/SCAN/VOX, if that reads more consistently against the existing `RadioState` shape. Pick whichever keeps the reducer pure (no internal timers — clearing must be event-driven, same discipline TASK-027 held) and disclose the choice, same as every prior successor task in this territory.
 **EXPLICITLY OUT OF SCOPE — do not add a `LAN?` field.** DS §6's state catalogue lists a third related state, `LAN?`, in the same line as "TX time-out warning"/"TX denied/busy", but per TS §8.3 L297 it is driven by the UDP broadcast discovery fallback ("if mDNS is filtered … a UDP broadcast beacon fallback runs … if both fail the display shows `LAN?` and the troubleshooting card") — KRX-033, a LAN-discovery feature that does not exist yet (TASK-020, LAN signaling, is still unassigned and gated on follow-up (s); KRX-033's fallback specifically has no task at all). Adding a `LAN?` field now would have no real signal to drive it and risks inventing behaviour ahead of its own spec-silent wire contract. TASK-017 will not render the `LAN?` state until KRX-033 lands — acceptable, matching TASK-027's own precedent (finding (z): "TASK-017 must not render telltales it can't source").
 **Acceptance_Criteria:**
-- [ ] `RadioState` exposes a field reflecting TASK-022's `TotWarn` effect ("TX time-out warning" per DS §6), set/cleared by new sealed `RadioEvent`(s) with exhaustive-switch handling preserved
-- [ ] `RadioState` exposes a field reflecting the busy-lockout deny decision ("TX denied/busy" per DS §6 / FR-022), displayable without TASK-017 subscribing to the floor stream directly
-- [ ] The bridge's `switch` over `FloorEngine.effects` no longer `break`s on `TotWarn`/`TotCut` — both are translated into reducer events, per the ratified field/event shape above
-- [ ] No new field is cleared by an internal timer — every transition is event-driven, preserving the reducer's purity (TS §8.2 single-reducer invariant; same discipline as every existing `RadioState` field)
-- [ ] `LAN?` is explicitly NOT added — confirm via Progress_Note, not silently — *ORCH-authored, scope guard*
-- [ ] TASK-004/027's ratified 100%-branch discipline held via the table-driven `RadioPhase` × event matrix, extended to the new event(s); evidence stated as the matrix + `LF/LH`, no `--branch-coverage` percentage claimed (documented LCOV limitation, same as TASK-004/027)
-- [ ] Every existing TASK-027 field/event/test preserved — this task only ADDs; a mutation-style check (delete the new guard, confirm the suite goes red) recommended given TASK-027's own criterion-9 rework was exactly this class of gap
+- [x] `RadioState` exposes a field reflecting TASK-022's `TotWarn` effect ("TX time-out warning" per DS §6), set/cleared by new sealed `RadioEvent`(s) with exhaustive-switch handling preserved
+- [x] `RadioState` exposes a field reflecting the busy-lockout deny decision ("TX denied/busy" per DS §6 / FR-022), displayable without TASK-017 subscribing to the floor stream directly
+- [x] The bridge's `switch` over `FloorEngine.effects` no longer `break`s on `TotWarn`/`TotCut` — both are translated into reducer events, per the ratified field/event shape above
+- [x] No new field is cleared by an internal timer — every transition is event-driven, preserving the reducer's purity (TS §8.2 single-reducer invariant; same discipline as every existing `RadioState` field)
+- [x] `LAN?` is explicitly NOT added — confirm via Progress_Note, not silently — *ORCH-authored, scope guard*
+- [x] TASK-004/027's ratified 100%-branch discipline held via the table-driven `RadioPhase` × event matrix, extended to the new event(s); evidence stated as the matrix + `LF/LH`, no `--branch-coverage` percentage claimed (documented LCOV limitation, same as TASK-004/027)
+- [x] Every existing TASK-027 field/event/test preserved — this task only ADDs; a mutation-style check (delete the new guard, confirm the suite goes red) recommended given TASK-027's own criterion-9 rework was exactly this class of gap
 **Branch:** task/TASK-029-gb
 **Started_At:** 2026-08-20T14:37:07Z
 **Progress_Notes:**
@@ -1401,9 +1401,19 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
            test/core/state/radio_state_test.dart
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
   Shape (A) ratified here: `isTotWarning` + `isTransmitDenied` as dedicated projection bools (not folded into the EMG/MON/SCAN telltale set). New events `TotWarningRaised`/`TotWarningCleared`/`TransmitDeniedIndicated`. `LAN?` will NOT be added. Implementing next.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-20T14:48:15Z] [GB] Shape (A) landed on `task/TASK-029-gb` (`cb6685e`). `isTotWarning` set by `TotWarningRaised` (TX-only), cleared by `TotWarningCleared` / `EndTransmit` / `PowerOff` / `LinkDegraded`. `isTransmitDenied` set by `TransmitDeniedIndicated` (and `TransmitDenied` from txRequest); cleared by the next state-changing RadioEvent via value equality — no Timer in the reducer (`radio_state.dart` still has zero imports). Bridge maps `TotWarn`/`TotCut`/`DenyBuzz` instead of breaking. `LAN?` is NOT added (no `isLan`/`lanTrouble` field; README states KRX-033 remains out of scope). Mutation: deleting the two new phase guards turned the state suite red at 18 passed / 3 FAILED (matrix + TOT-only-in-TX + deny-off no-op); guards restored. Ready for review.
+**Artifacts:**
+- `lib/core/state/radio_state.dart`
+- `lib/core/state/radio_state_bridge.dart`
+- `lib/core/state/radio_state_controller.dart` (untouched)
+- `lib/core/state/README.md`
+- `test/core/state/radio_state_test.dart`
+**Test_Evidence:**
+- [2026-08-20T14:48:15Z] [GB] `flutter test test/core/state/radio_state_test.dart --branch-coverage --coverage-path %TEMP%\keryx-task-029-lcov.info` — passed 21/21 (18 pre-existing + 3 new). Matrix: 139 legal transitions + 93 illegal no-ops across 29 events × 8 phases = 232 pairs. `radio_state.dart` LCOV `LF 190 / LH 165`; no `BRF/BRH` decision denominator emitted, so no percentage claimed.
+- [2026-08-20T14:48:15Z] [GB] `flutter analyze` — passed: No issues found! (ran in 62.7s).
+- [2026-08-20T14:48:15Z] [GB] `flutter test` (full suite) — passed: 301/301 (298 prior + 3 new).
+- [2026-08-20T14:48:15Z] [GB] Mutation (delete `TotWarningRaised` TX-phase guard and `TransmitDeniedIndicated` powered-on guard): 18 passed / 3 FAILED, then restored.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-20T14:40:05Z
+**Updated_At:** 2026-08-20T14:48:15Z
