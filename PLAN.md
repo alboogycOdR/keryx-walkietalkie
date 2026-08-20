@@ -756,7 +756,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 
 ### TASK-014
 **Title:** CH steppers with auto-repeat + keypad direct-entry sheet (KRX-013)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §3 D1, FR-004, FR-005, FR-009, FR-106, §11 E2 (KRX-013); specs/keryx-face-prototype.html (stepper script)
@@ -770,17 +770,18 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 - [ ] All three input paths "write to the same tuning state machine" per D1 — widget emits intents, owns no channel state
 - [ ] Touch targets ≥ 48 dp and TalkBack labels present per FR-106 ("stepper-first tuning path, min 48 dp targets")
 - [ ] Widget tests green (auto-repeat acceleration, keypad range validation 1–99 / 00–38)
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-014-s5
+**Started_At:** 2026-08-20T11:00:00Z
 **Progress_Notes:**
 - [2026-08-18T14:20:00Z] [ORCH] Blocked pending the same spec ruling as TASK-013: channel/code wrap-vs-clamp at 99/1 and 38/00 undefined in both specs. Steppers emit tuning intents per their own description and directly hit this at the CH▲/CH▼ boundary. Mechanically fenced off (Status: blocked) so CX's own claim logic doesn't self-select into it.
 - [2026-08-19T18:30:00Z] [ORCH] RULING (follow-up k): CLAMP, not wrap — see TASK-013's identical note for full rationale. Unblocking. Reassigned CX→S5 (CX quota-blocked until 2026-08-21 16:27 SAST).
+- [2026-08-20T11:00:00Z] [S5] Claimed. Only eligible S5 task this wave (TASK-017 blocked on this + follow-up (w)). Branch task/TASK-014-s5 created off master@78e234f in worktree wt-s5-walkietalkie-keryx. Following dossiers/TASK-014.md intended approach (stepper_button.dart, keypad_sheet.dart, channel_recall.dart). NOTE: territory-firewall.js's repoRoot resolves to CLAUDE_PROJECT_DIR/cwd (this worktree), so an Edit targeting the main checkout's absolute PLAN.md path computes rel != 'PLAN.md' and is BLOCKED by the "no active task" branch (chicken-and-egg on first claim) — worked around by editing this worktree's own PLAN.md copy (rel === 'PLAN.md', passes the legacy-mode early-return) after confirming it was byte-identical to the main checkout's copy, then syncing the result into the main checkout before running plan_commit.sh. Flagging for ORCH: this is a real tooling gap (plan_commit.sh resolves REPO_ROOT via git-common-dir; territory-firewall.js resolves repoRoot via CLAUDE_PROJECT_DIR/cwd — the two disagree whenever the worktree and main checkout are different directories), worth a hooks/** fix so the next builder's first-ever claim doesn't hit the same wall.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-19T18:30:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-08-20T11:00:00Z
 
 ### TASK-015
 **Title:** PTT button, secondary key row, EMG side key (KRX-015)
