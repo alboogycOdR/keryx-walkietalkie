@@ -1367,7 +1367,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-029
 **Title:** RadioState TX time-out/denied fields (state successor #2, closes follow-up (w))
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_UI_Design_Specification_v1.0.md §6 (State Catalogue, KRX-018); specs/KERYX_Product_Technical_Spec_v1.1.md §8.6, FR-022, FR-023, FR-026
@@ -1389,9 +1389,21 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 **Progress_Notes:**
 - [2026-08-20T14:35:00Z] [ORCH] Created — closes follow-up (w), the sole remaining blocker on TASK-017 becoming dispatchable (its Depends_On is otherwise 6/6 satisfied). Assigned to GB: idle since TASK-016 (10/10 first-pass, zero rework), and this reopens a territory neither GB nor CX has touched before — TASK-028 already proved cross-unit successor reopening works cleanly (CX built TASK-005, S5 reopened it for TASK-028) provided the task gives clear pointers to existing conventions, which this one does. GB should read TASK-027's full Description, BRIDGE DESIGN DECISION note, and Review_Findings (including the CX rework's criterion-9 detail on shadowed-assert test gaps) before touching anything.
 - [2026-08-20T14:37:07Z] [GB] Claimed. Resume-check: no GB in_progress/claimed task. Depends_On TASK-022 and TASK-027 both done. Branch `task/TASK-029-gb`. Preflight next.
+- [2026-08-20T14:40:05Z] [GB] Preflight complete (c8b9872 filesystem check):
+[preflight] TASK-029 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/state/**  -> 4 file(s):
+           lib/core/state/README.md
+           lib/core/state/radio_state.dart
+           lib/core/state/radio_state_bridge.dart
+           lib/core/state/radio_state_controller.dart
+  GLOB   test/core/state/**  -> 1 file(s):
+           test/core/state/radio_state_test.dart
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+  Shape (A) ratified here: `isTotWarning` + `isTransmitDenied` as dedicated projection bools (not folded into the EMG/MON/SCAN telltale set). New events `TotWarningRaised`/`TotWarningCleared`/`TransmitDeniedIndicated`. `LAN?` will NOT be added. Implementing next.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-20T14:37:07Z
+**Updated_At:** 2026-08-20T14:40:05Z
