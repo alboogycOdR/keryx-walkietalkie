@@ -1524,7 +1524,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-030
 **Title:** Settings core successor: crash-safe load, missing keys, live provider (unblocks TASK-018)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-023, FR-009, FR-040, FR-046, FR-061, FR-024, §8.2; specs/KERYX_UI_Design_Specification_v1.0.md FR-108 (dim mode); PLAN.md TASK-008 Review_Findings items (1), (2), (5), (6), (7), (8) — the authoritative statement of each defect, read them before writing code
@@ -1545,9 +1545,21 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 **Progress_Notes:**
 - [2026-08-21T01:20:00Z] [ORCH] Created and assigned GB. Reopens `lib/core/settings/**` on the 010→011 successor pattern; TASK-008 stays `done` and its findings are the spec for this task. Assigned to GB rather than S5 on the protocol §8 heuristic — GB is 12/12 first-pass and every one of those was a core typed library (protocol codec, identity, rooms, signaling), which is exactly this task's shape; S5 is concurrently on TASK-023. Territory verified pairwise disjoint against the live TASK-023 (`test/simulation/**`) and against pending TASK-025 (`lib/features/event_qr/**`) and TASK-026 (`android/**`, `lib/services/platform/**`). Squelch unit RULED here rather than left to the builder because both sides are frozen and a builder cannot legally change either. Roger-beep enum divergence deliberately excluded as a spec-amendment item.
 - [2026-08-21T01:25:00Z] [GB] Claimed TASK-030. Resuming none — no GB claimed/in_progress task. Depends_On TASK-008 is done. Branch `task/TASK-030-gb`.
+- [2026-08-21T01:26:00Z] [GB] Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-030 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/settings/**  -> 1 file(s):
+           lib/core/settings/settings_repository.dart
+  GLOB   test/core/settings/**  -> 1 file(s):
+           test/core/settings/settings_repository_test.dart
+  FILE   dossiers/TASK-030.md  -> exists, 40 line(s), 2091 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches expectation: successor reopening TASK-008's two globs (both populated) plus the dossier. Implementing crash-safe clamp-on-read load, new persisted keys, live AsyncNotifier, squelch normalized accessor, serialized rememberChannel.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-21T01:25:00Z
+**Updated_At:** 2026-08-21T01:26:00Z
