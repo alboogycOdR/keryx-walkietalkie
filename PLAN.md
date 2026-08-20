@@ -906,6 +906,17 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 **Progress_Notes:**
 - [2026-08-20T14:45:00Z] [ORCH] Added TASK-029 to Depends_On — caught during dispatch prep that follow-up (w) (RadioState needs TotWarn/TotCut/deny fields, or this task can only render two of DS §6's face states from the floor stream directly, exactly the two-source rendering the reducer's single-source invariant exists to prevent) was tracked only in orchestrator_notes prose, not as a mechanical Depends_On edge — precisely the failure mode the 2026-08-19 RULE ESTABLISHED note warns about. Fixed before any scheduler (manual or autopilot) could treat this task as ready on the strength of its pre-existing 6 Depends_On alone.
 - [2026-08-20T15:11:15Z] [S5] Claimed. All 7 Depends_On (TASK-004, 012, 013, 014, 015, 016, 029) confirmed `done` on live PLAN.md read. Proceeding to preflight + implementation.
+- [2026-08-20T15:20:00Z] [S5] Preflight (c8b9872 check), run in worktree `C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx`:
+  ```
+  [preflight] TASK-017 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx
+  [preflight] 4 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+    GLOB   lib/features/face/**  -> matches nothing yet (new territory)
+    GLOB   test/features/face/**  -> matches nothing yet (new territory)
+    FILE   lib/main.dart  -> exists, 16 line(s), 540 bytes
+    NEW    lib/app.dart  -> does not exist; parent lib/ exists
+  [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+  ```
+  Matches expectation: `lib/features/face/**` + `test/features/face/**` are new territory, `lib/main.dart` is the existing 16-line placeholder boot shell explicitly marked "Temporary boot shell. TASK-017 replaces this", `lib/app.dart` does not exist yet. Branch `task/TASK-017-s5` created off `master` (12da592). Proceeding to survey dependency public APIs (state, theme, display, knob, tuning, ptt, grille, floor) before writing any face code.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
