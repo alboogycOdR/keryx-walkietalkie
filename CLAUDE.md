@@ -5,10 +5,15 @@ via WebRTC (`flutter_webrtc` LOCAL mode / `livekit_client` LINKED mode) over a
 self-hosted LiveKit relay (Docker compose: LiveKit + Redis + Caddy + coturn) with a
 FastAPI token service minting LiveKit JWTs (no user accounts).
 
-- **Current focus:** review TASK-028 (`needs_review`, S5, `lib/core/theme/**`) —
-  unblocks TASK-013/014/015 simultaneously via `Depends_On`. See
-  `docs/handovers/` for the latest dated handover before resuming.
-- Scaffolded and 17/28 tasks merged as of 2026-08-19. Source root is `lib/**` +
+- **Current focus:** dispatch S5 (only — no GB this wave) at `--effort medium`
+  against TASK-018/023/024/025/026, already scoped and assigned as of
+  `69c4e27`; TASK-024 is `high` priority so expect it claimed first. See
+  `docs/handovers/2026-08-20.md` for full context before resuming.
+- Demo trilogy (face assembly, LAN signaling, WebRTC mesh audio) merged
+  2026-08-20 — app builds and renders on-device (Honor 90 Lite tested) but the
+  SFX/audio engine (TASK-010/011) is not yet wired into `FaceScreen`, so
+  there's no sound. No successor task exists for this yet.
+- Scaffolded and 24/29 tasks merged as of 2026-08-20. Source root is `lib/**` +
   `test/**` (Flutter app), `relay/**` (LiveKit/Redis/Caddy/coturn compose),
   `token-svc/**` (FastAPI JWT minting) — all real, not placeholders. Current
   `Owned_Paths` per task are authoritative in `PLAN.md`, not this file.
