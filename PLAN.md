@@ -1047,7 +1047,7 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 
 ### TASK-020
 **Title:** LAN signaling WebSocket + peer session management (KRX-031)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 steps 2–3, FR-042, §11 E4 (KRX-031, KRX-034); lib/services/discovery/README.md (the concrete NSD/beacon contract TASK-019 already shipped — read this, do not re-derive it)
@@ -1055,13 +1055,13 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 **Depends_On:** TASK-006, TASK-009, TASK-019
 **Description:** Under `lib/services/signaling/`: each device runs a LAN WebSocket server on a random high port, passed to `DiscoveryService.start(DiscoveryConfig(signalingPort: ...))` (TASK-019, frozen — its own README states "TXT `p` — LAN signaling port for TASK-020") so peers discover it via NSD TXT. Consume `DiscoveryService.peersFound`/`peersLost` (`lib/services/discovery/discovered_peer.dart`) — `DiscoveredPeer.host`/`.port` are already-resolved dial targets; do not re-implement discovery or re-derive the channel-hash/beacon contract, both are TASK-019's frozen territory and documented in its README. For each matching-channel peer, dial its WebSocket and exchange WebRTC offer/answer/ICE-candidate messages (LAN candidates only: host candidates, mDNS ICE) plus TASK-006's `Presence` message (heartbeat/departure) over the same socket. **The offer/answer/ICE-candidate envelope itself is genuinely spec-silent — TS §8.3 names the exchange but never a wire shape for it, and it's outside TASK-006's `FloorMessage` codec (that's floor-control only: TX_REQ/GRANT/DENY/etc, not session signaling).** Invent the smallest reasonable JSON envelope (something like `{type: offer|answer|ice-candidate, from, to, payload}`) and disclose the choice in dartdoc + README, same pattern every prior spec-silent decision on this project has followed (channel-hash prefix, beacon payload, room-ID case, etc.) — do not treat this as blocking; it's an implementation decision like those, not a decision that needs an ORCH ruling. Peer session lifecycle (connect, churn, departure via `Presence` misses — TS §8.6 PRESENCE row is 5 s heartbeat / 3 misses = departed, same cadence TASK-022's floor engine already uses) and the 16-peer soft-cap warning state (KRX-034). No media here — mesh audio and the actual `FloorTransport` adapter are TASK-021. Tested with in-process WebSocket/socket pairs, not real sockets.
 **Acceptance_Criteria:**
-- [ ] "each device runs a loopback-free LAN WebSocket (random high port, advertised in NSD). Peers on a matching channel hash perform WebRTC offer/answer over it" per TS §8.3 step 2 — port passed to `DiscoveryConfig.signalingPort`, dial targets sourced from `DiscoveredPeer.host`/`.port`, no independent peer-address logic invented
-- [ ] "LAN candidates only (host candidates; mDNS ICE)" per TS §8.3 step 2
-- [ ] Fully serverless: "LAN-internal signaling (§8.3), no packets leave the network" per FR-042
-- [ ] Departure detection: "5 s heartbeat; 3 misses = departed" per TS §8.6 PRESENCE row, using TASK-006's `Presence` `FloorMessage` (not a new heartbeat type)
-- [ ] "N ≤ 16 peers per channel on LAN is the supported envelope (soft cap, warn beyond)" per TS §8.3 step 3 — cap state exposed
-- [ ] The offer/answer/ICE-candidate envelope is disclosed (dartdoc + README), not silently invented — *ORCH-authored, same disclosure discipline every prior spec-silent decision has followed*
-- [ ] Session-lifecycle tests green (join, churn, departure, cap)
+- [x] "each device runs a loopback-free LAN WebSocket (random high port, advertised in NSD). Peers on a matching channel hash perform WebRTC offer/answer over it" per TS §8.3 step 2 — port passed to `DiscoveryConfig.signalingPort`, dial targets sourced from `DiscoveredPeer.host`/`.port`, no independent peer-address logic invented
+- [x] "LAN candidates only (host candidates; mDNS ICE)" per TS §8.3 step 2
+- [x] Fully serverless: "LAN-internal signaling (§8.3), no packets leave the network" per FR-042
+- [x] Departure detection: "5 s heartbeat; 3 misses = departed" per TS §8.6 PRESENCE row, using TASK-006's `Presence` `FloorMessage` (not a new heartbeat type)
+- [x] "N ≤ 16 peers per channel on LAN is the supported envelope (soft cap, warn beyond)" per TS §8.3 step 3 — cap state exposed
+- [x] The offer/answer/ICE-candidate envelope is disclosed (dartdoc + README), not silently invented — *ORCH-authored, same disclosure discipline every prior spec-silent decision has followed*
+- [x] Session-lifecycle tests green (join, churn, departure, cap)
 **Branch:** task/TASK-020-gb
 **Started_At:** 2026-08-20T16:48:00Z
 **Progress_Notes:**
@@ -1076,12 +1076,31 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Matches expectation: both globs are new territory. Status → in_progress. Implementing LAN signaling against TS §8.3 / FR-042 / TASK-019 discovery contract.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-20T16:58:00Z] [GB] Implementation complete on `task/TASK-020-gb` (`da8b805`). In-process hub (no real sockets in tests); `IoSignalingEndpoint` binds `anyIPv4` ephemeral port; dial targets are `DiscoveredPeer.host`/`.port` only; lower peerId dials. Envelope `{v,type,from,to,payload}` disclosed in README (`type` not `t`, so FloorCodec PRESENCE shares the socket). LAN ICE filter (host/mDNS; drop srflx/relay/prflx) on send/receive/SDP. PRESENCE via FloorCodec + FloorTiming 5s/3 misses. Soft cap: `capWarning` when sessions > 16, 17th still accepted.
+**Artifacts:**
+- `lib/services/signaling/README.md`
+- `lib/services/signaling/signaling.dart`
+- `lib/services/signaling/signaling_service.dart`
+- `lib/services/signaling/signaling_envelope.dart`
+- `lib/services/signaling/ice_filter.dart`
+- `lib/services/signaling/io_signaling_endpoint.dart`
+- `lib/services/signaling/in_process_endpoint.dart`
+- `lib/services/signaling/signaling_channel.dart`
+- `lib/services/signaling/signaling_config.dart`
+- `lib/services/signaling/signaling_constants.dart`
+- `lib/services/signaling/signaling_state.dart`
+- `lib/services/signaling/peer_session.dart`
+- `test/services/signaling/ice_filter_test.dart`
+- `test/services/signaling/signaling_envelope_test.dart`
+- `test/services/signaling/signaling_service_test.dart`
+**Test_Evidence:**
+- [2026-08-20T16:58:00Z] [GB] `flutter analyze lib/services/signaling test/services/signaling` — No issues found.
+- [2026-08-20T16:58:00Z] [GB] `flutter test test/services/signaling` — 16/16 passed (join/dedup, ch-hash mismatch, offer/answer + LAN ICE drop, 15s presence departure, peersLost churn, soft cap 17th accepted with capWarning, discovery streams).
+- [2026-08-20T16:58:00Z] [GB] `flutter test` (full suite) — 317/317 passed (was 301 on master + 16 new).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-20T16:50:00Z
+**Updated_At:** 2026-08-20T16:58:00Z
 
 ### TASK-021
 **Title:** WebRTC mesh audio: pre-published muted track, enable-on-grant (KRX-032)
