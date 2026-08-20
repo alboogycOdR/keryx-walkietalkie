@@ -891,7 +891,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §6.1, FR-067, FR-069, §11 E2 (KRX-010); specs/KERYX_UI_Design_Specification_v1.0.md §4 (layout grid), §6 (state catalogue); specs/keryx-face-prototype.html (full page layout)
 **Owned_Paths:** lib/features/face/**, test/features/face/**, lib/main.dart, lib/app.dart
-**Depends_On:** TASK-004, TASK-012, TASK-013, TASK-014, TASK-015, TASK-016
+**Depends_On:** TASK-004, TASK-012, TASK-013, TASK-014, TASK-015, TASK-016, TASK-029
 **Description:** Compose the whole face under `lib/features/face/` + app entry (`lib/main.dart`, `lib/app.dart`): housing material (moulded texture, single top-left light), DS §4 vertical allocation (status strip 6% · glass 18% · grille 26% · controls 22% · PTT 22% · safe 6%), status strip (aggregate S-meter, STN count, battery, mode), the STN-tap station-list panel flip with per-station S-meters and 5 s auto-flip-back, portrait-primary with landscape "brick on its side", and wiring of every child widget to the TASK-004 reducer projections. This task is the sole owner of `lib/main.dart`/`lib/app.dart` — the app must boot to the face.
 **Acceptance_Criteria:**
 - [ ] Vertical allocation matches DS §4: "status strip 6% · glass 18% · grille 26% · control cluster 22% · PTT 22% · safe area 6%"
@@ -903,7 +903,8 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 - [ ] App boots to the face; widget tests for strip/flip green; `flutter analyze` clean
 **Branch:** —
 **Started_At:** —
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-20T14:45:00Z] [ORCH] Added TASK-029 to Depends_On — caught during dispatch prep that follow-up (w) (RadioState needs TotWarn/TotCut/deny fields, or this task can only render two of DS §6's face states from the floor stream directly, exactly the two-source rendering the reducer's single-source invariant exists to prevent) was tracked only in orchestrator_notes prose, not as a mechanical Depends_On edge — precisely the failure mode the 2026-08-19 RULE ESTABLISHED note warns about. Fixed before any scheduler (manual or autopilot) could treat this task as ready on the strength of its pre-existing 6 Depends_On alone.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
