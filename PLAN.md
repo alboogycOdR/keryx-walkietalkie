@@ -1,6 +1,6 @@
 ---
-plan_version: 6.6
-last_updated: 2026-08-21T01:00:00Z
+plan_version: 6.7
+last_updated: 2026-08-21T01:20:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -937,7 +937,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-100, FR-061, FR-046, FR-023, §11 E2 (KRX-016); specs/KERYX_UI_Design_Specification_v1.0.md §3 (Interface role), §7 (copy voice)
 **Owned_Paths:** lib/features/settings_panel/**, test/features/settings_panel/**, dossiers/TASK-018.md
-**Depends_On:** TASK-005, TASK-008
+**Depends_On:** TASK-005, TASK-008, TASK-030
 **Description:** Under `lib/features/settings_panel/`: the settings screen rendered as the radio's back panel / battery hatch (FR-100), exposing the TASK-008 settings repository — squelch knob control, roger-beep variant, TOT duration, latch mode, busy lockout, character-DSP intensity, force-LOCAL-only, region, dim mode — in equipment-manual copy voice (DS §7), Inter type for panel body, ≥ 48 dp targets, TalkBack labelled.
 **Acceptance_Criteria:**
 - [ ] "Settings rendered as the radio's back panel / battery-hatch screen — even configuration stays in-world (P1)" per FR-100
@@ -1517,3 +1517,32 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-08-20T17:00:00Z
+
+### TASK-030
+**Title:** Settings core successor: crash-safe load, missing keys, live provider (unblocks TASK-018)
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** high
+**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-023, FR-009, FR-040, FR-046, FR-061, FR-024, §8.2; specs/KERYX_UI_Design_Specification_v1.0.md FR-108 (dim mode); PLAN.md TASK-008 Review_Findings items (1), (2), (5), (6), (7), (8) — the authoritative statement of each defect, read them before writing code
+**Owned_Paths:** lib/core/settings/**, test/core/settings/**, dossiers/TASK-030.md
+**Depends_On:** TASK-008
+**Description:** Successor task reopening the frozen `lib/core/settings/**` territory on the 010→011 pattern, to fix defects TASK-008's review proved empirically and to add the keys its dependents cannot add from their own territories. **This task exists because TASK-018 is currently un-dispatchable without it** (its Description requires a dim-mode control that has no persisted key, and its criterion 6 would pass at the repository level while the panel rendered stale values). Six things: (1) make `load()` crash-safe — it currently catches only `FormatException`/`ArgumentError`, so a non-object JSON blob (`[]`, `5`, `"hello"`, `null`) throws an uncaught `_TypeError` from the `as Map` cast and a well-formed-but-out-of-range blob (`totSeconds: 999`) throws an uncaught `_AssertionError`, taking down `settingsProvider`, `save()` and `rememberChannel()` alike; (2) close the debug/release split — asserts are stripped in release, so the same corrupt blob that crashes debug silently yields `totSeconds: 999` in release, defeating FR-023's 30–120 bound on the build users actually run: **validate and clamp on READ, do not rely on constructor asserts**; (3) add the missing persisted keys — `dimMode` (FR-108, auto/manual), `mode` (FR-040, default AUTO, so the user's LOCAL/AUTO/LINKED choice survives restart) and VOX sensitivity/hang-time (FR-024, persist keys now, feature later); (4) make `settingsProvider` live — it is a one-shot `FutureProvider` that never invalidates, so every watcher holds the first-loaded value for the process lifetime; convert to an `AsyncNotifier` (or equivalent) that re-emits after `save()`/`rememberChannel()`; (5) implement the squelch unit contract ruled below; (6) serialize `rememberChannel()`'s unguarded read-modify-write so overlapping calls cannot lose an update (TS §6.2 caps the knob at 12 channel crossings/second, so bursts are real). **ORCH RULING — squelch unit (closes TASK-008 finding (5), do not re-litigate):** the persisted value STAYS `int 0–10` (already shipped, and discrete steps are the right user-facing model), and this task adds a documented normalized accessor returning `level / 10.0` as a `double` in `0.0..1.0` for `BedMixer.gainsFor(double)`, which is merged, frozen, and throws outside that range. No storage migration; the conversion lives here, on the settings side, so no consumer re-derives it. **OUT OF SCOPE, do not attempt:** the `RogerBeepVariant` vs `RogerVariant` enum divergence (TASK-008 finding (4)) is a genuine FR-062-vs-§7.1 spec conflict and needs a spec amendment from ORCH first — leave both enums exactly as they are.
+**Acceptance_Criteria:**
+- [ ] `load()` never throws for ANY stored bytes — *closes TASK-008 finding (1)*: prove it with a table-driven test covering at minimum non-object JSON (`[]`, `5`, `"hello"`, `null`), malformed JSON (`'{bad json'`), a well-formed blob with an out-of-range value (`totSeconds: 999`, `squelchLevel: 99`), and empty/absent storage; every case returns usable settings rather than propagating
+- [ ] Out-of-range stored values are clamped or rejected **on read**, and the test suite proves debug and release agree — *closes TASK-008 finding (2)*: at least one test must fail if the guard were an `assert` (i.e. assert the returned VALUE, not that something throws), since asserts are stripped in release and FR-023's 30–120 TOT bound must hold on the build users run
+- [ ] FR-009's "last 6" channel-memory cap is enforced on the READ path as well as the write path — *closes TASK-008 finding (2), second half*: a stored blob carrying 9 entries must not load 9
+- [ ] `dimMode` (FR-108), `mode` (FR-040, default AUTO) and VOX sensitivity/hang-time (FR-024) are persisted keys that round-trip — *closes TASK-008 finding (6)*; `mode` default is AUTO per FR-040
+- [ ] `settingsProvider` re-emits after `save()` and after `rememberChannel()` — *closes TASK-008 finding (7)*: prove with a test that watches the provider, writes, and observes the NEW value without re-reading the repository directly. This is the criterion TASK-018 depends on; a one-shot `FutureProvider` fails it
+- [ ] Squelch exposes a normalized `0.0..1.0` `double` accessor per the ORCH ruling above, and a test asserts the boundary values feed `BedMixer.gainsFor` without throwing (0 → 0.0, 10 → 1.0)
+- [ ] `rememberChannel()` is safe under concurrent calls — *closes TASK-008 finding (8)*: a test issuing overlapping calls without awaiting between them must not lose an update
+- [ ] Full `flutter test` suite green (not just `test/core/settings/`) and `flutter analyze` clean
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:**
+- [2026-08-21T01:20:00Z] [ORCH] Created and assigned GB. Reopens `lib/core/settings/**` on the 010→011 successor pattern; TASK-008 stays `done` and its findings are the spec for this task. Assigned to GB rather than S5 on the protocol §8 heuristic — GB is 12/12 first-pass and every one of those was a core typed library (protocol codec, identity, rooms, signaling), which is exactly this task's shape; S5 is concurrently on TASK-023. Territory verified pairwise disjoint against the live TASK-023 (`test/simulation/**`) and against pending TASK-025 (`lib/features/event_qr/**`) and TASK-026 (`android/**`, `lib/services/platform/**`). Squelch unit RULED here rather than left to the builder because both sides are frozen and a builder cannot legally change either. Roger-beep enum divergence deliberately excluded as a spec-amendment item.
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-08-21T01:20:00Z
