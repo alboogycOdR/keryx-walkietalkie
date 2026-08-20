@@ -1216,15 +1216,16 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 - [ ] Harness "asserts the locked timing constants and peerId election properties of §8.6" per KRX-044
 - [ ] Failures are reproducible (seed printed per run)
 - [ ] Suite runs green in CI ("floor protocol simulation suite" per NFR-10)
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-023-s5
+**Started_At:** 2026-08-21T01:15:00Z
+**Progress_Notes:**
+- [2026-08-21T01:15:00Z] [S5] Claimed. Resume check found no in_progress/claimed S5 task (TASK-024 already merged as 8067c90). TASK-018 is HELD by ORCH note; TASK-022 (Depends_On) is done, so TASK-023 is next by priority (high). Read dossier (test/simulation/ plan: sim_transport, sim_peer, soak_test) and surveyed lib/core/floor/** (FloorEngine, Arbiter, VirtualClock, LoopbackHub, FloorTiming) plus test/core/floor/floor_engine_test.dart's FloorRig pattern before writing code.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-08-21T01:15:00Z
 
 ### TASK-024
 **Title:** LINKED integration: livekit_client join/publish/subscribe mirroring PTT (KRX-052 + KRX-055)
