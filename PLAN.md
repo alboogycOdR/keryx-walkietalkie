@@ -1367,7 +1367,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-029
 **Title:** RadioState TX time-out/denied fields (state successor #2, closes follow-up (w))
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_UI_Design_Specification_v1.0.md §6 (State Catalogue, KRX-018); specs/KERYX_Product_Technical_Spec_v1.1.md §8.6, FR-022, FR-023, FR-026
@@ -1384,13 +1384,14 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 - [ ] `LAN?` is explicitly NOT added — confirm via Progress_Note, not silently — *ORCH-authored, scope guard*
 - [ ] TASK-004/027's ratified 100%-branch discipline held via the table-driven `RadioPhase` × event matrix, extended to the new event(s); evidence stated as the matrix + `LF/LH`, no `--branch-coverage` percentage claimed (documented LCOV limitation, same as TASK-004/027)
 - [ ] Every existing TASK-027 field/event/test preserved — this task only ADDs; a mutation-style check (delete the new guard, confirm the suite goes red) recommended given TASK-027's own criterion-9 rework was exactly this class of gap
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-029-gb
+**Started_At:** 2026-08-20T14:37:07Z
 **Progress_Notes:**
 - [2026-08-20T14:35:00Z] [ORCH] Created — closes follow-up (w), the sole remaining blocker on TASK-017 becoming dispatchable (its Depends_On is otherwise 6/6 satisfied). Assigned to GB: idle since TASK-016 (10/10 first-pass, zero rework), and this reopens a territory neither GB nor CX has touched before — TASK-028 already proved cross-unit successor reopening works cleanly (CX built TASK-005, S5 reopened it for TASK-028) provided the task gives clear pointers to existing conventions, which this one does. GB should read TASK-027's full Description, BRIDGE DESIGN DECISION note, and Review_Findings (including the CX rework's criterion-9 detail on shadowed-assert test gaps) before touching anything.
+- [2026-08-20T14:37:07Z] [GB] Claimed. Resume-check: no GB in_progress/claimed task. Depends_On TASK-022 and TASK-027 both done. Branch `task/TASK-029-gb`. Preflight next.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-20T14:35:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-20T14:37:07Z
