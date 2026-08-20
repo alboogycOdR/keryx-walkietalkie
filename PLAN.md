@@ -784,7 +784,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 
 ### TASK-015
 **Title:** PTT button, secondary key row, EMG side key (KRX-015)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §6.1, §6.4, FR-020, FR-021, FR-022, FR-025, FR-026, §11 E2 (KRX-015); specs/KERYX_UI_Design_Specification_v1.0.md §2 (signal colours), §4 (key travel); specs/keryx-face-prototype.html (.ptt/.keys markup)
@@ -800,15 +800,16 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 - [ ] Red appears only while this device holds the floor per DS §2 ("Red appears only while the floor is held by this device")
 - [ ] Pressed keys move 1 dp down, lose top highlight, gain inner shadow per DS §4 ("the same three changes on every control")
 - [ ] Widget tests green for all states incl. Pro-locked keys ("Pro keys shown dimmed/locked when unowned", TS §6.1)
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-015-s5
+**Started_At:** 2026-08-20T07:15:00Z
+**Progress_Notes:**
+- [2026-08-20T07:15:00Z] [S5] Claimed. TASK-015 (high priority) selected over TASK-014 (medium) per dispatch note. Beginning preflight next.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-08-20T07:15:00Z
 
 ### TASK-016
 **Title:** Speaker-grille RX visualiser (KRX-014)
