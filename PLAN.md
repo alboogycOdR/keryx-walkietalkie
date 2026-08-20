@@ -1,6 +1,6 @@
 ---
-plan_version: 4.9
-last_updated: 2026-08-20T18:36:00Z
+plan_version: 5.0
+last_updated: 2026-08-20T19:10:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T17:05Z (was 4.6, grown large again since the last prune 6 entries ago) — blow-by-blow narrative moved to REVIEW.md + git log, which already carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -8,7 +8,7 @@ FROZEN territories (merged, never reopen without a successor task): pubspec/anal
 
 Model config: ORCH judgment + review on claude-opus-5, never sonnet-5. Roster: GB + S5 active. CX stepped down (own usage limit, resets 2026-08-21T16:27+02:00, entry stays defined). S5B ABANDONED — no second Anthropic account exists.
 
-PROGRESS (2026-08-20T17:05Z): 22/29 done. GB 11/11 first-pass, idle since TASK-029. CX 4/7 (2 rework, paused mid-quota-block). S5 5/5 reviews, 4/4 first-pass on authored territory, 0 rework — idle since TASK-014, nothing pending assigned. **TASK-017 (face assembly) is now FULLY dispatchable — Depends_On 7/7 satisfied, follow-up (w) closed.** TASK-020 unassigned, gated on follow-up (s). TASK-018/021/023/024/025/026 still TBD, not yet examined for readiness.
+PROGRESS (2026-08-20T19:10Z): 22/29 done, 1 in_progress (TASK-017, S5, resumed after a connection drop). GB 11/11 first-pass, idle. CX 4/7, paused mid-quota-block. S5 5/5 reviews, 4/4 first-pass on authored territory. **TASK-020 and TASK-021 now fully scoped and ready to dispatch** (see their Progress_Notes for the scoping rationale) — TASK-020 (GB) is the LAN signaling layer, TASK-021 (S5, queued behind it) is WebRTC mesh audio + the concrete FloorTransport adapter. Between them and TASK-017, these three are the path to an actual functional (not just visual) two-device demo. TASK-018/023/024/025/026 still TBD, not yet scoped.
 
 KNOWN RISKS: (1) plan_commit doesn't re-diff before commit — lost-update race, hit 4x historically, always content-safe, mechanical fix still overdue. (2) S5's PLAN.md self-reported timestamps are unreliable (local/UTC mislabelling, sometimes just approximate) — trust the commit's own git author-date instead. (3) A builder's task worktree removal has hit Windows permission-denied 3x in a row post-review (likely a lingering file handle from the review's own test-run subagent) — git's own tracking still cleans up fine, but the physical directory needs a manual `Remove-Item -Recurse -Force` before the next dispatch.ps1 run since it refuses to reuse an unregistered directory; established pattern now, not an anomaly, worth a real fix (dispatch.ps1 auto-clearing a stale unregistered dir itself). (4) territory-firewall.js resolves repoRoot via CLAUDE_PROJECT_DIR/cwd while plan_commit.sh resolves it via git-common-dir — disagree whenever worktree and main checkout differ, causing a chicken-and-egg block on a builder's first-ever PLAN.md claim in a fresh worktree (hit by S5 on TASK-014, full detail in its Review_Findings). Worth a hooks/** fix. (5) Independent test-run subagents have twice now reported a per-file/reporter test-count discrepancy that turned out to be a tooling artifact, not a real defect (TASK-014's compact-reporter mangling, TASK-029's JSON-reporter synthetic entry) — always cross-check via a second method (static grep + the reporter's own literal summary line) before charging it against a builder.
 
@@ -18,7 +18,9 @@ AUTOPILOT: a supervised, bounded `supervisor.py --loop` trial ran 2026-08-20 —
 
 RESUME (2026-08-20T18:36Z): TASK-017's S5 session died from a transport-level connection drop right after claim+preflight (log: `.devteam/launch/S5-20260820-151025.log` ends with "API Error: Connection lost mid-response") — same known trap as TASK-028's, self-heals on redispatch via the resume-first rule. Re-dispatched S5; worktree correctly took the resume path (branch `task/TASK-017-s5` + any in-flight work left untouched, not refreshed). Transcript: .devteam/launch/S5-20260820-163534.log. No PLAN.md/code state lost.
 
-FOLLOW-UPS OWED (full detail in each task's Review_Findings + REVIEW.md): (a) font OFL/LICENSE; (b)+(c) .github CI task; (e) token-svc XFF trust; (f) R4 per-room caps; (g) keryx-evt.v1 vs FR-044; (h) tune_burst contradiction; (i) KRX-024 60ms marker; (j) SFX ducking driver; (l) LINK_DEGRADED/LOCAL_FALLBACK undefined; (n)/(n2) peerId lowercase vs roomId/floor uppercase, pin case before iOS; (o) protocol ts/quality/seq types; (r) DS §3 vs PT telltale font, live-rendered; (s) BLOCKS TASK-020 — wire contract spec-silent, still open; (t) TX_GRANT no sender field; (u) FR-061 squelch no end-to-end wire; (v) audio DSP numbers normative-by-implementation; (x)-(cc) minor state/floor findings, non-blocking, see TASK-027 Review_Findings; (dd) MANDATORY before TASK-024/025 — pure-Dart scrypt ~1-3s on phone, must run off UI isolate; (ee)-(gg) room-derivation spec-silence, non-blocking; (hh) settle-token consumption has no regression guard (TASK-016 mutation-proven) — assert it in TASK-017 and the meter task. [(d)/(k)/(m)/(p)/(q)/(w) all CLOSED — full closure detail in git history if ever needed.]
+FOLLOW-UPS OWED (full detail in each task's Review_Findings + REVIEW.md): (a) font OFL/LICENSE; (b)+(c) .github CI task; (e) token-svc XFF trust; (f) R4 per-room caps; (g) keryx-evt.v1 vs FR-044; (h) tune_burst contradiction; (i) KRX-024 60ms marker; (j) SFX ducking driver; (l) LINK_DEGRADED/LOCAL_FALLBACK undefined; (n)/(n2) peerId lowercase vs roomId/floor uppercase, pin case before iOS; (o) protocol ts/quality/seq types; (r) DS §3 vs PT telltale font, live-rendered; (t) TX_GRANT no sender field; (u) FR-061 squelch no end-to-end wire; (v) audio DSP numbers normative-by-implementation; (x)-(cc) minor state/floor findings, non-blocking, see TASK-027 Review_Findings; (dd) MANDATORY before TASK-024/025 — pure-Dart scrypt ~1-3s on phone, must run off UI isolate; (ee)-(gg) room-derivation spec-silence, non-blocking; (hh) settle-token consumption has no regression guard (TASK-016 mutation-proven) — assert it in TASK-017 and the meter task. [(d)/(k)/(m)/(p)/(q)/(w) all CLOSED — full closure detail in git history if ever needed.]
+
+SCOPED FOR DISPATCH (2026-08-20T19:10Z): TASK-020 and TASK-021, full rationale in each task's own Progress_Notes. Closing follow-up (s): it was framed as "BLOCKS TASK-020, wire contract spec-silent" before TASK-019 existed; TASK-019 has since shipped and documented the actual discovery/beacon contract in `lib/services/discovery/README.md` (channel-hash algorithm, beacon port/payload, the `p` signaling-port TXT key added specifically for TASK-020), so the load-bearing half of (s) is resolved by implementation, not by an ORCH ruling. Two real gaps caught and fixed while scoping, same class as the TASK-017/TASK-029 catch: TASK-020 was missing `Depends_On: TASK-019` (it cannot dial a peer without TASK-019's resolved host/port — a functional dependency the original decompose pass missed); TASK-021's floor-control acceptance criterion was vague ("data channel established") rather than naming the actual `FloorTransport` interface (`lib/core/floor/transport.dart`) it must implement — tightened, and `Depends_On: TASK-022` added since that interface is what's being implemented against. One genuinely open item scoped into TASK-020, not resolved here: the WebRTC offer/answer/ICE envelope itself has no spec-defined wire shape anywhere (TS §8.3 names the exchange, TASK-006's codec is floor-control only) — scoped as a normal disclosed spec-silent decision for the builder, not a blocker.
 
 No git remote — CI never run. NEW SPEC uncommitted: specs/KERYX_World_Band_Radio_Spec_v1.0.md (Phase 2, out of scope, don't touch without asking).
 
@@ -1044,54 +1046,57 @@ VERIFIED INTENTIONAL, not defects: the `p` TXT record (FR-041 L133 enumerates ex
 ### TASK-020
 **Title:** LAN signaling WebSocket + peer session management (KRX-031)
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** GB
 **Priority:** high
-**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 steps 2–3, FR-042, §11 E4 (KRX-031, KRX-034)
+**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 steps 2–3, FR-042, §11 E4 (KRX-031, KRX-034); lib/services/discovery/README.md (the concrete NSD/beacon contract TASK-019 already shipped — read this, do not re-derive it)
 **Owned_Paths:** lib/services/signaling/**, test/services/signaling/**
-**Depends_On:** TASK-006, TASK-009
-**Description:** Under `lib/services/signaling/`: each device runs a LAN WebSocket server on a random high port (advertised via NSD TXT), peers with matching channel hash connect and exchange WebRTC offer/answer over it (LAN candidates only: host candidates, mDNS ICE). Peer session lifecycle (connect, churn, departure via PRESENCE misses using TASK-006 codec + TASK-009 peerIds), and the 16-peer soft-cap warning state (KRX-034). No media here — mesh audio is TASK-021. Tested with in-process socket pairs.
+**Depends_On:** TASK-006, TASK-009, TASK-019
+**Description:** Under `lib/services/signaling/`: each device runs a LAN WebSocket server on a random high port, passed to `DiscoveryService.start(DiscoveryConfig(signalingPort: ...))` (TASK-019, frozen — its own README states "TXT `p` — LAN signaling port for TASK-020") so peers discover it via NSD TXT. Consume `DiscoveryService.peersFound`/`peersLost` (`lib/services/discovery/discovered_peer.dart`) — `DiscoveredPeer.host`/`.port` are already-resolved dial targets; do not re-implement discovery or re-derive the channel-hash/beacon contract, both are TASK-019's frozen territory and documented in its README. For each matching-channel peer, dial its WebSocket and exchange WebRTC offer/answer/ICE-candidate messages (LAN candidates only: host candidates, mDNS ICE) plus TASK-006's `Presence` message (heartbeat/departure) over the same socket. **The offer/answer/ICE-candidate envelope itself is genuinely spec-silent — TS §8.3 names the exchange but never a wire shape for it, and it's outside TASK-006's `FloorMessage` codec (that's floor-control only: TX_REQ/GRANT/DENY/etc, not session signaling).** Invent the smallest reasonable JSON envelope (something like `{type: offer|answer|ice-candidate, from, to, payload}`) and disclose the choice in dartdoc + README, same pattern every prior spec-silent decision on this project has followed (channel-hash prefix, beacon payload, room-ID case, etc.) — do not treat this as blocking; it's an implementation decision like those, not a decision that needs an ORCH ruling. Peer session lifecycle (connect, churn, departure via `Presence` misses — TS §8.6 PRESENCE row is 5 s heartbeat / 3 misses = departed, same cadence TASK-022's floor engine already uses) and the 16-peer soft-cap warning state (KRX-034). No media here — mesh audio and the actual `FloorTransport` adapter are TASK-021. Tested with in-process WebSocket/socket pairs, not real sockets.
 **Acceptance_Criteria:**
-- [ ] "each device runs a loopback-free LAN WebSocket (random high port, advertised in NSD). Peers on a matching channel hash perform WebRTC offer/answer over it" per TS §8.3 step 2
+- [ ] "each device runs a loopback-free LAN WebSocket (random high port, advertised in NSD). Peers on a matching channel hash perform WebRTC offer/answer over it" per TS §8.3 step 2 — port passed to `DiscoveryConfig.signalingPort`, dial targets sourced from `DiscoveredPeer.host`/`.port`, no independent peer-address logic invented
 - [ ] "LAN candidates only (host candidates; mDNS ICE)" per TS §8.3 step 2
 - [ ] Fully serverless: "LAN-internal signaling (§8.3), no packets leave the network" per FR-042
-- [ ] Departure detection: "5 s heartbeat; 3 misses = departed" per TS §8.6 PRESENCE row
+- [ ] Departure detection: "5 s heartbeat; 3 misses = departed" per TS §8.6 PRESENCE row, using TASK-006's `Presence` `FloorMessage` (not a new heartbeat type)
 - [ ] "N ≤ 16 peers per channel on LAN is the supported envelope (soft cap, warn beyond)" per TS §8.3 step 3 — cap state exposed
+- [ ] The offer/answer/ICE-candidate envelope is disclosed (dartdoc + README), not silently invented — *ORCH-authored, same disclosure discipline every prior spec-silent decision has followed*
 - [ ] Session-lifecycle tests green (join, churn, departure, cap)
 **Branch:** —
 **Started_At:** —
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-20T19:10:00Z] [ORCH] Scoped for dispatch. Follow-up (s) — originally "BLOCKS TASK-020, wire contract spec-silent" — is now CLOSED as a blocker: TASK-019 shipped and documented the actual discovery/beacon contract (channel-hash algorithm, beacon port/payload, TXT keys including the `p` signaling-port key added specifically for this task) in `lib/services/discovery/README.md`; added TASK-019 to Depends_On, which was missing (this task functionally cannot dial a peer without TASK-019's resolved `host`/`port`). The one genuinely open spec-silent item — the WebRTC offer/answer/ICE envelope itself — is scoped as a normal disclosed implementation decision, not an ORCH ruling, since TS §8.3 names the exchange but no spec document anywhere defines a wire shape for it and it's outside TASK-006's floor-control-only codec. Assigned GB (idle since TASK-029, 11/11 first-pass).
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_At:** 2026-08-20T19:10:00Z
 
 ### TASK-021
 **Title:** WebRTC mesh audio: pre-published muted track, enable-on-grant (KRX-032)
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** high
-**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 step 3, §8.5, §8.1 (Codec row), FR-020, §9 NFR-01/NFR-03, §11 E4 (KRX-032)
+**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 step 3, §8.5, §8.1 (Codec row), FR-020, §9 NFR-01/NFR-03, §11 E4 (KRX-032); lib/core/floor/transport.dart (the `FloorTransport` interface this task's data channel must implement — read it before writing code, do not invent a parallel abstraction)
 **Owned_Paths:** lib/services/mesh/**, test/services/mesh/**
-**Depends_On:** TASK-020
-**Description:** Under `lib/services/mesh/`: full-mesh WebRTC audio over the TASK-020 sessions using flutter_webrtc — Opus mono 16–24 kbps, 20 ms frames, in-band FEC on, DTX off during TX; the audio track pre-published muted on channel join with PTT grant flipping `enabled=true` (the ≤ 50 ms TX attack); RX rendering gated by TX_START/TX_END floor messages. Data channels opened for the floor-control transport (consumed by TASK-022). Testable via abstraction over the WebRTC plugin; on-device latency measurement is a later bench task.
+**Depends_On:** TASK-020, TASK-022
+**Description:** Under `lib/services/mesh/`: full-mesh WebRTC audio over the TASK-020 sessions using flutter_webrtc — Opus mono 16–24 kbps, 20 ms frames, in-band FEC on, DTX off during TX; the audio track pre-published muted on channel join with PTT grant flipping `enabled=true` (the ≤ 50 ms TX attack); RX rendering gated by TX_START/TX_END floor messages. **The floor-control data channel is a concrete `FloorTransport` implementation** (`lib/core/floor/transport.dart`, frozen — TASK-022's own dartdoc: "LOCAL data channels and LiveKit data messages both adapt to this; tests use `LoopbackHub`") wrapping a WebRTC `RTCDataChannel`'s `send`/`onMessage` in `FloorTransport.send(FloorMessage)`/`.incoming`, using TASK-006's `FloorCodec` to (de)serialize — this is the concrete adapter `FloorEngine` gets constructed with in production; `LoopbackEndpoint`/`LoopbackHub` are the test-only stand-in, not what ships. Testable via abstraction over the WebRTC plugin; on-device latency measurement is a later bench task.
 **Acceptance_Criteria:**
 - [ ] "full-mesh WebRTC audio. Mesh is safe here because PTT means at most one publisher at a time" per TS §8.3 step 3
 - [ ] "the audio track is pre-published muted on channel join; PTT grant flips enabled=true" per TS §8.5
 - [ ] TX attack ≤ 50 ms from grant designed-for per FR-020 ("TX attack ≤ 50 ms from grant to live audio (pre-published muted track, §8.5)")
 - [ ] Codec config: "Opus, mono, 16–24 kbps, 20 ms frames, in-band FEC on, DTX off during TX" per TS §8.1
-- [ ] Floor-control data channel established per TS §8.3 step 4 ("Floor control: over WebRTC data channels using the protocol in §8.6")
-- [ ] Unit tests green against the plugin abstraction (publish-muted on join, enable on grant, gate on TX_START/END)
+- [ ] The data-channel adapter implements `FloorTransport` exactly (`send(FloorMessage)`, `Stream<FloorMessage> get incoming`) using TASK-006's `FloorCodec` — *ORCH-authored, replaces the vaguer "floor-control data channel established" wording*: this is what lets `FloorEngine` (already built, unmodified) run unchanged over real WebRTC instead of `LoopbackHub`
+- [ ] Unit tests green against the plugin abstraction (publish-muted on join, enable on grant, gate on TX_START/END, `FloorTransport` round-trip send/receive)
 **Branch:** —
 **Started_At:** —
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-20T19:10:00Z] [ORCH] Scoped for dispatch. Added TASK-022 to Depends_On (already done — this task must implement its `FloorTransport` interface, not invent a parallel one) and tightened the data-channel acceptance criterion from vague "floor-control data channel established" to the exact interface TASK-022 already defined and is built against. Assigned S5 (currently on TASK-017; queued for once that lands and TASK-020 is done — not immediately dispatchable either way since Depends_On: TASK-020 isn't satisfied yet).
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_At:** 2026-08-20T19:10:00Z
 
 ### TASK-022
 **Title:** Floor control runtime: arbiter election, leases, lockout, TOT, emergency (KRX-041/042/043)
