@@ -48,11 +48,13 @@ class RadioStateBridge {
         _dispatch(const EmergencyCleared());
       case ArbiterChanged():
         _dispatch(ArbiterIdentityChanged(effect.peerId));
-      case GrantTone() ||
-          DenyBuzz() ||
-          TotWarn() ||
-          TotCut() ||
-          FloorIdleSettled():
+      case DenyBuzz():
+        _dispatch(const TransmitDeniedIndicated());
+      case TotWarn():
+        _dispatch(const TotWarningRaised());
+      case TotCut():
+        _dispatch(const TotWarningCleared());
+      case GrantTone() || FloorIdleSettled():
         break;
     }
   }
@@ -86,7 +88,10 @@ class RadioStateBridge {
           ReplayChanged() ||
           MonitorChanged() ||
           ScanChanged() ||
-          VoxChanged():
+          VoxChanged() ||
+          TotWarningRaised() ||
+          TotWarningCleared() ||
+          TransmitDeniedIndicated():
         break;
     }
   }

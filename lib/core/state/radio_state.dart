@@ -28,6 +28,8 @@ class RadioState {
     this.isMonitorOpen = false,
     this.isScanning = false,
     this.isVoxArmed = false,
+    this.isTotWarning = false,
+    this.isTransmitDenied = false,
     this.stationCount = 0,
     this.activeSpeaker,
     this.arbiterId,
@@ -61,6 +63,8 @@ class RadioState {
       isMonitorOpen = false,
       isScanning = false,
       isVoxArmed = false,
+      isTotWarning = false,
+      isTransmitDenied = false,
       stationCount = 0,
       activeSpeaker = null,
       arbiterId = null,
@@ -77,6 +81,16 @@ class RadioState {
   final bool isMonitorOpen;
   final bool isScanning;
   final bool isVoxArmed;
+
+  /// DS §6 "TX time-out warning" — FR-023 chirp at T−5 s. Set by
+  /// [TotWarningRaised], cleared by [TotWarningCleared] or any event that
+  /// ends TX. Not a telltale; it is a TX-phase overlay.
+  final bool isTotWarning;
+
+  /// DS §6 "TX denied/busy" — FR-022 busy-lockout (and other deny buzzes).
+  /// Transient: set by [TransmitDeniedIndicated] / a denied [TransmitDenied],
+  /// cleared by the next state-changing [RadioEvent]. No reducer timer.
+  final bool isTransmitDenied;
   final int stationCount;
   final String? activeSpeaker;
   final String? arbiterId;
@@ -94,6 +108,8 @@ class RadioState {
     bool? isMonitorOpen,
     bool? isScanning,
     bool? isVoxArmed,
+    bool? isTotWarning,
+    bool? isTransmitDenied,
     int? stationCount,
     String? activeSpeaker,
     bool clearActiveSpeaker = false,
@@ -112,6 +128,8 @@ class RadioState {
     isMonitorOpen: isMonitorOpen ?? this.isMonitorOpen,
     isScanning: isScanning ?? this.isScanning,
     isVoxArmed: isVoxArmed ?? this.isVoxArmed,
+    isTotWarning: isTotWarning ?? this.isTotWarning,
+    isTransmitDenied: isTransmitDenied ?? this.isTransmitDenied,
     stationCount: stationCount ?? this.stationCount,
     activeSpeaker: clearActiveSpeaker
         ? null
@@ -134,6 +152,8 @@ class RadioState {
       isMonitorOpen == other.isMonitorOpen &&
       isScanning == other.isScanning &&
       isVoxArmed == other.isVoxArmed &&
+      isTotWarning == other.isTotWarning &&
+      isTransmitDenied == other.isTransmitDenied &&
       stationCount == other.stationCount &&
       activeSpeaker == other.activeSpeaker &&
       arbiterId == other.arbiterId &&
@@ -152,6 +172,8 @@ class RadioState {
     isMonitorOpen,
     isScanning,
     isVoxArmed,
+    isTotWarning,
+    isTransmitDenied,
     stationCount,
     activeSpeaker,
     arbiterId,
@@ -162,7 +184,8 @@ class RadioState {
   String toString() =>
       'RadioState(phase: $phase, mode: $mode, channel: $channel, '
       'privacyCode: $privacyCode, stationCount: $stationCount, '
-      'activeSpeaker: $activeSpeaker, signalQuality: $signalQuality)';
+      'activeSpeaker: $activeSpeaker, signalQuality: $signalQuality, '
+      'isTotWarning: $isTotWarning, isTransmitDenied: $isTransmitDenied)';
 }
 
 /// Inputs accepted by the pure [RadioReducer].
@@ -297,107 +320,161 @@ class VoxChanged extends RadioEvent {
   final bool isArmed;
 }
 
+/// FR-023 TOT warning chirp at T−5 s. Only legal while [RadioPhase.tx].
+class TotWarningRaised extends RadioEvent {
+  const TotWarningRaised();
+}
+
+/// FR-023 TOT hard cut (floor released). Clears [RadioState.isTotWarning].
+class TotWarningCleared extends RadioEvent {
+  const TotWarningCleared();
+}
+
+/// FR-022 busy-lockout / deny-buzz projection. Sets
+/// [RadioState.isTransmitDenied]; the next state-changing event clears it.
+class TransmitDeniedIndicated extends RadioEvent {
+  const TransmitDeniedIndicated();
+}
+
 /// Authoritative, side-effect-free radio transition function.
 class RadioReducer {
   const RadioReducer();
 
-  RadioState reduce(RadioState state, RadioEvent event) => switch (event) {
-    PowerOff() => state.copyWith(
-      phase: RadioPhase.off,
-      isNoLink: false,
-      isReplay: false,
-      clearActiveSpeaker: true,
-    ),
-    PowerOn() =>
-      state.phase == RadioPhase.off
-          ? state.copyWith(phase: RadioPhase.boot)
-          : state,
-    BootCompleted() =>
-      state.phase == RadioPhase.boot
-          ? state.copyWith(phase: RadioPhase.idle)
-          : state,
-    BeginTuning() =>
-      state.phase == RadioPhase.idle
-          ? state.copyWith(phase: RadioPhase.tuning)
-          : state,
-    FinishTuning() =>
-      state.phase == RadioPhase.tuning
-          ? state.copyWith(phase: RadioPhase.idle)
-          : state,
-    TuneTo() =>
-      _isValidTuning(event)
-          ? state.copyWith(
-              channel: event.channel,
-              privacyCode: event.privacyCode,
-              isReplay:
-                  event.channel == state.channel &&
-                      event.privacyCode == state.privacyCode
-                  ? state.isReplay
-                  : false,
-            )
-          : state,
-    SetMode() =>
-      state.phase == RadioPhase.idle ? state.copyWith(mode: event.mode) : state,
-    RequestTransmit() =>
-      state.phase == RadioPhase.idle
-          ? state.copyWith(phase: RadioPhase.txRequest)
-          : state,
-    TransmitGranted() =>
-      state.phase == RadioPhase.txRequest
-          ? state.copyWith(phase: RadioPhase.tx)
-          : state,
-    TransmitDenied() =>
-      state.phase == RadioPhase.txRequest
-          ? state.copyWith(phase: RadioPhase.idle)
-          : state,
-    EndTransmit() =>
-      state.phase == RadioPhase.tx
-          ? state.copyWith(phase: RadioPhase.idle)
-          : state,
-    RemoteFloorStarted() =>
-      state.phase == RadioPhase.idle
-          ? state.copyWith(phase: RadioPhase.rxActive)
-          : state,
-    RemoteFloorEnded() =>
-      state.phase == RadioPhase.rxActive
-          ? state.copyWith(phase: RadioPhase.idle)
-          : state,
-    LinkDegraded() =>
-      state.phase != RadioPhase.off
-          ? state.copyWith(phase: RadioPhase.linkDegraded, isNoLink: true)
-          : state,
-    LinkResolved() =>
-      state.phase == RadioPhase.linkDegraded
-          ? state.copyWith(
-              phase: RadioPhase.idle,
-              mode: event.useLocalFallback ? RadioMode.local : state.mode,
-              isNoLink: false,
-            )
-          : state,
-    EmergencyPinned() => state.copyWith(isEmergency: true),
-    EmergencyCleared() => state.copyWith(isEmergency: false),
-    ActiveSpeakerChanged() => state.copyWith(
-      activeSpeaker: event.speaker,
-      clearActiveSpeaker: event.speaker == null,
-    ),
-    ArbiterIdentityChanged() => state.copyWith(
-      arbiterId: event.peerId,
-      clearArbiterId: event.peerId == null,
-    ),
-    RosterUpdated() =>
-      event.stationCount >= 0
-          ? state.copyWith(stationCount: event.stationCount)
-          : state,
-    SignalQualityUpdated() =>
-      _isValidSignalQuality(event.sMeter)
-          ? state.copyWith(signalQuality: event.sMeter)
-          : state,
-    PrivateChannelChanged() => state.copyWith(isPrivate: event.isPrivate),
-    ReplayChanged() => state.copyWith(isReplay: event.isActive),
-    MonitorChanged() => state.copyWith(isMonitorOpen: event.isOpen),
-    ScanChanged() => state.copyWith(isScanning: event.isActive),
-    VoxChanged() => state.copyWith(isVoxArmed: event.isArmed),
-  };
+  RadioState reduce(RadioState state, RadioEvent event) {
+    final next = switch (event) {
+      PowerOff() => state.copyWith(
+        phase: RadioPhase.off,
+        isNoLink: false,
+        isReplay: false,
+        clearActiveSpeaker: true,
+        isTotWarning: false,
+        isTransmitDenied: false,
+      ),
+      PowerOn() =>
+        state.phase == RadioPhase.off
+            ? state.copyWith(phase: RadioPhase.boot)
+            : state,
+      BootCompleted() =>
+        state.phase == RadioPhase.boot
+            ? state.copyWith(phase: RadioPhase.idle)
+            : state,
+      BeginTuning() =>
+        state.phase == RadioPhase.idle
+            ? state.copyWith(phase: RadioPhase.tuning)
+            : state,
+      FinishTuning() =>
+        state.phase == RadioPhase.tuning
+            ? state.copyWith(phase: RadioPhase.idle)
+            : state,
+      TuneTo() =>
+        _isValidTuning(event)
+            ? state.copyWith(
+                channel: event.channel,
+                privacyCode: event.privacyCode,
+                isReplay:
+                    event.channel == state.channel &&
+                        event.privacyCode == state.privacyCode
+                    ? state.isReplay
+                    : false,
+              )
+            : state,
+      SetMode() =>
+        state.phase == RadioPhase.idle
+            ? state.copyWith(mode: event.mode)
+            : state,
+      RequestTransmit() =>
+        state.phase == RadioPhase.idle
+            ? state.copyWith(phase: RadioPhase.txRequest)
+            : state,
+      TransmitGranted() =>
+        state.phase == RadioPhase.txRequest
+            ? state.copyWith(phase: RadioPhase.tx)
+            : state,
+      TransmitDenied() =>
+        state.phase == RadioPhase.txRequest
+            ? state.copyWith(phase: RadioPhase.idle, isTransmitDenied: true)
+            : state,
+      EndTransmit() =>
+        state.phase == RadioPhase.tx
+            ? state.copyWith(phase: RadioPhase.idle, isTotWarning: false)
+            : state,
+      RemoteFloorStarted() =>
+        state.phase == RadioPhase.idle
+            ? state.copyWith(phase: RadioPhase.rxActive)
+            : state,
+      RemoteFloorEnded() =>
+        state.phase == RadioPhase.rxActive
+            ? state.copyWith(phase: RadioPhase.idle)
+            : state,
+      LinkDegraded() =>
+        state.phase != RadioPhase.off
+            ? state.copyWith(
+                phase: RadioPhase.linkDegraded,
+                isNoLink: true,
+                isTotWarning: false,
+              )
+            : state,
+      LinkResolved() =>
+        state.phase == RadioPhase.linkDegraded
+            ? state.copyWith(
+                phase: RadioPhase.idle,
+                mode: event.useLocalFallback ? RadioMode.local : state.mode,
+                isNoLink: false,
+              )
+            : state,
+      EmergencyPinned() => state.copyWith(isEmergency: true),
+      EmergencyCleared() => state.copyWith(isEmergency: false),
+      ActiveSpeakerChanged() => state.copyWith(
+        activeSpeaker: event.speaker,
+        clearActiveSpeaker: event.speaker == null,
+      ),
+      ArbiterIdentityChanged() => state.copyWith(
+        arbiterId: event.peerId,
+        clearArbiterId: event.peerId == null,
+      ),
+      RosterUpdated() =>
+        event.stationCount >= 0
+            ? state.copyWith(stationCount: event.stationCount)
+            : state,
+      SignalQualityUpdated() =>
+        _isValidSignalQuality(event.sMeter)
+            ? state.copyWith(signalQuality: event.sMeter)
+            : state,
+      PrivateChannelChanged() => state.copyWith(isPrivate: event.isPrivate),
+      ReplayChanged() => state.copyWith(isReplay: event.isActive),
+      MonitorChanged() => state.copyWith(isMonitorOpen: event.isOpen),
+      ScanChanged() => state.copyWith(isScanning: event.isActive),
+      VoxChanged() => state.copyWith(isVoxArmed: event.isArmed),
+      TotWarningRaised() =>
+        state.phase == RadioPhase.tx
+            ? state.copyWith(isTotWarning: true)
+            : state,
+      TotWarningCleared() => state.copyWith(isTotWarning: false),
+      TransmitDeniedIndicated() =>
+        state.phase != RadioPhase.off
+            ? state.copyWith(isTransmitDenied: true)
+            : state,
+    };
+    return _clearTransientDenied(state, event, next);
+  }
+
+  /// [RadioState.isTransmitDenied] is a flash, not a telltale: the event
+  /// that sets it is exempt; any later event that actually changes state
+  /// clears it. Value equality decides "state-changing" — a no-op keeps
+  /// the flash. No [Timer] lives in this reducer.
+  RadioState _clearTransientDenied(
+    RadioState previous,
+    RadioEvent event,
+    RadioState next,
+  ) {
+    if (event is TransmitDeniedIndicated || event is TransmitDenied) {
+      return next;
+    }
+    if (previous.isTransmitDenied && next != previous) {
+      return next.copyWith(isTransmitDenied: false);
+    }
+    return next;
+  }
 
   bool _isValidTuning(TuneTo event) =>
       event.channel >= RadioState.minimumChannel &&
