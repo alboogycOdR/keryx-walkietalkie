@@ -1524,7 +1524,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-030
 **Title:** Settings core successor: crash-safe load, missing keys, live provider (unblocks TASK-018)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-023, FR-009, FR-040, FR-046, FR-061, FR-024, §8.2; specs/KERYX_UI_Design_Specification_v1.0.md FR-108 (dim mode); PLAN.md TASK-008 Review_Findings items (1), (2), (5), (6), (7), (8) — the authoritative statement of each defect, read them before writing code
@@ -1540,13 +1540,14 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 - [ ] Squelch exposes a normalized `0.0..1.0` `double` accessor per the ORCH ruling above, and a test asserts the boundary values feed `BedMixer.gainsFor` without throwing (0 → 0.0, 10 → 1.0)
 - [ ] `rememberChannel()` is safe under concurrent calls — *closes TASK-008 finding (8)*: a test issuing overlapping calls without awaiting between them must not lose an update
 - [ ] Full `flutter test` suite green (not just `test/core/settings/`) and `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-030-gb
+**Started_At:** 2026-08-21T01:25:00Z
 **Progress_Notes:**
 - [2026-08-21T01:20:00Z] [ORCH] Created and assigned GB. Reopens `lib/core/settings/**` on the 010→011 successor pattern; TASK-008 stays `done` and its findings are the spec for this task. Assigned to GB rather than S5 on the protocol §8 heuristic — GB is 12/12 first-pass and every one of those was a core typed library (protocol codec, identity, rooms, signaling), which is exactly this task's shape; S5 is concurrently on TASK-023. Territory verified pairwise disjoint against the live TASK-023 (`test/simulation/**`) and against pending TASK-025 (`lib/features/event_qr/**`) and TASK-026 (`android/**`, `lib/services/platform/**`). Squelch unit RULED here rather than left to the builder because both sides are frozen and a builder cannot legally change either. Roger-beep enum divergence deliberately excluded as a spec-amendment item.
+- [2026-08-21T01:25:00Z] [GB] Claimed TASK-030. Resuming none — no GB claimed/in_progress task. Depends_On TASK-008 is done. Branch `task/TASK-030-gb`.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-21T01:20:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-21T01:25:00Z
