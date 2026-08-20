@@ -44,6 +44,9 @@ void main() {
         MonitorChanged(true),
         ScanChanged(true),
         VoxChanged(true),
+        TotWarningRaised(),
+        TotWarningCleared(),
+        TransmitDeniedIndicated(),
       ];
       var legalTransitions = 0;
       var illegalNoOps = 0;
@@ -68,8 +71,8 @@ void main() {
         }
       }
 
-      expect(legalTransitions, 123);
-      expect(illegalNoOps, 85);
+      expect(legalTransitions, 139);
+      expect(illegalNoOps, 93);
     });
 
     test('moves OFF to BOOT to IDLE and ignores invalid lifecycle events', () {
@@ -111,10 +114,9 @@ void main() {
         final idle = bootToIdle();
         final requesting = reducer.reduce(idle, const RequestTransmit());
 
-        expect(
-          reducer.reduce(requesting, const TransmitDenied()).phase,
-          RadioPhase.idle,
-        );
+        final denied = reducer.reduce(requesting, const TransmitDenied());
+        expect(denied.phase, RadioPhase.idle);
+        expect(denied.isTransmitDenied, isTrue);
         expect(reducer.reduce(idle, const TransmitGranted()), idle);
         expect(reducer.reduce(idle, const TransmitDenied()), idle);
         expect(reducer.reduce(idle, const EndTransmit()), idle);
@@ -289,10 +291,60 @@ void main() {
     expect(projected.activeSpeaker, 'BRAVO-7');
     expect(projected.arbiterId, 'ALFA-1');
     expect(projected.signalQuality, 9);
+    expect(projected.isTotWarning, isFalse);
+    expect(projected.isTransmitDenied, isFalse);
     expect(
       reducer.reduce(projected, const EmergencyCleared()).isEmergency,
       isFalse,
     );
+  });
+
+  test('TOT warning is raised only in TX and cleared without a timer', () {
+    final requesting = reducer.reduce(bootToIdle(), const RequestTransmit());
+    final tx = reducer.reduce(requesting, const TransmitGranted());
+
+    expect(tx.isTotWarning, isFalse);
+    final warning = reducer.reduce(tx, const TotWarningRaised());
+    expect(warning.isTotWarning, isTrue);
+    expect(warning.phase, RadioPhase.tx);
+
+    expect(
+      reducer.reduce(warning, const TotWarningCleared()).isTotWarning,
+      isFalse,
+    );
+    expect(
+      reducer.reduce(warning, const EndTransmit()),
+      const RadioState(phase: RadioPhase.idle),
+    );
+
+    for (final phase in RadioPhase.values.where((p) => p != RadioPhase.tx)) {
+      final state = RadioState(phase: phase);
+      expect(
+        reducer.reduce(state, const TotWarningRaised()),
+        state,
+        reason: '$phase must not accept TotWarningRaised',
+      );
+    }
+  });
+
+  test('transmit-denied flash is event-driven and not timer-cleared', () {
+    final idle = bootToIdle();
+    final denied = reducer.reduce(idle, const TransmitDeniedIndicated());
+    expect(denied.isTransmitDenied, isTrue);
+    expect(denied.phase, RadioPhase.idle);
+
+    expect(
+      reducer.reduce(denied, const PowerOn()),
+      denied,
+      reason: 'no-op events keep the deny flash',
+    );
+
+    final cleared = reducer.reduce(denied, const BeginTuning());
+    expect(cleared.isTransmitDenied, isFalse);
+    expect(cleared.phase, RadioPhase.tuning);
+
+    final off = const RadioState.off();
+    expect(reducer.reduce(off, const TransmitDeniedIndicated()), off);
   });
 
   test('rejects an out-of-domain roster update as a no-op', () {
@@ -332,15 +384,20 @@ void main() {
     final source = File('lib/core/state/radio_state.dart').readAsStringSync();
     expect(source, isNot(contains('package:flutter')));
     expect(source, isNot(contains('package:riverpod')));
+    expect(source, isNot(contains('dart:async')));
+    expect(source, isNot(contains('isLan')));
+    expect(source, isNot(contains('lanTrouble')));
   });
 
   test('the one-way bridge projects floor, presence, and telemetry', () async {
     final hub = LoopbackHub();
     const peerId = 'AAA2222222';
+    final clock = VirtualClock();
     final engine = FloorEngine(
       localPeerId: peerId,
       transport: hub.attach(peerId),
-      clock: VirtualClock(),
+      clock: clock,
+      tot: FloorEngine.minTot,
     );
     var state = const RadioState(phase: RadioPhase.idle);
     final bridge = RadioStateBridge(
@@ -366,25 +423,77 @@ void main() {
     expect(state.stationCount, 1);
     expect(state.signalQuality, 6);
     expect(state.isVoxArmed, isTrue);
+    expect(state.isTotWarning, isFalse);
+
+    clock.elapse(FloorEngine.minTot - FloorEngine.totWarnLead);
+    expect(state.isTotWarning, isTrue);
+    expect(state.phase, RadioPhase.tx);
+
+    clock.elapse(FloorEngine.totWarnLead);
+    expect(state.isTotWarning, isFalse);
+    expect(state.phase, RadioPhase.idle);
 
     engine.clearEmergency();
-    engine.releaseTransmit();
     expect(state.isEmergency, isFalse);
     expect(state.activeSpeaker, isNull);
   });
+
+  test(
+    'the bridge projects busy-lockout deny without a second state source',
+    () {
+      final hub = LoopbackHub();
+      const aId = 'AAA2222222';
+      const bId = 'BBB2222222';
+      final clock = VirtualClock();
+      final holder = FloorEngine(
+        localPeerId: aId,
+        transport: hub.attach(aId),
+        clock: clock,
+      );
+      final locked = FloorEngine(
+        localPeerId: bId,
+        transport: hub.attach(bId),
+        clock: clock,
+      );
+      var state = const RadioState(phase: RadioPhase.idle);
+      final bridge = RadioStateBridge(
+        engine: locked,
+        dispatch: (event) => state = reducer.reduce(state, event),
+      );
+      addTearDown(() async {
+        await bridge.dispose();
+        holder.dispose();
+        locked.dispose();
+        hub.detach(aId);
+        hub.detach(bId);
+      });
+
+      holder.updateRoster({aId, bId});
+      locked.updateRoster({aId, bId});
+      holder.requestTransmit();
+      expect(state.phase, RadioPhase.rxActive);
+
+      locked.requestTransmit();
+      expect(state.isTransmitDenied, isTrue);
+      expect(state.phase, RadioPhase.rxActive);
+    },
+  );
 }
 
 RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
-  return switch (event) {
+  final next = switch (event) {
     PowerOff() => state.copyWith(
       phase: RadioPhase.off,
       isNoLink: false,
       isReplay: false,
       clearActiveSpeaker: true,
+      isTotWarning: false,
+      isTransmitDenied: false,
     ),
     LinkDegraded() when state.phase != RadioPhase.off => state.copyWith(
       phase: RadioPhase.linkDegraded,
       isNoLink: true,
+      isTotWarning: false,
     ),
     PowerOn() when state.phase == RadioPhase.off => state.copyWith(
       phase: RadioPhase.boot,
@@ -412,9 +521,11 @@ RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
       state.copyWith(phase: RadioPhase.tx),
     TransmitDenied() when state.phase == RadioPhase.txRequest => state.copyWith(
       phase: RadioPhase.idle,
+      isTransmitDenied: true,
     ),
     EndTransmit() when state.phase == RadioPhase.tx => state.copyWith(
       phase: RadioPhase.idle,
+      isTotWarning: false,
     ),
     RemoteFloorStarted() when state.phase == RadioPhase.idle => state.copyWith(
       phase: RadioPhase.rxActive,
@@ -445,6 +556,19 @@ RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
     MonitorChanged() => state.copyWith(isMonitorOpen: event.isOpen),
     ScanChanged() => state.copyWith(isScanning: event.isActive),
     VoxChanged() => state.copyWith(isVoxArmed: event.isArmed),
+    TotWarningRaised() when state.phase == RadioPhase.tx => state.copyWith(
+      isTotWarning: true,
+    ),
+    TotWarningCleared() => state.copyWith(isTotWarning: false),
+    TransmitDeniedIndicated() when state.phase != RadioPhase.off =>
+      state.copyWith(isTransmitDenied: true),
     _ => state,
   };
+  if (event is TransmitDeniedIndicated || event is TransmitDenied) {
+    return next;
+  }
+  if (state.isTransmitDenied && next != state) {
+    return next.copyWith(isTransmitDenied: false);
+  }
+  return next;
 }
