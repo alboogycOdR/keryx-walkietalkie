@@ -1,232 +1,107 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// The selectable amount of radio-character processing applied to receive
-/// audio. Kept here because it is a persistent user preference, not DSP state.
-enum CharacterDspIntensity { off, light, full }
+import 'settings_model.dart';
+import 'settings_store.dart';
 
-/// The locally played end-of-transmission confirmation sound.
-enum RogerBeepVariant { off, classic, dualTone, customPack }
-
-/// A previously tuned numbered channel, retained for quick recall.
-class TunedChannel {
-  const TunedChannel({required this.channel, required this.privacyCode})
-    : assert(channel >= 1 && channel <= 99),
-      assert(privacyCode >= 0 && privacyCode <= 38);
-
-  final int channel;
-  final int privacyCode;
-
-  Map<String, int> toJson() => {'channel': channel, 'privacyCode': privacyCode};
-
-  factory TunedChannel.fromJson(Map<String, Object?> json) {
-    final channel = json['channel'];
-    final privacyCode = json['privacyCode'];
-    if (channel is! int || privacyCode is! int) {
-      throw const FormatException(
-        'A tuned channel must contain integer values.',
-      );
-    }
-    if (channel < 1 || channel > 99 || privacyCode < 0 || privacyCode > 38) {
-      throw const FormatException(
-        'A tuned channel is outside the supported range.',
-      );
-    }
-    return TunedChannel(channel: channel, privacyCode: privacyCode);
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      other is TunedChannel &&
-      other.channel == channel &&
-      other.privacyCode == privacyCode;
-
-  @override
-  int get hashCode => Object.hash(channel, privacyCode);
-}
-
-/// All settings that may be written on-device during phase one.
-class KeryxSettings {
-  const KeryxSettings({
-    this.squelchLevel = 5,
-    this.rogerBeep = RogerBeepVariant.classic,
-    this.totSeconds = 60,
-    this.busyLockout = true,
-    this.latchMode = false,
-    this.characterDspIntensity = CharacterDspIntensity.light,
-    this.forceLocalOnly = false,
-    this.region = 'global',
-    this.isPro = false,
-    this.channelMemory = const [],
-  }) : assert(squelchLevel >= 0 && squelchLevel <= 10),
-       assert(totSeconds >= 30 && totSeconds <= 120),
-       assert(region.length > 0);
-
-  final int squelchLevel;
-  final RogerBeepVariant rogerBeep;
-  final int totSeconds;
-  final bool busyLockout;
-  final bool latchMode;
-  final CharacterDspIntensity characterDspIntensity;
-  final bool forceLocalOnly;
-  final String region;
-  final bool isPro;
-  final List<TunedChannel> channelMemory;
-
-  KeryxSettings copyWith({
-    int? squelchLevel,
-    RogerBeepVariant? rogerBeep,
-    int? totSeconds,
-    bool? busyLockout,
-    bool? latchMode,
-    CharacterDspIntensity? characterDspIntensity,
-    bool? forceLocalOnly,
-    String? region,
-    bool? isPro,
-    List<TunedChannel>? channelMemory,
-  }) => KeryxSettings(
-    squelchLevel: squelchLevel ?? this.squelchLevel,
-    rogerBeep: rogerBeep ?? this.rogerBeep,
-    totSeconds: totSeconds ?? this.totSeconds,
-    busyLockout: busyLockout ?? this.busyLockout,
-    latchMode: latchMode ?? this.latchMode,
-    characterDspIntensity: characterDspIntensity ?? this.characterDspIntensity,
-    forceLocalOnly: forceLocalOnly ?? this.forceLocalOnly,
-    region: region ?? this.region,
-    isPro: isPro ?? this.isPro,
-    channelMemory: channelMemory ?? this.channelMemory,
-  );
-
-  Map<String, Object> toJson() => {
-    'squelchLevel': squelchLevel,
-    'rogerBeep': rogerBeep.name,
-    'totSeconds': totSeconds,
-    'busyLockout': busyLockout,
-    'latchMode': latchMode,
-    'characterDspIntensity': characterDspIntensity.name,
-    'forceLocalOnly': forceLocalOnly,
-    'region': region,
-    'isPro': isPro,
-    'channelMemory': channelMemory.map((channel) => channel.toJson()).toList(),
-  };
-
-  factory KeryxSettings.fromJson(Map<String, Object?> json) {
-    T read<T>(String key) {
-      final value = json[key];
-      if (value is! T) throw FormatException('Invalid $key in settings.');
-      return value;
-    }
-
-    final memory = read<List<Object?>>('channelMemory')
-        .map(
-          (entry) =>
-              TunedChannel.fromJson(Map<String, Object?>.from(entry as Map)),
-        )
-        .toList(growable: false);
-    return KeryxSettings(
-      squelchLevel: read<int>('squelchLevel'),
-      rogerBeep: RogerBeepVariant.values.byName(read<String>('rogerBeep')),
-      totSeconds: read<int>('totSeconds'),
-      busyLockout: read<bool>('busyLockout'),
-      latchMode: read<bool>('latchMode'),
-      characterDspIntensity: CharacterDspIntensity.values.byName(
-        read<String>('characterDspIntensity'),
-      ),
-      forceLocalOnly: read<bool>('forceLocalOnly'),
-      region: read<String>('region'),
-      isPro: read<bool>('isPro'),
-      channelMemory: memory,
-    );
-  }
-}
-
-/// Minimal encrypted key-value boundary, so tests never need a platform plugin.
-abstract interface class SettingsStore {
-  Future<String?> read(String key);
-  Future<void> write(String key, String value);
-}
-
-class SecureSettingsStore implements SettingsStore {
-  SecureSettingsStore([FlutterSecureStorage? storage])
-    : _storage = storage ?? const FlutterSecureStorage();
-
-  final FlutterSecureStorage _storage;
-
-  @override
-  Future<String?> read(String key) => _storage.read(key: key);
-
-  @override
-  Future<void> write(String key, String value) =>
-      _storage.write(key: key, value: value);
-}
-
-/// Test-only-friendly store that keeps encrypted-store-shaped values in memory.
-class InMemorySettingsStore implements SettingsStore {
-  final Map<String, String> _values = {};
-
-  @override
-  Future<String?> read(String key) async => _values[key];
-
-  @override
-  Future<void> write(String key, String value) async {
-    _values[key] = value;
-  }
-}
+export 'settings_model.dart';
+export 'settings_store.dart';
 
 /// Local-only persistence. This repository intentionally has no network API.
 class SettingsRepository {
   SettingsRepository(this._store);
 
-  static const _storageKey = 'keryx.settings.v1';
-  static const channelMemoryCapacity = 6;
+  static const storageKey = 'keryx.settings.v1';
+  static const channelMemoryCapacity = SettingsMemoryCap.channelMemoryCapacity;
 
   final SettingsStore _store;
+  final StreamController<KeryxSettings> _changes =
+      StreamController<KeryxSettings>.broadcast();
+
+  /// Completes in FIFO order so overlapping [save]/[rememberChannel]
+  /// calls cannot lose an update (TS §6.2: 12 channel crossings/s).
+  Future<void> _writeChain = Future<void>.value();
+
+  /// Emits after every successful [save] or [rememberChannel].
+  Stream<KeryxSettings> get changes => _changes.stream;
 
   Future<KeryxSettings> load() async {
-    final encoded = await _store.read(_storageKey);
-    if (encoded == null) return const KeryxSettings();
+    final encoded = await _store.read(storageKey);
+    if (encoded == null || encoded.isEmpty) return const KeryxSettings();
     try {
-      return KeryxSettings.fromJson(
-        Map<String, Object?>.from(jsonDecode(encoded) as Map),
+      final decoded = jsonDecode(encoded);
+      if (decoded is! Map) return const KeryxSettings();
+      return KeryxSettings.fromJson(Map<String, Object?>.from(decoded));
+    } on Object catch (error, stackTrace) {
+      developer.log(
+        'Stored settings blob was unusable; using defaults.',
+        name: 'keryx.settings',
+        error: error,
+        stackTrace: stackTrace,
       );
-    } on FormatException {
-      return const KeryxSettings();
-    } on ArgumentError {
       return const KeryxSettings();
     }
   }
 
-  Future<KeryxSettings> save(KeryxSettings settings) async {
-    _validate(settings);
-    await _store.write(_storageKey, jsonEncode(settings.toJson()));
-    return settings;
+  Future<KeryxSettings> save(KeryxSettings settings) {
+    return _serialized(() => _saveUnlocked(settings));
   }
 
   /// Records a tune at the head of quick recall, de-duplicating its prior slot.
-  Future<KeryxSettings> rememberChannel(TunedChannel channel) async {
-    final current = await load();
-    final memory = [
-      channel,
-      ...current.channelMemory.where((entry) => entry != channel),
-    ].take(channelMemoryCapacity).toList(growable: false);
-    return save(current.copyWith(channelMemory: memory));
+  Future<KeryxSettings> rememberChannel(TunedChannel channel) {
+    return _serialized(() async {
+      final current = await load();
+      final memory = [
+        channel,
+        ...current.channelMemory.where((entry) => entry != channel),
+      ].take(channelMemoryCapacity).toList(growable: false);
+      return _saveUnlocked(current.copyWith(channelMemory: memory));
+    });
+  }
+
+  void dispose() {
+    _changes.close();
+  }
+
+  Future<KeryxSettings> _saveUnlocked(KeryxSettings settings) async {
+    _validate(settings);
+    await _store.write(storageKey, jsonEncode(settings.toJson()));
+    if (!_changes.isClosed) {
+      _changes.add(settings);
+    }
+    return settings;
+  }
+
+  Future<T> _serialized<T>(Future<T> Function() action) {
+    final completer = Completer<T>();
+    _writeChain = _writeChain.then((_) async {
+      try {
+        completer.complete(await action());
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+    return completer.future;
   }
 
   void _validate(KeryxSettings settings) {
-    if (settings.squelchLevel < 0 || settings.squelchLevel > 10) {
+    if (settings.squelchLevel < KeryxSettings.squelchLevelMin ||
+        settings.squelchLevel > KeryxSettings.squelchLevelMax) {
       throw ArgumentError.value(
         settings.squelchLevel,
         'squelchLevel',
-        'Must be 0–10.',
+        'Must be ${KeryxSettings.squelchLevelMin}–${KeryxSettings.squelchLevelMax}.',
       );
     }
-    if (settings.totSeconds < 30 || settings.totSeconds > 120) {
+    if (settings.totSeconds < KeryxSettings.totSecondsMin ||
+        settings.totSeconds > KeryxSettings.totSecondsMax) {
       throw ArgumentError.value(
         settings.totSeconds,
         'totSeconds',
-        'Must be 30–120 seconds.',
+        'Must be ${KeryxSettings.totSecondsMin}–${KeryxSettings.totSecondsMax} seconds.',
       );
     }
     if (settings.region.trim().isEmpty) {
@@ -243,6 +118,45 @@ class SettingsRepository {
         'Maximum is six.',
       );
     }
+    if (settings.voxSensitivity < KeryxSettings.voxSensitivityMin ||
+        settings.voxSensitivity > KeryxSettings.voxSensitivityMax) {
+      throw ArgumentError.value(
+        settings.voxSensitivity,
+        'voxSensitivity',
+        'Must be ${KeryxSettings.voxSensitivityMin}–${KeryxSettings.voxSensitivityMax}.',
+      );
+    }
+    if (settings.voxHangTimeMs < KeryxSettings.voxHangTimeMsMin ||
+        settings.voxHangTimeMs > KeryxSettings.voxHangTimeMsMax) {
+      throw ArgumentError.value(
+        settings.voxHangTimeMs,
+        'voxHangTimeMs',
+        'Must be ${KeryxSettings.voxHangTimeMsMin}–${KeryxSettings.voxHangTimeMsMax} ms.',
+      );
+    }
+  }
+}
+
+/// Live settings. Re-emits after [SettingsRepository.save] and
+/// [SettingsRepository.rememberChannel] on the same repository instance,
+/// so watchers never hold a one-shot first-load snapshot.
+class SettingsController extends AsyncNotifier<KeryxSettings> {
+  @override
+  Future<KeryxSettings> build() {
+    final repository = ref.watch(settingsRepositoryProvider);
+    final subscription = repository.changes.listen((settings) {
+      state = AsyncData(settings);
+    });
+    ref.onDispose(subscription.cancel);
+    return repository.load();
+  }
+
+  Future<KeryxSettings> save(KeryxSettings settings) {
+    return ref.read(settingsRepositoryProvider).save(settings);
+  }
+
+  Future<KeryxSettings> rememberChannel(TunedChannel channel) {
+    return ref.read(settingsRepositoryProvider).rememberChannel(channel);
   }
 }
 
@@ -250,10 +164,13 @@ final settingsStoreProvider = Provider<SettingsStore>(
   (ref) => SecureSettingsStore(),
 );
 
-final settingsRepositoryProvider = Provider<SettingsRepository>(
-  (ref) => SettingsRepository(ref.watch(settingsStoreProvider)),
-);
+final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
+  final repository = SettingsRepository(ref.watch(settingsStoreProvider));
+  ref.onDispose(repository.dispose);
+  return repository;
+});
 
-final settingsProvider = FutureProvider<KeryxSettings>(
-  (ref) => ref.watch(settingsRepositoryProvider).load(),
-);
+final settingsProvider =
+    AsyncNotifierProvider<SettingsController, KeryxSettings>(
+      SettingsController.new,
+    );
