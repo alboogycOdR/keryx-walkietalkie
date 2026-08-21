@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
+import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/theme/theme.dart';
 
 import 'settings_copy.dart';
@@ -52,9 +53,8 @@ class BackPanelScreen extends ConsumerWidget {
           settings: settings,
           onChanged: (next) => unawaited(_save(controller, next)),
         ),
-        loading: () => Center(
-          child: CircularProgressIndicator(color: KeryxTheme.lcd),
-        ),
+        loading: () =>
+            Center(child: CircularProgressIndicator(color: KeryxTheme.lcd)),
         error: (error, stackTrace) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -179,13 +179,21 @@ class _BackPanelBody extends StatelessWidget {
         PanelSection(
           title: SettingsCopy.networkSectionTitle,
           children: [
+            PanelPickerRow<RadioMode>(
+              key: const ValueKey<String>('settings-mode'),
+              label: SettingsCopy.modeLabel,
+              description: SettingsCopy.modeDescription,
+              value: settings.mode,
+              options: RadioMode.values,
+              optionLabel: SettingsCopy.modeOptionLabel,
+              onChanged: (v) => onChanged(settings.copyWith(mode: v)),
+            ),
             PanelToggleRow(
               key: const ValueKey<String>('settings-force-local'),
               label: SettingsCopy.forceLocalLabel,
               description: SettingsCopy.forceLocalDescription,
               value: settings.forceLocalOnly,
-              onChanged: (v) =>
-                  onChanged(settings.copyWith(forceLocalOnly: v)),
+              onChanged: (v) => onChanged(settings.copyWith(forceLocalOnly: v)),
             ),
             PanelTextRow(
               key: const ValueKey<String>('settings-region'),
@@ -193,6 +201,23 @@ class _BackPanelBody extends StatelessWidget {
               description: SettingsCopy.regionDescription,
               value: settings.region,
               onChanged: (v) => onChanged(settings.copyWith(region: v)),
+            ),
+            PanelTextRow(
+              key: const ValueKey<String>('settings-relay-url'),
+              label: SettingsCopy.relayUrlLabel,
+              description: SettingsCopy.relayUrlDescription,
+              value: settings.relayUrl,
+              allowEmpty: true,
+              onChanged: (v) => onChanged(settings.copyWith(relayUrl: v)),
+            ),
+            PanelTextRow(
+              key: const ValueKey<String>('settings-token-url'),
+              label: SettingsCopy.tokenUrlLabel,
+              description: SettingsCopy.tokenUrlDescription,
+              value: settings.tokenServiceUrl,
+              allowEmpty: true,
+              onChanged: (v) =>
+                  onChanged(settings.copyWith(tokenServiceUrl: v)),
             ),
           ],
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
+import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/features/settings_panel/settings_panel.dart';
 
 void main() {
@@ -53,34 +54,39 @@ void main() {
       expect(find.text('LOCAL ONLY'), findsOneWidget);
       expect(find.text('REGION'), findsOneWidget);
       expect(find.text('DIM'), findsOneWidget);
+      expect(find.text('RADIO MODE'), findsOneWidget);
+      expect(find.text('RELAY URL'), findsOneWidget);
+      expect(find.text('TOKEN URL'), findsOneWidget);
     });
 
-    testWidgets('a corrupt store still renders the loading→data screen, not a crash', (
-      tester,
-    ) async {
-      // SettingsRepository.load() is total (never throws) — confirms the
-      // panel does not need its own defensive handling for this case, only
-      // for a genuinely rejected Future (covered by the error branch below
-      // via a store that throws on read).
-      final store = InMemorySettingsStore();
-      await store.write(SettingsRepository.storageKey, 'not json');
-      await pumpPanel(tester, store);
+    testWidgets(
+      'a corrupt store still renders the loading→data screen, not a crash',
+      (tester) async {
+        // SettingsRepository.load() is total (never throws) — confirms the
+        // panel does not need its own defensive handling for this case, only
+        // for a genuinely rejected Future (covered by the error branch below
+        // via a store that throws on read).
+        final store = InMemorySettingsStore();
+        await store.write(SettingsRepository.storageKey, 'not json');
+        await pumpPanel(tester, store);
 
-      expect(find.text('BACK PANEL'), findsOneWidget);
-      expect(find.text('SQUELCH'), findsOneWidget);
-    });
+        expect(find.text('BACK PANEL'), findsOneWidget);
+        expect(find.text('SQUELCH'), findsOneWidget);
+      },
+    );
 
-    testWidgets('a rejected load renders the DS §7 in-world failure copy, not a crash', (
-      tester,
-    ) async {
-      await tester.pumpWidget(harness(_ThrowingSettingsStore()));
-      await tester.pumpAndSettle();
+    testWidgets(
+      'a rejected load renders the DS §7 in-world failure copy, not a crash',
+      (tester) async {
+        await tester.pumpWidget(harness(_ThrowingSettingsStore()));
+        await tester.pumpAndSettle();
 
-      expect(
-        find.text('Settings did not load. Close and reopen the back panel.'),
-        findsOneWidget,
-      );
-    });
+        expect(
+          find.text('Settings did not load. Close and reopen the back panel.'),
+          findsOneWidget,
+        );
+      },
+    );
   });
 
   group('squelch — FR-061 round-trip', () {
@@ -197,9 +203,7 @@ void main() {
       expect(persisted.rogerBeep, RogerBeepVariant.dualTone);
     });
 
-    testWidgets('selecting a character-DSP option persists it', (
-      tester,
-    ) async {
+    testWidgets('selecting a character-DSP option persists it', (tester) async {
       final store = InMemorySettingsStore();
       await pumpPanel(tester, store);
 
@@ -229,7 +233,10 @@ void main() {
       final store = InMemorySettingsStore();
       await pumpPanel(tester, store);
 
-      await tester.enterText(find.byType(TextField), 'za-cpt');
+      await tester.enterText(
+        rowChild('settings-region', find.byType(TextField)),
+        'za-cpt',
+      );
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
 
@@ -243,7 +250,10 @@ void main() {
       final store = InMemorySettingsStore();
       await pumpPanel(tester, store);
 
-      await tester.enterText(find.byType(TextField), '   ');
+      await tester.enterText(
+        rowChild('settings-region', find.byType(TextField)),
+        '   ',
+      );
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
 
@@ -252,40 +262,84 @@ void main() {
     });
   });
 
-  group('accessibility — FR-106', () {
-    testWidgets('every interactive control exposes a TalkBack semantics label', (
+  group('mode and relay configuration — FR-040 / D2', () {
+    testWidgets('selecting LINKED persists the previously-unrendered mode', (
       tester,
     ) async {
       final store = InMemorySettingsStore();
       await pumpPanel(tester, store);
 
-      // Reads each control's own `Semantics.properties.label` directly off
-      // the widget tree, rather than through `find.bySemanticsLabel`'s
-      // SemanticsNode lookup — robust regardless of whether a real
-      // accessibility tree happens to be attached in this test environment,
-      // and it is exactly the property TalkBack reads at runtime.
-      bool hasLabel(String label) => find
-          .byWidgetPredicate(
-            (widget) => widget is Semantics && widget.properties.label == label,
-          )
-          .evaluate()
-          .isNotEmpty;
+      await tester.tap(rowChild('settings-mode', find.text('LINKED')));
+      await tester.pumpAndSettle();
 
-      for (final label in <String>[
-        'Increase SQUELCH',
-        'Decrease SQUELCH',
-        'Increase TIME-OUT TIMER',
-        'Decrease TIME-OUT TIMER',
-        'LATCH',
-        'BUSY LOCKOUT',
-        'LOCAL ONLY',
-        'ROGER BEEP DUAL-TONE',
-        'CHARACTER DSP OFF',
-        'DIM MANUAL',
-      ]) {
-        expect(hasLabel(label), isTrue, reason: 'missing TalkBack label: $label');
-      }
+      expect((await reload(store)).mode, RadioMode.linked);
     });
+
+    testWidgets('relay and advanced token URLs persist on submit', (
+      tester,
+    ) async {
+      final store = InMemorySettingsStore();
+      await pumpPanel(tester, store);
+
+      await tester.enterText(
+        rowChild('settings-relay-url', find.byType(TextField)),
+        'wss://relay.example',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        rowChild('settings-token-url', find.byType(TextField)),
+        'https://relay.example/token',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      final persisted = await reload(store);
+      expect(persisted.relayUrl, 'wss://relay.example');
+      expect(persisted.tokenServiceUrl, 'https://relay.example/token');
+    });
+  });
+
+  group('accessibility — FR-106', () {
+    testWidgets(
+      'every interactive control exposes a TalkBack semantics label',
+      (tester) async {
+        final store = InMemorySettingsStore();
+        await pumpPanel(tester, store);
+
+        // Reads each control's own `Semantics.properties.label` directly off
+        // the widget tree, rather than through `find.bySemanticsLabel`'s
+        // SemanticsNode lookup — robust regardless of whether a real
+        // accessibility tree happens to be attached in this test environment,
+        // and it is exactly the property TalkBack reads at runtime.
+        bool hasLabel(String label) => find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is Semantics && widget.properties.label == label,
+            )
+            .evaluate()
+            .isNotEmpty;
+
+        for (final label in <String>[
+          'Increase SQUELCH',
+          'Decrease SQUELCH',
+          'Increase TIME-OUT TIMER',
+          'Decrease TIME-OUT TIMER',
+          'LATCH',
+          'BUSY LOCKOUT',
+          'LOCAL ONLY',
+          'ROGER BEEP DUAL-TONE',
+          'CHARACTER DSP OFF',
+          'DIM MANUAL',
+        ]) {
+          expect(
+            hasLabel(label),
+            isTrue,
+            reason: 'missing TalkBack label: $label',
+          );
+        }
+      },
+    );
   });
 }
 

@@ -68,7 +68,36 @@ void main() {
       expect(actual.mode, RadioMode.local);
       expect(actual.voxSensitivity, 2);
       expect(actual.voxHangTimeMs, 1200);
+      expect(actual.relayUrl, KeryxSettings.relayUrlDefault);
+      expect(actual.tokenServiceUrl, KeryxSettings.tokenServiceUrlDefault);
     });
+
+    test(
+      'normalizes invalid endpoints and derives the Caddy token route',
+      () async {
+        final saved = await repository.save(
+          const KeryxSettings(
+            relayUrl: ' https://not-a-websocket.example ',
+            tokenServiceUrl: 'http://not-secure.example/token',
+          ),
+        );
+
+        expect(saved.relayUrl, KeryxSettings.relayUrlDefault);
+        expect(saved.tokenServiceUrl, KeryxSettings.tokenServiceUrlDefault);
+
+        final linked = await repository.save(
+          const KeryxSettings(relayUrl: 'wss://relay.example:7880/livekit'),
+        );
+        expect(linked.relayUrl, 'wss://relay.example:7880/livekit');
+        expect(linked.tokenServiceUrl, KeryxSettings.tokenServiceUrlDefault);
+        expect(
+          linked.resolvedTokenServiceUrl,
+          KeryxSettings.tokenServiceUrlDefault.isNotEmpty
+              ? KeryxSettings.tokenServiceUrlDefault
+              : 'https://relay.example:7880/token',
+        );
+      },
+    );
 
     test(
       'keeps six most-recent unique tuned channels for quick recall',
@@ -209,6 +238,42 @@ void main() {
         expect(settings.mode, RadioMode.auto);
         expect(settings.voxSensitivity, 5);
         expect(settings.voxHangTimeMs, 500);
+      },
+    );
+
+    test(
+      'blank, whitespace, and non-wss endpoint keys fall back safely',
+      () async {
+        await store.write(
+          SettingsRepository.storageKey,
+          jsonEncode(
+            _phaseOneBlob()
+              ..['relayUrl'] = '   '
+              ..['tokenServiceUrl'] = 'wss://wrong-scheme.example/token',
+          ),
+        );
+
+        final settings = await repository.load();
+        expect(settings.relayUrl, KeryxSettings.relayUrlDefault);
+        expect(settings.tokenServiceUrl, KeryxSettings.tokenServiceUrlDefault);
+      },
+    );
+
+    test(
+      'a non-empty persisted endpoint overrides the build default',
+      () async {
+        await store.write(
+          SettingsRepository.storageKey,
+          jsonEncode(
+            _phaseOneBlob()
+              ..['relayUrl'] = 'wss://saved.example'
+              ..['tokenServiceUrl'] = 'https://saved.example/token',
+          ),
+        );
+
+        final settings = await repository.load();
+        expect(settings.relayUrl, 'wss://saved.example');
+        expect(settings.tokenServiceUrl, 'https://saved.example/token');
       },
     );
   });

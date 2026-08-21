@@ -11,12 +11,14 @@ class PanelTextRow extends StatefulWidget {
     required this.description,
     required this.value,
     required this.onChanged,
+    this.allowEmpty = false,
   });
 
   final String label;
   final String description;
   final String value;
   final ValueChanged<String> onChanged;
+  final bool allowEmpty;
 
   @override
   State<PanelTextRow> createState() => _PanelTextRowState();
@@ -42,7 +44,7 @@ class _PanelTextRowState extends State<PanelTextRow> {
 
   void _commit() {
     final next = _controller.text.trim();
-    if (next.isNotEmpty && next != widget.value) {
+    if (next != widget.value && (next.isNotEmpty || widget.allowEmpty)) {
       widget.onChanged(next);
     } else if (next.isEmpty) {
       // Refuse an empty region rather than writing one `SettingsRepository`
