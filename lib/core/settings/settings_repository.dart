@@ -67,12 +67,13 @@ class SettingsRepository {
   }
 
   Future<KeryxSettings> _saveUnlocked(KeryxSettings settings) async {
-    _validate(settings);
-    await _store.write(storageKey, jsonEncode(settings.toJson()));
+    final normalized = KeryxSettings.fromJson(settings.toJson());
+    _validate(normalized);
+    await _store.write(storageKey, jsonEncode(normalized.toJson()));
     if (!_changes.isClosed) {
-      _changes.add(settings);
+      _changes.add(normalized);
     }
-    return settings;
+    return normalized;
   }
 
   Future<T> _serialized<T>(Future<T> Function() action) {

@@ -72,6 +72,13 @@ class KeryxSettings {
   static const voxHangTimeMsDefault = 500;
   static const defaultRegion = 'global';
 
+  /// Deployment defaults for field-test builds. A saved, non-empty value wins;
+  /// a blank or invalid persisted value falls back to these definitions.
+  static const relayUrlDefault = String.fromEnvironment('KERYX_RELAY_URL');
+  static const tokenServiceUrlDefault = String.fromEnvironment(
+    'KERYX_TOKEN_URL',
+  );
+
   const KeryxSettings({
     this.squelchLevel = squelchLevelDefault,
     this.rogerBeep = RogerBeepVariant.classic,
@@ -87,6 +94,8 @@ class KeryxSettings {
     this.mode = RadioMode.auto,
     this.voxSensitivity = voxSensitivityDefault,
     this.voxHangTimeMs = voxHangTimeMsDefault,
+    this.relayUrl = relayUrlDefault,
+    this.tokenServiceUrl = tokenServiceUrlDefault,
   }) : assert(
          squelchLevel >= squelchLevelMin && squelchLevel <= squelchLevelMax,
        ),
@@ -125,6 +134,25 @@ class KeryxSettings {
   /// FR-024 VOX hang-time in milliseconds. Persisted now; the feature is later.
   final int voxHangTimeMs;
 
+  /// WebSocket relay endpoint. An empty value means LINKED is unconfigured.
+  final String relayUrl;
+
+  /// Optional token-service endpoint. When empty, [resolvedTokenServiceUrl]
+  /// derives it from [relayUrl].
+  final String tokenServiceUrl;
+
+  /// The token route is `/token` in `relay/Caddyfile`'s `@token path /token
+  /// /token/*` matcher. A default derived from a `wss://` relay therefore uses
+  /// the equivalent HTTPS origin and that exact path.
+  String get resolvedTokenServiceUrl {
+    if (tokenServiceUrl.isNotEmpty) return tokenServiceUrl;
+    final relay = Uri.tryParse(relayUrl);
+    if (relay == null || relay.host.isEmpty) return '';
+    return relay
+        .replace(scheme: 'https', path: '/token', query: null)
+        .toString();
+  }
+
   /// Closed-unit squelch for `BedMixer.gainsFor`. Persisted unit stays
   /// the integer detent 0–10; this is `squelchLevel / 10.0` (ORCH ruling).
   double get squelchNormalized => squelchLevel / squelchLevelMax;
@@ -144,6 +172,8 @@ class KeryxSettings {
     RadioMode? mode,
     int? voxSensitivity,
     int? voxHangTimeMs,
+    String? relayUrl,
+    String? tokenServiceUrl,
   }) => KeryxSettings(
     squelchLevel: squelchLevel ?? this.squelchLevel,
     rogerBeep: rogerBeep ?? this.rogerBeep,
@@ -159,6 +189,8 @@ class KeryxSettings {
     mode: mode ?? this.mode,
     voxSensitivity: voxSensitivity ?? this.voxSensitivity,
     voxHangTimeMs: voxHangTimeMs ?? this.voxHangTimeMs,
+    relayUrl: relayUrl ?? this.relayUrl,
+    tokenServiceUrl: tokenServiceUrl ?? this.tokenServiceUrl,
   );
 
   Map<String, Object> toJson() => {
@@ -176,6 +208,8 @@ class KeryxSettings {
     'mode': mode.name,
     'voxSensitivity': voxSensitivity,
     'voxHangTimeMs': voxHangTimeMs,
+    'relayUrl': relayUrl,
+    'tokenServiceUrl': tokenServiceUrl,
   };
 
   /// Total parser: never throws. Missing / wrong-typed / out-of-range
@@ -225,6 +259,16 @@ class KeryxSettings {
         max: voxHangTimeMsMax,
         fallback: voxHangTimeMsDefault,
       ),
+      relayUrl: _asEndpoint(
+        json['relayUrl'],
+        fallback: relayUrlDefault,
+        allowedSchemes: const {'wss'},
+      ),
+      tokenServiceUrl: _asEndpoint(
+        json['tokenServiceUrl'],
+        fallback: tokenServiceUrlDefault,
+        allowedSchemes: const {'https'},
+      ),
     );
   }
 }
@@ -253,6 +297,22 @@ bool _asBool(Object? value, bool fallback) => value is bool ? value : fallback;
 String _asRegion(Object? value) {
   if (value is String && value.trim().isNotEmpty) return value;
   return KeryxSettings.defaultRegion;
+}
+
+/// Accepts only secure, host-qualified endpoints. Invalid values are clamped
+/// to the supplied deployment default rather than making a settings write fail.
+String _asEndpoint(
+  Object? value, {
+  required String fallback,
+  required Set<String> allowedSchemes,
+}) {
+  if (value is! String || value.trim().isEmpty) return fallback;
+  final candidate = value.trim();
+  final uri = Uri.tryParse(candidate);
+  if (uri == null || uri.host.isEmpty || !allowedSchemes.contains(uri.scheme)) {
+    return fallback;
+  }
+  return candidate;
 }
 
 T _enumByName<T extends Enum>(Object? value, List<T> values, T fallback) {

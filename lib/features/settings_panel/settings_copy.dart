@@ -1,4 +1,5 @@
 import 'package:keryx/core/settings/settings_repository.dart';
+import 'package:keryx/core/state/radio_state.dart';
 
 /// DS §7 copy voice: "Plain, mechanical, unapologetic — an equipment
 /// manual, not an app." Every string here is a noun/verb a radio user
@@ -60,6 +61,15 @@ abstract final class SettingsCopy {
   static const String regionLabel = 'REGION';
   static const String regionDescription =
       "Partitions numbered channels so CH 7 here isn't CH 7 elsewhere.";
+  static const String modeLabel = 'RADIO MODE';
+  static const String modeDescription =
+      'Selects LOCAL, relay-preferred AUTO, or relay-only LINKED operation.';
+  static const String relayUrlLabel = 'RELAY URL';
+  static const String relayUrlDescription =
+      'Secure WebSocket relay. Leave blank when no relay is deployed.';
+  static const String tokenUrlLabel = 'TOKEN URL';
+  static const String tokenUrlDescription =
+      'Advanced. Leave blank to use the relay token route.';
 
   static String rogerOptionLabel(RogerBeepVariant value) => switch (value) {
     RogerBeepVariant.off => 'OFF',
@@ -77,5 +87,11 @@ abstract final class SettingsCopy {
   static String dimOptionLabel(DimMode value) => switch (value) {
     DimMode.auto => 'AUTO',
     DimMode.manual => 'MANUAL',
+  };
+
+  static String modeOptionLabel(RadioMode value) => switch (value) {
+    RadioMode.local => 'LOCAL',
+    RadioMode.auto => 'AUTO',
+    RadioMode.linked => 'LINKED',
   };
 }
