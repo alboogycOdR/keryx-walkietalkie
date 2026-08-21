@@ -24,11 +24,19 @@ param(
     # with it, mid-write, however healthy it was. Four sessions were lost that way on
     # 2026-08-02. A detached window is outside that process tree and survives.
     [switch]$InProcess,  # opt back in to the old blocking, same-console behaviour
-    # Reasoning-effort override for a claude-family builder (low/medium/high/
-    # xhigh/max), passed straight through as `claude`'s own `--effort <level>`.
-    # No-op for grok/codex (neither CLI exposes this knob) -- silently ignored
-    # for those, not an error, so a mixed-roster dispatch script doesn't need
-    # per-CLI branching at the call site.
+    # Reasoning-effort override. Passed through as `claude`'s own
+    # `--effort <level>` and as `grok`'s `--reasoning-effort <level>`.
+    # CAUTION -- the two CLIs do NOT accept the same set:
+    #   claude: low/medium/high/xhigh/max
+    #   grok:   low/medium/high/xhigh        (NO `max` -- the CLI errors out)
+    # So `-Effort max` is valid for S5 but will be REJECTED by GB; use `xhigh`
+    # as grok's maximum. Verified 2026-08-21 against grok's own error output
+    # ("use one of: xhigh, high, medium, low"). Corrected the same day: this
+    # comment previously claimed grok exposed no such knob, which was wrong and
+    # meant -Effort was silently dropped on every GB dispatch.
+    # Still a genuine no-op for codex -- `--reasoning-effort` is not a valid
+    # `codex exec` flag (codex-cli 0.144.5); model_reasoning_effort is
+    # authoritative there via .codex/config.toml.
     [ValidateSet("low", "medium", "high", "xhigh", "max")]
     [string]$Effort
 )
@@ -102,7 +110,13 @@ switch ($Cli) {
         # -p switches to single-turn non-interactive mode. -p must be LAST:
         # $Prompt is appended right after this array at the call site.
         $Cmd = "grok"
-        $CmdArgs = @("--always-approve", "--permission-mode", "bypassPermissions", "-p")
+        $CmdArgs = @("--always-approve", "--permission-mode", "bypassPermissions")
+        # grok DOES support reasoning effort: --reasoning-effort (alias --effort).
+        # Its accepted set is xhigh/high/medium/low -- there is NO `max` level
+        # (claude has one, grok does not), so `-Effort max` would be rejected by
+        # the CLI. Must be appended BEFORE -p, since -p has to stay last.
+        if ($Effort) { $CmdArgs += @("--reasoning-effort", $Effort) }
+        $CmdArgs += @("-p")
     }
     "codex" {
         # Routed through cmd /c: npm's codex.ps1 shim spuriously pipes $input

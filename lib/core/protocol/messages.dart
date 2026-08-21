@@ -64,11 +64,7 @@ sealed class FloorMessage {
 
 /// `TX_REQ {peer, prio, ts}` — request the floor.
 final class TxReq extends FloorMessage {
-  const TxReq({
-    required super.peer,
-    required this.prio,
-    required this.ts,
-  });
+  const TxReq({required super.peer, required this.prio, required this.ts});
 
   /// `0` normal / `1` emergency. Emergency pre-empts an active lease.
   final int prio;
@@ -81,7 +77,10 @@ final class TxReq extends FloorMessage {
 
   @override
   bool operator ==(Object other) =>
-      other is TxReq && other.peer == peer && other.prio == prio && other.ts == ts;
+      other is TxReq &&
+      other.peer == peer &&
+      other.prio == prio &&
+      other.ts == ts;
 
   @override
   int get hashCode => Object.hash(type, peer, prio, ts);
@@ -92,10 +91,7 @@ final class TxReq extends FloorMessage {
 
 /// `TX_GRANT {peer, lease_ms}` — arbiter grants; lease = TOT + 2 s.
 final class TxGrant extends FloorMessage {
-  const TxGrant({
-    required super.peer,
-    required this.leaseMs,
-  });
+  const TxGrant({required super.peer, required this.leaseMs});
 
   /// Lease remaining / granted length, milliseconds.
   final int leaseMs;
@@ -116,10 +112,7 @@ final class TxGrant extends FloorMessage {
 
 /// `TX_DENY {peer, reason}` — `BUSY` | `LOCKOUT`.
 final class TxDeny extends FloorMessage {
-  const TxDeny({
-    required super.peer,
-    required this.reason,
-  });
+  const TxDeny({required super.peer, required this.reason});
 
   final FloorDenyReason reason;
 
@@ -171,12 +164,16 @@ final class TxEnd extends FloorMessage {
   String toString() => 'TxEnd(peer: $peer)';
 }
 
-/// `PRESENCE {peer, cs, seq}` — 5 s heartbeat; 3 misses = departed.
+/// `PRESENCE {peer, cs, seq, holder?, lease_remaining_ms?}` — 5 s heartbeat;
+/// 3 misses = departed. Optional floor-state fields close the late-joiner
+/// blind spot (TS §8.6 amendment 2026-08-21).
 final class Presence extends FloorMessage {
   const Presence({
     required super.peer,
     required this.cs,
     required this.seq,
+    this.holder,
+    this.leaseRemainingMs,
   });
 
   /// Display callsign. Not used in election (TS §8.6).
@@ -184,6 +181,13 @@ final class Presence extends FloorMessage {
 
   /// Monotonic heartbeat sequence.
   final int seq;
+
+  /// Arbiter/engine view of who holds the floor. Absent when idle.
+  /// Present together with [leaseRemainingMs].
+  final String? holder;
+
+  /// Milliseconds left on the live lease. Present iff [holder] is present.
+  final int? leaseRemainingMs;
 
   @override
   String get type => FloorMsgType.presence;
@@ -193,21 +197,23 @@ final class Presence extends FloorMessage {
       other is Presence &&
       other.peer == peer &&
       other.cs == cs &&
-      other.seq == seq;
+      other.seq == seq &&
+      other.holder == holder &&
+      other.leaseRemainingMs == leaseRemainingMs;
 
   @override
-  int get hashCode => Object.hash(type, peer, cs, seq);
+  int get hashCode =>
+      Object.hash(type, peer, cs, seq, holder, leaseRemainingMs);
 
   @override
-  String toString() => 'Presence(peer: $peer, cs: $cs, seq: $seq)';
+  String toString() =>
+      'Presence(peer: $peer, cs: $cs, seq: $seq, '
+      'holder: $holder, leaseRemainingMs: $leaseRemainingMs)';
 }
 
 /// `RCHK {peer, quality}` — radio-check ping (FR-066). Zero voice.
 final class Rchk extends FloorMessage {
-  const Rchk({
-    required super.peer,
-    required this.quality,
-  });
+  const Rchk({required super.peer, required this.quality});
 
   /// Measured link quality as an S-meter integer (TS §8.9: S1–S9).
   final int quality;
@@ -228,10 +234,7 @@ final class Rchk extends FloorMessage {
 
 /// `RCHK_ACK {peer, quality}` — auto-response with the receiver's quality.
 final class RchkAck extends FloorMessage {
-  const RchkAck({
-    required super.peer,
-    required this.quality,
-  });
+  const RchkAck({required super.peer, required this.quality});
 
   /// Measured link quality as an S-meter integer (TS §8.9: S1–S9).
   final int quality;

@@ -12,10 +12,8 @@ const goldens = <String, String>{
       '{"v":1,"t":"TX_REQ","peer":"J7K2M9Q4PX","prio":0,"ts":1710000000000}',
   'TX_REQ_EMG':
       '{"v":1,"t":"TX_REQ","peer":"J7K2M9Q4PX","prio":1,"ts":1710000000000}',
-  'TX_GRANT':
-      '{"v":1,"t":"TX_GRANT","peer":"J7K2M9Q4PX","lease_ms":62000}',
-  'TX_DENY_BUSY':
-      '{"v":1,"t":"TX_DENY","peer":"J7K2M9Q4PX","reason":"BUSY"}',
+  'TX_GRANT': '{"v":1,"t":"TX_GRANT","peer":"J7K2M9Q4PX","lease_ms":62000}',
+  'TX_DENY_BUSY': '{"v":1,"t":"TX_DENY","peer":"J7K2M9Q4PX","reason":"BUSY"}',
   'TX_DENY_LOCKOUT':
       '{"v":1,"t":"TX_DENY","peer":"J7K2M9Q4PX","reason":"LOCKOUT"}',
   'TX_START': '{"v":1,"t":"TX_START","peer":"J7K2M9Q4PX"}',
@@ -63,10 +61,7 @@ void main() {
     ]);
     expect(FloorMsgType.all, hasLength(10));
 
-    expect(
-      fixtures.keys.map((m) => m.type).toSet(),
-      FloorMsgType.all.toSet(),
-    );
+    expect(fixtures.keys.map((m) => m.type).toSet(), FloorMsgType.all.toSet());
 
     final req = fixtures.keys.whereType<TxReq>().first;
     expect(req.peer, _peer);
@@ -129,9 +124,7 @@ void main() {
       isNull,
     );
     expect(
-      () => FloorCodec.encode(
-        const TxReq(peer: _peer, prio: 2, ts: 1),
-      ),
+      () => FloorCodec.encode(const TxReq(peer: _peer, prio: 2, ts: 1)),
       throwsArgumentError,
     );
   });
@@ -139,9 +132,7 @@ void main() {
   test('unknown protocol versions are ignored', () {
     for (final v in [0, 2, 99]) {
       expect(
-        FloorCodec.decode(
-          '{"v":$v,"t":"TX_START","peer":"J7K2M9Q4PX"}',
-        ),
+        FloorCodec.decode('{"v":$v,"t":"TX_START","peer":"J7K2M9Q4PX"}'),
         isNull,
         reason: 'v=$v',
       );
@@ -226,12 +217,107 @@ void main() {
     );
   });
 
+  test('PRESENCE optional holder/lease_remaining_ms round-trip together', () {
+    const occupied = Presence(
+      peer: _peer,
+      cs: 'BRAVO-7',
+      seq: 3,
+      holder: 'AAA2222222',
+      leaseRemainingMs: 55000,
+    );
+    final wire = FloorCodec.encode(occupied);
+    expect(wire, contains('"holder":"AAA2222222"'));
+    expect(wire, contains('"lease_remaining_ms":55000'));
+    expect(FloorCodec.decode(wire), occupied);
+    expect(FloorCodec.decode(FloorCodec.encode(occupied)), occupied);
+  });
+
+  test('old-format PRESENCE (missing holder and lease) still decodes', () {
+    const idle = Presence(peer: _peer, cs: 'BRAVO-7', seq: 3);
+    expect(FloorCodec.decode(goldens['PRESENCE']!), idle);
+    expect(FloorCodec.encode(idle), goldens['PRESENCE']);
+    final decoded = FloorCodec.decode(goldens['PRESENCE']!) as Presence;
+    expect(decoded.holder, isNull);
+    expect(decoded.leaseRemainingMs, isNull);
+  });
+
+  test('PRESENCE omits both fields when idle and keeps them paired', () {
+    const idle = Presence(peer: _peer, cs: 'BRAVO-7', seq: 1);
+    final idleMap = jsonDecode(FloorCodec.encode(idle)) as Map<String, dynamic>;
+    expect(idleMap.containsKey('holder'), isFalse);
+    expect(idleMap.containsKey('lease_remaining_ms'), isFalse);
+
+    // Partial pair → idle (forward-compatible, does not reject the message).
+    final holderOnly =
+        FloorCodec.decode(
+              '{"v":1,"t":"PRESENCE","peer":"J7K2M9Q4PX","cs":"BRAVO-7","seq":1,'
+              '"holder":"AAA2222222"}',
+            )
+            as Presence;
+    expect(holderOnly.holder, isNull);
+    expect(holderOnly.leaseRemainingMs, isNull);
+
+    final leaseOnly =
+        FloorCodec.decode(
+              '{"v":1,"t":"PRESENCE","peer":"J7K2M9Q4PX","cs":"BRAVO-7","seq":1,'
+              '"lease_remaining_ms":1000}',
+            )
+            as Presence;
+    expect(leaseOnly.holder, isNull);
+    expect(leaseOnly.leaseRemainingMs, isNull);
+
+    final negative =
+        FloorCodec.decode(
+              '{"v":1,"t":"PRESENCE","peer":"J7K2M9Q4PX","cs":"BRAVO-7","seq":1,'
+              '"holder":"AAA2222222","lease_remaining_ms":-1}',
+            )
+            as Presence;
+    expect(negative.holder, isNull);
+    expect(negative.leaseRemainingMs, isNull);
+  });
+
+  test('encode rejects PRESENCE holder/lease pair mismatches', () {
+    expect(
+      () => FloorCodec.encode(
+        const Presence(
+          peer: _peer,
+          cs: 'BRAVO-7',
+          seq: 1,
+          holder: 'AAA2222222',
+        ),
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => FloorCodec.encode(
+        const Presence(
+          peer: _peer,
+          cs: 'BRAVO-7',
+          seq: 1,
+          leaseRemainingMs: 1000,
+        ),
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => FloorCodec.encode(
+        const Presence(
+          peer: _peer,
+          cs: 'BRAVO-7',
+          seq: 1,
+          holder: 'AAA2222222',
+          leaseRemainingMs: -1,
+        ),
+      ),
+      throwsArgumentError,
+    );
+  });
+
   test('protocol library is transport-agnostic and Flutter-free', () {
     final root = Directory.current;
-    final files = Directory('lib/core/protocol')
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.dart'));
+    final files = Directory(
+      'lib/core/protocol',
+    ).listSync().whereType<File>().where((f) => f.path.endsWith('.dart'));
     expect(files, isNotEmpty);
     final forbidden = RegExp(
       r'''package:(flutter|flutter_webrtc|livekit_client)/''',
