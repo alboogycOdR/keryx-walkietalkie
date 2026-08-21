@@ -1739,7 +1739,7 @@ Territory matches expectation: successor reopening TASK-008's two globs (both po
 
 ### TASK-031
 **Title:** Floor-control late-joiner double-grant fix (PRESENCE holder/lease fields + join guard) — closes finding (ll)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.6 (the "Late-joiner floor-state blind spot" ratification, 2026-08-21) and §8.6's `PRESENCE` row; PLAN.md TASK-023 finding (ll) (the deterministic repro and the three costed options — this task builds option A only); lib/core/protocol/timing.dart `FloorTiming.presenceHeartbeat` (the existing 5 s constant this task's guard is keyed to, do not invent a second one); test/simulation/soak_test.dart's "KNOWN ISSUE surfaced by this harness" group (TASK-023's minimal deterministic repro — read it before writing code, your fix must make it pass without weakening the harness)
@@ -1760,9 +1760,38 @@ Territory matches expectation: successor reopening TASK-008's two globs (both po
 **Progress_Notes:**
 - [2026-08-21T12:30:00Z] [ORCH] Created and assigned GB, implementing §8.6 amendment `cfb34a4` (option A of finding (ll)'s three costed alternatives, project-owner instruction). Assigned to GB over S5 on the protocol §8 heuristic: GB authored both territories originally (TASK-006 protocol codec, TASK-022 floor engine/arbiter), 14/14 first-pass streak, and this fix requires deep familiarity with both — re-deriving that context on a fresh unit would cost more than the assignment-diversity benefit. Verified both `lib/core/protocol/**` and `lib/core/floor/**` are FROZEN with no live task currently holding either (both matches in a full-file grep are TASK-006's/TASK-022's own original, done blocks). Deliberately kept as ONE task spanning two territories rather than split, because the fix is one seam (codec field + the guard that reads it) and splitting would force a false dependency ordering. TASK-023 stays `blocked` — NOT re-dispatched yet; it resumes only once this merges, to confirm the soak goes green, per the finding's own recommended sequencing.
 - [2026-08-21T11:03:58Z] [GB] Claimed TASK-031. Resume check found no GB claimed/in_progress task. Depends_On TASK-006 and TASK-022 are both done. Branch `task/TASK-031-gb`.
+- [2026-08-21T11:05:30Z] [GB] Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-031 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 5 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/protocol/**  -> 5 file(s):
+           lib/core/protocol/README.md
+           lib/core/protocol/codec.dart
+           lib/core/protocol/messages.dart
+           lib/core/protocol/protocol.dart
+           lib/core/protocol/timing.dart
+  GLOB   lib/core/floor/**  -> 8 file(s):
+           lib/core/floor/README.md
+           lib/core/floor/arbiter.dart
+           lib/core/floor/clock.dart
+           lib/core/floor/effects.dart
+           lib/core/floor/emergency.dart
+           lib/core/floor/floor.dart
+           lib/core/floor/floor_engine.dart
+           lib/core/floor/transport.dart
+  GLOB   test/core/protocol/**  -> 2 file(s):
+           test/core/protocol/codec_test.dart
+           test/core/protocol/timing_test.dart
+  GLOB   test/core/floor/**  -> 2 file(s):
+           test/core/floor/arbiter_test.dart
+           test/core/floor/floor_engine_test.dart
+  FILE   dossiers/TASK-031.md  -> exists, 43 line(s), 2296 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches expectation: reopening TASK-006 + TASK-022 globs (both populated) plus the dossier. No NEW/empty globs. Implementing optional PRESENCE holder/lease_remaining_ms, live-view populate, elapsed-time join guard keyed to FloorTiming.presenceHeartbeat.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-21T11:03:58Z
+**Updated_At:** 2026-08-21T11:05:30Z
