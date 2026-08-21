@@ -1,6 +1,6 @@
 ---
-plan_version: 8.9
-last_updated: 2026-08-21T21:55:00Z
+plan_version: 9.0
+last_updated: 2026-08-21T22:30:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -14,7 +14,9 @@ CURRENT WAVE (2026-08-20T22:55Z, dispatch note appended 2026-08-20T23:47Z): S5 d
 
 **CX REACTIVATED (2026-08-21T20:05Z, project-owner instruction).** Its usage-limit reset (2026-08-21T16:27+02:00) had passed. Rebalanced from two serial lanes to three concurrent ones — TASK-034 and TASK-036 moved off their original owners onto a new CX lane, since neither has a hard dependency forcing it onto S5/GB specifically (034 only consumes `SfxEngine`'s already-built API against `RecordingAudioSink`; 036 is settings/back-panel work, a contained greenfield-ish extension). Current dependency lanes, verified pairwise-disjoint at every concurrent step: **S5 serial: 032 (mesh transport injection seam — hard blocker, `MeshController`'s transport is a non-injectable final field) → 035 (session/host-composition layer, the big one) → 037 (face integration — real transports, roster, nav, sound) → 038 (permissions + foreground service, same territory as 037, strictly serial)**. **GB serial: 033 (real AudioSink + THE pubspec unfreeze — single pubspec owner, also allocates permission_handler for 038) → 039 (relay/token-svc deployment validation + release APK + ops/TWO_PHONE_TEST.md runbook)**. **CX serial: 034 (SFX projection layer, §8.2) → 036 (relay/token URL settings + mode picker)**. TASK-035 depends on both TASK-032 (S5) and TASK-036 (CX) landing before it can start — the one cross-lane join point. Known deliberate exclusions from this wave (recorded so they read as decisions, not oversights): RX character-DSP wiring + remote-track feed (voice plays via the native WebRTC/LiveKit path; DSP is a quality pass later), SAY AGAIN/FR-065 (Pro, needs the remote-frame seam), Pro gating/billing, VOX, BT/wired PTT, scan, battery telemetry (status strip keeps its placeholder), first-run flow beyond minimal permission explainers, KRX-020 commissioned SFX assets (placeholders ship), §7.1 spec amendment for the missing GrantTone/end-of-TX-marker manifest entries (ORCH owes it; TASK-034 pins an interim mapping).
 
-**WAVE A PROGRESS (2026-08-21T21:55Z): TASK-032 and TASK-034 both APPROVED AND MERGED.** TASK-032 first-pass (S5), TASK-034 resolved on first resubmission after a real double-play defect caught by ORCH combining CX's two isolated test harnesses (mutation-verified both ways). TASK-033 (GB) still in progress, no code committed yet — package evaluation stage. CX moved to TASK-036 (own lane) immediately after TASK-034 merged. **S5 idle** — TASK-035 needs both TASK-032 (done) and TASK-036 (CX, in progress) before it can start; not redispatching S5 until TASK-036 lands. One process finding recorded in TASK-032's own Review_Findings, not blocking: a garbled uncommitted PLAN.md diff from concurrent builder writes, self-caught and correctly discarded by S5, no data lost.
+**WAVE A COMPLETE (2026-08-21T22:30Z): ALL FOUR OF TASK-032/033/034/036 APPROVED AND MERGED.** Three first-pass (032 S5, 033 GB, 036 CX); 034 (CX) resolved on first resubmission after ORCH caught a real double-play defect by combining CX's two isolated test harnesses. Every merge independently verified, three of the four with mutation testing (032 twice: delete-the-API and accept-but-ignore; 034: revert-the-fix; 036: remove-the-scheme-check) — in every case the relevant test failed exactly as designed, so these are real regression guards, not tests that merely pass. Merged tree after all four: analyze clean, **1021 passed / 0 failed / 40 skipped**. **The repo can now make a sound** (TASK-033's `DeviceAudioSink` over `flutter_soloud`, pubspec unfroze with exactly two deps) **and LINKED is now configurable** (TASK-036's relay/token URLs + the previously-dead LOCAL/AUTO/LINKED mode field, now live). One non-blocking discrepancy recorded in TASK-033's findings: GB's dossier cites a 211MB debug APK, ORCH's independent build of the same commit produced 152MB — build succeeded both ways, likely cache-state, but the byte count should not be treated as a fixed expectation by TASK-039.
+
+**WAVE B DISPATCHED (2026-08-21T22:30Z): S5 → TASK-035** (session/host-composition layer — the hardest task of the integration wave; both its dependencies, TASK-032 and TASK-036, are now done) **and GB → TASK-039** (relay/token-svc deployment validation + release APK + ops runbook). **CX is idle** — its lane (034→036) is complete and nothing remaining is eligible for it: TASK-037 hard-depends on TASK-035, and TASK-038 is same-territory-serial after 037. That is correct sequencing, not a stall. One process finding carried forward from TASK-032, not blocking: a garbled uncommitted PLAN.md diff from concurrent builder writes, self-caught and correctly discarded by S5, no data lost — `plan_commit.sh` hardening remains a candidate if 3-way concurrency stays routine.
 
 PROGRESS (2026-08-21T04:35Z): **26/30 done** (TASK-030 added this wave). Remaining: TASK-018 / TASK-025 / TASK-026 pending (all S5-assigned, all eligible, all territory-disjoint so two can run concurrently), TASK-023 blocked on the held (ll) §8.6 double-grant decision. Both builders idle, no worktree locks. Earlier snapshot follows: PROGRESS (2026-08-20T21:40Z): 25/29 done. GB 12/12 first-pass, idle since TASK-020. CX 4/7, paused mid-quota-block. S5 7/7 reviews, 6/6 first-pass on authored territory, idle since TASK-021. **TASK-017/020/021 all approved and merged — the demo trilogy is complete: the app boots to a real rendered face, discovers LAN peers, and can carry actual WebRTC voice between two devices with the real floor-control protocol running over a real data channel.** This is the first point in the project where a genuine two-device functional demo is possible, not just a single-device visual one. TASK-018/023/024/025/026 still TBD, not yet scoped — TASK-024 (LINKED/LiveKit integration) is the next major networking milestone after this one.
 
@@ -1944,7 +1946,7 @@ Round-4 residual: `_onGrant` ignored self-GRANT only when `live == null`; a join
 
 ### TASK-033
 **Title:** Real device `AudioSink` + controlled pubspec unfreeze (SFX playback + permission_handler allocation)
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §7.1 (asset set, −16/−12 LUFS), §7.2 (dual-bus mixer, ducking), §11 E3 (KRX-021); lib/core/audio/audio_sink.dart (the 6-method contract to implement; its dartdoc records the frozen-pubspec constraint this task lifts); PLAN.md TASK-010 review finding (8) ("nothing in the repo can actually make a sound"; the host-side sink "needs its own task with a pubspec change" — this is that task)
@@ -2009,9 +2011,20 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 - [2026-08-21T19:32:00Z] [GB] `flutter test test/core/audio` — 55/55 passed (44 prior untouched + 11 new)
 - [2026-08-21T19:33:00Z] [GB] `flutter test` — 1006 passed, 0 failed, 40 skipped (named FR-025 parked soak seeds; 995 prior + 11 new)
 - [2026-08-21T19:51:00Z] [GB] `flutter build apk --debug --target-platform android-arm64` — succeeded; `build/app/outputs/flutter-apk/app-debug.apk` 211504782 bytes on disk. Fat-APK (all ABIs) died when the Gradle daemon disappeared during SoLoud `armeabi-v7a` cmake; arm64 is the two-phone path.
+**Review_Findings:** **APPROVED AND MERGED (2026-08-21T22:30Z, ORCH) — first-pass. The single most consequential task of the wave: the repo can now actually make a sound.** Territory clean (10 files, all `Owned_Paths` incl. the ORCH-widened `pubspec.lock`), single commit `[TASK-033]`-tagged, preflight pasted verbatim, PLAN.md discipline clean.
+
+**INDEPENDENTLY VERIFIED — EVERY NUMERIC CLAIM REPRODUCED EXCEPT ONE.** Fresh scratch worktree at `0e9051b`: `flutter pub get` resolves cleanly; `flutter analyze` clean; `flutter test test/core/audio` **55/55** (exact match); full `flutter test` **1006 passed / 0 failed / 40 skipped** (exact match); `flutter build apk --debug --target-platform android-arm64` **succeeded** (~6m41s). **pubspec diff verified as EXACTLY two dependencies** (`flutter_soloud ^4.1.7`, `permission_handler ^12.0.3`) and nothing else, as the task mandated of its single pubspec owner. Merged-tree re-verification: analyze clean, full suite **1021 passed / 0 failed / 40 skipped**.
+
+**ONE REAL DISCREPANCY, NOT BLOCKING, RECORDED FOR HONESTY.** GB's Test_Evidence cites the debug APK at **211,504,782 bytes**; ORCH's independent build of the same commit produced **151,881,262 bytes** — a ~28% (~60MB) difference. The build SUCCEEDED in both cases, so the criterion is met either way, and the likeliest cause is differing Gradle/plugin cache state between environments rather than any misstatement. But the specific byte count in the dossier does not reproduce and should not be treated as a fixed expectation by TASK-039's release-build work. **Not charged as a defect** — GB's number is plausibly accurate for its own environment; flagged so a future reader doesn't chase a phantom regression.
+
+**PACKAGE CHOICE IS GENUINELY REASONED, NOT DEFAULTED.** GB evaluated all three candidates the task named and documented the rejections with specific technical grounds (soundpool: no loop-point control, no mix bus, stale 2023; just_audio: media-pipeline latency >50ms, N player instances, no mix bus) against the four stated requirements. `flutter_soloud` chosen for genuine reasons (1024-frame buffer ≈21ms at 48kHz, gapless loop points, per-voice volume, mix buses). The `permission_handler ^12.0.3` pin (not 13.0.1) is justified with a concrete, checkable incompatibility — ORCH cross-checked the repo's real AGP 8.11.1 / Gradle 8.14 / Kotlin 2.2.20 and confirms GB's cited versions are real and consistent.
+
+**TEST COVERAGE SPOT-CHECKED AT THE SEAM MOST LIKELY TO BE FAKED.** All 6 `AudioSink` contract methods carry real assertions, not bare calls. The bed-independence test — the one that could most easily have passed vacuously — uses **three DIFFERENT gain values (0.25 / 0.5 / 1.0) asserted independently per asset path**, so it could not pass with a single shared gain. That is the real proof the criterion asked for.
+
+**HONEST DISCLOSURE WORTH RECORDING AS THE PATTERN.** GB surfaced, unprompted, that `AudioBus.voice` gain **cannot** reach WebRTC from this class (SoLoud never sees the voice path) — storing it and exposing `onVoiceBusGain`/`voiceBusGainLinear` for TASK-037 to apply to the remote track, and documenting it as a disclosed decision rather than silently no-op'ing the duck or overreaching into another territory. It also correctly flagged the `pubspec.lock` Owned_Paths gap BEFORE hitting it (ORCH's drafting error, fixed mid-flight) instead of either editing out-of-territory or blocking unnecessarily. Both are exactly the disposition this project's review record rewards. **Criterion 3/4 disclosure rule honoured precisely**: GB stated plainly it delivered the unit-test + APK-build route (not a real-device run) and wrote the on-device smoke checklist into the README for whoever runs TASK-039's field test.
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-08-21T19:51:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-08-21T22:30:00Z
 
 ### TASK-034
 **Title:** SFX projection layer — RadioState/FloorEffect → SfxEngine, the §8.2-compliant sound driver
@@ -2090,7 +2103,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-036
 **Title:** Settings: relay/token URL config + LOCAL/AUTO/LINKED mode picker in the back panel
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-040 (three-position mode switch, default AUTO), D2 (self-hosted relay — the URL is deployment-specific and must be user-configurable), §8.4 (token service), FR-008 (region — already rendered); lib/core/settings/settings_model.dart (`mode` field exists, persisted, UNRENDERED — your starting point); lib/features/settings_panel/back_panel_screen.dart (row patterns to extend)
@@ -2149,9 +2162,20 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 - [2026-08-21T19:49:54Z] [CX] `flutter test --dart-define=KERYX_RELAY_URL=wss://build.example --dart-define=KERYX_TOKEN_URL=https://build.example/token test/core/settings/settings_repository_test.dart` — 25 passed.
 - [2026-08-21T19:49:54Z] [CX] `flutter analyze` — no issues found.
 - [2026-08-21T19:49:54Z] [CX] `flutter test` — 1006 passed, 40 skipped, 0 failed.
+**Review_Findings:** **APPROVED AND MERGED (2026-08-21T22:30Z, ORCH) — first-pass, and CX's cleanest submission of the wave.** Territory clean (8 files, all `Owned_Paths`), single commit `[TASK-036]`-tagged, preflight pasted verbatim, PLAN.md discipline clean. **UNBLOCKS TASK-035** — S5's session layer now has both its dependencies (TASK-032 done, TASK-036 done).
+
+**INDEPENDENTLY VERIFIED, INCLUDING A MUTATION.** Scratch worktree at `932ca6d`: scoped `test/core/settings` + `test/features/settings_panel` **43/43 passed**; `flutter analyze` clean; full suite **1006 / 0 failed / 40 skipped** (exact match to CX's claim). **Mutation-proved the endpoint validation genuinely guards** — removed the scheme check from `_asEndpoint` and the negative test failed exactly as designed (`Expected: '' / Actual: 'wss://wrong-scheme.example/token'`), confirming the wrong-scheme rejection is a real assertion rather than incidental. Merged-tree re-verification: analyze clean, full suite **1021 passed / 0 failed / 40 skipped**.
+
+**THE CADDYFILE CITATION IS ACCURATE — CHECKED AT SOURCE, NOT ACCEPTED.** Criterion 5 required the token-URL derivation to match what `relay/Caddyfile` actually routes. CX's dartdoc cites the `@token path /token /token/*` matcher; ORCH grepped the Caddyfile and confirms that matcher exists verbatim at line 34, with the reserved-route handler at 35-37. The derivation (`wss://host` → `https://host/token`, query stripped) matches that route exactly. This is the criterion most likely to have been satisfied by invention rather than reading, and it was not.
+
+**SECURITY-POSITIVE DESIGN DECISION, MADE UNPROMPTED.** The task asked for "empty-or-parseable `wss://`/`https://`" validation. CX went further and enforced **per-field scheme allow-lists** — `relayUrl` accepts only `wss`, `tokenServiceUrl` only `https` — so a plaintext `ws://`/`http://` endpoint cannot be persisted at all, on either field, even by hand-editing the stored JSON. That is stricter than asked and correct for a privacy-first product (P6): it closes a downgrade vector rather than merely validating shape. Invalid values clamp to the build default rather than throwing, honouring the existing total-parse convention exactly.
+
+**FR-040 SCOPE CALL HANDLED CORRECTLY.** FR-040 specifies the mode switch "styled as a physical slider" — a face-territory visual concern. CX built the functional three-position control with the existing `PanelPickerRow` and **explicitly pinned the styling deferral as a disclosed decision** in its Progress_Note rather than either silently shipping a non-slider and hoping, or overreaching into face territory it doesn't own. This is the "declines what is not mine to decide" discipline previously noted on TASK-027, holding again. The previously-dead `mode` field (persisted since TASK-030, rendered by nothing) is now live and widget-tested under the project's stable-key convention (`settings-mode`).
+
+**CX's HISTORICAL TEST-COMPLETENESS GAP DID NOT RECUR.** The standing instruction — *for every guard you add, add the test that fails when you delete it* — was honoured without being restated at dispatch: both new authored guards (scheme allow-list, blank/whitespace fallback) carry negative tests, and the mutation above proves they bite. Also covered: `--dart-define` precedence (persisted non-empty wins over the compile-time default), old-blob migration, and a TalkBack semantics assertion on every interactive control.
 **Blocked_Reason:** —
-**Updated_By:** CX
-**Updated_At:** 2026-08-21T19:49:54Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-08-21T22:30:00Z
 
 ### TASK-037
 **Title:** Face integration — real transports, live roster, settings/QR navigation, sound projection instantiation
