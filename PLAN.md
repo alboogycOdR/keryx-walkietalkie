@@ -1333,7 +1333,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-026
 **Title:** Foreground service + radio notification (KRX-080)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-102, FR-103, §8.8, §9 NFR-06, §11 E9 (KRX-080)
@@ -1341,12 +1341,12 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 **Depends_On:** TASK-019
 **Description:** Android foreground service (`mediaPlayback` + `microphone` types) with the persistent radio-styled notification (channel shown, PTT action on Android 14+ where permitted, power-off action), partial wake lock held during RX/TX only, audio-focus handling (transient-may-duck for RX, abandon on power-off), and service-death detection hook (feeds FR-105 OEM guidance later). Shares the android/** chain after TASK-019 — never concurrent with it.
 **Acceptance_Criteria:**
-- [ ] "Foreground service with a persistent radio-styled notification (channel, PTT action button on Android 14+ where permitted, power-off action)" per FR-103
-- [ ] Service types are `mediaPlayback` + `microphone`, "partial wake lock during RX/TX only" per TS §8.8
-- [ ] Audio focus "transient-may-duck for RX; abandon on power-off" per TS §8.8
-- [ ] Standby design honours FR-102 ("with nobody transmitting, no media flows (PTT model) — only presence keepalives") — no polling loops added by the service
-- [ ] OEM-kill detection heuristic ("service death without user power-off") emits an event per TS §8.8
-- [ ] Dart facade tests green; manual on-device checklist documented in dossier work log
+- [x] "Foreground service with a persistent radio-styled notification (channel, PTT action button on Android 14+ where permitted, power-off action)" per FR-103
+- [x] Service types are `mediaPlayback` + `microphone`, "partial wake lock during RX/TX only" per TS §8.8
+- [x] Audio focus "transient-may-duck for RX; abandon on power-off" per TS §8.8
+- [x] Standby design honours FR-102 ("with nobody transmitting, no media flows (PTT model) — only presence keepalives") — no polling loops added by the service
+- [x] OEM-kill detection heuristic ("service death without user power-off") emits an event per TS §8.8
+- [x] Dart facade tests green; manual on-device checklist documented in dossier work log
 **Branch:** task/TASK-026-gb
 **Started_At:** 2026-08-21T04:50:00Z
 **Progress_Notes:**
@@ -1376,12 +1376,40 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Territory matches expectation: android/** is the TASK-019 predecessor (do not touch NsdPlugin.kt), Dart/test platform globs are NEW, dossier exists. Implementing FGS + notification + wake-lock/audio-focus + kill heuristic + Dart facade.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-21T05:20:00Z] [GB] Implementation complete on `task/TASK-026-gb` at `636b560`. `RadioForegroundService` is `mediaPlayback|microphone` with a silent ongoing radio notification (channel title, Power off always, PTT only on API 34+), `PARTIAL_WAKE_LOCK` on rx/tx only, `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` on rx (kept through tx if already held; abandoned on idle and power-off), OEM-kill dirty flag emitting `serviceKilled`. Dart facade is `ChannelRadioServiceController`. `NsdPlugin.kt` untouched. FaceScreen wiring out of territory. Debug APK compiled (`flutter build apk --debug`).
+**Artifacts:**
+- android/app/src/main/AndroidManifest.xml
+- android/app/src/main/kotlin/za/co/basileia/keryx/MainActivity.kt
+- android/app/src/main/kotlin/za/co/basileia/keryx/RadioForegroundService.kt
+- android/app/src/main/kotlin/za/co/basileia/keryx/RadioServiceBridge.kt
+- android/app/src/main/kotlin/za/co/basileia/keryx/RadioServiceContract.kt
+- android/app/src/main/kotlin/za/co/basileia/keryx/RadioServicePlugin.kt
+- android/app/src/main/kotlin/za/co/basileia/keryx/RadioServiceStore.kt
+- android/app/src/main/res/drawable/ic_stat_radio.xml
+- android/app/src/main/res/drawable/ic_stat_ptt.xml
+- android/app/src/main/res/drawable/ic_stat_power.xml
+- android/app/src/main/res/values/strings.xml
+- android/app/src/main/res/values/colors.xml
+- lib/services/platform/platform.dart
+- lib/services/platform/radio_service_constants.dart
+- lib/services/platform/radio_service_controller.dart
+- lib/services/platform/radio_service_events.dart
+- lib/services/platform/radio_service_platform.dart
+- lib/services/platform/radio_transport_phase.dart
+- lib/services/platform/README.md
+- test/services/platform/radio_service_controller_test.dart
+- test/services/platform/radio_service_native_contract_test.dart
+- dossiers/TASK-026.md
+**Test_Evidence:**
+- [2026-08-21T05:20:00Z] [GB] `flutter test test/services/platform/` — 22/22 passed, exit 0.
+- [2026-08-21T05:20:00Z] [GB] `flutter analyze` — No issues found! (ran in 6.6s), exit 0.
+- [2026-08-21T05:20:00Z] [GB] `flutter test` — **449/449 passed, 0 failed, 0 skipped, exit 0** (`00:36 +449: All tests passed!`). Prior merged suite was 427; this task adds 22.
+- [2026-08-21T05:20:00Z] [GB] Mutation: `PARTIAL_WAKE_LOCK` → `SCREEN_BRIGHT_WAKE_LOCK` turned native-contract **6 passed / 1 FAILED**; restored, 7/7 green.
+- [2026-08-21T05:20:00Z] [GB] `flutter build apk --debug` — `✓ Built build\app\outputs\flutter-apk\app-debug.apk` (Kotlin compiles; first attempt failed on Intent.apply reassigning a `val flags`, fixed before this handoff).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-21T04:52:00Z
+**Updated_At:** 2026-08-21T05:20:00Z
 
 ### TASK-027
 **Title:** RadioState projection fields + floor→reducer bridge (state successor, follow-up (m))
