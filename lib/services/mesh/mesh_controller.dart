@@ -21,14 +21,31 @@ import 'rtc_adapter.dart';
 /// Glare-free offer/answer split mirrors [SignalingService]'s own
 /// "lower peerId dials" rule: the lower peerId sends the WebRTC offer.
 class MeshController {
+  /// [floorTransport], if supplied, MUST be the same [MeshFloorTransport]
+  /// instance the given [floorEngine] was constructed with — this is what
+  /// makes the LOCAL voice path composable from host code (TASK-032):
+  /// `FloorEngine` requires a `FloorTransport` at construction, so the
+  /// engine handed here can only ever be wired to the same transport if the
+  /// caller builds and injects it. Omitting [floorTransport] preserves the
+  /// pre-TASK-032 behaviour byte-for-byte (a private, self-constructed
+  /// transport that no external `FloorEngine` can share).
+  ///
+  /// Ownership: an injected [floorTransport] is **caller-owned** — the
+  /// caller constructed it (to also hand to `FloorEngine`), so the caller
+  /// disposes it; [dispose] will not double-dispose or otherwise touch it.
+  /// A self-constructed (omitted) transport remains **controller-owned**,
+  /// exactly as before.
   MeshController({
     required this.localPeerId,
     required RtcAdapter adapter,
     required SignalingService signaling,
     required FloorEngine floorEngine,
+    MeshFloorTransport? floorTransport,
   }) : _adapter = adapter,
        _signaling = signaling,
-       _floorEngine = floorEngine {
+       _floorEngine = floorEngine,
+       floorTransport = floorTransport ?? MeshFloorTransport(),
+       _ownsFloorTransport = floorTransport == null {
     _joinedSub = signaling.sessionsJoined.listen(_onPeerJoined);
     _departedSub = signaling.sessionsDeparted.listen(_onPeerDeparted);
     _signalSub = signaling.incomingSignals.listen(_onSignal);
@@ -41,7 +58,12 @@ class MeshController {
   final RtcAdapter _adapter;
   final SignalingService _signaling;
   final FloorEngine _floorEngine;
-  final MeshFloorTransport floorTransport = MeshFloorTransport();
+  final MeshFloorTransport floorTransport;
+
+  /// Whether this controller constructed [floorTransport] itself (and must
+  /// therefore dispose it) versus received it from the caller (who owns its
+  /// lifecycle — see the constructor dartdoc).
+  final bool _ownsFloorTransport;
 
   final Map<String, MeshConnection> _connections = <String, MeshConnection>{};
   RtcLocalAudioTrack? _localTrack;
@@ -226,7 +248,9 @@ class MeshController {
       await conn.close();
     }
     _connections.clear();
-    await floorTransport.dispose();
+    if (_ownsFloorTransport) {
+      await floorTransport.dispose();
+    }
     await _localTrack?.dispose();
     _localTrack = null;
   }
