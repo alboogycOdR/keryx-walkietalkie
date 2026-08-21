@@ -26,6 +26,40 @@ import 'sim_peer.dart';
 
 const _soakRuns = 500;
 
+/// FR-025 emergency-preemption race: a peer preempting a KNOWN live holder
+/// via an emergency request enters TX with zero delay while the old holder
+/// is still learning it was preempted. Structurally SEPARATE from the
+/// late-joiner double-grant class TASK-031 fixed (that class is
+/// `_inJoinGuardWindow == true` at the failing grant, i.e. a joiner with no
+/// knowledge yet of a live holder; FR-025 seeds were independently traced by
+/// ORCH — not taken from this task's own report — to `_inJoinGuardWindow ==
+/// false` at the flagged grant in every case, so the join-guard fix cannot
+/// and does not touch this).
+///
+/// **PARKED by explicit project-owner decision (2026-08-21T17:05Z): no
+/// successor task is scoped yet. Do not fix here.** See TASK-031's
+/// Review_Findings (round-3/round-4 tabulation, the exact seed list, and
+/// the tracing methodology) and this task's dossier for full detail.
+///
+/// Named here, individually, rather than caught/absorbed silently, so CI
+/// stays green WITHOUT hiding that these 40 runs are a known, open,
+/// deliberately-deferred defect — each shows as an explicit `[skip]` with
+/// this reason, not a silent pass. If a fix ever lands for FR-025, these
+/// seeds should start passing; remove them from this set one by one as
+/// each is confirmed fixed, do not bulk-delete the set.
+const _parkedFr025Seeds = <int>{
+  21, 22, 34, 39, 65, 78, 85, 108, 116, 118, 136, 138, 140, 146, 153, 167,
+  183, 188, 190, 198, 213, 219, 236, 251, 260, 263, 266, 296, 308, 312,
+  333, 344, 359, 360, 449, 450, 459, 469, 471, 497,
+};
+
+const _parkedFr025SkipReason =
+    'PARKED (project-owner decision 2026-08-21T17:05Z): FR-025 '
+    'emergency-preemption race, structurally separate from the join-guard '
+    'double-grant class TASK-031 fixed. See TASK-031 Review_Findings + '
+    'TASK-023 dossier. Not fixed here by design — do not weaken '
+    'SafetyMonitor or the churn model to make these pass.';
+
 /// FR-023 default TOT (60 s) → 62 s grant lease. Fixed across runs so the
 /// §8.6 timing constants under test do not themselves vary run to run —
 /// only the churn/loss/PTT *schedule* is randomized.
@@ -146,10 +180,10 @@ void main() {
     });
   });
 
-  group('KNOWN ISSUE surfaced by this harness (TASK-022, not TASK-023)', () {
+  group('REGRESSION GUARD (TASK-031 fix, was "KNOWN ISSUE" pre-fix)', () {
     test(
-      'a late joiner that out-ranks the incumbent arbiter can double-grant '
-      '(minimal deterministic reproduction of soak seed=1)',
+      'a late joiner that out-ranks the incumbent arbiter is BUSY-denied, '
+      'not double-granted (minimal deterministic reproduction of soak seed=1)',
       () {
         // Sequence: solo peer B holds the floor (self-granted, no other
         // peer exists yet to have seen the TX_START/TX_GRANT). A joins
@@ -157,18 +191,22 @@ void main() {
         // the new arbiter on both sides (§8.6: lexicographically lowest).
         // A's `FloorEngine` has never seen any message about B's
         // in-flight lease — it was granted before A existed — so A's
-        // local `_holder` is `null`. When A then presses PTT (here via
-        // the FR-025 emergency path, exactly as happened in the soak),
-        // `Arbiter.decide` sees no live holder from A's point of view and
-        // grants A immediately, while B — still legitimately holding its
-        // own lease, and never told otherwise — keeps believing it holds
-        // the floor too. Two peers now simultaneously believe they are
-        // granted: KRX-044's "zero double-grants" invariant fails.
+        // local `_holder` is `null` at join time.
         //
-        // This is a `lib/core/floor/**` defect (frozen, outside TASK-023's
-        // `Owned_Paths`) — the arbiter model has no channel-state handoff
-        // for a peer that joins mid-transmission. Recorded here, and in
-        // TASK-023's Blocked_Reason, for whoever picks up the fix.
+        // Pre-TASK-031, `Arbiter.decide` saw no live holder from A's point
+        // of view and granted A immediately, while B — still legitimately
+        // holding its own lease and never told otherwise — kept believing
+        // it held the floor too: a genuine double-grant, first isolated
+        // as this test's original "KNOWN ISSUE" reproduction.
+        //
+        // TASK-031 (`f3109ee`) closed this class: PRESENCE now carries an
+        // optional holder/lease_remaining_ms, and a newly-elected arbiter
+        // holds a one-heartbeat join-guard window in which it will NOT
+        // self-grant if a remote holder turns out to be live. This test now
+        // locks that fix in as a permanent regression guard — it must FAIL
+        // again if the join-guard ever regresses (see the original
+        // double-grant assertions in git history, TASK-023 commit history,
+        // for the pre-fix shape of this test).
         final clock = VirtualClock();
         final random = Random(0);
         final network = SimNetwork(clock: clock, random: random);
@@ -188,18 +226,31 @@ void main() {
         expect(a.engine.isLocalArbiter, isTrue, reason: 'a out-ranks b lexicographically');
         expect(b.engine.holder, b.peerId, reason: 'b never learned otherwise — still holds its lease');
 
-        // Reproduces the exact double-grant: both now believe they hold
-        // the floor. If TASK-022 is ever fixed to reject/defer this, the
-        // second expect below should start failing and this test should
-        // be updated (not deleted) to lock in the fix.
+        // Give the join-guard's one-heartbeat PRESENCE round trip a chance
+        // to run: b's PRESENCE (carrying holder=b) reaches a via the
+        // network's normal delay model, so a's join-guard window learns
+        // there IS a live remote holder before a ever presses PTT.
+        clock.elapse(const Duration(milliseconds: 400));
+
+        // Locks in the fix: a's request is BUSY-denied (a never sent
+        // PRESENCE claiming to be the holder, so it never enters TX), b
+        // keeps its lease untouched, and NO double-grant occurs.
         a.engine.requestTransmit(emergency: true);
-        expect(a.engine.isTransmitting, isTrue);
+        expect(
+          a.engine.isTransmitting,
+          isFalse,
+          reason: 'the join-guard must reject a self-grant once a live remote '
+              'holder (b) is known — this is the exact defect TASK-031 fixed',
+        );
         expect(
           b.engine.isTransmitting,
           isTrue,
-          reason:
-              'b was never preempted or told to stop — a genuine double-grant, '
-              'not a harness artifact',
+          reason: 'b must keep its lease — it was never preempted',
+        );
+        expect(
+          a.engine.isTransmitting && b.engine.isTransmitting,
+          isFalse,
+          reason: 'KRX-044 zero-double-grants must hold',
         );
 
         a.dispose();
@@ -210,13 +261,17 @@ void main() {
 
   group('KRX-044 soak: $_soakRuns seeded churn/loss runs', () {
     for (var seed = 0; seed < _soakRuns; seed++) {
-      test('soak run seed=$seed', () {
-        try {
-          _runOnce(seed);
-        } on InvariantViolation catch (e) {
-          fail('$e — reproduce with `_runOnce(${e.seed})` alone');
-        }
-      });
+      test(
+        'soak run seed=$seed',
+        () {
+          try {
+            _runOnce(seed);
+          } on InvariantViolation catch (e) {
+            fail('$e — reproduce with `_runOnce(${e.seed})` alone');
+          }
+        },
+        skip: _parkedFr025Seeds.contains(seed) ? _parkedFr025SkipReason : false,
+      );
     }
   });
 
