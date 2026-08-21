@@ -1936,7 +1936,7 @@ Round-4 residual: `_onGrant` ignored self-GRANT only when `live == null`; a join
 
 ### TASK-033
 **Title:** Real device `AudioSink` + controlled pubspec unfreeze (SFX playback + permission_handler allocation)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §7.1 (asset set, −16/−12 LUFS), §7.2 (dual-bus mixer, ducking), §11 E3 (KRX-021); lib/core/audio/audio_sink.dart (the 6-method contract to implement; its dartdoc records the frozen-pubspec constraint this task lifts); PLAN.md TASK-010 review finding (8) ("nothing in the repo can actually make a sound"; the host-side sink "needs its own task with a pubspec change" — this is that task)
@@ -1949,15 +1949,45 @@ Round-4 residual: `_onGrant` ignored self-GRANT only when `live == null`; a join
 - [ ] All 22 manifest WAVs load through the real sink (an integration-style test may use the package's headless/null-device mode if it has one; otherwise a `flutter build apk --debug` proving the asset+plugin chain compiles, plus a documented on-device smoke checklist in the dossier — state plainly which of the two you delivered)
 - [ ] Loop beds: three simultaneous loops with independently settable gain, proven by test or by the documented smoke checklist (same disclosure rule)
 - [ ] `RecordingAudioSink` and every existing audio test stay untouched and green; full `flutter test` green, `flutter analyze` clean, `flutter build apk --debug` succeeds
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-033-gb
+**Started_At:** 2026-08-21T19:22:00Z
 **Progress_Notes:**
 - [2026-08-21T19:30:00Z] [ORCH] Created from the 2026-08-21 integration recon. Assigned GB (authored the audio engine, TASK-010/011). This is the wave's pubspec single-owner — no other task may touch pubspec.yaml.
+- [2026-08-21T19:22:00Z] [GB] Claimed TASK-033. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-033 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 4 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/audio/**  -> 17 file(s):
+           lib/core/audio/README.md
+           lib/core/audio/audio.dart
+           lib/core/audio/audio_bus.dart
+           lib/core/audio/audio_mix.dart
+           lib/core/audio/audio_sink.dart
+           lib/core/audio/bed_mixer.dart
+           lib/core/audio/character_chain.dart
+           lib/core/audio/dsp/biquad.dart
+           lib/core/audio/dsp/compressor.dart
+           lib/core/audio/dsp/hiss_floor.dart
+           lib/core/audio/ducking.dart
+           lib/core/audio/roger.dart
+           ... and 5 more
+  GLOB   test/core/audio/**  -> 6 file(s):
+           test/core/audio/bed_mixer_test.dart
+           test/core/audio/character_dsp_test.dart
+           test/core/audio/manifest_and_assets_test.dart
+           test/core/audio/sfx_engine_test.dart
+           test/core/audio/squelch_test.dart
+           test/core/audio/wav_lufs.dart
+  FILE   pubspec.yaml  -> exists, 114 line(s), 4561 bytes
+  NEW    dossiers/TASK-033.md  -> does not exist; parent dossiers/ exists
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Existing audio engine + 6 tests present; dossier is new. Next: package evaluation (flutter_soloud / soundpool / just_audio) then production AudioSink. Flag: Owned_Paths lists pubspec.yaml but not pubspec.lock — flutter pub get will rewrite the committed lockfile; will escalate OWNERSHIP_CONFLICT if ORCH does not widen before the dep commit.
 **Artifacts:** —
 **Test_Evidence:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-21T19:30:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-21T19:22:00Z
 
 ### TASK-034
 **Title:** SFX projection layer — RadioState/FloorEffect → SfxEngine, the §8.2-compliant sound driver
