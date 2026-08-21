@@ -932,7 +932,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 
 ### TASK-018
 **Title:** Settings-as-back-panel screen (KRX-016)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-100, FR-061, FR-046, FR-023, §11 E2 (KRX-016); specs/KERYX_UI_Design_Specification_v1.0.md §3 (Interface role), §7 (copy voice)
@@ -946,16 +946,17 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 - [ ] Copy follows DS §7 voice ("Labels are nouns or verbs a radio user knows"; the word survives the whole flow — key `MONITOR`, telltale `MON`, setting *Monitor*)
 - [ ] Panel body uses Inter 15/1.5 per DS §3
 - [ ] Widget tests green; all settings round-trip through the repository
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-018-s5
+**Started_At:** 2026-08-21T04:20:56Z
 **Progress_Notes:**
+- [2026-08-21T04:20:56Z] [S5] Claimed. Resume check found no in_progress/claimed S5 task; TASK-018 is the highest-priority (high) pending S5 task with all deps done (TASK-005/008/030). TASK-023 stays `blocked` per ORCH's HOLD decision — not resumable. TASK-025 (medium) deferred behind this one. Read dossier, `lib/core/settings/**` (model/repository/README) and `lib/core/theme/theme.dart`, surveyed `lib/features/tuning/stepper_button.dart` for widget/theming conventions and `lib/features/ptt/key_row.dart` for the existing `onSettings` callback (wired in `face_screen.dart` as a no-op pending this task — host wiring into `face_screen.dart` is outside Owned_Paths and stays out of scope, same convention as TASK-024/017). c8b9872 preflight: `python scripts/preflight_paths.py TASK-018` → 3 entries: GLOB lib/features/settings_panel/** -> matches nothing yet (new territory); GLOB test/features/settings_panel/** -> matches nothing yet (new territory); FILE dossiers/TASK-018.md -> exists, 19 lines, 1944 bytes. Plan: `back_panel_screen.dart` (ConsumerWidget on `settingsProvider`) + small reusable control widgets (toggle/stepper/slider/enum-picker rows) styled with `KeryxTheme` housing/panel tokens, copy per DS §7. dimMode carried per the Description even though finding (mm) flags FR-108 as an unratified proposal — will disclose as a pinned implementation decision, not silently drop it.
 - [2026-08-21T04:20:00Z] [ORCH] **HOLD LIFTED — TASK-030 merged as a08c6a5; all three blockers closed.** dimMode + mode keys now exist and round-trip; settingsProvider is an AsyncNotifier that re-emits after save/rememberChannel (so criterion 6 can no longer pass while the panel renders stale values); squelch unit contract implemented as squelchNormalized = level/10.0 per the ORCH ruling. Depends_On now TASK-005, TASK-008, TASK-030 — all done, so this task is FULLY ELIGIBLE. **Carry into implementation: finding (mm) — FR-108 (dim mode) is NOT a ratified requirement** (absent from the PTS; the UI spec carries it under "Fold into KERYX v1.2"), so the dim-mode control this Description requires is being built against a proposal. ORCH must ratify FR-108 or record dimMode as a pinned implementation decision before this task is reviewed against it. Superseded hold note follows for history: [2026-08-21T01:00:00Z] [ORCH] **HELD — do not claim yet.** TASK-018 cannot satisfy its own Description from its own territory. TASK-008 Review_Findings (1)(2)(5)(6)(7) apply and `lib/core/settings/**` is FROZEN and outside this task Owned_Paths, so none are fixable from `lib/features/settings_panel/**`: (6) the "dim mode" control this Description explicitly requires has NO persisted key in `KeryxSettings` and this task cannot add one (same for `mode`, so AUTO/LOCAL/LINKED does not survive restart); (7) `settingsProvider` is a one-shot `FutureProvider` that never invalidates on write, so criterion 6 would pass at the repository level while the panel renders STALE values; (5) squelch has no unit contract — settings store `int 0-10`, merged `BedMixer.gainsFor(double)` throws outside `0.0-1.0`, nothing converts. Also (1) `load()` throws uncaught `_TypeError`/`_AssertionError` on corrupt storage and (2) release builds silently accept out-of-range values. **Needs a `lib/core/settings/**` successor task (the 010->011 pattern) added to Depends_On before dispatch.** Wave of 2026-08-21 dispatched TASK-023 instead.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-21T01:00:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-08-21T04:20:56Z
 
 ### TASK-019
 **Title:** NSD discovery platform channel + MulticastLock lifecycle (KRX-030)
