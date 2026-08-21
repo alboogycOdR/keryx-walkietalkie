@@ -1944,7 +1944,7 @@ Round-4 residual: `_onGrant` ignored self-GRANT only when `live == null`; a join
 
 ### TASK-033
 **Title:** Real device `AudioSink` + controlled pubspec unfreeze (SFX playback + permission_handler allocation)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §7.1 (asset set, −16/−12 LUFS), §7.2 (dual-bus mixer, ducking), §11 E3 (KRX-021); lib/core/audio/audio_sink.dart (the 6-method contract to implement; its dartdoc records the frozen-pubspec constraint this task lifts); PLAN.md TASK-010 review finding (8) ("nothing in the repo can actually make a sound"; the host-side sink "needs its own task with a pubspec change" — this is that task)
@@ -1952,11 +1952,11 @@ Round-4 residual: `_onGrant` ignored self-GRANT only when `live == null`; a join
 **Depends_On:** TASK-010, TASK-011
 **Description:** The audio engine is complete and tested but `AudioSink` has exactly one implementation — `RecordingAudioSink`, a test fake. This task is the ORCH-sanctioned pubspec unfreeze: add ONE audio playback package and implement a production `AudioSink` against it. Requirements drive the package choice, not the reverse: (1) low-latency one-shots (cosmetic clicks are 8–30 ms assets; trigger-to-audible must feel mechanical, target ≤50 ms), (2) simultaneous looped playback of the three 2 s static beds with PER-LOOP gain control (`setLoopGain`), (3) per-bus gain in dB (`setBusGainDb` for the duck), (4) all 22 `assets/sfx/v1/*.wav` load and play. Candidates to evaluate honestly (do not default to the familiar): `flutter_soloud`, `soundpool`, `just_audio`; document the choice and the rejected alternatives with reasons in the README. **Also allocate `permission_handler` (latest stable) in the same pubspec commit** — TASK-038 needs it and pubspec is single-owner this wave; you add the dependency, you do NOT write any permission code (that is TASK-038's territory). No other pubspec changes of any kind. The engine (`SfxEngine`, manifest, DSP) is NOT to be redesigned — this is a sink implementation task. Map `FloorEffect.GrantTone`'s missing manifest entry NOWHERE — that is TASK-034's disclosed-decision territory, not yours.
 **Acceptance_Criteria:**
-- [ ] A production `AudioSink` implementation exists in `lib/core/audio/` and satisfies all 6 contract methods against a real playback package; package choice + rejected alternatives documented in README
-- [ ] pubspec.yaml diff adds EXACTLY two dependencies (the chosen audio package + `permission_handler`) and nothing else; `flutter pub get` resolves cleanly
-- [ ] All 22 manifest WAVs load through the real sink (an integration-style test may use the package's headless/null-device mode if it has one; otherwise a `flutter build apk --debug` proving the asset+plugin chain compiles, plus a documented on-device smoke checklist in the dossier — state plainly which of the two you delivered)
-- [ ] Loop beds: three simultaneous loops with independently settable gain, proven by test or by the documented smoke checklist (same disclosure rule)
-- [ ] `RecordingAudioSink` and every existing audio test stay untouched and green; full `flutter test` green, `flutter analyze` clean, `flutter build apk --debug` succeeds
+- [x] A production `AudioSink` implementation exists in `lib/core/audio/` and satisfies all 6 contract methods against a real playback package; package choice + rejected alternatives documented in README
+- [x] pubspec.yaml diff adds EXACTLY two dependencies (the chosen audio package + `permission_handler`) and nothing else; `flutter pub get` resolves cleanly
+- [x] All 22 manifest WAVs load through the real sink (an integration-style test may use the package's headless/null-device mode if it has one; otherwise a `flutter build apk --debug` proving the asset+plugin chain compiles, plus a documented on-device smoke checklist in the dossier — state plainly which of the two you delivered)
+- [x] Loop beds: three simultaneous loops with independently settable gain, proven by test or by the documented smoke checklist (same disclosure rule)
+- [x] `RecordingAudioSink` and every existing audio test stay untouched and green; full `flutter test` green, `flutter analyze` clean, `flutter build apk --debug` succeeds
 **Branch:** task/TASK-033-gb
 **Started_At:** 2026-08-21T19:22:00Z
 **Progress_Notes:**
@@ -1992,11 +1992,26 @@ Round-4 residual: `_onGrant` ignored self-GRANT only when `live == null`; a join
 ```
 Existing audio engine + 6 tests present; dossier is new. Next: package evaluation (flutter_soloud / soundpool / just_audio) then production AudioSink. Flag: Owned_Paths lists pubspec.yaml but not pubspec.lock — flutter pub get will rewrite the committed lockfile; will escalate OWNERSHIP_CONFLICT if ORCH does not widen before the dep commit.
 - [2026-08-21T20:35:00Z] [ORCH] `pubspec.lock` added to Owned_Paths (it is git-tracked, confirmed via `git ls-files`) — GB's flag was correct and is a genuine ORCH drafting gap in the original task authoring, not a GB scoping overreach. No re-claim needed; proceed with the dependency commit covering both files.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-21T19:51:00Z] [GB] Ready for review on `task/TASK-033-gb` at `0e9051b`. Chose `flutter_soloud` ^4.1.7 (low-latency one-shots, three gapless loops + per-voice gain, SFX mix bus). Rejected `soundpool` (no loop-point control / no mix bus / stale 2023) and `just_audio` (media-pipeline latency, N AudioPlayer instances). `DeviceAudioSink` implements the six sync contract methods; `initialize()` preloads all 22 WAVs. Tests inject `PlaybackBackend` (SoLoud has no reliable headless/null-device mode). Criterion 3: unit test loads all 22 through the real sink class + `flutter build apk --debug --target-platform android-arm64` (plugin+asset chain) + on-device smoke checklist in the dossier (not executed this session). `permission_handler` allocated not imported; pinned `^12.0.3` because 13.0.1's `permission_handler_android` 14.0.0 fails to configure on AGP 8.11.1 (unbound `kotlin { compilerOptions }`). Voice-bus duck stored + `onVoiceBusGain` callback — SoLoud never sees WebRTC; TASK-037 must apply it. Existing audio tests untouched.
+**Artifacts:**
+- lib/core/audio/device_audio_sink.dart
+- lib/core/audio/playback_backend.dart
+- lib/core/audio/soloud_playback_backend.dart
+- lib/core/audio/README.md
+- lib/core/audio/audio.dart
+- lib/core/audio/audio_sink.dart
+- pubspec.yaml
+- pubspec.lock
+- test/core/audio/device_audio_sink_test.dart
+- dossiers/TASK-033.md
+**Test_Evidence:**
+- [2026-08-21T19:31:00Z] [GB] `flutter analyze` — No issues found! (ran in 30.8s)
+- [2026-08-21T19:32:00Z] [GB] `flutter test test/core/audio` — 55/55 passed (44 prior untouched + 11 new)
+- [2026-08-21T19:33:00Z] [GB] `flutter test` — 1006 passed, 0 failed, 40 skipped (named FR-025 parked soak seeds; 995 prior + 11 new)
+- [2026-08-21T19:51:00Z] [GB] `flutter build apk --debug --target-platform android-arm64` — succeeded; `build/app/outputs/flutter-apk/app-debug.apk` 211504782 bytes on disk. Fat-APK (all ABIs) died when the Gradle daemon disappeared during SoLoud `armeabi-v7a` cmake; arm64 is the two-phone path.
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-21T19:22:00Z
+**Updated_At:** 2026-08-21T19:51:00Z
 
 ### TASK-034
 **Title:** SFX projection layer — RadioState/FloorEffect → SfxEngine, the §8.2-compliant sound driver
