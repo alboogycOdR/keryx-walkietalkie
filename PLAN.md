@@ -1739,7 +1739,7 @@ Territory matches expectation: successor reopening TASK-008's two globs (both po
 
 ### TASK-031
 **Title:** Floor-control late-joiner double-grant fix (PRESENCE holder/lease fields + join guard) — closes finding (ll)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.6 (the "Late-joiner floor-state blind spot" ratification, 2026-08-21) and §8.6's `PRESENCE` row; PLAN.md TASK-023 finding (ll) (the deterministic repro and the three costed options — this task builds option A only); lib/core/protocol/timing.dart `FloorTiming.presenceHeartbeat` (the existing 5 s constant this task's guard is keyed to, do not invent a second one); test/simulation/soak_test.dart's "KNOWN ISSUE surfaced by this harness" group (TASK-023's minimal deterministic repro — read it before writing code, your fix must make it pass without weakening the harness)
@@ -1752,7 +1752,7 @@ Territory matches expectation: successor reopening TASK-008's two globs (both po
 - [x] A newly-joined peer cannot self-grant before observing one `FloorTiming.presenceHeartbeat` interval (5 s) since joining, UNLESS it has direct proof the floor was idle before any peer joined — both branches unit tested, including a real elapsed-time gate (not satisfiable by a burst of PRESENCE messages arriving faster than real time)
 - [x] A `TX_REQ` from the local peer during the guard window resolves to `TX_DENY(BUSY)`, not silent drop or hang
 - [ ] **TASK-023's exact deterministic repro (`soak_test.dart`'s "KNOWN ISSUE surfaced by this harness" group) now PASSES, unmodified** — do not edit `test/simulation/**`, it is outside this task's territory; if the repro still fails after your fix, the fix is wrong, not the test
-- [ ] Re-running TASK-023's full 500-seed soak (via a subagent, report pass/fail counts) shows zero double-grant assertions from the late-joiner class specifically (§8.6 timing-constant tests and other pre-existing invariants must stay green; if any other, unrelated failure class remains, name it explicitly rather than silently absorbing it into this criterion)
+- [x] Re-running TASK-023's full 500-seed soak (via a subagent, report pass/fail counts) shows zero double-grant assertions from the late-joiner class specifically (§8.6 timing-constant tests and other pre-existing invariants must stay green; if any other, unrelated failure class remains, name it explicitly rather than silently absorbing it into this criterion)
 - [x] §8.5's ≤ 50 ms attack design and normal in-channel `TX_REQ`→`TX_GRANT` after the guard window are unmodified — a test proves a `TX_REQ` issued after the guard window has elapsed resolves with the SAME latency characteristics as before this change (no new await chain on the hot path)
 - [x] Full `flutter test` suite green (not just `test/core/protocol/` or `test/core/floor/`) and `flutter analyze` clean
 **Branch:** task/TASK-031-gb
@@ -1791,6 +1791,36 @@ Territory matches expectation: successor reopening TASK-008's two globs (both po
 Territory matches expectation: reopening TASK-006 + TASK-022 globs (both populated) plus the dossier. No NEW/empty globs. Implementing optional PRESENCE holder/lease_remaining_ms, live-view populate, elapsed-time join guard keyed to FloorTiming.presenceHeartbeat.
 - [2026-08-21T11:28:05Z] [GB] Option A on `task/TASK-031-gb` at `98065b0`. `PRESENCE` optional `holder`/`lease_remaining_ms` (idle omits both; old-format golden byte-identical; partial pair → idle). `FloorEngine` join-guard is elapsed `FloorTiming.presenceHeartbeat` on `FloorClock`; exceptions are first-occupant (others appeared only after 5 s alone) and idle-PRESENCE from *every* other rostered peer (a subset burst cannot satisfy it). Outgoing PRESENCE is populated from `_liveHolder` at send time (roster change, lease change, 5 s heartbeat). Inbound holder is adopted; snapshots never *extend* a live lease. Guard window local `TX_REQ` → `TX_DENY(BUSY)`. After the window, `requestTransmit` still grants with zero extra clock time (no new await on the §8.5 path). `test/simulation/**` not touched. Criterion 5: the KNOWN ISSUE *scenario* no longer double-grants (in-territory clone: A denied BUSY, B still TX); the unmodified harness test still `expect`s both transmitting, so that group is red — S5's own comment said to update those expects after the fix, which is TASK-023 resume territory. Criterion 6 left unticked: 500-seed soak 441/500 pass (was 345/500); remaining 59 named in Test_Evidence. → needs_review.
 - [2026-08-21T13:08:47Z] [GB] Rework on same branch (`e867f8e` + `16f75af`). Closed ORCH residual: `rosterSize <= 1` / `_peers.length <= 1` is no longer aloneness proof until the host has called `updateRoster` (`rosterConverged`). Constructor-default `{self}` PTT after any elapsed time is `TX_DENY(BUSY)` (covers soak join-PTT at 50 ms before delayed roster). Same-instant constructor PTT still self-grants so linked `_soloEngine` / FaceScreen-style VirtualClock fixtures stay green. Also: `TX_START` without a lease installs expiring `TOT+2s` (crashed-holder class now 0); `PRESENCE` cannot resurrect an expired holder; delayed self-`TX_GRANT` is ignored while a remote holder is live. Criterion 5 left **unchecked** (unmodified KNOWN ISSUE still `expect`s both transmitting; A is correctly BUSY). Criterion 6 left **unchecked**: soak **456/500 pass, 44 failed** (was 441/500, 59 failed). Remaining 44 are double-grants **after** the 5 s join window under 0–20% loss + partitions when the peer has no live holder: `_onGrant` delayed GRANT accepted while blind, and `_arbitrate` self-grant while blind. Not the constructor-roster race (unit-tested closed). `test/simulation/**` still untouched. → needs_review.
+- [2026-08-21T15:35:27Z] [GB] Resume rework #3 (ORCH 2026-08-21T16:55Z). Same branch `task/TASK-031-gb` at `6cb9bf5`. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-031 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 5 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/protocol/**  -> 5 file(s):
+           lib/core/protocol/README.md
+           lib/core/protocol/codec.dart
+           lib/core/protocol/messages.dart
+           lib/core/protocol/protocol.dart
+           lib/core/protocol/timing.dart
+  GLOB   lib/core/floor/**  -> 8 file(s):
+           lib/core/floor/README.md
+           lib/core/floor/arbiter.dart
+           lib/core/floor/clock.dart
+           lib/core/floor/effects.dart
+           lib/core/floor/emergency.dart
+           lib/core/floor/floor.dart
+           lib/core/floor/floor_engine.dart
+           lib/core/floor/transport.dart
+  GLOB   test/core/protocol/**  -> 2 file(s):
+           test/core/protocol/codec_test.dart
+           test/core/protocol/timing_test.dart
+  GLOB   test/core/floor/**  -> 2 file(s):
+           test/core/floor/arbiter_test.dart
+           test/core/floor/floor_engine_test.dart
+  FILE   dossiers/TASK-031.md  -> exists, 49 line(s), 5354 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Round-4 residual: `_onGrant` ignored self-GRANT only when `live == null`; a join-guarded peer with a known remote holder plus emergency PTT (which skips the live-holder ignore) accepted a stale self-targeted `TX_GRANT`. Fix on same branch (`f91c3b9`): ignore while `_inJoinGuardWindow && !_hasDirectIdleProof && live != localPeerId` (covers null and remote holder; PRESENCE-installed self-holder still accepted). Not chasing FR-025. `test/simulation/**` not touched.
+- [2026-08-21T15:45:51Z] [GB] Round 4 on `task/TASK-031-gb` at `f91c3b9` + dossier `237ad8d`. Criterion 5 left **unchecked** (unmodified KNOWN ISSUE still `expect`s both transmitting; A is correctly BUSY). Criterion 6 **ticked**: scratch `wt-scratch-verify-031-r4` (merge of this branch + `task/TASK-023-s5`, not on the task branch) tabulated `_inJoinGuardWindow` on the NEW grantor at every flagged violation — **zero** `NEW joinGuard=true`. Soak **460/500 pass, 40 failed** (was 45/500). Remaining 40 are the FR-025 emergency-preemption class (join-guard already released; `NEW joinGuard=false` on every violation) — named explicitly, not chased. Original 7 in-scope seeds: 124/177/270/348/423 gone; 260/359 remain only as FR-025. `test/simulation/**` still untouched. → needs_review.
 **Artifacts:**
 - lib/core/protocol/messages.dart
 - lib/core/protocol/codec.dart
@@ -1810,6 +1840,10 @@ Territory matches expectation: reopening TASK-006 + TASK-022 globs (both populat
 - [2026-08-21T13:08:47Z] [GB] `flutter analyze` — No issues found! (ran in 112.2s), exit 0.
 - [2026-08-21T13:08:47Z] [GB] `flutter test` — **526/526 passed, 0 failed, 0 skipped, exit 0**. Prior submission was 520; rework adds 6 tests (constructor-alone BUSY after 1 ms, same-instant still grants, 50 ms delayed-roster, TX_START expiring lease, PRESENCE tombstone, delayed self-grant ignored).
 - [2026-08-21T13:08:47Z] [GB] Scratch worktree `wt-scratch-verify-031` (detached `e867f8e`/`16f75af` + `task/TASK-023-s5`, not on the task branch): `--name "KRX-044 timing constants"` 3/3 pass. `--name "KNOWN ISSUE"` 0/1 (A not transmitting — fix working; harness still asserts the defect). `--name "KRX-044 soak"` **456 passed, 44 failed** (was 441/59). `crashed peer still held`: 0 this run. Remaining 44 are all `double-grant` after the 5 s window: delayed `_onGrant` while blind, and `_arbitrate` self-grant while blind, under 0–20% loss + partitions. Constructor-roster race closed in-territory. Criterion 6 not ticked.
+- [2026-08-21T15:45:51Z] [GB] `flutter analyze` — No issues found! (ran in 32.5s), exit 0.
+- [2026-08-21T15:45:51Z] [GB] `flutter test` — **530/530 passed, 0 failed, 0 skipped, exit 0**. Prior branch suite was 526; round 4 adds 1 test (join-guarded self-GRANT with known holder + emergency).
+- [2026-08-21T15:45:51Z] [GB] `flutter test test/core/protocol test/core/floor` — 67/67 pass (was 66; +1 engine test).
+- [2026-08-21T15:45:51Z] [GB] Scratch worktree `wt-scratch-verify-031-r4` (`f91c3b9` + `task/TASK-023-s5`, not on the task branch; throwaway join-guard tabulation on SafetyMonitor only): `--name "KRX-044 timing constants"` 3/3 pass. `--name "KNOWN ISSUE"` 0/1 (A not transmitting — fix working; harness still asserts the defect). `--name "KRX-044 soak"` **460 passed, 40 failed** (was 45/500). Tabulated `_inJoinGuardWindow` on the NEW grantor at every `InvariantViolation`: **0/40** have `NEW joinGuard=true`. Remaining 40 unique failing seeds are FR-025 emergency-preemption (`NEW joinGuard=false`; some old holders still show `joinGuard=true` because they entered TX earlier). Original in-scope seeds 124/177/270/348/423 pass; 260/359 fail only as FR-025. §8.6 timing-constant tests stayed green. Criterion 6 ticked with the remaining class named.
 **Review_Findings:** REWORK (2026-08-21T14:15Z, ORCH on claude-opus-5). **GB's first rework on this project (breaks a 14/14 first-pass streak) — and the submission is honest, sophisticated, and self-diagnosed: GB itself left criterion 6 unticked and disclosed the exact residual failure count and root cause. This is not sloppy work under-reporting a defect; it is real, substantial progress on a hard problem that did not fully close.** Fix on the same branch (`task/TASK-031-gb`, do NOT re-claim), scoped to the residual gap below.
 
 **TERRITORY, PLAN.md DISCIPLINE, PREFLIGHT — all clean, verified independently.** 10 files, all inside `lib/core/protocol/**` + `lib/core/floor/**` + `test/core/protocol/**` + `test/core/floor/**` + `dossiers/TASK-031.md`; exclusion diff empty. Single commit `98065b0` tagged `[TASK-031]`. Both PLAN.md commits' hunks confined to TASK-031's own block, 0 frontmatter lines touched. Preflight pasted pre-write, ORCH's own re-run post-write matches the expected delta. **`test/simulation/**` was correctly never touched** — GB checked TASK-023's harness out read-only to verify against it, exactly as instructed, and never committed to it.
@@ -1853,5 +1887,5 @@ Territory matches expectation: reopening TASK-006 + TASK-022 globs (both populat
 
 **REVISED FIX DIRECTION FOR ROUND 4, NARROW AND FINAL BEFORE RE-ESCALATING.** Close the `_onGrant` self-target gap: a guarded peer (`_inJoinGuardWindow=true`) must not enter TX on an incoming self-targeted `TX_GRANT` merely because `live == null` was the only condition checked — the check must also cover `live != null` (known-holder) cases, consistent with the guard's whole purpose (a guarded peer does not yet trust its own view of the floor, full stop, regardless of whether that view currently shows a holder or not). Re-run the exact same verification this round used (full soak, all seeds, `_inJoinGuardWindow` state tabulated at every flagged violation) — the target is **zero** seeds with `_inJoinGuardWindow=true` at a flagged grant; the 38-seed emergency-preemption class is EXPECTED to remain and must NOT be chased.
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-21T16:55:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-21T15:45:51Z
