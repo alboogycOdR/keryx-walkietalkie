@@ -89,6 +89,14 @@ class FloorEngine {
   int _presenceSeq = 0;
   bool _othersSeen = false;
   bool _firstOccupant = false;
+  /// Host has called [updateRoster] at least once. Constructor-default
+  /// `{self}` is not a channel join — soak delivers the real roster on
+  /// the same delayed channel as `PRESENCE`.
+  bool _rosterDeclared = false;
+  /// Holders whose lease we already ran to expiry. `PRESENCE` snapshots
+  /// must not resurrect them; `TX_GRANT` / `TX_START` still can (a new
+  /// session after the previous lease died).
+  final Set<String> _expiredHolders = <String>{};
 
   /// Peers whose latest `PRESENCE` advertised an idle floor. Direct idle
   /// proof (the §8.6 exception) requires every other rostered peer to
@@ -153,6 +161,7 @@ class FloorEngine {
         _joinedAt.add(FloorTiming.presenceHeartbeat),
       );
     }
+    _rosterDeclared = true;
     _peers
       ..clear()
       ..addAll(peers);
@@ -189,6 +198,7 @@ class FloorEngine {
       firstOccupant: _firstOccupant,
       joinedAt: _joinedAt,
       now: _clock.now(),
+      rosterConverged: _rosterConverged,
     );
     final remoteHold = _liveHolder != null && _liveHolder != localPeerId;
     // A join-guarded local arbiter must emit TX_DENY(BUSY) rather than
@@ -331,7 +341,18 @@ class FloorEngine {
       _send(TxEnd(peer: localPeerId));
       _emit(const DispatchRadio(EndTransmit()));
     }
-    _holder ??= peer;
+    // TX_START does not carry a lease. If we have no live expiry for this
+    // speaker, install TOT+2s from now so a crashed sender cannot be
+    // held forever (`_liveHolder` treats a null expiry as immortal).
+    // Do not extend an existing timed lease — TX_GRANT / PRESENCE are
+    // the remaining-time authorities.
+    if (_liveHolder != peer || _leaseExpiresAt == null) {
+      if (_liveHolder == null || _liveHolder == peer) {
+        _installLease(peer, FloorTiming.grantLease(_tot), announce: false);
+      } else {
+        _holder ??= peer;
+      }
+    }
     _idleWitnesses.remove(peer);
     _cancelIdle();
     if (_phase != _Phase.rx) {
@@ -375,6 +396,7 @@ class FloorEngine {
           firstOccupant: _firstOccupant,
           joinedAt: _joinedAt,
           now: _clock.now(),
+          rosterConverged: _rosterConverged,
         ) &&
         !_hasDirectIdleProof) {
       _denyBusy(requester);
@@ -490,6 +512,7 @@ class FloorEngine {
   }
 
   void _installLease(String peer, Duration remaining, {bool announce = true}) {
+    _expiredHolders.remove(peer);
     _holder = peer;
     _leaseExpiresAt = _clock.now().add(remaining);
     _cancelLease();
@@ -505,6 +528,7 @@ class FloorEngine {
   void _onLeaseExpired() {
     if (_holder == null) return;
     log('lease expired holder=$_holder', name: _logName);
+    _expiredHolders.add(_holder!);
     final wasTx = _phase == _Phase.tx && _holder == localPeerId;
     final wasRx = _phase == _Phase.rx;
     _clearLease();
@@ -596,13 +620,24 @@ class FloorEngine {
     return _clock.now().isBefore(_joinedAt.add(FloorTiming.presenceHeartbeat));
   }
 
+  /// Host-declared roster, or the construction instant (no clock has
+  /// elapsed). Production hosts call [updateRoster] before the user can
+  /// PTT (FaceScreen `_boot`). VirtualClock fixtures that PTT without
+  /// elapsing (linked `_soloEngine`) still need a synchronous solo
+  /// grant. Any later undeclared PTT is the soak residual and is denied.
+  bool get _rosterConverged =>
+      _rosterDeclared || !_clock.now().isAfter(_joinedAt);
+
   /// Direct proof the floor is idle (§8.6 exception to the join guard):
-  /// alone, first occupant, or every other rostered peer has advertised
-  /// idle via `PRESENCE` and we have no live holder. A burst from a
-  /// *subset* of peers cannot satisfy this — the transmitter would be
-  /// the missing witness, advertising `holder` rather than idle.
+  /// host-declared solo, first occupant, or every other rostered peer
+  /// has advertised idle via `PRESENCE` and we have no live holder.
+  /// Constructor-default `{self}` is not proof — the host must have
+  /// called [updateRoster]. A burst from a *subset* of peers cannot
+  /// satisfy this — the transmitter would be the missing witness,
+  /// advertising `holder` rather than idle.
   bool get _hasDirectIdleProof {
     if (_liveHolder != null) return false;
+    if (!_rosterConverged) return false;
     if (_peers.length <= 1) return true;
     if (_firstOccupant) return true;
     for (final id in _peers) {
@@ -676,6 +711,11 @@ class FloorEngine {
     _idleWitnesses.remove(remoteHolder);
     final remaining = Duration(milliseconds: remainingMs);
     if (remaining <= Duration.zero) return;
+    // A delayed snapshot must not resurrect a holder whose lease we
+    // already expired. TX_GRANT / TX_START can start a new session.
+    if (_expiredHolders.contains(remoteHolder) && _liveHolder != remoteHolder) {
+      return;
+    }
 
     if (_phase == _Phase.tx) {
       // A late joiner can solo-grant before updateRoster lands (engine

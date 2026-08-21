@@ -538,6 +538,122 @@ void main() {
     );
     expect(a.holder, bId);
   });
+
+  test('constructor-default roster is not solo proof; PTT is BUSY', () {
+    // Soak SimPeer constructs FloorEngine and PTTs before the delayed
+    // updateRoster lands. Constructor {self} must not self-grant once
+    // any time has elapsed.
+    final endpoint = _RecordingEndpoint(rig.hub.attach(aId), rig.sent);
+    final a = FloorEngine(
+      localPeerId: aId,
+      transport: endpoint,
+      clock: rig.clock,
+    );
+    a.tape = <FloorEffect>[];
+    a.effects.listen(a.tape.add);
+    rig.engines.add(a);
+
+    // Same-instant PTT (linked `_soloEngine` / VirtualClock at t=0) is
+    // still a solo grant. One tick later without updateRoster is not.
+    rig.clock.elapse(const Duration(milliseconds: 1));
+    a.requestTransmit();
+    expect(a.isTransmitting, isFalse);
+    expect(a.tape.whereType<DenyBuzz>().single.reason, FloorDenyReason.busy);
+    expect(
+      rig.sent.whereType<TxDeny>().where(
+        (d) => d.peer == aId && d.reason == FloorDenyReason.busy,
+      ),
+      isNotEmpty,
+    );
+
+    // Host-declared solo is genuine convergence — immediate grant.
+    a.updateRoster({aId});
+    a.requestTransmit();
+    expect(a.isTransmitting, isTrue);
+  });
+
+  test('same-instant constructor PTT still self-grants (VirtualClock fixture)', () {
+    final endpoint = _RecordingEndpoint(rig.hub.attach(aId), rig.sent);
+    final a = FloorEngine(
+      localPeerId: aId,
+      transport: endpoint,
+      clock: rig.clock,
+    );
+    a.tape = <FloorEffect>[];
+    a.effects.listen(a.tape.add);
+    rig.engines.add(a);
+    a.requestTransmit();
+    expect(a.isTransmitting, isTrue);
+  });
+
+  test('PTT 50 ms before delayed updateRoster does not self-grant', () {
+    // TASK-023 residual: join-then-PTT at 50 ms while updateRoster is
+    // still in flight on the 2–60 ms delayed channel.
+    final b = rig.spawn(bId);
+    b.updateRoster({bId});
+    b.requestTransmit();
+    expect(b.isTransmitting, isTrue);
+
+    final a = FloorEngine(
+      localPeerId: aId,
+      transport: _RecordingEndpoint(rig.hub.attach(aId), rig.sent),
+      clock: rig.clock,
+    );
+    a.tape = <FloorEffect>[];
+    a.effects.listen(a.tape.add);
+    rig.engines.add(a);
+
+    rig.clock.schedule(const Duration(milliseconds: 60), () {
+      a.updateRoster({aId, bId});
+      b.updateRoster({aId, bId});
+    });
+    rig.clock.schedule(const Duration(milliseconds: 50), () {
+      a.requestTransmit(emergency: true);
+    });
+    rig.clock.elapse(const Duration(milliseconds: 60));
+
+    expect(a.isTransmitting, isFalse);
+    expect(b.isTransmitting, isTrue);
+  });
+
+  test('TX_START without a grant installs an expiring TOT+2s lease', () {
+    final a = rig.spawn(aId);
+    rig.hub.inject(aId, const TxStart(peer: bId));
+    expect(a.holder, bId);
+
+    rig.clock.elapse(
+      FloorTiming.defaultGrantLease - const Duration(milliseconds: 1),
+    );
+    expect(a.holder, bId);
+    rig.clock.elapse(const Duration(milliseconds: 1));
+    expect(a.holder, isNull);
+  });
+
+  test('PRESENCE does not resurrect a holder whose lease already expired', () {
+    final tot = FloorEngine.minTot;
+    final a = rig.spawn(aId, tot: tot);
+    final b = rig.spawn(bId, tot: tot);
+    rig.roster([a, b]);
+    b.requestTransmit();
+    expect(a.holder, bId);
+
+    rig.hub.detach(bId);
+    b.dispose();
+    rig.clock.elapse(FloorTiming.grantLease(tot));
+    expect(a.holder, isNull);
+
+    rig.hub.inject(
+      aId,
+      Presence(
+        peer: bId,
+        cs: bId,
+        seq: 99,
+        holder: bId,
+        leaseRemainingMs: FloorTiming.grantLease(tot).inMilliseconds,
+      ),
+    );
+    expect(a.holder, isNull);
+  });
 }
 
 /// Shared loopback + clock + effect tapes for multi-peer tests.

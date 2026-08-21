@@ -64,19 +64,28 @@ abstract final class Arbiter {
 
   /// §8.6 late-joiner self-grant gate. Pure: instants in, bool out.
   ///
-  /// A peer may self-grant when alone, when it was the first occupant
-  /// (others appeared only after a full [FloorTiming.presenceHeartbeat] of
-  /// being the sole roster member), or once that heartbeat has elapsed
-  /// since [joinedAt]. A burst of `PRESENCE` messages cannot satisfy this
-  /// — it is elapsed time, not a message count.
+  /// A peer may self-grant when the host has declared a solo roster
+  /// ([rosterConverged] and [rosterSize] ≤ 1), when it was the first
+  /// occupant (others appeared only after a full
+  /// [FloorTiming.presenceHeartbeat] of being the sole roster member), or
+  /// once that heartbeat has elapsed since [joinedAt].
+  ///
+  /// Constructor-default `{self}` is **not** aloneness proof:
+  /// [rosterConverged] must be true. Roster membership rides the same
+  /// delayed/lossy channel as `PRESENCE`; treating "I currently see
+  /// nobody" as "I have been alone long enough to be sure" is the hole
+  /// TASK-023's soak residual traced. A burst of `PRESENCE` messages
+  /// cannot satisfy the elapsed-time branch — it is wall time, not a
+  /// message count.
   static bool maySelfGrant({
     required int rosterSize,
     required bool firstOccupant,
     required DateTime joinedAt,
     required DateTime now,
+    bool rosterConverged = false,
   }) {
-    if (rosterSize <= 1) return true;
     if (firstOccupant) return true;
+    if (rosterSize <= 1 && rosterConverged) return true;
     return !now.isBefore(joinedAt.add(FloorTiming.presenceHeartbeat));
   }
 

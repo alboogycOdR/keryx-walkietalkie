@@ -135,7 +135,19 @@ void main() {
           joinedAt: joined,
           now: joined,
         ),
+        isFalse,
+        reason: 'constructor-default {self} is not aloneness proof',
+      );
+      expect(
+        Arbiter.maySelfGrant(
+          rosterSize: 1,
+          firstOccupant: false,
+          joinedAt: joined,
+          now: joined,
+          rosterConverged: true,
+        ),
         isTrue,
+        reason: 'host-declared solo roster is genuine convergence',
       );
       expect(
         Arbiter.maySelfGrant(
