@@ -1,6 +1,6 @@
 ---
-plan_version: 7.1
-last_updated: 2026-08-21T04:35:00Z
+plan_version: 7.2
+last_updated: 2026-08-21T04:45:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -934,7 +934,7 @@ Existing TASK-010 territory. Implementing character DSP + squelch wiring; will a
 **Title:** Settings-as-back-panel screen (KRX-016)
 **Status:** pending
 **Assigned_To:** S5
-**Priority:** medium
+**Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-100, FR-061, FR-046, FR-023, §11 E2 (KRX-016); specs/KERYX_UI_Design_Specification_v1.0.md §3 (Interface role), §7 (copy voice)
 **Owned_Paths:** lib/features/settings_panel/**, test/features/settings_panel/**, dossiers/TASK-018.md
 **Depends_On:** TASK-005, TASK-008, TASK-030
@@ -1332,8 +1332,8 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 ### TASK-026
 **Title:** Foreground service + radio notification (KRX-080)
 **Status:** pending
-**Assigned_To:** S5
-**Priority:** medium
+**Assigned_To:** GB
+**Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-102, FR-103, §8.8, §9 NFR-06, §11 E9 (KRX-080)
 **Owned_Paths:** android/**, lib/services/platform/**, test/services/platform/**, dossiers/TASK-026.md
 **Depends_On:** TASK-019
@@ -1347,13 +1347,14 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 - [ ] Dart facade tests green; manual on-device checklist documented in dossier work log
 **Branch:** —
 **Started_At:** —
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-08-21T04:45:00Z] [ORCH] **REASSIGNED S5 -> GB** and raised to high for this wave (project owner instruction: S5 on TASK-018, GB on TASK-026, concurrently). Territory verified pairwise disjoint against the other three open tasks: this task owns android/** + lib/services/platform/** + test/services/platform/**, TASK-018 owns lib/features/settings_panel/**, TASK-025 owns lib/features/event_qr/**, TASK-023 owns test/simulation/** — no intersection, so S5 and GB can run simultaneously. Depends_On TASK-019 is done, so android/** is free (TASK-019 held it previously and the 001->019->026 android chain is serial by design — 019 merged, so 026 is the tail). Assigned to GB on the protocol section-8 heuristic: GB is 13/13 first-pass and TASK-019 (the android/** predecessor this task directly extends) was GB work, so it already knows that territory.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** ORCH
-**Updated_At:** 2026-08-18T14:10:00Z
+**Updated_At:** 2026-08-21T04:45:00Z
 
 ### TASK-027
 **Title:** RadioState projection fields + floor→reducer bridge (state successor, follow-up (m))
