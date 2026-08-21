@@ -2068,7 +2068,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-036
 **Title:** Settings: relay/token URL config + LOCAL/AUTO/LINKED mode picker in the back panel
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-040 (three-position mode switch, default AUTO), D2 (self-hosted relay — the URL is deployment-specific and must be user-configurable), §8.4 (token service), FR-008 (region — already rendered); lib/core/settings/settings_model.dart (`mode` field exists, persisted, UNRENDERED — your starting point); lib/features/settings_panel/back_panel_screen.dart (row patterns to extend)
@@ -2087,11 +2087,36 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 **Progress_Notes:**
 - [2026-08-21T19:30:00Z] [ORCH] Created from the 2026-08-21 integration recon. Dispatch alongside TASK-032 — disjoint from everything GB holds.
 - [2026-08-21T20:05:00Z] [ORCH] REASSIGNED S5 → CX (project-owner instruction: bring CX in; a third lane also lets S5's own chain — 032→035→037→038 — run one task shorter). CX runs this second, after TASK-034, on its own lane. `lib/core/settings/**` + `lib/features/settings_panel/**` are disjoint from S5's `lib/services/mesh/**`/`lib/services/session/**` and GB's `lib/core/audio/**`/`pubspec.yaml`/`lib/services/sound/**`(none — that's CX's own TASK-034) at every point in the schedule — verified before dispatch. TASK-035 still depends on this landing (unchanged Depends_On), it just now waits on CX's lane instead of S5's own.
+- [2026-08-21T19:40:30Z] [CX] Pre-flight path evidence (verbatim):
+  ```text
+  [preflight] TASK-036 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-codex-walkietalkie-keryx
+  [preflight] 5 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+    GLOB   lib/core/settings/**  -> 4 file(s):
+             lib/core/settings/README.md
+             lib/core/settings/settings_model.dart
+             lib/core/settings/settings_repository.dart
+             lib/core/settings/settings_store.dart
+    GLOB   lib/features/settings_panel/**  -> 8 file(s):
+             lib/features/settings_panel/back_panel_screen.dart
+             lib/features/settings_panel/settings_copy.dart
+             lib/features/settings_panel/settings_panel.dart
+             lib/features/settings_panel/widgets/panel_picker_row.dart
+             lib/features/settings_panel/widgets/panel_section.dart
+             lib/features/settings_panel/widgets/panel_stepper_row.dart
+             lib/features/settings_panel/widgets/panel_text_row.dart
+             lib/features/settings_panel/widgets/panel_toggle_row.dart
+    GLOB   test/core/settings/**  -> 1 file(s):
+             test/core/settings/settings_repository_test.dart
+    GLOB   test/features/settings_panel/**  -> 1 file(s):
+             test/features/settings_panel/back_panel_screen_test.dart
+    NEW    dossiers/TASK-036.md  -> does not exist; parent dossiers/ exists
+  [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+  ```
 **Artifacts:** —
 **Test_Evidence:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-21T19:39:56Z
+**Updated_By:** CX
+**Updated_At:** 2026-08-21T19:40:30Z
 
 ### TASK-037
 **Title:** Face integration — real transports, live roster, settings/QR navigation, sound projection instantiation
