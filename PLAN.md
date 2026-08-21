@@ -1,7 +1,7 @@
 ---
-plan_version: 8.3
-last_updated: 2026-08-21T18:55:00Z
-overall_status: in_progress
+plan_version: 8.4
+last_updated: 2026-08-21T19:05:00Z
+overall_status: wave_complete
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
 FROZEN territories (merged, never reopen without a successor task): pubspec/analysis_options/.github/.gitignore/README, lib/core/theme, android+lib/services/discovery, lib/core/floor, lib/core/settings, lib/core/protocol, lib/core/audio, lib/core/identity, lib/features/display, lib/features/grille, lib/core/rooms, lib/core/state, lib/features/knob, lib/features/ptt, lib/features/face+lib/main.dart+lib/app.dart, lib/services/signaling. Serial chains: android 001→019→026 (DONE), audio 010→011 (DONE). Dossiers in dossiers/.
