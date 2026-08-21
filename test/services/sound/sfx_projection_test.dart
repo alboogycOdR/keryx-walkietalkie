@@ -58,26 +58,56 @@ void main() {
     });
 
     test(
-      'projects every audible floor effect and keeps GrantTone cosmetic',
+      'projects direct floor-only effects and keeps GrantTone cosmetic',
       () async {
         final h = _Harness();
         h.sink.events.clear();
 
         h.effects
           ..add(const GrantTone())
-          ..add(const DenyBuzz(null))
-          ..add(const TotWarn())
-          ..add(const TotCut())
-          ..add(const EmgPinned('peer-a'));
+          ..add(const TotCut());
 
         expect(h.sink.oneShots.map((event) => event.id), [
           SfxId.keyClick,
-          SfxId.denyBuzz,
-          SfxId.totWarn,
           SfxId.totCut,
-          SfxId.emgAlert,
         ]);
         // keyClick does not duck. The first programme SFX does exactly once.
+        expect(h.sink.events.whereType<SetBusGainEvent>(), hasLength(1));
+        await h.dispose();
+      },
+    );
+
+    test(
+      'plays bridged floor effects once when state and effect streams combine',
+      () async {
+        final h = _Harness();
+        h.sink.events.clear();
+
+        // This mirrors the host wiring: RadioStateBridge receives effects
+        // and emits the matching reducer state onto the same projection.
+        h.states.add(const RadioState(phase: RadioPhase.idle));
+        h.effects.add(const DenyBuzz(null));
+        h.states.add(
+          const RadioState(phase: RadioPhase.idle, isTransmitDenied: true),
+        );
+        h.effects.add(const TotWarn());
+        h.states.add(
+          const RadioState(phase: RadioPhase.tx, isTotWarning: true),
+        );
+        h.effects.add(const EmgPinned('peer-a'));
+        h.states.add(
+          const RadioState(
+            phase: RadioPhase.tx,
+            isTotWarning: true,
+            isEmergency: true,
+          ),
+        );
+
+        expect(h.sink.oneShots.map((event) => event.id), [
+          SfxId.denyBuzz,
+          SfxId.totWarn,
+          SfxId.emgAlert,
+        ]);
         expect(h.sink.events.whereType<SetBusGainEvent>(), hasLength(1));
         await h.dispose();
       },

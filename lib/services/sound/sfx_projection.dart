@@ -101,15 +101,15 @@ final class SfxProjection {
     switch (effect) {
       case GrantTone():
         _engine.play(SfxId.keyClick);
-      case DenyBuzz():
-        _engine.play(SfxId.denyBuzz);
-      case TotWarn():
-        _engine.play(SfxId.totWarn);
       case TotCut():
         _engine.play(SfxId.totCut);
-      case EmgPinned():
-        _engine.play(SfxId.emgAlert);
-      case DispatchRadio() ||
+      // RadioStateBridge projects these effects into state edges. Keeping
+      // their audio mapping there gives the two input streams one owner and
+      // prevents a single floor event from playing twice.
+      case DenyBuzz() ||
+          TotWarn() ||
+          EmgPinned() ||
+          DispatchRadio() ||
           EmgCleared() ||
           ArbiterChanged() ||
           FloorIdleSettled():
