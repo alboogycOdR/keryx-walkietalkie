@@ -1739,7 +1739,7 @@ Territory matches expectation: successor reopening TASK-008's two globs (both po
 
 ### TASK-031
 **Title:** Floor-control late-joiner double-grant fix (PRESENCE holder/lease fields + join guard) — closes finding (ll)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.6 (the "Late-joiner floor-state blind spot" ratification, 2026-08-21) and §8.6's `PRESENCE` row; PLAN.md TASK-023 finding (ll) (the deterministic repro and the three costed options — this task builds option A only); lib/core/protocol/timing.dart `FloorTiming.presenceHeartbeat` (the existing 5 s constant this task's guard is keyed to, do not invent a second one); test/simulation/soak_test.dart's "KNOWN ISSUE surfaced by this harness" group (TASK-023's minimal deterministic repro — read it before writing code, your fix must make it pass without weakening the harness)
@@ -1755,13 +1755,14 @@ Territory matches expectation: successor reopening TASK-008's two globs (both po
 - [ ] Re-running TASK-023's full 500-seed soak (via a subagent, report pass/fail counts) shows zero double-grant assertions from the late-joiner class specifically (§8.6 timing-constant tests and other pre-existing invariants must stay green; if any other, unrelated failure class remains, name it explicitly rather than silently absorbing it into this criterion)
 - [ ] §8.5's ≤ 50 ms attack design and normal in-channel `TX_REQ`→`TX_GRANT` after the guard window are unmodified — a test proves a `TX_REQ` issued after the guard window has elapsed resolves with the SAME latency characteristics as before this change (no new await chain on the hot path)
 - [ ] Full `flutter test` suite green (not just `test/core/protocol/` or `test/core/floor/`) and `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-031-gb
+**Started_At:** 2026-08-21T11:03:58Z
 **Progress_Notes:**
 - [2026-08-21T12:30:00Z] [ORCH] Created and assigned GB, implementing §8.6 amendment `cfb34a4` (option A of finding (ll)'s three costed alternatives, project-owner instruction). Assigned to GB over S5 on the protocol §8 heuristic: GB authored both territories originally (TASK-006 protocol codec, TASK-022 floor engine/arbiter), 14/14 first-pass streak, and this fix requires deep familiarity with both — re-deriving that context on a fresh unit would cost more than the assignment-diversity benefit. Verified both `lib/core/protocol/**` and `lib/core/floor/**` are FROZEN with no live task currently holding either (both matches in a full-file grep are TASK-006's/TASK-022's own original, done blocks). Deliberately kept as ONE task spanning two territories rather than split, because the fix is one seam (codec field + the guard that reads it) and splitting would force a false dependency ordering. TASK-023 stays `blocked` — NOT re-dispatched yet; it resumes only once this merges, to confirm the soak goes green, per the finding's own recommended sequencing.
+- [2026-08-21T11:03:58Z] [GB] Claimed TASK-031. Resume check found no GB claimed/in_progress task. Depends_On TASK-006 and TASK-022 are both done. Branch `task/TASK-031-gb`.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-21T12:30:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-21T11:03:58Z
