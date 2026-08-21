@@ -2076,7 +2076,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-035
 **Title:** Radio session layer — host composition: mode selection, LOCAL chain sequencing, LINKED lifecycle, roster feed
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 (LOCAL sequence), §8.4 (LINKED), FR-040 + D9/KRX-062 (AUTO = LINKED-preferred for Phase 1 — D9 overrides FR-040's older prefer-LAN wording, cite D9), FR-041/FR-042 (discovery), FR-045 (fallback), FR-046 (force-LOCAL enforcement — note: FR-046 is the privacy toggle, NOT replay; replay is FR-065), §11 E7 (KRX-060/062); lib/services/{discovery,signaling,mesh,linked}/** public APIs and lib/core/settings/** (read-only consumers — NOT in your territory)
@@ -2096,11 +2096,12 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 - [2026-08-21T19:30:00Z] [ORCH] Created from the 2026-08-21 integration recon. Assigned S5 (authored mesh/linked/face — the consumer side of every seam this composes). Hardest task of the wave; sized at the 4 h ceiling. Depends on TASK-032 (injection seam) and TASK-036 (relay/token URL settings fields).
 - [2026-08-21T20:05:00Z] [ORCH] TASK-036 reassigned S5 → CX (bringing CX into the wave); this task's Depends_On is unchanged, it now unblocks once CX's lane (034→036) reaches TASK-036, not S5's own.
 - [2026-08-21T22:45:00Z] [S5] Claimed. Resume scan: no S5 task in_progress/claimed in PLAN.md (TASK-032 done/merged; stale .devteam/CHECKPOINT.md pointing at it deleted per resume protocol). Both deps (TASK-032, TASK-036) done/merged. Preflight in wt-s5-walkietalkie-keryx: `lib/services/session/`, `test/services/session/`, `dossiers/TASK-035.md` all confirmed NEW (do not exist yet) — clean new territory, no conflicts. Worktree was clean, HEAD detached at master tip `8c36f8b`; branching `task/TASK-035-s5` from there next.
+- [2026-08-21T23:00:00Z] [S5] Status → in_progress. Branched `task/TASK-035-s5` from `8c36f8b`. Read `SignalingService`/`LinkedController`/`LocalFloorTransport` source directly to ground the composition contract. Dispatched a bounded implementation pass (in-worktree, same branch) to draft `lib/services/session/**` + `test/services/session/**` against the 6 acceptance criteria, reading every remaining source API (discovery/mesh/linked/settings/state) itself rather than guessing signatures; explicitly scoped to those two Owned_Paths globs only, no git/PLAN.md/dossier writes. Will review its output line-by-line, run full `flutter analyze`/`flutter test` myself before any needs_review claim, and write the dossier myself.
 **Artifacts:** —
 **Test_Evidence:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-08-21T22:45:00Z
+**Updated_At:** 2026-08-21T23:00:00Z
 
 ### TASK-036
 **Title:** Settings: relay/token URL config + LOCAL/AUTO/LINKED mode picker in the back panel
