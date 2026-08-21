@@ -306,14 +306,27 @@ class FloorEngine {
   void _onGrant(TxGrant grant) {
     final remaining = Duration(milliseconds: grant.leaseMs);
     if (remaining.isNegative) return;
-    _installLease(grant.peer, remaining);
 
     if (grant.peer == localPeerId) {
+      final live = _liveHolder;
+      // A delayed/blind arbiter can grant us while we already have proof
+      // someone else holds (PRESENCE / TX_START / an earlier GRANT).
+      // Entering TX here is a double-grant; ignore unless emergency.
+      if (live != null && live != localPeerId && !_emergencyRequest) {
+        log(
+          'ignore self-grant; live holder=$live',
+          name: _logName,
+        );
+        return;
+      }
+      _installLease(grant.peer, remaining);
       if (_phase != _Phase.tx) {
         _enterTx();
       }
       return;
     }
+
+    _installLease(grant.peer, remaining);
 
     if (_phase == _Phase.tx) {
       log('pre-empted by ${grant.peer}', name: _logName);
@@ -321,6 +334,13 @@ class FloorEngine {
       _phase = _Phase.idle;
       _send(TxEnd(peer: localPeerId));
       _emit(const DispatchRadio(EndTransmit()));
+    } else if (_phase == _Phase.awaiting) {
+      _cancelRetry();
+      _emergencyRequest = false;
+      _phase = _Phase.rx;
+      _emit(const DispatchRadio(TransmitDenied()));
+      _emit(const DenyBuzz(FloorDenyReason.busy));
+      _emit(const DispatchRadio(RemoteFloorStarted()));
     }
   }
 
@@ -340,6 +360,11 @@ class FloorEngine {
       _phase = _Phase.idle;
       _send(TxEnd(peer: localPeerId));
       _emit(const DispatchRadio(EndTransmit()));
+    } else if (_phase == _Phase.awaiting) {
+      _cancelRetry();
+      _emergencyRequest = false;
+      _emit(const DispatchRadio(TransmitDenied()));
+      _emit(const DenyBuzz(FloorDenyReason.busy));
     }
     // TX_START does not carry a lease. If we have no live expiry for this
     // speaker, install TOT+2s from now so a crashed sender cannot be

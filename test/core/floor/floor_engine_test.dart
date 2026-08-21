@@ -629,6 +629,23 @@ void main() {
     expect(a.holder, isNull);
   });
 
+  test('delayed self-grant is ignored while a remote holder is live', () {
+    final a = rig.spawn(aId);
+    final b = rig.spawn(bId);
+    rig.roster([a, b]);
+    b.requestTransmit();
+    expect(a.holder, bId);
+    expect(b.isTransmitting, isTrue);
+
+    rig.hub.inject(
+      aId,
+      TxGrant(peer: aId, leaseMs: FloorTiming.defaultGrantLease.inMilliseconds),
+    );
+    expect(a.isTransmitting, isFalse);
+    expect(b.isTransmitting, isTrue);
+    expect(a.holder, bId);
+  });
+
   test('PRESENCE does not resurrect a holder whose lease already expired', () {
     final tot = FloorEngine.minTot;
     final a = rig.spawn(aId, tot: tot);
