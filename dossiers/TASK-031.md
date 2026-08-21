@@ -41,3 +41,6 @@ ORCH scoped there — do not reach for options B or C.
   either.
 
 ## Work Log
+
+- [2026-08-21T11:05:30Z] [GB] Claimed. Resume check: no GB in_progress/claimed. Preflight: 5 existing entries (protocol 5, floor 8, test/protocol 2, test/floor 2, dossier). Implementing option A: Presence.holder/leaseRemainingMs optional pair; FloorEngine join-guard (elapsed presenceHeartbeat, first-occupant exception); populate outgoing PRESENCE from live lease; adopt inbound holder/lease. Not touching test/simulation/**.
+- [2026-08-21T11:28:05Z] [GB] Implemented option A. Codec: optional `holder`/`lease_remaining_ms` pair, idle omits both (golden unchanged), partial pair decodes as idle. Engine: elapsed-time join guard keyed to `FloorTiming.presenceHeartbeat`; first-occupant and all-others-idle-PRESENCE are the idle-proof exceptions; outgoing PRESENCE populated from `_liveHolder` at send time; inbound holder adopted; do not extend live leases from snapshots. In-territory tests cover the KNOWN ISSUE sequence (late joiner BUSY, original still TX). TASK-023 harness left unmodified. Deterministic KNOWN ISSUE now fails its old "both transmitting" expects (fix landed). 500-seed soak 441/500 pass (was 345/500); remaining 59 named in PLAN.md Test_Evidence. Full `flutter test` 520/520, `flutter analyze` clean. → needs_review.

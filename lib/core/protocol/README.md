@@ -27,7 +27,7 @@ known v1 message are ignored (forward compatible within v1).
 | `TX_GRANT` | `peer`, `lease_ms` | lease = TOT + 2 s (default 62000) |
 | `TX_DENY` | `peer`, `reason` | `BUSY` or `LOCKOUT` only |
 | `TX_START` / `TX_END` | `peer` | speaker announce |
-| `PRESENCE` | `peer`, `cs`, `seq` | 5 s heartbeat; 3 misses = departed |
+| `PRESENCE` | `peer`, `cs`, `seq`, `holder?`, `lease_remaining_ms?` | 5 s heartbeat; 3 misses = departed. Optional pair present together when a lease is live, absent when idle. No version bump — old-format messages (missing both) still decode. |
 | `RCHK` / `RCHK_ACK` | `peer`, `quality` | `quality` is S-meter 1–9 (FR-066 / §8.9) |
 | `EMG` / `EMG_CLR` | `peer` | priority pin (FR-025) |
 

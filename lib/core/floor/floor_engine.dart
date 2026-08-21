@@ -23,11 +23,20 @@ class FloorEngine {
     required FloorClock clock,
     Duration tot = FloorTiming.defaultTot,
     this.busyLockout = true,
+    String? callsign,
   }) : _transport = transport,
        _clock = clock,
-       _tot = tot {
+       _tot = tot,
+       callsign = (callsign == null || callsign.isEmpty)
+           ? localPeerId
+           : callsign,
+       _joinedAt = clock.now() {
     if (localPeerId.isEmpty) {
-      throw ArgumentError.value(localPeerId, 'localPeerId', 'must not be empty');
+      throw ArgumentError.value(
+        localPeerId,
+        'localPeerId',
+        'must not be empty',
+      );
     }
     _assertTot(tot);
     _peers.add(localPeerId);
@@ -42,6 +51,7 @@ class FloorEngine {
         );
       },
     );
+    _armPresenceHeartbeat();
   }
 
   static const _logName = 'keryx.floor';
@@ -52,8 +62,14 @@ class FloorEngine {
   static const Duration totWarnLead = Duration(seconds: 5);
 
   final String localPeerId;
+
+  /// Display callsign carried on outgoing `PRESENCE.cs`. Defaults to
+  /// [localPeerId] so existing constructors stay valid; hosts that know
+  /// the real callsign may pass it.
+  final String callsign;
   final FloorTransport _transport;
   final FloorClock _clock;
+  final DateTime _joinedAt;
   final EmergencyPin _emg = EmergencyPin();
   final Set<String> _peers = <String>{};
   final StreamController<FloorEffect> _effects =
@@ -70,12 +86,21 @@ class FloorEngine {
   DateTime? _leaseExpiresAt;
   bool _emergencyRequest = false;
   int _txReqAttempts = 0;
+  int _presenceSeq = 0;
+  bool _othersSeen = false;
+  bool _firstOccupant = false;
+
+  /// Peers whose latest `PRESENCE` advertised an idle floor. Direct idle
+  /// proof (the §8.6 exception) requires every other rostered peer to
+  /// appear here and `_liveHolder == null`.
+  final Set<String> _idleWitnesses = <String>{};
 
   FloorTimer? _retryTimer;
   FloorTimer? _leaseTimer;
   FloorTimer? _totWarnTimer;
   FloorTimer? _totCutTimer;
   FloorTimer? _idleTimer;
+  FloorTimer? _presenceTimer;
 
   /// Side-effect stream. SFX / haptics / [RadioReducer] subscribe here.
   Stream<FloorEffect> get effects => _effects.stream;
@@ -117,9 +142,21 @@ class FloorEngine {
         throw ArgumentError.value(id, 'peers', 'peerId must not be empty');
       }
     }
+    final hasOthers = peers.any((id) => id != localPeerId);
+    if (hasOthers && !_othersSeen) {
+      _othersSeen = true;
+      // First occupant: we spent a full presenceHeartbeat alone before
+      // anyone else appeared, so we cannot have missed a live lease.
+      // A FaceScreen-style `updateRoster({self})` at boot does NOT count
+      // — that would make every production late-joiner skip the guard.
+      _firstOccupant = !_clock.now().isBefore(
+        _joinedAt.add(FloorTiming.presenceHeartbeat),
+      );
+    }
     _peers
       ..clear()
       ..addAll(peers);
+    _idleWitnesses.removeWhere((id) => !_peers.contains(id));
     final elected = arbiterId;
     if (elected != null) {
       _emit(ArbiterChanged(elected));
@@ -128,6 +165,9 @@ class FloorEngine {
       'roster=${_peers.length} arbiter=$elected local=$localPeerId',
       name: _logName,
     );
+    // Live snapshot, not a cached copy — late joiners learn the holder
+    // on the same roster fan-out that elects them.
+    _emitPresence();
   }
 
   /// Local PTT press. [emergency] is the FR-025 long-press path.
@@ -144,8 +184,20 @@ class FloorEngine {
       _pinEmergency(localPeerId, broadcast: true);
     }
 
+    final joinGuarded = !Arbiter.maySelfGrant(
+      rosterSize: _peers.length,
+      firstOccupant: _firstOccupant,
+      joinedAt: _joinedAt,
+      now: _clock.now(),
+    );
     final remoteHold = _liveHolder != null && _liveHolder != localPeerId;
-    if (!emergency && busyLockout && remoteHold) {
+    // A join-guarded local arbiter must emit TX_DENY(BUSY) rather than
+    // the local LOCKOUT shortcut. Non-arbiters keep the existing lockout
+    // path — they are not the late-joiner self-grant case.
+    if (!emergency &&
+        busyLockout &&
+        remoteHold &&
+        !(joinGuarded && isLocalArbiter)) {
       log('lockout deny (holder=$_holder)', name: _logName);
       _emit(const DispatchRadio(RequestTransmit()));
       _emit(const DispatchRadio(TransmitDenied()));
@@ -196,6 +248,7 @@ class FloorEngine {
     _cancelLease();
     _cancelTot();
     _cancelIdle();
+    _cancelPresence();
     _incoming?.cancel();
     _incoming = null;
     if (!_effects.isClosed) {
@@ -233,7 +286,9 @@ class FloorEngine {
         if (_emg.clear(message.peer)) {
           _emit(EmgCleared(message.peer));
         }
-      case Presence() || Rchk() || RchkAck():
+      case Presence():
+        _onPresence(message);
+      case Rchk() || RchkAck():
         break;
     }
   }
@@ -277,6 +332,7 @@ class FloorEngine {
       _emit(const DispatchRadio(EndTransmit()));
     }
     _holder ??= peer;
+    _idleWitnesses.remove(peer);
     _cancelIdle();
     if (_phase != _Phase.rx) {
       _phase = _Phase.rx;
@@ -300,6 +356,30 @@ class FloorEngine {
   // --- arbiter + local TX ----------------------------------------------
 
   void _arbitrate({required String requester, required int prio}) {
+    // Late-joiner guard (TS §8.6): do not grant *ourselves* until one
+    // presenceHeartbeat has elapsed (unless first occupant / alone).
+    // Granting a remote requester is unchanged — a fresh channel's first
+    // PTT from a non-arbiter must still complete synchronously, and a
+    // late joiner that has adopted `PRESENCE.holder` will BUSY/pre-empt
+    // via the existing decide() path.
+    // While the join-guard window is open and we have no live holder and
+    // no idle proof, do not grant anyone — a late-joiner arbiter granting
+    // a third peer is the same double-grant class as self-grant.
+    if (_inJoinGuardWindow && _liveHolder == null && !_hasDirectIdleProof) {
+      _denyBusy(requester);
+      return;
+    }
+    if (requester == localPeerId &&
+        !Arbiter.maySelfGrant(
+          rosterSize: _peers.length,
+          firstOccupant: _firstOccupant,
+          joinedAt: _joinedAt,
+          now: _clock.now(),
+        ) &&
+        !_hasDirectIdleProof) {
+      _denyBusy(requester);
+      return;
+    }
     final verdict = Arbiter.decide(
       requester: requester,
       prio: prio,
@@ -312,7 +392,10 @@ class FloorEngine {
       case ArbiterGrant():
         _installLease(verdict.peer, verdict.remaining);
         _send(
-          TxGrant(peer: verdict.peer, leaseMs: verdict.remaining.inMilliseconds),
+          TxGrant(
+            peer: verdict.peer,
+            leaseMs: verdict.remaining.inMilliseconds,
+          ),
         );
         if (verdict.peer == localPeerId && _phase != _Phase.tx) {
           _enterTx();
@@ -406,7 +489,7 @@ class FloorEngine {
     return _holder;
   }
 
-  void _installLease(String peer, Duration remaining) {
+  void _installLease(String peer, Duration remaining, {bool announce = true}) {
     _holder = peer;
     _leaseExpiresAt = _clock.now().add(remaining);
     _cancelLease();
@@ -416,6 +499,7 @@ class FloorEngine {
     }
     _leaseTimer = _clock.schedule(remaining, _onLeaseExpired);
     _cancelIdle();
+    if (announce) _emitPresence();
   }
 
   void _onLeaseExpired() {
@@ -436,10 +520,11 @@ class FloorEngine {
     _armIdle();
   }
 
-  void _clearLease() {
+  void _clearLease({bool announce = true}) {
     _holder = null;
     _leaseExpiresAt = null;
     _cancelLease();
+    if (announce) _emitPresence();
   }
 
   void _armIdle() {
@@ -497,6 +582,137 @@ class FloorEngine {
   void _cancelIdle() {
     _idleTimer?.cancel();
     _idleTimer = null;
+  }
+
+  void _cancelPresence() {
+    _presenceTimer?.cancel();
+    _presenceTimer = null;
+  }
+
+  /// Join-guard window independent of current roster size — a late
+  /// joiner whose `updateRoster` has not landed yet still has size 1.
+  bool get _inJoinGuardWindow {
+    if (_firstOccupant) return false;
+    return _clock.now().isBefore(_joinedAt.add(FloorTiming.presenceHeartbeat));
+  }
+
+  /// Direct proof the floor is idle (§8.6 exception to the join guard):
+  /// alone, first occupant, or every other rostered peer has advertised
+  /// idle via `PRESENCE` and we have no live holder. A burst from a
+  /// *subset* of peers cannot satisfy this — the transmitter would be
+  /// the missing witness, advertising `holder` rather than idle.
+  bool get _hasDirectIdleProof {
+    if (_liveHolder != null) return false;
+    if (_peers.length <= 1) return true;
+    if (_firstOccupant) return true;
+    for (final id in _peers) {
+      if (id == localPeerId) continue;
+      if (!_idleWitnesses.contains(id)) return false;
+    }
+    return true;
+  }
+
+  void _denyBusy(String requester) {
+    _send(TxDeny(peer: requester, reason: FloorDenyReason.busy));
+    if (requester == localPeerId && _phase == _Phase.awaiting) {
+      _phase = _Phase.idle;
+      _emergencyRequest = false;
+      _emit(const DispatchRadio(TransmitDenied()));
+      _emit(const DenyBuzz(FloorDenyReason.busy));
+    }
+  }
+
+  void _armPresenceHeartbeat() {
+    _presenceTimer?.cancel();
+    _presenceTimer = _clock.schedule(FloorTiming.presenceHeartbeat, () {
+      if (_disposed) return;
+      _emitPresence();
+      _armPresenceHeartbeat();
+    });
+  }
+
+  void _emitPresence() {
+    if (_disposed) return;
+    _presenceSeq += 1;
+    final live = _liveHolder;
+    int? remainingMs;
+    if (live != null) {
+      final expires = _leaseExpiresAt;
+      remainingMs = expires == null
+          ? 0
+          : expires.difference(_clock.now()).inMilliseconds;
+      if (remainingMs < 0) remainingMs = 0;
+    }
+    _send(
+      Presence(
+        peer: localPeerId,
+        cs: callsign,
+        seq: _presenceSeq,
+        holder: live,
+        leaseRemainingMs: live == null ? null : remainingMs,
+      ),
+    );
+  }
+
+  void _onPresence(Presence presence) {
+    if (presence.peer == localPeerId) return;
+    final remoteHolder = presence.holder;
+    final remainingMs = presence.leaseRemainingMs;
+    if (remoteHolder == null || remainingMs == null) {
+      _idleWitnesses.add(presence.peer);
+      // Idle snapshot. Honour only from the peer we currently believe
+      // holds — a blind joiner also sends idle PRESENCE.
+      if (_liveHolder != null && presence.peer == _liveHolder) {
+        _clearLease(announce: false);
+        if (_phase == _Phase.rx) {
+          _phase = _Phase.idle;
+          _emit(const DispatchRadio(RemoteFloorEnded()));
+          _armIdle();
+        }
+      }
+      return;
+    }
+    _idleWitnesses.remove(presence.peer);
+    _idleWitnesses.remove(remoteHolder);
+    final remaining = Duration(milliseconds: remainingMs);
+    if (remaining <= Duration.zero) return;
+
+    if (_phase == _Phase.tx) {
+      // A late joiner can solo-grant before updateRoster lands (engine
+      // still sees roster size 1). If PRESENCE then reports a remote
+      // live lease during the join-guard window, that solo grant was
+      // premature — yield so we do not double-hold.
+      if (remoteHolder != localPeerId && _inJoinGuardWindow) {
+        _cancelTot();
+        _phase = _Phase.idle;
+        if (_holder == localPeerId) {
+          _clearLease(announce: false);
+        }
+        _send(TxEnd(peer: localPeerId));
+        _emit(const DispatchRadio(EndTransmit()));
+        _installLease(remoteHolder, remaining, announce: false);
+        _phase = _Phase.rx;
+        _emit(const DispatchRadio(RemoteFloorStarted()));
+      }
+      return;
+    }
+
+    final live = _liveHolder;
+    if (live == null) {
+      _installLease(remoteHolder, remaining, announce: false);
+      if (remoteHolder != localPeerId && _phase != _Phase.rx) {
+        _phase = _Phase.rx;
+        _emit(const DispatchRadio(RemoteFloorStarted()));
+      }
+      return;
+    }
+    if (live == remoteHolder) {
+      // Do not extend a live lease from a snapshot — a stale
+      // `lease_remaining_ms` would keep a crashed speaker's grant alive.
+      return;
+    }
+    // Conflicting holder while we already have one: TX_GRANT / TX_START
+    // are authoritative; ignore the snapshot.
   }
 
   void _checkOpen() {

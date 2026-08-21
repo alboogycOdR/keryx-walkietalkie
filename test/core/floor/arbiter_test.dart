@@ -61,7 +61,10 @@ void main() {
         leaseExpiresAt: now,
         lease: lease,
       );
-      expect(v, isA<ArbiterGrant>().having((g) => g.peer, 'peer', 'BBB2222222'));
+      expect(
+        v,
+        isA<ArbiterGrant>().having((g) => g.peer, 'peer', 'BBB2222222'),
+      );
     });
 
     test('idempotent re-grant keeps remaining lease', () {
@@ -78,7 +81,11 @@ void main() {
         v,
         isA<ArbiterGrant>()
             .having((g) => g.idempotent, 'idempotent', isTrue)
-            .having((g) => g.remaining, 'remaining', const Duration(seconds: 40))
+            .having(
+              (g) => g.remaining,
+              'remaining',
+              const Duration(seconds: 40),
+            )
             .having((g) => g.lease, 'lease', lease),
       );
     });
@@ -116,6 +123,46 @@ void main() {
             .having((g) => g.preempted, 'preempted', 'AAA2222222')
             .having((g) => g.idempotent, 'idempotent', isFalse)
             .having((g) => g.remaining, 'remaining', lease),
+      );
+    });
+
+    test('maySelfGrant is elapsed-time, not a message count', () {
+      final joined = DateTime.utc(2026, 1, 1);
+      expect(
+        Arbiter.maySelfGrant(
+          rosterSize: 1,
+          firstOccupant: false,
+          joinedAt: joined,
+          now: joined,
+        ),
+        isTrue,
+      );
+      expect(
+        Arbiter.maySelfGrant(
+          rosterSize: 2,
+          firstOccupant: true,
+          joinedAt: joined,
+          now: joined,
+        ),
+        isTrue,
+      );
+      expect(
+        Arbiter.maySelfGrant(
+          rosterSize: 2,
+          firstOccupant: false,
+          joinedAt: joined,
+          now: joined.add(const Duration(seconds: 4, milliseconds: 999)),
+        ),
+        isFalse,
+      );
+      expect(
+        Arbiter.maySelfGrant(
+          rosterSize: 2,
+          firstOccupant: false,
+          joinedAt: joined,
+          now: joined.add(FloorTiming.presenceHeartbeat),
+        ),
+        isTrue,
       );
     });
 

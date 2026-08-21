@@ -36,10 +36,23 @@ abstract final class FloorCodec {
         body['peer'] = peer;
       case TxEnd(:final peer):
         body['peer'] = peer;
-      case Presence(:final peer, :final cs, :final seq):
+      case Presence(
+        :final peer,
+        :final cs,
+        :final seq,
+        :final holder,
+        :final leaseRemainingMs,
+      ):
         body['peer'] = peer;
         body['cs'] = cs;
         body['seq'] = seq;
+        // Optional pair: omit both when idle so old-format goldens stay
+        // byte-identical and older peers keep decoding via unknown-field
+        // tolerance (no protocol version bump).
+        if (holder != null && leaseRemainingMs != null) {
+          body['holder'] = holder;
+          body['lease_remaining_ms'] = leaseRemainingMs;
+        }
       case Rchk(:final peer, :final quality):
         body['peer'] = peer;
         body['quality'] = quality;
@@ -102,7 +115,21 @@ abstract final class FloorCodec {
           final cs = _asNonEmptyString(map['cs']);
           final seq = _asInt(map['seq']);
           if (cs == null || seq == null) return null;
-          return Presence(peer: peer, cs: cs, seq: seq);
+          final holder = _asNonEmptyString(map['holder']);
+          final leaseRemainingMs = _asInt(map['lease_remaining_ms']);
+          // Present together or not at all. A partial pair is treated as
+          // idle so old peers and truncated snapshots still decode.
+          final hasPair =
+              holder != null &&
+              leaseRemainingMs != null &&
+              leaseRemainingMs >= 0;
+          return Presence(
+            peer: peer,
+            cs: cs,
+            seq: seq,
+            holder: hasPair ? holder : null,
+            leaseRemainingMs: hasPair ? leaseRemainingMs : null,
+          );
         case FloorMsgType.rchk:
           final quality = _asInt(map['quality']);
           if (quality == null) return null;
@@ -141,17 +168,35 @@ abstract final class FloorCodec {
         if (leaseMs < 0) {
           throw ArgumentError.value(leaseMs, 'leaseMs', 'must be >= 0');
         }
-      case Presence(:final cs):
+      case Presence(:final cs, :final holder, :final leaseRemainingMs):
         if (cs.isEmpty) {
           throw ArgumentError.value(cs, 'cs', 'must be non-empty');
         }
+        if (holder != null) {
+          if (holder.isEmpty) {
+            throw ArgumentError.value(holder, 'holder', 'must be non-empty');
+          }
+          if (leaseRemainingMs == null || leaseRemainingMs < 0) {
+            throw ArgumentError.value(
+              leaseRemainingMs,
+              'leaseRemainingMs',
+              'must be >= 0 when holder is present',
+            );
+          }
+        } else if (leaseRemainingMs != null) {
+          throw ArgumentError.value(
+            leaseRemainingMs,
+            'leaseRemainingMs',
+            'must be absent when holder is absent',
+          );
+        }
       case TxDeny() ||
-            TxStart() ||
-            TxEnd() ||
-            Rchk() ||
-            RchkAck() ||
-            Emg() ||
-            EmgClr():
+          TxStart() ||
+          TxEnd() ||
+          Rchk() ||
+          RchkAck() ||
+          Emg() ||
+          EmgClr():
         break;
     }
   }

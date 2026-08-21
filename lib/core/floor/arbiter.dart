@@ -62,6 +62,24 @@ abstract final class Arbiter {
     return ArbiterDeny(peer: requester, reason: FloorDenyReason.busy);
   }
 
+  /// §8.6 late-joiner self-grant gate. Pure: instants in, bool out.
+  ///
+  /// A peer may self-grant when alone, when it was the first occupant
+  /// (others appeared only after a full [FloorTiming.presenceHeartbeat] of
+  /// being the sole roster member), or once that heartbeat has elapsed
+  /// since [joinedAt]. A burst of `PRESENCE` messages cannot satisfy this
+  /// — it is elapsed time, not a message count.
+  static bool maySelfGrant({
+    required int rosterSize,
+    required bool firstOccupant,
+    required DateTime joinedAt,
+    required DateTime now,
+  }) {
+    if (rosterSize <= 1) return true;
+    if (firstOccupant) return true;
+    return !now.isBefore(joinedAt.add(FloorTiming.presenceHeartbeat));
+  }
+
   static String? _liveHolder(
     String? holder,
     DateTime now,
