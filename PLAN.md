@@ -1332,7 +1332,7 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 
 ### TASK-026
 **Title:** Foreground service + radio notification (KRX-080)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-102, FR-103, §8.8, §9 NFR-06, §11 E9 (KRX-080)
@@ -1351,12 +1351,36 @@ New territory. Implementing arbiter election, lease/TOT/lockout/EMG over injecte
 **Progress_Notes:**
 - [2026-08-21T04:45:00Z] [ORCH] **REASSIGNED S5 -> GB** and raised to high for this wave (project owner instruction: S5 on TASK-018, GB on TASK-026, concurrently). Territory verified pairwise disjoint against the other three open tasks: this task owns android/** + lib/services/platform/** + test/services/platform/**, TASK-018 owns lib/features/settings_panel/**, TASK-025 owns lib/features/event_qr/**, TASK-023 owns test/simulation/** — no intersection, so S5 and GB can run simultaneously. Depends_On TASK-019 is done, so android/** is free (TASK-019 held it previously and the 001->019->026 android chain is serial by design — 019 merged, so 026 is the tail). Assigned to GB on the protocol section-8 heuristic: GB is 13/13 first-pass and TASK-019 (the android/** predecessor this task directly extends) was GB work, so it already knows that territory.
 - [2026-08-21T04:50:00Z] [GB] Claimed TASK-026. Resuming none — no GB claimed/in_progress task. Depends_On TASK-019 is done. Branch `task/TASK-026-gb`.
+- [2026-08-21T04:52:00Z] [GB] Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-026 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 4 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   android/**  -> 21 file(s):
+           android/app/build.gradle.kts
+           android/app/src/debug/AndroidManifest.xml
+           android/app/src/main/AndroidManifest.xml
+           android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+           android/app/src/main/kotlin/za/co/basileia/keryx/MainActivity.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/NsdPlugin.kt
+           android/app/src/main/res/drawable-v21/launch_background.xml
+           android/app/src/main/res/drawable/launch_background.xml
+           android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+           android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+           android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+           android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+           ... and 9 more
+  GLOB   lib/services/platform/**  -> matches nothing yet (new territory)
+  GLOB   test/services/platform/**  -> matches nothing yet (new territory)
+  FILE   dossiers/TASK-026.md  -> exists, 20 line(s), 2239 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches expectation: android/** is the TASK-019 predecessor (do not touch NsdPlugin.kt), Dart/test platform globs are NEW, dossier exists. Implementing FGS + notification + wake-lock/audio-focus + kill heuristic + Dart facade.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-21T04:50:00Z
+**Updated_At:** 2026-08-21T04:52:00Z
 
 ### TASK-027
 **Title:** RadioState projection fields + floor→reducer bridge (state successor, follow-up (m))
