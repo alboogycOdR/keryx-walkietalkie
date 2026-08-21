@@ -1991,7 +1991,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-034
 **Title:** SFX projection layer — RadioState/FloorEffect → SfxEngine, the §8.2-compliant sound driver
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2 (sound is a projection of the reducer — the invariant this task exists to honour), §7.2 (ducking rules), FR-006 (tune burst), FR-062 (roger variants), FR-045 (link lost/up chirps), FR-023 (TOT warn/cut), §11 E3 (KRX-023 squelch↔bed wiring); lib/core/state/radio_state_bridge.dart (`GrantTone`/`FloorIdleSettled` currently ignored — your input seam); lib/core/settings/settings_model.dart (`RogerBeepVariant`/`CharacterDspIntensity`/`squelchLevel` — the settings-side enums you must map to the audio-side `RogerVariant`/`CharacterIntensity`)
@@ -1999,11 +1999,11 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 **Depends_On:** TASK-010, TASK-028
 **Description:** Nothing anywhere maps radio events to sounds — TASK-024's link chirps and the FaceScreen SFX gap are both this one missing layer, ratified twice as ORCH sequencing debt. Build `lib/services/sound/` (NEW territory): a projection class that (a) observes `RadioState` transitions (constructor takes a state stream or a `Listenable`; do NOT import Riverpod here — plain streams keep it host-agnostic and testable) and `FloorEngine.effects` (a broadcast stream; `RadioStateBridge` and `MeshController` already co-subscribe), and (b) calls the already-built `SfxEngine` API: `play(SfxId)`, `playRoger(variant)`, `applySquelch(detent)`, `setBedLevel`, `tick`. Event map (each row cites its spec line — verify against spec text, not this summary): power on/off → `powerOn`/`powerOff`; tune commit → `tuneBurst`; TX denied → `denyBuzz`; TOT warn/cut → `totWarn`/`totCut`; link degraded/resolved → `linkLost`/`linkUp`; emergency pinned → `emgAlert`; RX start/end → `squelchOpen`/`squelchTail` + roger on remote end per FR-062; squelch detent changes → `applySquelch`. Settings integration: subscribe to the settings `changes` stream and map `RogerBeepVariant`→`RogerVariant`, `squelchLevel`→detent — the two enum families are deliberately separate territories; your mapping is the single point of truth, document it. **`GrantTone` has NO manifest entry (known §7.1 spec gap, TASK-010 finding 6)** — map it to an existing SfxId as a disclosed pinned decision (recommend `keyClick`: mechanical, cosmetic-bus, no duck) and record it in the README's decisions table; do NOT add assets or SfxIds (frozen manifest, ORCH owes the spec amendment). This task does NOT touch `FaceScreen` — TASK-037 instantiates your class; you ship it with a pure-Dart test double (`RecordingAudioSink` is already ideal).
 **Acceptance_Criteria:**
-- [ ] Every mapping row above is unit-tested against `SfxEngine` over `RecordingAudioSink` — assert the exact `SinkEvent` sequence, including duck application on ducking SFX and NO duck on cosmetic ones
-- [ ] Settings live-update proven: changing `squelchLevel`/`rogerBeep` mid-session changes the next projection output without reconstruction
-- [ ] The `GrantTone` interim mapping is pinned in README + dartdoc as a disclosed decision citing the §7.1 gap
-- [ ] No Riverpod/Flutter-widget imports in the projection (pure Dart; a `flutter test` import-guard test proves it, same pattern as TASK-007's privacy guard)
-- [ ] Full `flutter test` green, `flutter analyze` clean
+- [x] Every mapping row above is unit-tested against `SfxEngine` over `RecordingAudioSink` — assert the exact `SinkEvent` sequence, including duck application on ducking SFX and NO duck on cosmetic ones
+- [x] Settings live-update proven: changing `squelchLevel`/`rogerBeep` mid-session changes the next projection output without reconstruction
+- [x] The `GrantTone` interim mapping is pinned in README + dartdoc as a disclosed decision citing the §7.1 gap
+- [x] No Riverpod/Flutter-widget imports in the projection (pure Dart; a `flutter test` import-guard test proves it, same pattern as TASK-007's privacy guard)
+- [x] Full `flutter test` green, `flutter analyze` clean
 **Branch:** task/TASK-034-cx
 **Started_At:** 2026-08-21T19:19:01Z
 **Progress_Notes:**
@@ -2011,11 +2011,15 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 - [2026-08-21T20:05:00Z] [ORCH] REASSIGNED GB → CX (project-owner instruction: bring CX back in). CX's usage-limit reset (2026-08-21T16:27+02:00) has passed. Consumes only `SfxEngine`'s already-built public API and `RecordingAudioSink` — no dependency on TASK-033's real sink, no prior authorship needed in this greenfield territory, so it's a clean CX on-ramp. CX now runs its own lane: TASK-034 → TASK-036 (see TASK-036's reassignment note). Verified disjoint from S5's TASK-032 (`lib/services/mesh/**`) and GB's TASK-033 (`lib/core/audio/**`, `pubspec.yaml`) — all three dispatchable concurrently.
 - [2026-08-21T19:19:01Z] [CX] Claimed TASK-034; implementing the host-agnostic SFX projection and its pure-Dart tests.
 - [2026-08-21T19:25:00Z] [CX] Implemented and committed `08e1677`: stream-based state/floor/settings SFX projection, compatibility decisions, exhaustive mapping tests, and pure-Dart import guard. Full test suite and analysis are green; publishing review evidence next.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-21T19:26:00Z] [CX] Ready for review on `task/TASK-034-cx` at `08e1677`.
+**Artifacts:** `lib/services/sound/{sfx_projection.dart,sound.dart,README.md}`, `test/services/sound/{sfx_projection_test.dart,sound_import_guard_test.dart}`
+**Test_Evidence:**
+- [2026-08-21T19:24:00Z] [CX] `flutter test test/services/sound` — passed: 5/5 tests, including exact sink-event/duck sequence, full floor-effect map, live settings update, enum mappings, and pure-Dart import guard.
+- [2026-08-21T19:25:00Z] [CX] `flutter test` — passed: 1000 tests, 40 intentionally skipped (documented parked emergency-preemption simulation); no failures.
+- [2026-08-21T19:25:00Z] [CX] `flutter analyze` — passed: No issues found.
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-21T19:25:00Z
+**Updated_At:** 2026-08-21T19:26:00Z
 
 ### TASK-035
 **Title:** Radio session layer — host composition: mode selection, LOCAL chain sequencing, LINKED lifecycle, roster feed
