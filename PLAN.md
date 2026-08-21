@@ -1960,7 +1960,7 @@ Round-4 residual: `_onGrant` ignored self-GRANT only when `live == null`; a join
 
 ### TASK-034
 **Title:** SFX projection layer — RadioState/FloorEffect → SfxEngine, the §8.2-compliant sound driver
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2 (sound is a projection of the reducer — the invariant this task exists to honour), §7.2 (ducking rules), FR-006 (tune burst), FR-062 (roger variants), FR-045 (link lost/up chirps), FR-023 (TOT warn/cut), §11 E3 (KRX-023 squelch↔bed wiring); lib/core/state/radio_state_bridge.dart (`GrantTone`/`FloorIdleSettled` currently ignored — your input seam); lib/core/settings/settings_model.dart (`RogerBeepVariant`/`CharacterDspIntensity`/`squelchLevel` — the settings-side enums you must map to the audio-side `RogerVariant`/`CharacterIntensity`)
@@ -1973,16 +1973,17 @@ Round-4 residual: `_onGrant` ignored self-GRANT only when `live == null`; a join
 - [ ] The `GrantTone` interim mapping is pinned in README + dartdoc as a disclosed decision citing the §7.1 gap
 - [ ] No Riverpod/Flutter-widget imports in the projection (pure Dart; a `flutter test` import-guard test proves it, same pattern as TASK-007's privacy guard)
 - [ ] Full `flutter test` green, `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-034-cx
+**Started_At:** 2026-08-21T19:19:01Z
 **Progress_Notes:**
 - [2026-08-21T19:30:00Z] [ORCH] Created from the 2026-08-21 integration recon. Buildable against the recording sink immediately — does NOT wait for TASK-033's real sink; TASK-037 joins them.
 - [2026-08-21T20:05:00Z] [ORCH] REASSIGNED GB → CX (project-owner instruction: bring CX back in). CX's usage-limit reset (2026-08-21T16:27+02:00) has passed. Consumes only `SfxEngine`'s already-built public API and `RecordingAudioSink` — no dependency on TASK-033's real sink, no prior authorship needed in this greenfield territory, so it's a clean CX on-ramp. CX now runs its own lane: TASK-034 → TASK-036 (see TASK-036's reassignment note). Verified disjoint from S5's TASK-032 (`lib/services/mesh/**`) and GB's TASK-033 (`lib/core/audio/**`, `pubspec.yaml`) — all three dispatchable concurrently.
+- [2026-08-21T19:19:01Z] [CX] Claimed TASK-034; implementing the host-agnostic SFX projection and its pure-Dart tests.
 **Artifacts:** —
 **Test_Evidence:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-21T19:30:00Z
+**Updated_By:** CX
+**Updated_At:** 2026-08-21T19:19:01Z
 
 ### TASK-035
 **Title:** Radio session layer — host composition: mode selection, LOCAL chain sequencing, LINKED lifecycle, roster feed
