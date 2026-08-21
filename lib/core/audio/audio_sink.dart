@@ -3,8 +3,8 @@ import 'sfx_id.dart';
 
 /// Playback backend. The engine never talks to a device or the network.
 ///
-/// pubspec.yaml is frozen without an SFX player package; the host injects a
-/// real sink later. Tests use [RecordingAudioSink].
+/// Production host injects [DeviceAudioSink] (SoLoud, TASK-033). Tests use
+/// [RecordingAudioSink].
 abstract class AudioSink {
   void playOneShot({
     required SfxId id,

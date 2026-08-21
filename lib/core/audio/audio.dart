@@ -6,6 +6,8 @@ export 'audio_bus.dart';
 export 'audio_mix.dart';
 export 'audio_sink.dart';
 export 'bed_mixer.dart';
+export 'device_audio_sink.dart';
+export 'playback_backend.dart';
 export 'character_chain.dart';
 export 'dsp/biquad.dart';
 export 'dsp/compressor.dart';
