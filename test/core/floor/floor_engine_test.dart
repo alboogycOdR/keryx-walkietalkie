@@ -646,6 +646,80 @@ void main() {
     expect(a.holder, bId);
   });
 
+  test('join-guard clock pauses while inbound is silent (partition)', () {
+    // TASK-023 residual #2: a peer partitioned for the whole 5 s window
+    // has elapsed wall-clock but received no holder snapshot, then
+    // self-grants on heal. Silence is the engine's only partition signal.
+    final b = rig.spawn(bId);
+    b.updateRoster({bId});
+    b.requestTransmit();
+    expect(b.isTransmitting, isTrue);
+
+    // Partition A before the roster fan-out so B's holder snapshot never
+    // arrives. B already holds; A becomes arbiter but stays blind.
+    rig.hub.drop = (_, to, _) => to == aId;
+    final a = rig.spawn(aId);
+    rig.roster([a, b]);
+    expect(a.isLocalArbiter, isTrue);
+    expect(a.holder, isNull, reason: 'PRESENCE/TX_START dropped — A is partitioned');
+
+    rig.clock.elapse(
+      FloorTiming.presenceHeartbeat + const Duration(seconds: 1),
+    );
+    a.requestTransmit(emergency: true);
+    expect(a.isTransmitting, isFalse);
+    expect(b.isTransmitting, isTrue);
+    expect(a.tape.whereType<DenyBuzz>().last.reason, FloorDenyReason.busy);
+  });
+
+  test('inbound after a heartbeat-long silence restarts the join-guard clock', () {
+    final b = rig.spawn(bId);
+    final a = rig.spawn(aId);
+    rig.roster([a, b]);
+
+    rig.hub.drop = (_, to, _) => to == aId;
+    rig.clock.elapse(
+      FloorTiming.presenceHeartbeat + const Duration(seconds: 1),
+    );
+    rig.hub.drop = null;
+
+    // Heal: one idle snapshot is not 5 s of connected observation.
+    // Direct idle proof (B idle + 2-peer roster) WOULD lift the guard;
+    // inject a holder snapshot that is already expired so we stay blind
+    // without installing a lease, then a non-idle-proof message.
+    rig.hub.inject(aId, const TxReq(peer: bId, prio: FloorPrio.normal, ts: 0));
+    a.requestTransmit();
+    expect(
+      a.isTransmitting,
+      isFalse,
+      reason: 'observation restarted at heal; 5 s more required',
+    );
+
+    rig.clock.elapse(FloorTiming.presenceHeartbeat);
+    a.requestTransmit();
+    expect(a.isTransmitting, isTrue);
+  });
+
+  test('delayed self-grant is ignored while the join-guard clock is paused', () {
+    final a = rig.spawn(aId);
+    final b = rig.spawn(bId);
+    rig.roster([a, b]);
+
+    rig.hub.drop = (_, to, _) => to == aId;
+    rig.clock.elapse(
+      FloorTiming.presenceHeartbeat + const Duration(seconds: 1),
+    );
+    // Link still paused (drop is on). Injecting a GRANT delivers it
+    // (hub.inject bypasses drop) and notes activity, which restarts
+    // the observation window — still in-guard, no idle proof, ignore.
+    rig.hub.inject(
+      aId,
+      TxGrant(peer: aId, leaseMs: FloorTiming.defaultGrantLease.inMilliseconds),
+    );
+    expect(a.isTransmitting, isFalse);
+    expect(a.holder, isNull);
+  });
+
   test('PRESENCE does not resurrect a holder whose lease already expired', () {
     final tot = FloorEngine.minTot;
     final a = rig.spawn(aId, tot: tot);

@@ -68,25 +68,38 @@ abstract final class Arbiter {
   /// ([rosterConverged] and [rosterSize] ≤ 1), when it was the first
   /// occupant (others appeared only after a full
   /// [FloorTiming.presenceHeartbeat] of being the sole roster member), or
-  /// once that heartbeat has elapsed since [joinedAt].
+  /// once that heartbeat has elapsed since [observingSince] (falling
+  /// back to [joinedAt]) **and** the link is currently reachable.
   ///
   /// Constructor-default `{self}` is **not** aloneness proof:
   /// [rosterConverged] must be true. Roster membership rides the same
   /// delayed/lossy channel as `PRESENCE`; treating "I currently see
   /// nobody" as "I have been alone long enough to be sure" is the hole
   /// TASK-023's soak residual traced. A burst of `PRESENCE` messages
-  /// cannot satisfy the elapsed-time branch — it is wall time, not a
-  /// message count.
+  /// cannot satisfy the elapsed-time branch — it is connected time, not
+  /// a message count.
+  ///
+  /// [linkReachable] is the partition pause: wall-clock spent unable to
+  /// receive does not count, and a currently unreachable peer must not
+  /// self-grant even if 5 s have elapsed since join. Defaults to `true`
+  /// so existing unit callers (no transport) keep the connected-path
+  /// behaviour. [observingSince] is the start of the current connected
+  /// observation window; the engine resets it after a heartbeat-long
+  /// inbound gap (partition then heal).
   static bool maySelfGrant({
     required int rosterSize,
     required bool firstOccupant,
     required DateTime joinedAt,
     required DateTime now,
     bool rosterConverged = false,
+    DateTime? observingSince,
+    bool linkReachable = true,
   }) {
     if (firstOccupant) return true;
     if (rosterSize <= 1 && rosterConverged) return true;
-    return !now.isBefore(joinedAt.add(FloorTiming.presenceHeartbeat));
+    if (!linkReachable) return false;
+    final started = observingSince ?? joinedAt;
+    return !now.isBefore(started.add(FloorTiming.presenceHeartbeat));
   }
 
   static String? _liveHolder(

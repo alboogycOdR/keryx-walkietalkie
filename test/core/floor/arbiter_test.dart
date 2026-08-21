@@ -176,6 +176,39 @@ void main() {
         ),
         isTrue,
       );
+      expect(
+        Arbiter.maySelfGrant(
+          rosterSize: 2,
+          firstOccupant: false,
+          joinedAt: joined,
+          now: joined.add(FloorTiming.presenceHeartbeat),
+          linkReachable: false,
+        ),
+        isFalse,
+        reason: 'partition pause: wall time without a live link does not count',
+      );
+      final healed = joined.add(const Duration(seconds: 8));
+      expect(
+        Arbiter.maySelfGrant(
+          rosterSize: 2,
+          firstOccupant: false,
+          joinedAt: joined,
+          now: healed,
+          observingSince: healed,
+        ),
+        isFalse,
+        reason: 'heal restarts the observation window',
+      );
+      expect(
+        Arbiter.maySelfGrant(
+          rosterSize: 2,
+          firstOccupant: false,
+          joinedAt: joined,
+          now: healed.add(FloorTiming.presenceHeartbeat),
+          observingSince: healed,
+        ),
+        isTrue,
+      );
     });
 
     test('rejects illegal prio / empty requester / negative lease', () {

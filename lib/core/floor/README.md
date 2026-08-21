@@ -46,10 +46,16 @@ it emits `DispatchRadio` effects the host feeds to `RadioReducer`.
   always calls `updateRoster` before the user can PTT.
   The elapsed-time gate cannot be satisfied by a burst of `PRESENCE`
   from a *subset* of peers: the missing witness is the live holder,
-  who advertises `holder` rather than idle. During the window a local
-  `TX_REQ` resolves to `TX_DENY(BUSY)`. A freshly formed channel can
-  still take its first PTT once the host has declared the roster and
-  idle `PRESENCE` from the others has arrived (or the 5 s gate elapses).
+  who advertises `holder` rather than idle. Wall-clock spent unable to
+  receive (a network partition: no inbound `FloorMessage` for more than
+  one `presenceHeartbeat`) does not count — the observation clock
+  pauses, and the next inbound after that gap restarts it, so a peer
+  that was partitioned for the whole window cannot self-grant on heal.
+  A currently unreachable peer stays guarded even after 5 s of wall
+  time. During the window a local `TX_REQ` resolves to `TX_DENY(BUSY)`.
+  A freshly formed channel can still take its first PTT once the host
+  has declared the roster and idle `PRESENCE` from the others has
+  arrived (or the 5 s *connected* gate elapses).
   Late joiners learn a live lease via inbound `PRESENCE.holder` and
   then the existing decide() path BUSY-denies (or emergency-pre-empts
   after the guard). Outgoing `PRESENCE` carries live `holder` /

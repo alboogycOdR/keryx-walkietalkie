@@ -98,6 +98,12 @@ class FloorEngine {
   /// session after the previous lease died).
   final Set<String> _expiredHolders = <String>{};
 
+  /// Start of the current connected-observation window. Null until the
+  /// first inbound [FloorMessage]. Reset when inbound resumes after a
+  /// silence longer than [FloorTiming.presenceHeartbeat] (partition).
+  DateTime? _observingSince;
+  DateTime? _lastInboundAt;
+
   /// Peers whose latest `PRESENCE` advertised an idle floor. Direct idle
   /// proof (the §8.6 exception) requires every other rostered peer to
   /// appear here and `_liveHolder == null`.
@@ -199,6 +205,8 @@ class FloorEngine {
       joinedAt: _joinedAt,
       now: _clock.now(),
       rosterConverged: _rosterConverged,
+      observingSince: _observingSince,
+      linkReachable: !_linkPaused,
     );
     final remoteHold = _liveHolder != null && _liveHolder != localPeerId;
     // A join-guarded local arbiter must emit TX_DENY(BUSY) rather than
@@ -270,6 +278,10 @@ class FloorEngine {
 
   void _onMessage(FloorMessage message) {
     if (_disposed) return;
+    // Any delivered message means we are currently able to receive —
+    // this is the only partition signal the engine has (the soak
+    // harness never tells FloorEngine about SimNetwork partitions).
+    _noteLinkActivity();
     // `peer` is the *subject*. TX_GRANT / TX_DENY name the grantee / denied
     // requester, so those must not be treated as echoes of our own send.
     switch (message) {
@@ -317,6 +329,12 @@ class FloorEngine {
           'ignore self-grant; live holder=$live',
           name: _logName,
         );
+        return;
+      }
+      // Still in the (possibly paused) join-guard window with no idle
+      // proof: a GRANT decided while we were blind must not enter TX.
+      if (_inJoinGuardWindow && live == null && !_hasDirectIdleProof) {
+        log('ignore self-grant; join-guard / link paused', name: _logName);
         return;
       }
       _installLease(grant.peer, remaining);
@@ -422,6 +440,8 @@ class FloorEngine {
           joinedAt: _joinedAt,
           now: _clock.now(),
           rosterConverged: _rosterConverged,
+          observingSince: _observingSince,
+          linkReachable: !_linkPaused,
         ) &&
         !_hasDirectIdleProof) {
       _denyBusy(requester);
@@ -640,9 +660,44 @@ class FloorEngine {
 
   /// Join-guard window independent of current roster size — a late
   /// joiner whose `updateRoster` has not landed yet still has size 1.
+  ///
+  /// Wall-clock since [_joinedAt] is not enough: time spent unable to
+  /// receive (partition) must not count, and a currently unreachable
+  /// peer stays guarded even after 5 s of wall time. Inbound after a
+  /// heartbeat-long gap restarts [_observingSince] so a heal does not
+  /// immediately self-grant.
   bool get _inJoinGuardWindow {
     if (_firstOccupant) return false;
-    return _clock.now().isBefore(_joinedAt.add(FloorTiming.presenceHeartbeat));
+    if (_linkPaused) return true;
+    final started = _observingSince ?? _joinedAt;
+    return _clock.now().isBefore(
+      started.add(FloorTiming.presenceHeartbeat),
+    );
+  }
+
+  /// True when we have never received a [FloorMessage], or the last one
+  /// was more than one [FloorTiming.presenceHeartbeat] ago. Matches
+  /// `SimNetwork.setPartitioned` from the engine's point of view: a
+  /// partitioned peer sends and receives nothing.
+  bool get _linkPaused {
+    final last = _lastInboundAt;
+    if (last == null) return true;
+    return _clock.now().difference(last) > FloorTiming.presenceHeartbeat;
+  }
+
+  void _noteLinkActivity() {
+    final now = _clock.now();
+    final last = _lastInboundAt;
+    if (last != null &&
+        now.difference(last) > FloorTiming.presenceHeartbeat) {
+      _observingSince = now;
+      // Witnesses collected before the partition are stale — the
+      // transmitter we missed would have advertised `holder`, not idle.
+      _idleWitnesses.clear();
+    } else {
+      _observingSince ??= now;
+    }
+    _lastInboundAt = now;
   }
 
   /// Host-declared roster, or the construction instant (no clock has
@@ -665,6 +720,9 @@ class FloorEngine {
     if (!_rosterConverged) return false;
     if (_peers.length <= 1) return true;
     if (_firstOccupant) return true;
+    // Idle witnesses collected before a partition are not proof — the
+    // live holder is the missing witness, and we could not hear them.
+    if (_linkPaused) return false;
     for (final id in _peers) {
       if (id == localPeerId) continue;
       if (!_idleWitnesses.contains(id)) return false;
