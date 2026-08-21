@@ -5,15 +5,14 @@ via WebRTC (`flutter_webrtc` LOCAL mode / `livekit_client` LINKED mode) over a
 self-hosted LiveKit relay (Docker compose: LiveKit + Redis + Caddy + coturn) with a
 FastAPI token service minting LiveKit JWTs (no user accounts).
 
-- **Current focus:** dispatch S5 (only — no GB this wave) at `--effort medium`
-  against TASK-018/023/024/025/026, already scoped and assigned as of
-  `69c4e27`; TASK-024 is `high` priority so expect it claimed first. See
-  `docs/handovers/2026-08-20.md` for full context before resuming.
-- Demo trilogy (face assembly, LAN signaling, WebRTC mesh audio) merged
-  2026-08-20 — app builds and renders on-device (Honor 90 Lite tested) but the
-  SFX/audio engine (TASK-010/011) is not yet wired into `FaceScreen`, so
-  there's no sound. No successor task exists for this yet.
-- Scaffolded and 24/29 tasks merged as of 2026-08-20. Source root is `lib/**` +
+- **Current focus:** INTEGRATION WAVE (TASK-032..039, scoped 2026-08-21 plan
+  v8.5) — wire the fully-built-but-unwired services into the running app for a
+  production-grade two-phone test. S5 lane: 032→036→035→037→038; GB lane:
+  033→034→039. All 31 prior tasks done and merged (soak suite green with 40
+  named parked FR-025 skips).
+- FR-025 emergency-preemption double-grant (~40/500 soak seeds) is PARKED by
+  explicit owner decision 2026-08-21T17:05Z — no successor task; do not chase.
+- Scaffolded and 31/31 pre-integration tasks merged. Source root is `lib/**` +
   `test/**` (Flutter app), `relay/**` (LiveKit/Redis/Caddy/coturn compose),
   `token-svc/**` (FastAPI JWT minting) — all real, not placeholders. Current
   `Owned_Paths` per task are authoritative in `PLAN.md`, not this file.
