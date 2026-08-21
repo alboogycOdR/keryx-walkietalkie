@@ -2068,7 +2068,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-036
 **Title:** Settings: relay/token URL config + LOCAL/AUTO/LINKED mode picker in the back panel
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-040 (three-position mode switch, default AUTO), D2 (self-hosted relay — the URL is deployment-specific and must be user-configurable), §8.4 (token service), FR-008 (region — already rendered); lib/core/settings/settings_model.dart (`mode` field exists, persisted, UNRENDERED — your starting point); lib/features/settings_panel/back_panel_screen.dart (row patterns to extend)
@@ -2082,8 +2082,8 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 - [ ] Old persisted JSON (no new keys) loads without error — regression test
 - [ ] The token-URL derivation convention matches what `relay/Caddyfile` actually routes — cite the Caddyfile line in dartdoc
 - [ ] Full `flutter test` green, `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-036-cx
+**Started_At:** 2026-08-21T19:39:56Z
 **Progress_Notes:**
 - [2026-08-21T19:30:00Z] [ORCH] Created from the 2026-08-21 integration recon. Dispatch alongside TASK-032 — disjoint from everything GB holds.
 - [2026-08-21T20:05:00Z] [ORCH] REASSIGNED S5 → CX (project-owner instruction: bring CX in; a third lane also lets S5's own chain — 032→035→037→038 — run one task shorter). CX runs this second, after TASK-034, on its own lane. `lib/core/settings/**` + `lib/features/settings_panel/**` are disjoint from S5's `lib/services/mesh/**`/`lib/services/session/**` and GB's `lib/core/audio/**`/`pubspec.yaml`/`lib/services/sound/**`(none — that's CX's own TASK-034) at every point in the schedule — verified before dispatch. TASK-035 still depends on this landing (unchanged Depends_On), it just now waits on CX's lane instead of S5's own.
@@ -2091,7 +2091,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 **Test_Evidence:** —
 **Blocked_Reason:** —
 **Updated_By:** ORCH
-**Updated_At:** 2026-08-21T19:30:00Z
+**Updated_At:** 2026-08-21T19:39:56Z
 
 ### TASK-037
 **Title:** Face integration — real transports, live roster, settings/QR navigation, sound projection instantiation
