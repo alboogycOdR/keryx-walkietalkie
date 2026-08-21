@@ -331,9 +331,15 @@ class FloorEngine {
         );
         return;
       }
-      // Still in the (possibly paused) join-guard window with no idle
-      // proof: a GRANT decided while we were blind must not enter TX.
-      if (_inJoinGuardWindow && live == null && !_hasDirectIdleProof) {
+      // Join-guarded with no idle proof: do not enter TX on a
+      // self-targeted GRANT unless we are already the live holder
+      // (PRESENCE can install us as holder before TX_GRANT arrives —
+      // that is the arbiter granting us, not a self-grant). Round 3
+      // only gated `live == null`; a *remote* live holder plus
+      // emergency PTT (which skips the ignore above) sailed through.
+      if (_inJoinGuardWindow &&
+          !_hasDirectIdleProof &&
+          live != localPeerId) {
         log('ignore self-grant; join-guard / link paused', name: _logName);
         return;
       }

@@ -56,6 +56,12 @@ it emits `DispatchRadio` effects the host feeds to `RadioReducer`.
   A freshly formed channel can still take its first PTT once the host
   has declared the roster and idle `PRESENCE` from the others has
   arrived (or the 5 s *connected* gate elapses).
+  A join-guarded peer also ignores an inbound self-targeted `TX_GRANT`
+  when a *remote* holder is already known, including after an emergency
+  PTT that skipped local lockout — a stale grant must not enter TX.
+  A GRANT that names us while we are already the live holder is the
+  arbiter confirming us (PRESENCE can install the lease first) and is
+  accepted.
   Late joiners learn a live lease via inbound `PRESENCE.holder` and
   then the existing decide() path BUSY-denies (or emergency-pre-empts
   after the guard). Outgoing `PRESENCE` carries live `holder` /

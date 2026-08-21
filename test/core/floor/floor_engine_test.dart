@@ -214,6 +214,9 @@ void main() {
     final b = rig.spawn(bId);
     final c = rig.spawn(cId);
     rig.roster([a, b, c]);
+    // FR-025 is in-channel after the join-guard. During the window a
+    // self-targeted GRANT over a known holder is ignored (round 4).
+    rig.clock.elapse(FloorTiming.presenceHeartbeat);
 
     b.requestTransmit();
     expect(b.isTransmitting, isTrue);
@@ -250,6 +253,7 @@ void main() {
     final b = rig.spawn(bId);
     final c = rig.spawn(cId); // lockout on
     rig.roster([a, b, c]);
+    rig.clock.elapse(FloorTiming.presenceHeartbeat);
 
     b.requestTransmit();
     c.requestTransmit(emergency: true);
@@ -645,6 +649,47 @@ void main() {
     expect(b.isTransmitting, isTrue);
     expect(a.holder, bId);
   });
+
+  test(
+    'join-guarded peer ignores self-GRANT with known holder even on emergency',
+    () {
+      // Round-4 residual: `_onGrant` ignored self-GRANT only when
+      // `live == null`. A join-guarded non-arbiter that already knew the
+      // holder, then PTTd emergency (`_emergencyRequest` skips the
+      // live-holder ignore), accepted a stale self-targeted GRANT and
+      // entered TX. Drop B's outbound so this is purely the `_onGrant`
+      // gap, not FR-025 arbiter preemption (out of TASK-031).
+      final a = rig.spawn(aId);
+      final b = rig.spawn(bId);
+      rig.roster([a, b]);
+      a.requestTransmit();
+      expect(a.isTransmitting, isTrue);
+      expect(b.holder, aId);
+      expect(b.isLocalArbiter, isFalse);
+
+      rig.hub.drop = (from, _, _) => from == bId;
+      b.requestTransmit(emergency: true);
+      expect(b.isTransmitting, isFalse);
+      expect(a.isTransmitting, isTrue);
+
+      rig.hub.inject(
+        bId,
+        TxGrant(
+          peer: bId,
+          leaseMs: FloorTiming.defaultGrantLease.inMilliseconds,
+        ),
+      );
+      expect(
+        b.isTransmitting,
+        isFalse,
+        reason:
+            'join-guard must ignore self-targeted GRANT even with a '
+            'known live holder and emergency PTT',
+      );
+      expect(a.isTransmitting, isTrue);
+      expect(b.holder, aId);
+    },
+  );
 
   test('join-guard clock pauses while inbound is silent (partition)', () {
     // TASK-023 residual #2: a peer partitioned for the whole 5 s window
