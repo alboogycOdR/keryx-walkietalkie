@@ -1,6 +1,6 @@
 ---
-plan_version: 8.7
-last_updated: 2026-08-21T20:20:00Z
+plan_version: 8.8
+last_updated: 2026-08-21T21:40:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -1993,7 +1993,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-034
 **Title:** SFX projection layer — RadioState/FloorEffect → SfxEngine, the §8.2-compliant sound driver
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2 (sound is a projection of the reducer — the invariant this task exists to honour), §7.2 (ducking rules), FR-006 (tune burst), FR-062 (roger variants), FR-045 (link lost/up chirps), FR-023 (TOT warn/cut), §11 E3 (KRX-023 squelch↔bed wiring); lib/core/state/radio_state_bridge.dart (`GrantTone`/`FloorIdleSettled` currently ignored — your input seam); lib/core/settings/settings_model.dart (`RogerBeepVariant`/`CharacterDspIntensity`/`squelchLevel` — the settings-side enums you must map to the audio-side `RogerVariant`/`CharacterIntensity`)
@@ -2030,9 +2030,14 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 **WHAT IS GENUINELY SOLID, VERIFIED, AND SHOULD NOT BE RE-DESIGNED.** The mapping table itself is correct and complete against the task's own spec-cited event list; the `GrantTone`→`keyClick` interim decision is properly pinned in the README with the §7.1 gap cited (matches TASK-010 finding 6 exactly); settings live-update (roger/squelch/DSP) works and is tested with a real settings-stream update mid-session; the pure-Dart import guard is present and correct (no Riverpod/Flutter imports); duck-vs-no-duck sequencing for the tested paths is correct (`keyClick` doesn't duck, programme SFX ducks once). Territory clean (5 files, all in `Owned_Paths`), single commit `[TASK-034]`-tagged, PLAN.md discipline clean.
 
 **FIX DIRECTION, NOT A MANDATE.** Pick ONE canonical source per event that both effects-and-their-state-translation cover, not both: either (a) drop the three overlapping cases from `_onFloorEffect` (`DenyBuzz`, `TotWarn`, `EmgPinned`) and let `_onState`'s existing edge-detection be the sole trigger for all three (simplest — `_onState` already has the right edges for all three), or (b) drop the corresponding `_onState` edges and rely solely on the floor effects (loses the sound if some other RadioEvent source ever sets those same flags outside the floor-effect path — check whether that's possible before choosing this route). Whichever is chosen, add a combined-stream test (state stream AND effects stream on ONE projection instance, mirroring TASK-037's real wiring) so this exact interaction class has a permanent regression guard — the two-harness-isolation test structure that hid this must not be the only coverage going forward.
+**Review_Findings:** **APPROVED AND MERGED (2026-08-21T21:40Z, ORCH) as merge commit into master — the rework closes the exact gap named.** Fix (`08c245e`) took option (a): `DenyBuzz`/`TotWarn`/`EmgPinned` now break (no-op) in `_onFloorEffect`, leaving `_onState`'s existing edge-detection as the sole trigger for all three; `TotCut`/`GrantTone` correctly stay `_onFloorEffect`-only (no `_onState` edge exists for either, verified, not assumed). CX added the required combined-stream regression test (`'plays bridged floor effects once when state and effect streams combine'`) — feeds a floor effect AND its resulting state transition into ONE projection instance, mirroring TASK-037's real wiring, exactly the coverage class the two-harness isolation was missing.
+
+**INDEPENDENTLY VERIFIED THREE WAYS, NOT TAKEN FROM CX'S CLAIM.** (1) Ran the branch's own `test/services/sound` in a scratch worktree: 6/6 passed. (2) **Mutation-proved the regression guard actually guards** — reverted the fix in a throwaway copy (reinstated the old buggy `_onFloorEffect` cases) and re-ran: the new combined test failed exactly as it should, showing each of `denyBuzz`/`totWarn`/`emgAlert` played twice (`[denyBuzz, denyBuzz, totWarn, totWarn, emgAlert, emgAlert]`) — the same shape as the original defect, confirming this is a real regression guard, not a test that merely passes. (3) Reverted the mutation, ran the full branch suite: 1001 passed, 0 failed, 40 skipped (unchanged parked FR-025 count), analyze clean. Merged-tree re-verification on master: analyze clean, full suite **1001 passed, 0 failed, 40 skipped** — no regression from the merge. Territory clean throughout (5 files, all `Owned_Paths`), single fix commit `[TASK-034]`-tagged.
+
+**CX's first rework on this project outside the established test-completeness pattern, closed cleanly on the first resubmission** — turned a real architectural defect into a permanent regression test rather than a narrow patch, and correctly chose the simpler of the two fix directions offered (no scope creep toward inventing new signals). Branch `task/TASK-034-cx` deleted post-merge. Unlocks nothing directly (TASK-036 was never blocked on this — see TASK-036's own Depends_On); CX proceeds to TASK-036 next in its own lane.
 **Blocked_Reason:** —
-**Updated_By:** CX
-**Updated_At:** 2026-08-21T19:30:54Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-08-21T21:40:00Z
 
 ### TASK-035
 **Title:** Radio session layer — host composition: mode selection, LOCAL chain sequencing, LINKED lifecycle, roster feed
