@@ -5,7 +5,7 @@
 **Owner:** Basileia Technologies (Cape Town, ZA)
 **Document version:** 1.1 — *Ready for Build*
 **Status:** Approved for Phase 1 execution (reviewer feedback incorporated)
-**Change log:** v1.1 — ratified D9 (AUTO policy: LINKED-preferred for Phase 1, dual-homing → Phase 2); defined peer ID format, callsign collision rules and protocol timing constants (§8.6); clarified S-meter aggregate/per-station behaviour (FR-069); event QR default expiry (FR-044); privacy-sheet clarifications on LOCAL privacy codes, radio check, and token-service logging (§8.7); grant tone/haptic included in key-up measurement (NFR-03); battery bench elevated to hard release gate (KRX-086).
+**Change log:** v1.1 — ratified D9 (AUTO policy: LINKED-preferred for Phase 1, dual-homing → Phase 2); defined peer ID format, callsign collision rules and protocol timing constants (§8.6); clarified S-meter aggregate/per-station behaviour (FR-069); event QR default expiry (FR-044); privacy-sheet clarifications on LOCAL privacy codes, radio check, and token-service logging (§8.7); grant tone/haptic included in key-up measurement (NFR-03); battery bench elevated to hard release gate (KRX-086); 2026-08-21 — FR-108 (night dimming) ratified into this table from the UI Design Spec's proposed amendment (§9), pinned as Should-priority with default **auto**, closing PLAN.md TASK-030 follow-up (mm).
 **Audience:** Development team (solo dev + Claude Code + DEVDepartment execution model compatible)
 **Supersedes:** Competitor-model draft PRD ("Walkie-Walkie response document")
 
@@ -174,6 +174,7 @@ Requirements are numbered `FR-###`. Priority: **M** (must, Phase 1), **S** (shou
 | FR-105 | In-app OEM battery-whitelisting guide (Samsung/Xiaomi/Huawei specifics, dontkillmyapp-style instructions) surfaced when the service is observed being killed. | M |
 | FR-106 | Accessibility: full TalkBack labelling, stepper-first tuning path, haptic-only feedback profile, min 48 dp targets, WCAG AA contrast on all faceplates. | M |
 | FR-107 | Localisation scaffold: EN at launch; AF and pt-BR strings files stubbed. | S |
+| FR-108 | **Night dimming**: display and legend luminance follow an auto/manual dim setting (gate G4, "the dark test" — usable at night without the display becoming a torch). Auto/manual is user-selectable; default **auto**. No specific luminance percentage, lux threshold, or transition timing is prescribed by this requirement — implementations pin those as disclosed decisions. | S |
 
 ---
 

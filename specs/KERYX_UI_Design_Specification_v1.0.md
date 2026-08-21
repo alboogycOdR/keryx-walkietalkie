@@ -139,7 +139,7 @@ Contrast ≥ 4.5:1 for all legends and glass content on every faceplate (validat
 
 Fold into KERYX v1.2:
 
-- **New FR-108:** Night dimming — display and legend luminance follow an auto/manual dim setting (gate G4).
+- ~~**New FR-108:** Night dimming — display and legend luminance follow an auto/manual dim setting (gate G4).~~ **RATIFIED 2026-08-21** into `KERYX_Product_Technical_Spec_v1.1.md` FR-108 (Should, default auto) — no longer pending fold-in.
 - **New FR-109:** Power-up sequence — all-segments flash + power-on sweep on radio power-on (BOOT state).
 - **KRX-010 amended:** implement the token system of §2–§4 as a single theme source; no literal colour or duration values elsewhere in the widget tree.
 - **KRX-018 amended:** golden tests must cover the full state catalogue in §6, on every shipped faceplate.
