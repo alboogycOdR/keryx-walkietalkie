@@ -2075,7 +2075,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-036
 **Title:** Settings: relay/token URL config + LOCAL/AUTO/LINKED mode picker in the back panel
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-040 (three-position mode switch, default AUTO), D2 (self-hosted relay — the URL is deployment-specific and must be user-configurable), §8.4 (token service), FR-008 (region — already rendered); lib/core/settings/settings_model.dart (`mode` field exists, persisted, UNRENDERED — your starting point); lib/features/settings_panel/back_panel_screen.dart (row patterns to extend)
@@ -2083,12 +2083,12 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 **Depends_On:** TASK-018, TASK-030
 **Description:** Two gaps in one territory pair. (1) `KeryxSettings` gains `relayUrl` (String, default '' = unconfigured) and `tokenServiceUrl` (String, default '' — when '', derive from `relayUrl` by convention: `wss://HOST` relay → `https://HOST/token-svc` or document whatever convention `relay/Caddyfile` actually routes; READ the Caddyfile and match reality, don't invent). Compile-time defaults via `String.fromEnvironment('KERYX_RELAY_URL')` / `('KERYX_TOKEN_URL')` so a field-test build can bake them in with `--dart-define` while the panel can still override; persisted value wins over the define when non-empty. Validation on save: empty-or-parseable `wss://`/`https://` URI, reject junk with the existing clamp-don't-throw convention. (2) `BackPanelScreen` renders: a three-position mode picker (`LOCAL / AUTO / LINKED`, styled with the existing `PanelPickerRow`, FR-040's slider styling is a face-territory concern for later — the back panel gets the functional control now, pin that as a disclosed decision), a relay URL text row, and a token URL text row (advanced; collapsed or bottom-placed). Copy through `SettingsCopy` following its voice. Migration: existing persisted settings without the new keys load cleanly (the total-parse convention already handles this — prove it with a test).
 **Acceptance_Criteria:**
-- [ ] New fields round-trip through `SettingsRepository` with clamping/validation tested (bad URL, empty, whitespace, non-wss scheme)
-- [ ] `--dart-define` default + panel override precedence tested (persisted non-empty wins; empty falls back to the define)
-- [ ] Mode picker renders all three positions, persists `mode`, and the previously-unrendered field is now live — widget-tested with the existing stable-key convention (`settings-mode`)
-- [ ] Old persisted JSON (no new keys) loads without error — regression test
-- [ ] The token-URL derivation convention matches what `relay/Caddyfile` actually routes — cite the Caddyfile line in dartdoc
-- [ ] Full `flutter test` green, `flutter analyze` clean
+- [x] New fields round-trip through `SettingsRepository` with clamping/validation tested (bad URL, empty, whitespace, non-wss scheme)
+- [x] `--dart-define` default + panel override precedence tested (persisted non-empty wins; empty falls back to the define)
+- [x] Mode picker renders all three positions, persists `mode`, and the previously-unrendered field is now live — widget-tested with the existing stable-key convention (`settings-mode`)
+- [x] Old persisted JSON (no new keys) loads without error — regression test
+- [x] The token-URL derivation convention matches what `relay/Caddyfile` actually routes — cite the Caddyfile line in dartdoc
+- [x] Full `flutter test` green, `flutter analyze` clean
 **Branch:** task/TASK-036-cx
 **Started_At:** 2026-08-21T19:39:56Z
 **Progress_Notes:**
@@ -2117,13 +2117,26 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
     GLOB   test/features/settings_panel/**  -> 1 file(s):
              test/features/settings_panel/back_panel_screen_test.dart
     NEW    dossiers/TASK-036.md  -> does not exist; parent dossiers/ exists
-  [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
-  ```
-**Artifacts:** —
-**Test_Evidence:** —
+    [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+    ```
+- [2026-08-21T19:49:54Z] [CX] Implemented secure relay/token endpoint persistence and normalization, compile-time defaults, Caddy `/token` derivation, and the back-panel LOCAL/AUTO/LINKED control plus relay/token fields. The panel deliberately uses `PanelPickerRow`; FR-040's slider styling remains face territory. Code commit: `932ca6d`.
+**Artifacts:**
+- `lib/core/settings/settings_model.dart`
+- `lib/core/settings/settings_repository.dart`
+- `lib/features/settings_panel/back_panel_screen.dart`
+- `lib/features/settings_panel/settings_copy.dart`
+- `lib/features/settings_panel/widgets/panel_text_row.dart`
+- `test/core/settings/settings_repository_test.dart`
+- `test/features/settings_panel/back_panel_screen_test.dart`
+- `dossiers/TASK-036.md`
+**Test_Evidence:**
+- [2026-08-21T19:49:54Z] [CX] `flutter test test/core/settings/settings_repository_test.dart test/features/settings_panel/back_panel_screen_test.dart` — 43 passed.
+- [2026-08-21T19:49:54Z] [CX] `flutter test --dart-define=KERYX_RELAY_URL=wss://build.example --dart-define=KERYX_TOKEN_URL=https://build.example/token test/core/settings/settings_repository_test.dart` — 25 passed.
+- [2026-08-21T19:49:54Z] [CX] `flutter analyze` — no issues found.
+- [2026-08-21T19:49:54Z] [CX] `flutter test` — 1006 passed, 40 skipped, 0 failed.
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-08-21T19:40:30Z
+**Updated_At:** 2026-08-21T19:49:54Z
 
 ### TASK-037
 **Title:** Face integration — real transports, live roster, settings/QR navigation, sound projection instantiation
