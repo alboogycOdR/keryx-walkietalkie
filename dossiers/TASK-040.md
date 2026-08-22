@@ -50,3 +50,20 @@ No Dart. No new compose services.
   `ListParticipants`. Caddyfile.local `:8880/token` minted a second JWT.
   Rate limiter: 28 successes then 429 `rate_limited`. token-svc pytest 23
   passed; relay tests 18/18. No Dart. Ready for needs_review.
+- [2026-08-22T05:18:43Z] [GB] REWORK resume on `task/TASK-040-gb` (no re-claim).
+  ORCH blocking finding: `validate.ps1`/`.sh` exit 1 because the clobber-fix
+  `--out $TEMP` path hits `dest.relative_to(here)` in `render_config.py:97`.
+  Preflight (c8b9872) re-run: relay/** 18 files, token-svc/** 35 files,
+  ops/TWO_PHONE_TEST.md FILE, dossiers/TASK-040.md FILE. Scope: one display-
+  path fallback in render_config.py + a test that actually executes the
+  validate script (separate module so the script's own unit-check step
+  cannot recurse). No Dart. No re-litigation of the approved join/rate-limit
+  /Caddy/runbook work.
+- [2026-08-22T05:20:08Z] [GB] Rework landed. `display_write_path` falls back to
+  the absolute dest when `relative_to` raises. `validate.ps1` exit 0 and
+  `validate.sh` exit 0 (both previously crashed on step 1). Relay tests 19/19
+  (new out-of-tree dest subprocess test). `test_validate_gate.py` executes
+  the real gate script, 1/1. Mutation: drop the fallback → that test fails
+  with the same `is not in the subpath` ValueError ORCH reported; restored.
+  token-svc pytest 23 passed. `git diff --name-only -- '*.dart'` empty.
+  → needs_review.

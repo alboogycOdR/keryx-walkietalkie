@@ -17,7 +17,7 @@ from pathlib import Path
 
 RELAY = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RELAY / "scripts"))
-from render_config import parse_env, render  # noqa: E402
+from render_config import display_write_path, parse_env, render  # noqa: E402
 
 
 REQUIRED_SERVICES = {"livekit", "redis", "caddy", "coturn"}
@@ -253,6 +253,48 @@ class RelayConfigTests(unittest.TestCase):
             f"compose config services={services}, expected {REQUIRED_SERVICES}",
         )
         self.assertTrue(services.isdisjoint(FORBIDDEN_SERVICES))
+
+    def test_render_config_accepts_out_of_tree_dest(self) -> None:
+        """validate.ps1 writes to $TEMP; relative_to(relay/) must not crash.
+
+        This is the caller/callee contract the gate scripts rely on. A
+        subprocess (not just the helper) is required so a print-path
+        regression fails this test the same way it fails the gate.
+        """
+        import tempfile
+
+        with tempfile.TemporaryDirectory(prefix="keryx-relay-render-") as tmp:
+            dest = Path(tmp)
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(RELAY / "scripts" / "render_config.py"),
+                    "--env",
+                    str(RELAY / ".env.example"),
+                    "--out",
+                    str(dest),
+                ],
+                cwd=RELAY,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(
+                proc.returncode,
+                0,
+                f"render_config.py --out {dest} failed:\n"
+                f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}",
+            )
+            self.assertTrue((dest / "livekit.yaml").is_file())
+            self.assertTrue((dest / "turnserver.conf").is_file())
+            self.assertIn("[render] wrote", proc.stdout)
+            self.assertNotIn("ValueError", proc.stderr)
+            self.assertNotIn("is not in the subpath", proc.stderr + proc.stdout)
+            in_tree = display_write_path(RELAY / "generated" / "livekit.yaml", RELAY)
+            self.assertEqual(in_tree.replace("\\", "/"), "generated/livekit.yaml")
+            outside = display_write_path(dest / "livekit.yaml", RELAY)
+            self.assertEqual(outside, str(dest / "livekit.yaml"))
 
 
 if __name__ == "__main__":
