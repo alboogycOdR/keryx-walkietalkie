@@ -2260,7 +2260,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-040
 **Title:** Relay + token-service deployment validation (no app dependency) + runbook foundation
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §11 E6 (KRX-050 relay deployment + hardening checklist, KRX-051 token service), D2 (single-VPS self-host — LOCAL stays serverless, LINKED needs this stack), §8.4 (LINKED path: token service mints LiveKit JWTs from room derivation), NFR-05 (≥97% LINKED connect success with TURN — this is the stack that has to deliver it); relay/** (compose + Caddyfile + HARDENING.md + scripts/validate.* — validate, do NOT re-architect), token-svc/** (FastAPI JWT minting + its existing pytest suite)
@@ -2268,7 +2268,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 **Depends_On:** —
 **Description:** Carved out of TASK-039 (2026-08-22) on GB's own recommendation, because none of this needs the Flutter app to exist — it can and should run while S5 works 035→037. Both `relay/**` and `token-svc/**` were built and unit-tested long ago but **have never actually been stood up and talked to each other**; that gap is exactly what breaks a real two-phone LINKED test. (1) **Relay bring-up**: from `relay/.env.example` + README, bring the compose stack up locally (Docker is available on this machine), run `relay/scripts/validate.ps1` (or `.sh`), and fix ONLY what is genuinely broken in the configs/scripts — no re-architecture, no new services. Document the exact working command sequence, and the DNS/TLS prerequisites a real VPS needs that localhost does not (Caddy will want a real domain for ACME — say so plainly rather than pretending localhost proves it). (2) **Token service**: bring it up against that relay, and prove **end-to-end** that a minted JWT is accepted by LiveKit — a real join, via `livekit-cli` or a scripted client, not just "the endpoint returned 200". Confirm the rate limiter actually responds under repeat calls. Note `relay/Caddyfile`'s `@token path /token /token/*` handler currently `respond`s 503 "token-svc not wired" — wiring that route to the real service IS in your territory and is likely the single highest-value fix here; TASK-036 already pinned `https://HOST/token` as the client-side convention, so match it. (3) **Runbook foundation**: CREATE `ops/TWO_PHONE_TEST.md` (new file, new `ops/` territory — builders cannot write `docs/**`) with the relay-side operator sections: VPS bring-up, env/secret checklist, how to verify the stack is healthy before any phone is involved, and the **failure-triage table** (what `NO LINK` means, what a token 4xx/5xx means, which container logs to pull for each symptom). Leave the app-side script to TASK-039, which appends after you — write your sections so they can be appended to, and say at the top which sections are yours.
 **Acceptance_Criteria:**
-- [ ] Relay compose stack starts locally with the documented command sequence; `validate` script passes; every config fix is minimal and individually explained (what was broken, why the fix is right) — **UNTICKED IN REWORK: the compose bring-up half is confirmed good, but `validate.ps1`/`validate.sh` both exit 1 (see Review_Findings). Re-tick only when the script actually runs green end-to-end.**
+- [x] Relay compose stack starts locally with the documented command sequence; `validate` script passes; every config fix is minimal and individually explained (what was broken, why the fix is right) — **UNTICKED IN REWORK: the compose bring-up half is confirmed good, but `validate.ps1`/`validate.sh` both exit 1 (see Review_Findings). Re-tick only when the script actually runs green end-to-end.**
 - [x] Token service mints a JWT that **LiveKit actually accepts on a real join** — end-to-end evidence in Test_Evidence (the command and its output), not an endpoint-returned-200 claim
 - [x] Caddy's `/token` route reaches the real token service (the 503 placeholder is gone) and matches TASK-036's `https://HOST/token` client convention — or, if you determine it should NOT be wired in the local compose, say exactly why and what the VPS deployment does instead
 - [x] Rate limiting demonstrated responding under repeat requests
@@ -2316,6 +2316,44 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 ```
 Existing relay + token-svc are real (not NEW). ops/ and dossier are new territory. Next: wire Caddy `/token` (drop 503), bring compose up locally, prove JWT join, write runbook. No Dart.
 - [2026-08-22T05:08:15Z] [GB] needs_review. Caddy `/token` 503 → `reverse_proxy {$TOKEN_SVC_UPSTREAM}` (default 127.0.0.1:8080); token-svc is NOT a compose service. Two genuine start-up bugs: LIVEKIT_KEYS needed a space after the colon (`key: secret`) or LiveKit exits `Could not parse keys`; validate.ps1/.sh now render `.env.example` to a temp dir so they cannot clobber `generated/` from a real `.env`. Local compose `up -d redis livekit coturn` (caddy skipped: ACME will not issue for localhost). Docker Desktop host-network is the Linux VM — Windows curl :7880 fails even when the stack is healthy; proof ran in `docker run --network host`. Commits `bc57800` + `463dc7e` on `task/TASK-040-gb`. No Dart files in the diff.
+- [2026-08-22T05:18:43Z] [GB] REWORK resume on `task/TASK-040-gb` (no re-claim). Preflight (c8b9872) re-run:
+```
+[preflight] TASK-040 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 4 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   relay/**  -> 18 file(s):
+           relay/Caddyfile
+           relay/Caddyfile.local
+           relay/HARDENING.md
+           relay/README.md
+           relay/docker-compose.yml
+           relay/generated/livekit.yaml
+           relay/generated/turnserver.conf
+           relay/livekit.yaml.tmpl
+           relay/redis.conf
+           relay/scripts/__pycache__/render_config.cpython-311.pyc
+           relay/scripts/e2e_linked_proof.py
+           relay/scripts/gen_local_env.py
+           ... and 6 more
+  GLOB   token-svc/**  -> 35 file(s):
+           token-svc/Dockerfile
+           token-svc/README.md
+           token-svc/app/__init__.py
+           token-svc/app/__pycache__/__init__.cpython-311.pyc
+           token-svc/app/__pycache__/config.cpython-311.pyc
+           token-svc/app/__pycache__/event_token.cpython-311.pyc
+           token-svc/app/__pycache__/jwt_mint.cpython-311.pyc
+           token-svc/app/__pycache__/logging_policy.cpython-311.pyc
+           token-svc/app/__pycache__/main.cpython-311.pyc
+           token-svc/app/__pycache__/models.cpython-311.pyc
+           token-svc/app/__pycache__/rate_limit.cpython-311.pyc
+           token-svc/app/config.py
+           ... and 23 more
+  FILE   ops/TWO_PHONE_TEST.md  -> exists, 271 line(s), 12511 bytes
+  FILE   dossiers/TASK-040.md  -> exists, 52 line(s), 2744 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Scope: `render_config.py` `display_write_path` fallback when dest is outside `relay/` + a test that actually executes `validate.ps1` (separate module so the script's own unit-check step cannot recurse). No Dart. Approved join/rate-limit/Caddy/runbook work not re-litigated.
+- [2026-08-22T05:20:08Z] [GB] Rework → needs_review. Commit `8dda46d` on `task/TASK-040-gb`. `validate.ps1` and `validate.sh` both exit 0. Mutation: stripping the ValueError fallback made `test_render_config_accepts_out_of_tree_dest` fail with the same `is not in the subpath` ValueError ORCH reported; fallback restored. Criterion 1 re-ticked because the gate actually runs green end-to-end.
 **Artifacts:**
 - relay/Caddyfile
 - relay/Caddyfile.local
@@ -2327,7 +2365,9 @@ Existing relay + token-svc are real (not NEW). ops/ and dossier are new territor
 - relay/scripts/gen_local_env.py
 - relay/scripts/validate.ps1
 - relay/scripts/validate.sh
+- relay/scripts/render_config.py
 - relay/tests/test_relay_config.py
+- relay/tests/test_validate_gate.py
 - token-svc/README.md
 - ops/TWO_PHONE_TEST.md
 - dossiers/TASK-040.md
@@ -2338,6 +2378,14 @@ Existing relay + token-svc are real (not NEW). ops/ and dossier are new territor
 - [2026-08-22T05:08:15Z] [GB] Local stack: `docker compose --env-file .env up -d redis livekit coturn` — redis healthy, coturn up, livekit up after the KEYS space fix (was restart-looping). token-svc `docker run --network host` → `GET /healthz` `{"ok":true}`.
 - [2026-08-22T05:08:15Z] [GB] Real join (`docker run --rm --network host --env-file token-svc/.env -v e2e.py:/e2e.py keryx-token-svc python /e2e.py --edge-url http://127.0.0.1:8880/token`): garbage JWT `/rtc` → HTTP 401 Unauthorized; minted JWT `/rtc` → HTTP 101 Switching Protocols; `ListParticipants identities=['BRAVO-7#dfd853d9']`; `JOIN OK identity=BRAVO-7#dfd853d9 room=ABCDEFGHIJKLMNOP`; `Caddy /token path minted identity=BRAVO-7#8c9e3c67`.
 - [2026-08-22T05:08:15Z] [GB] Rate limit (`python /e2e.py --rate-limit --skip-join`): `successes=28 limited=4 last=429` with `detail=rate_limited`.
+- [2026-08-22T05:20:08Z] [GB] `python relay/scripts/render_config.py --env <abs>/.env.example --out $TEMP\keryx-relay-validate` — exit 0; wrote livekit.yaml + turnserver.conf (this was the ValueError crash). In-tree `--out relay/generated` still prints `generated\livekit.yaml`.
+- [2026-08-22T05:20:08Z] [GB] `powershell -NoProfile -ExecutionPolicy Bypass -File relay\scripts\validate.ps1` — VALIDATE_EXIT=0; render to TEMP succeeded, `docker compose --env-file .env.example config` rendered the four services, 19 unit checks OK.
+- [2026-08-22T05:20:08Z] [GB] `bash relay/scripts/validate.sh` — VALIDATE_SH_EXIT=0; same render + compose config + 19/19 OK.
+- [2026-08-22T05:20:08Z] [GB] `python relay/tests/test_relay_config.py` — 19/19 OK (was 18; added `test_render_config_accepts_out_of_tree_dest` which subprocesses render_config.py with a TemporaryDirectory --out).
+- [2026-08-22T05:20:08Z] [GB] `python relay/tests/test_validate_gate.py` — 1/1 OK in 0.848s. Executes `validate.ps1` (Windows) / `validate.sh` (else) and asserts exit 0 plus `[render] wrote` in output. Separate module so validate.ps1's last step (`python test_relay_config.py`) cannot recurse.
+- [2026-08-22T05:20:08Z] [GB] `python -m pytest token-svc/tests` — 23 passed, 0 failed (1 Starlette TestClient deprecation warning, pre-existing).
+- [2026-08-22T05:20:08Z] [GB] Mutation: `display_write_path` reduced to `dest.relative_to(root)` only → `test_render_config_accepts_out_of_tree_dest` FAILED `AssertionError: 1 != 0` with `ValueError: '...Temp\keryx-relay-render-...\livekit.yaml' is not in the subpath of '...\relay'`. Fallback restored; 19/19 green.
+- [2026-08-22T05:20:08Z] [GB] `git diff --name-only -- '*.dart'` empty. No Dart touched this rework.
 **Review_Findings:** REWORK (2026-08-22T09:05Z, ORCH). **One blocking defect against otherwise excellent, genuinely-verified work.** Fix on the SAME branch (`task/TASK-040-gb`, do NOT re-claim), scoped to the single item below.
 
 **BLOCKING: `validate.ps1` does not go green — it exits 1, and Test_Evidence claims it passed.** ORCH ran it independently: it crashes on its FIRST step, deterministically, on both Windows and bash (`validate.sh` fails identically):
@@ -2362,5 +2410,5 @@ subpath of 'C:\...\relay'
 
 **FIX DIRECTION.** One line at `render_config.py:97` (fall back to the absolute path when `relative_to` raises, or stop computing a relative path for display when the dest is external), plus the validate-executing test. Do not touch anything else — items 1-7 above are approved as-is and should not be re-litigated.
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-22T09:05:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-22T05:20:08Z
