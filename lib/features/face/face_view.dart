@@ -168,6 +168,11 @@ class FaceView extends StatelessWidget {
         stations: stations,
         onScan: onScanQr,
         onExport: onExportQr,
+        // Review round-1 finding (b): keep FR-043's scan/export entry
+        // points reachable under the auto-flip window instead of only
+        // inside a fixed 5 s from the STN tap — see
+        // `StationListPanel.onInteraction`'s dartdoc.
+        onInteraction: flipController.flipToStations,
       ),
     );
   }

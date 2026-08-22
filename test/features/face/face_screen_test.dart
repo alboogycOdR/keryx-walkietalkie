@@ -139,6 +139,13 @@ class _Harness {
   final InMemorySettingsStore store = InMemorySettingsStore();
   final _RecordingNavigatorObserver observer = _RecordingNavigatorObserver();
 
+  /// Review round-1 finding (c): `audioSinkDisposer` is already an
+  /// injected function (see `FaceScreen.audioSinkDisposer`'s dartdoc for
+  /// why disposal can't go through the `AudioSink` interface itself), so
+  /// recording the call here is a one-line way to make sink disposal
+  /// directly assertable instead of only implied.
+  bool audioSinkDisposeCalled = false;
+
   SessionHost _sessionFactory({
     required String localPeerId,
     required String callsign,
@@ -157,6 +164,10 @@ class _Harness {
   }
 
   Future<AudioSink> _audioSinkFactory() async => sink;
+
+  Future<void> _audioSinkDisposer(AudioSink sink) async {
+    audioSinkDisposeCalled = true;
+  }
 
   /// `IdentityRepository(SecureIdentityStore())`'s real secure-storage
   /// platform channel never answers under this project's `flutter test`
@@ -183,6 +194,7 @@ class _Harness {
           body: FaceScreen(
             sessionFactory: _sessionFactory,
             audioSinkFactory: _audioSinkFactory,
+            audioSinkDisposer: _audioSinkDisposer,
             identityFactory: _identityFactory,
           ),
         ),
@@ -419,8 +431,8 @@ void main() {
 
   group('disposal (criterion 6)', () {
     testWidgets(
-      'tearing the face down disposes the session, engine, sink pipeline, '
-      'and leaves no leaked subscriptions/timers',
+      'tearing the face down disposes the session and the sink, and leaves '
+      'no leaked subscriptions/timers',
       (tester) async {
         final harness = _Harness();
         await harness.boot(tester);
@@ -428,11 +440,161 @@ void main() {
 
         // Replace the whole tree — this disposes `FaceScreen` and every
         // widget beneath it, exactly like a real navigation-away would.
+        // `testWidgets` runs the whole body under `FakeAsync` (via
+        // `TestWidgetsFlutterBinding`), which fails the test if a
+        // `Timer.periodic` (here, `_sfxTick`, `SfxEngine`'s duck-envelope
+        // driver) is still pending when the test ends — so this test
+        // passing at all is itself the proof that `_sfxTick.cancel()` in
+        // `dispose()` actually ran. Review round-1 finding (c): that proof
+        // was previously only implicit; it is now stated rather than left
+        // to be rediscovered.
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);
         expect(session.disposeCalled, isTrue);
+        // `SfxEngine`/`SfxProjection` have no directly-observable "disposed"
+        // flag of their own (see `sound.dart`) — `audioSinkDisposer` is the
+        // one seam FaceScreen exposes for the whole sound pipeline's
+        // teardown, so it stands in for "engine + projection + sink were
+        // all torn down together" here.
+        expect(harness.audioSinkDisposeCalled, isTrue);
+      },
+    );
+  });
+
+  group('touch targets (DS L134)', () {
+    testWidgets(
+      'the station-panel QR scan/export icons meet the 48dp minimum '
+      'tap-target size',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+        await _flipToStations(tester);
+
+        // Scoped to just these two icons rather than a whole-screen
+        // `meetsGuideline(androidTapTargetGuideline)` check: several other
+        // controls elsewhere on the face (e.g. the PTT key row's compact
+        // keys, the STN status-strip button) are pre-existing,
+        // out-of-territory widgets this task did not touch and is not
+        // charged with fixing — a global guideline check would fail on
+        // those too and misattribute the finding. DS L134 is checked
+        // exactly where this task's own fix (a) applies.
+        final scanSize = tester.getSize(
+          find.byKey(const Key('keryx-station-panel-scan')),
+        );
+        final exportSize = tester.getSize(
+          find.byKey(const Key('keryx-station-panel-export')),
+        );
+        expect(scanSize.width, greaterThanOrEqualTo(48));
+        expect(scanSize.height, greaterThanOrEqualTo(48));
+        expect(exportSize.width, greaterThanOrEqualTo(48));
+        expect(exportSize.height, greaterThanOrEqualTo(48));
+      },
+    );
+  });
+
+  group('QR entry point reachability (review round-1 finding (b))', () {
+    testWidgets(
+      'the scan/export icons survive the 5s auto-flip window once the '
+      'panel has been interacted with',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+        await _flipToStations(tester);
+
+        // Simulate an operator taking their time to find the icon: a
+        // pointer-down on the panel (any interaction, per
+        // `StationListPanel.onInteraction`) followed by most of a 5s
+        // window elapsing — without the fix, the panel would already have
+        // auto-flipped back to the glass display by the time this taps.
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(const Key('keryx-station-panel'))),
+        );
+        await gesture.up();
+        await tester.pump(const Duration(seconds: 4));
+
+        expect(
+          find.byKey(const Key('keryx-station-panel-scan')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('keryx-station-panel-scan')));
+        expect(harness.observer.lastPushed, isA<MaterialPageRoute<void>>());
+      },
+    );
+
+    testWidgets(
+      'pushing the scan screen pauses the auto-flip; returning resumes a '
+      'fresh window',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+        await _flipToStations(tester);
+
+        await tester.tap(find.byKey(const Key('keryx-station-panel-scan')));
+        await tester.pumpAndSettle();
+
+        // While the scan screen covers the panel, the auto-flip must not
+        // fire in the background — advancing well past 5s must not pop
+        // the still-open scan route.
+        await tester.pump(const Duration(seconds: 6));
+        expect(find.byType(EventQrScanScreen), findsOneWidget);
+
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+
+        // A fresh 5s window on return: just under 5s later the panel is
+        // still showing stations.
+        await tester.pump(const Duration(seconds: 4));
+        expect(
+          find.byKey(const Key('keryx-station-panel')),
+          findsOneWidget,
+        );
+      },
+    );
+  });
+
+  group('_startSession re-entrancy (review round-1 finding (d))', () {
+    testWidgets(
+      'two session-affecting settings changes fired without pumping between '
+      'them leave exactly one undisposed session',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+        expect(harness.sessions, hasLength(1));
+        final original = harness.sessions.single;
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(FaceScreen)),
+        );
+        final current = container.read(settingsProvider).requireValue;
+
+        await tester.runAsync(() async {
+          // Two session-affecting changes, fired back-to-back with no
+          // await/pump between them — both `_maybeRebuildSession` calls
+          // race into `_startSession` while the first is still suspended
+          // in `session.start()` (via `FakeSessionHost.start`'s own
+          // `async`). Without the generation guard, the first call's
+          // session/subscriptions would never be disposed.
+          final a = container
+              .read(settingsProvider.notifier)
+              .save(current.copyWith(mode: RadioMode.local));
+          final b = container
+              .read(settingsProvider.notifier)
+              .save(current.copyWith(mode: RadioMode.linked));
+          await Future.wait(<Future<void>>[a, b]);
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        });
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(original.disposeCalled, isTrue);
+        // Exactly one of the two raced sessions ends up disposed=false
+        // (the survivor); every other session created along the way must
+        // be disposed — none leaked.
+        final undisposed = harness.sessions.where((s) => !s.disposeCalled);
+        expect(undisposed, hasLength(1));
       },
     );
   });

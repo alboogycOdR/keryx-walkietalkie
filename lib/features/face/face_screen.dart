@@ -167,6 +167,19 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
   /// rebuild is warranted. See [_maybeRebuildSession]'s dartdoc.
   KeryxSettings? _appliedSettings;
 
+  /// Review round-1 finding (d): guards [_startSession] against
+  /// re-entrancy. Two overlapping calls (e.g. two session-affecting
+  /// settings fields changed in quick succession, both landing in
+  /// [_maybeRebuildSession] before either finishes its `await
+  /// session.start()`) would otherwise both resume, both write `_session`,
+  /// and the loser's session/subscriptions are never disposed — a real
+  /// leak (open sockets, a live `floorEngine.effects` subscription still
+  /// feeding [_floorEffectsProxy]). Incremented once per call, captured
+  /// before the first `await`; a call that resumes to find itself stale
+  /// (superseded by a newer call) disposes what it just built instead of
+  /// adopting it. See [_startSession]'s own dartdoc.
+  int _sessionGeneration = 0;
+
   ProviderSubscription<RadioState>? _radioStateListener;
   ProviderSubscription<AsyncValue<KeryxSettings>>? _settingsListener;
   StreamSubscription<List<StationInfo>>? _stationsSub;
@@ -267,19 +280,41 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
   /// change or from [_retuneSession] on a channel change. Tears down
   /// whatever session/subscriptions are currently active first — safe to
   /// call with `_session == null` (the first-boot case).
+  ///
+  /// **Re-entrancy (review round-1 finding (d)).** `session.start()` is a
+  /// real suspension point (LOCAL binds UDP sockets and runs discovery), so
+  /// two overlapping calls are possible whenever two session-affecting
+  /// settings fields change close together. [_sessionGeneration] is
+  /// captured on entry and re-checked after the `await`: a call that
+  /// resumes to find a newer call already in flight (or already landed)
+  /// disposes the session it just started instead of adopting it, so
+  /// exactly one — the most recent — session ever ends up assigned to
+  /// [_session].
   Future<void> _startSession({
     required DeviceIdentity identity,
     required KeryxSettings settings,
     required int initialChannel,
     required int initialCode,
   }) async {
+    final myGeneration = ++_sessionGeneration;
     final previousSession = _session;
     await _stationsSub?.cancel();
     _stationsSub = null;
     await _floorEffectsSub?.cancel();
     _floorEffectsSub = null;
     if (previousSession != null) {
-      unawaited(previousSession.dispose());
+      // Review round-1 finding (e), non-blocking: a throw here was
+      // previously invisible (bare `unawaited`). `debugPrint` is a cheap
+      // telltale — no user-visible error surface exists for a
+      // teardown-path failure yet, so this at least reaches the device log
+      // instead of vanishing into the zone.
+      unawaited(
+        previousSession.dispose().catchError(
+          (Object error, StackTrace stack) => debugPrint(
+            'FaceScreen: previous session dispose failed: $error\n$stack',
+          ),
+        ),
+      );
     }
     if (mounted) {
       setState(() {
@@ -298,7 +333,11 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
       initialCode: initialCode,
     );
     await session.start();
-    if (!mounted) {
+    if (!mounted || myGeneration != _sessionGeneration) {
+      // Torn down, or superseded by a newer `_startSession` call that
+      // arrived while this one was suspended in `session.start()` — either
+      // way this session must not become `_session`. Dispose it rather
+      // than leak its transport/sockets.
       unawaited(session.dispose());
       return;
     }
@@ -440,7 +479,13 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
   Future<void> _retuneSession(int channel, int code) async {
     final session = _session;
     if (session == null) return;
-    await session.retune(channel: channel, code: code);
+    try {
+      await session.retune(channel: channel, code: code);
+    } catch (error, stack) {
+      // Review round-1 finding (e), non-blocking: see `_startSession`'s
+      // dispose-failure telltale for the same rationale.
+      debugPrint('FaceScreen: retune failed: $error\n$stack');
+    }
   }
 
   void _tuneChannelDelta(RadioState state, int delta) {
@@ -512,48 +557,81 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
   /// header (see `FaceView`'s own dartdoc for that placement decision). A
   /// no-op before the first session exists (nothing to `joinEvent` into
   /// yet); [EventQrScanScreen] itself owns the camera lifecycle.
+  ///
+  /// Review round-1 finding (b): [GlassFlipController.pauseAutoFlip] before
+  /// pushing so the 5 s auto-flip-back timer doesn't fire invisibly while
+  /// this full-screen route covers the panel, and
+  /// [GlassFlipController.resumeAutoFlipFresh] on return so the operator
+  /// gets a full fresh window rather than whatever was left when they
+  /// navigated away.
   void _onScanQr(BuildContext context) {
+    _flipController.pauseAutoFlip();
     unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => Scaffold(
-            appBar: AppBar(title: const Text('Scan event QR')),
-            body: EventQrScanScreen(
-              onTuned: (payload) => unawaited(_session?.joinEvent(payload)),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// FR-043/FR-044 export entry point — see [_onScanQr]'s placement note.
-  /// Only the numbered-channel case is wired here: a keyed-channel export
-  /// needs [buildKeyedEventLink]'s passphrase input, which has no home in
-  /// this face yet (out of this task's scope; the export screen itself
-  /// already supports it via its `payloadBuilder` seam for whoever wires
-  /// that up later).
-  void _onExportQr(BuildContext context, RadioState state) {
-    final region = _appliedSettings?.region ?? KeryxSettings.defaultRegion;
-    unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => Scaffold(
-            appBar: AppBar(title: const Text('Export event QR')),
-            body: Padding(
-              padding: const EdgeInsets.all(24),
-              child: EventQrExportScreen(
-                payloadBuilder: (expiresAt) => NumberedEventLink(
-                  region: region,
-                  channel: state.channel,
-                  code: state.privacyCode,
-                  expiresAt: expiresAt,
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute<void>(
+              builder: (scanContext) => Scaffold(
+                appBar: AppBar(title: const Text('Scan event QR')),
+                body: EventQrScanScreen(
+                  onTuned: (payload) =>
+                      unawaited(_joinEvent(scanContext, payload)),
                 ),
               ),
             ),
-          ),
-        ),
-      ),
+          )
+          .whenComplete(_flipController.resumeAutoFlipFresh),
+    );
+  }
+
+  /// Review round-1 finding (e), non-blocking: [SessionHost.joinEvent]
+  /// "requires an already-active LINKED chain" (see its own dartdoc) — a
+  /// scan while LOCAL was previously a silent no-op per FR-044 ("scanning
+  /// tunes the radio instantly"). A snackbar is a cheap, visible telltale;
+  /// it does not replace a real LOCAL->LINKED prompt flow, which is out of
+  /// this task's scope.
+  Future<void> _joinEvent(BuildContext context, EventLinkPayload payload) async {
+    final session = _session;
+    if (session == null) return;
+    try {
+      await session.joinEvent(payload);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not join event: $error')),
+      );
+    }
+  }
+
+  /// FR-043/FR-044 export entry point — see [_onScanQr]'s placement note
+  /// and its auto-flip pause/resume note. Only the numbered-channel case is
+  /// wired here: a keyed-channel export needs [buildKeyedEventLink]'s
+  /// passphrase input, which has no home in this face yet (out of this
+  /// task's scope; the export screen itself already supports it via its
+  /// `payloadBuilder` seam for whoever wires that up later).
+  void _onExportQr(BuildContext context, RadioState state) {
+    final region = _appliedSettings?.region ?? KeryxSettings.defaultRegion;
+    _flipController.pauseAutoFlip();
+    unawaited(
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute<void>(
+              builder: (_) => Scaffold(
+                appBar: AppBar(title: const Text('Export event QR')),
+                body: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: EventQrExportScreen(
+                    payloadBuilder: (expiresAt) => NumberedEventLink(
+                      region: region,
+                      channel: state.channel,
+                      code: state.privacyCode,
+                      expiresAt: expiresAt,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          )
+          .whenComplete(_flipController.resumeAutoFlipFresh),
     );
   }
 
