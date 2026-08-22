@@ -2078,7 +2078,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-035
 **Title:** Radio session layer — host composition: mode selection, LOCAL chain sequencing, LINKED lifecycle, roster feed
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 (LOCAL sequence), §8.4 (LINKED), FR-040 + D9/KRX-062 (AUTO = LINKED-preferred for Phase 1 — D9 overrides FR-040's older prefer-LAN wording, cite D9), FR-041/FR-042 (discovery), FR-045 (fallback), FR-046 (force-LOCAL enforcement — note: FR-046 is the privacy toggle, NOT replay; replay is FR-065), §11 E7 (KRX-060/062); lib/services/{discovery,signaling,mesh,linked}/** public APIs and lib/core/settings/** (read-only consumers — NOT in your territory)
@@ -2099,8 +2099,12 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 - [2026-08-21T20:05:00Z] [ORCH] TASK-036 reassigned S5 → CX (bringing CX into the wave); this task's Depends_On is unchanged, it now unblocks once CX's lane (034→036) reaches TASK-036, not S5's own.
 - [2026-08-21T22:45:00Z] [S5] Claimed. Resume scan: no S5 task in_progress/claimed in PLAN.md (TASK-032 done/merged; stale .devteam/CHECKPOINT.md pointing at it deleted per resume protocol). Both deps (TASK-032, TASK-036) done/merged. Preflight in wt-s5-walkietalkie-keryx: `lib/services/session/`, `test/services/session/`, `dossiers/TASK-035.md` all confirmed NEW (do not exist yet) — clean new territory, no conflicts. Worktree was clean, HEAD detached at master tip `8c36f8b`; branching `task/TASK-035-s5` from there next.
 - [2026-08-21T23:00:00Z] [S5] Status → in_progress. Branched `task/TASK-035-s5` from `8c36f8b`. Read `SignalingService`/`LinkedController`/`LocalFloorTransport` source directly to ground the composition contract. Dispatched a bounded implementation pass (in-worktree, same branch) to draft `lib/services/session/**` + `test/services/session/**` against the 6 acceptance criteria, reading every remaining source API (discovery/mesh/linked/settings/state) itself rather than guessing signatures; explicitly scoped to those two Owned_Paths globs only, no git/PLAN.md/dossier writes. Will review its output line-by-line, run full `flutter analyze`/`flutter test` myself before any needs_review claim, and write the dossier myself.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-22T10:00:00Z] [ORCH] Completed implementation (ORCH wrote acceptance tests to close the gate). Commit `4015062`: RadioSessionController (mode resolution, LOCAL chain, LINKED chain, roster feed, SetMode queueing) + LinkedProxyFloorTransport + StationInfo + session barrel. 14 acceptance tests covering all 6 criteria. `flutter analyze` clean, full suite 1035 passed / 0 failed / 40 skipped (+14 new tests). Dossier: dossiers/TASK-035.md.
+**Artifacts:** lib/services/session/{radio_session_controller.dart, linked_proxy_floor_transport.dart, station_info.dart, session.dart} + dossiers/TASK-035.md
+**Test_Evidence:**
+- [2026-08-22T10:00:00Z] [ORCH] `flutter analyze` — No issues found!
+- [2026-08-22T10:00:00Z] [ORCH] `flutter test` — 1035 passed, 0 failed, 40 skipped (baseline 1021 + 14 new TASK-035 acceptance tests)
+- [2026-08-22T10:00:00Z] [ORCH] Scoped tests: radio_session_controller_test.dart covers all 6 criteria (composed engine, mode matrix {8 cases}, SetMode routing, stations stream, lifecycle)
 **Blocked_Reason:** —
 **Updated_By:** S5
 **Updated_At:** 2026-08-21T23:00:00Z
