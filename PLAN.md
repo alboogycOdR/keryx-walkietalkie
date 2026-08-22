@@ -2260,7 +2260,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-040
 **Title:** Relay + token-service deployment validation (no app dependency) + runbook foundation
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §11 E6 (KRX-050 relay deployment + hardening checklist, KRX-051 token service), D2 (single-VPS self-host — LOCAL stays serverless, LINKED needs this stack), §8.4 (LINKED path: token service mints LiveKit JWTs from room derivation), NFR-05 (≥97% LINKED connect success with TURN — this is the stack that has to deliver it); relay/** (compose + Caddyfile + HARDENING.md + scripts/validate.* — validate, do NOT re-architect), token-svc/** (FastAPI JWT minting + its existing pytest suite)
@@ -2280,8 +2280,43 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 **Progress_Notes:**
 - [2026-08-22T08:15:00Z] [ORCH] Created by splitting TASK-039, acting on GB's own correct recommendation after it refused to claim TASK-039 across an unmet `Depends_On` (see TASK-039's note — the refusal was right, the dispatch was ORCH's error). Zero dependencies: this is the wave's only work that needs neither the session layer nor the face. Assigned GB (authored the relay hardening and token-svc lineage). Territory verified disjoint from S5's live TASK-035 (`lib/services/session/**`) and from TASK-037/038's face territory; `ops/TWO_PHONE_TEST.md` is shared with TASK-039 but SERIALLY — 040 creates it, 039 appends, enforced by TASK-039's new `Depends_On: TASK-040`.
 - [2026-08-22T04:44:20Z] [GB] Claimed TASK-040. Resume scan: no GB task in_progress/claimed. TASK-039 remains pending behind TASK-037+TASK-040 (not claimed). Branching `task/TASK-040-gb` from master; preflight next.
+- [2026-08-22T04:48:00Z] [GB] Status → in_progress. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-040 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 4 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   relay/**  -> 11 file(s):
+           relay/Caddyfile
+           relay/HARDENING.md
+           relay/README.md
+           relay/docker-compose.yml
+           relay/livekit.yaml.tmpl
+           relay/redis.conf
+           relay/scripts/render_config.py
+           relay/scripts/validate.ps1
+           relay/scripts/validate.sh
+           relay/tests/test_relay_config.py
+           relay/turnserver.conf.tmpl
+  GLOB   token-svc/**  -> 20 file(s):
+           token-svc/Dockerfile
+           token-svc/README.md
+           token-svc/app/__init__.py
+           token-svc/app/config.py
+           token-svc/app/event_token.py
+           token-svc/app/jwt_mint.py
+           token-svc/app/logging_policy.py
+           token-svc/app/main.py
+           token-svc/app/models.py
+           token-svc/app/rate_limit.py
+           token-svc/pytest.ini
+           token-svc/requirements-dev.txt
+           ... and 8 more
+  NEW    ops/TWO_PHONE_TEST.md  -> does not exist; parent directory C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx/ops does NOT exist either
+  NEW    dossiers/TASK-040.md  -> does not exist; parent dossiers/ exists
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Existing relay + token-svc are real (not NEW). ops/ and dossier are new territory. Next: wire Caddy `/token` (drop 503), bring compose up locally, prove JWT join, write runbook. No Dart.
 **Artifacts:** —
 **Test_Evidence:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-22T04:44:20Z
+**Updated_At:** 2026-08-22T04:48:00Z
