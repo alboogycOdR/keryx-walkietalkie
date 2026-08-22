@@ -2078,7 +2078,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-035
 **Title:** Radio session layer — host composition: mode selection, LOCAL chain sequencing, LINKED lifecycle, roster feed
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.3 (LOCAL sequence), §8.4 (LINKED), FR-040 + D9/KRX-062 (AUTO = LINKED-preferred for Phase 1 — D9 overrides FR-040's older prefer-LAN wording, cite D9), FR-041/FR-042 (discovery), FR-045 (fallback), FR-046 (force-LOCAL enforcement — note: FR-046 is the privacy toggle, NOT replay; replay is FR-065), §11 E7 (KRX-060/062); lib/services/{discovery,signaling,mesh,linked}/** public APIs and lib/core/settings/** (read-only consumers — NOT in your territory)
