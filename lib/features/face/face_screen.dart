@@ -2,33 +2,122 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:keryx/core/audio/audio.dart';
 import 'package:keryx/core/floor/floor.dart';
 import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
-import 'package:keryx/core/state/radio_state_bridge.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
+import 'package:keryx/features/event_qr/event_link.dart';
+import 'package:keryx/features/event_qr/qr_export_screen.dart';
+import 'package:keryx/features/event_qr/qr_scan_screen.dart';
 import 'package:keryx/features/ptt/ptt.dart';
+import 'package:keryx/features/settings_panel/back_panel_screen.dart';
 import 'package:keryx/features/tuning/tuning.dart';
+import 'package:keryx/services/session/session.dart'
+    show RadioSessionController, StationInfo;
+import 'package:keryx/services/sound/sound.dart';
 
 import 'amplitude_source.dart';
 import 'face_view.dart';
 import 'glass_flip_controller.dart';
-import 'local_floor_transport.dart';
-import 'roster.dart';
+import 'roster.dart' as roster;
+import 'session_host.dart';
 
-/// Boots identity + the floor engine, then renders [FaceView] as a live
-/// projection of [radioStateProvider] — the app's actual home screen.
+/// Boots identity + settings + the radio session (TASK-035's
+/// `RadioSessionController`, LOCAL/AUTO/LINKED per settings), then renders
+/// [FaceView] as a live projection of [radioStateProvider] — the app's
+/// actual home screen.
 ///
-/// This is the sole owner of the [FloorEngine] instance: it constructs one
-/// [LocalFloorTransport]-backed engine per app session, bridges its effects
-/// into the reducer via [RadioStateBridge], and tears both down on dispose.
-/// No other widget in `lib/features/face/**` touches `FloorEngine` or
-/// `RadioStateController` directly — the reducer is the single state source
-/// TS §8.2 requires; [FaceView] only ever receives values, never mutates
-/// them.
+/// This is the sole owner of the [SessionHost] instance (production default:
+/// a real `RadioSessionController` wrapped by [RadioSessionHostAdapter] — see
+/// `session_host.dart`'s dartdoc for why the adapter exists) and of the
+/// [SfxEngine]/[SfxProjection] sound pipeline (TASK-033's [AudioSink]). No
+/// other widget in `lib/features/face/**` touches `FloorEngine`,
+/// `RadioStateController`, or the audio pipeline directly — [FaceView] only
+/// ever receives values, never mutates them, per TS §8.2.
+///
+/// **Testability — constructor-injected factories.** `RadioSessionController
+/// .start()` performs real I/O (real UDP sockets for LOCAL discovery/
+/// signaling) and [DeviceAudioSink] needs a real SoLoud native backend,
+/// neither of which can run inside `flutter test`. [sessionFactory] and
+/// [audioSinkFactory] default to the real production paths (unchanged
+/// behaviour for `const FaceScreen()` in `app.dart`), but a test can
+/// construct `FaceScreen(sessionFactory: ..., audioSinkFactory: ...)` with
+/// fakes — see `session_host.dart` for the interface a fake implements.
 class FaceScreen extends ConsumerStatefulWidget {
-  const FaceScreen({super.key});
+  const FaceScreen({
+    super.key,
+    this.sessionFactory = _defaultSessionFactory,
+    this.audioSinkFactory = _defaultAudioSinkFactory,
+    this.audioSinkDisposer = _defaultAudioSinkDisposer,
+    this.identityFactory = _defaultIdentityFactory,
+  });
+
+  final SessionHost Function({
+    required String localPeerId,
+    required String callsign,
+    required KeryxSettings settings,
+    required void Function(RadioEvent event) dispatch,
+    required int initialChannel,
+    required int initialCode,
+  })
+  sessionFactory;
+
+  final Future<AudioSink> Function() audioSinkFactory;
+
+  /// Paired with [audioSinkFactory] rather than assumed: [AudioSink] the
+  /// abstract interface has no `dispose()` of its own (only the concrete
+  /// [DeviceAudioSink] does; `RecordingAudioSink`, the test double, needs
+  /// none), so disposal has to be a matching injected function rather than
+  /// a call through the interface. The default checks the runtime type,
+  /// which keeps production behaviour a plain no-arg swap for tests without
+  /// requiring every test to also inject a disposer.
+  final Future<void> Function(AudioSink sink) audioSinkDisposer;
+
+  /// `IdentityRepository(SecureIdentityStore())` (`lib/core/identity/**`,
+  /// out of this task's `Owned_Paths`) resolves over a real secure-storage
+  /// platform channel that, on this project's `flutter test` host, never
+  /// answers (no plugin implementation registered — it just hangs
+  /// indefinitely rather than throwing). That is orthogonal to the
+  /// session/audio testability problem this file otherwise solves, but it
+  /// blocks `_boot` just the same, so it gets the identical
+  /// constructor-injected-factory treatment: production default is
+  /// unchanged, a test can substitute a synchronous fake identity.
+  final Future<DeviceIdentity> Function() identityFactory;
+
+  static SessionHost _defaultSessionFactory({
+    required String localPeerId,
+    required String callsign,
+    required KeryxSettings settings,
+    required void Function(RadioEvent event) dispatch,
+    required int initialChannel,
+    required int initialCode,
+  }) => RadioSessionHostAdapter(
+    RadioSessionController(
+      localPeerId: localPeerId,
+      callsign: callsign,
+      settings: settings,
+      dispatch: dispatch,
+      initialChannel: initialChannel,
+      initialCode: initialCode,
+    ),
+  );
+
+  static Future<AudioSink> _defaultAudioSinkFactory() async {
+    final sink = DeviceAudioSink();
+    await sink.initialize();
+    return sink;
+  }
+
+  static Future<void> _defaultAudioSinkDisposer(AudioSink sink) async {
+    if (sink is DeviceAudioSink) {
+      await sink.dispose();
+    }
+  }
+
+  static Future<DeviceIdentity> _defaultIdentityFactory() =>
+      IdentityRepository(SecureIdentityStore()).loadOrCreate();
 
   @override
   ConsumerState<FaceScreen> createState() => _FaceScreenState();
@@ -37,62 +126,322 @@ class FaceScreen extends ConsumerStatefulWidget {
 class _FaceScreenState extends ConsumerState<FaceScreen> {
   final GlassFlipController _flipController = GlassFlipController();
   final FaceAmplitudeSource _amplitude = FaceAmplitudeSource();
-  final SettingsRepository _settings = SettingsRepository(SecureSettingsStore());
 
+  /// Relays [radioStateProvider] into [SfxProjection] as a plain broadcast
+  /// `Stream<RadioState>` — the notifier itself exposes no stream (only a
+  /// `Provider`/`state` getter), so this is the seam `ref.listenManual`
+  /// feeds. Seeded with the current (pre-`PowerOn`) state via
+  /// `fireImmediately: true` *before* `PowerOn` is dispatched in [_boot], so
+  /// `SfxProjection`'s edge-detection sees the off→boot transition (a
+  /// broadcast controller does not replay history to a subscriber that
+  /// joins late) and plays the power-on cue.
+  final StreamController<RadioState> _radioStateStream =
+      StreamController<RadioState>.broadcast();
+
+  /// Relays the active [SessionHost]'s `floorEngine.effects` into
+  /// [SfxProjection]. A proxy, not a direct hookup, for the same reason
+  /// `LinkedProxyFloorTransport` exists: [SfxProjection] needs a
+  /// `Stream<FloorEffect>` at construction time, but the real
+  /// `FloorEngine` doesn't exist until [SessionHost.start] resolves (and is
+  /// torn down/rebuilt on every settings-triggered rebuild) — this proxy
+  /// lets `SfxProjection` be built once, early, and just keeps getting
+  /// re-pointed at whichever `FloorEngine` is currently live.
+  final StreamController<FloorEffect> _floorEffectsProxy =
+      StreamController<FloorEffect>.broadcast();
+
+  /// Relays [settingsProvider] into [SfxProjection] as a plain broadcast
+  /// `Stream<KeryxSettings>`, mirroring [_radioStateStream]'s pattern.
+  final StreamController<KeryxSettings> _settingsStream =
+      StreamController<KeryxSettings>.broadcast();
+
+  SessionHost? _session;
   FloorEngine? _floorEngine;
-  LocalFloorTransport? _transport;
-  RadioStateBridge? _bridge;
+  SfxEngine? _sfxEngine;
+  SfxProjection? _sfxProjection;
+  AudioSink? _audioSink;
+
+  DeviceIdentity? _identity;
+
+  /// The settings snapshot the currently-active [_session] was built from —
+  /// compared against every [settingsProvider] emission to decide whether a
+  /// rebuild is warranted. See [_maybeRebuildSession]'s dartdoc.
+  KeryxSettings? _appliedSettings;
+
+  /// Review round-1 finding (d): guards [_startSession] against
+  /// re-entrancy. Two overlapping calls (e.g. two session-affecting
+  /// settings fields changed in quick succession, both landing in
+  /// [_maybeRebuildSession] before either finishes its `await
+  /// session.start()`) would otherwise both resume, both write `_session`,
+  /// and the loser's session/subscriptions are never disposed — a real
+  /// leak (open sockets, a live `floorEngine.effects` subscription still
+  /// feeding [_floorEffectsProxy]). Incremented once per call, captured
+  /// before the first `await`; a call that resumes to find itself stale
+  /// (superseded by a newer call) disposes what it just built instead of
+  /// adopting it. See [_startSession]'s own dartdoc.
+  int _sessionGeneration = 0;
+
+  ProviderSubscription<RadioState>? _radioStateListener;
+  ProviderSubscription<AsyncValue<KeryxSettings>>? _settingsListener;
+  StreamSubscription<List<StationInfo>>? _stationsSub;
+  StreamSubscription<FloorEffect>? _floorEffectsSub;
+
+  /// Advances [SfxEngine]'s duck envelope on a wall clock — see
+  /// `SfxProjection.tick`'s own dartdoc ("Lets a polling host advance the
+  /// engine's duck envelope"). 50 ms keeps the duck release well inside the
+  /// engine's own timing precision without a meaningful CPU cost.
+  Timer? _sfxTick;
+
   bool _latched = false;
   List<TunedChannel> _channelMemory = const <TunedChannel>[];
-
-  /// No live roster feed exists until TASK-020 (`lib/services/signaling/**`)
-  /// ships — see `roster.dart`'s dartdoc. Empty is the honest default.
-  final List<StationInfo> _stations = const <StationInfo>[];
+  List<roster.StationInfo> _stations = const <roster.StationInfo>[];
 
   @override
   void initState() {
     super.initState();
     // Riverpod forbids modifying a provider mid-build (asserts in debug/
-    // profile) — `_boot`'s first line dispatches synchronously, so it can't
-    // run directly from `initState`. A microtask defers it to right after
-    // this frame finishes building, before the first real paint.
+    // profile) — `_boot`'s first dispatch would run directly from
+    // `initState` otherwise. A microtask defers it to right after this
+    // frame finishes building, before the first real paint.
     unawaited(Future.microtask(_boot));
   }
 
   Future<void> _boot() async {
-    _dispatch(const PowerOn());
-    final identity = await IdentityRepository(
-      SecureIdentityStore(),
-    ).loadOrCreate();
-    final settings = await _settings.load();
+    final identity = await widget.identityFactory();
+    final settings = await ref.read(settingsProvider.future);
     if (!mounted) return;
-    final transport = LocalFloorTransport();
-    final engine = FloorEngine(
-      localPeerId: identity.peerId,
-      transport: transport,
-      clock: const WallClock(),
-      tot: Duration(seconds: settings.totSeconds),
-      busyLockout: settings.busyLockout,
+
+    final sink = await widget.audioSinkFactory();
+    if (!mounted) {
+      unawaited(widget.audioSinkDisposer(sink));
+      return;
+    }
+
+    final sfxEngine = SfxEngine(sink: sink);
+    final sfxProjection = SfxProjection(
+      engine: sfxEngine,
+      states: _radioStateStream.stream,
+      floorEffects: _floorEffectsProxy.stream,
+      settings: _settingsStream.stream,
+      initialSettings: settings,
     );
-    engine.updateRoster(<String>{identity.peerId});
-    final bridge = RadioStateBridge(engine: engine, dispatch: _dispatch);
+
+    if (!mounted) {
+      unawaited(sfxProjection.dispose());
+      sfxEngine.dispose();
+      unawaited(widget.audioSinkDisposer(sink));
+      return;
+    }
+
     setState(() {
-      _transport = transport;
-      _floorEngine = engine;
-      _bridge = bridge;
+      _identity = identity;
+      _audioSink = sink;
+      _sfxEngine = sfxEngine;
+      _sfxProjection = sfxProjection;
       _channelMemory = settings.channelMemory;
     });
+
+    _sfxTick = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (mounted) _sfxProjection?.tick();
+    });
+
+    // `fireImmediately: true` pushes the current (still `off`) state into
+    // `_radioStateStream` synchronously, right now — before `PowerOn` below
+    // — establishing `SfxProjection`'s edge-detection baseline. See
+    // `_radioStateStream`'s own dartdoc.
+    _radioStateListener = ref.listenManual<RadioState>(radioStateProvider, (
+      previous,
+      next,
+    ) {
+      if (!_radioStateStream.isClosed) _radioStateStream.add(next);
+    }, fireImmediately: true);
+    _settingsListener = ref.listenManual<AsyncValue<KeryxSettings>>(
+      settingsProvider,
+      _onSettingsChanged,
+    );
+
+    _dispatch(const PowerOn());
+
+    final initial = ref.read(radioStateProvider);
+    await _startSession(
+      identity: identity,
+      settings: settings,
+      initialChannel: initial.channel,
+      initialCode: initial.privacyCode,
+    );
+    if (!mounted) return;
     _dispatch(const BootCompleted());
   }
 
   void _dispatch(RadioEvent event) =>
       ref.read(radioStateProvider.notifier).dispatch(event);
 
+  /// (Re)builds the active [SessionHost]. Called once from [_boot] and
+  /// again from [_maybeRebuildSession] on a session-affecting settings
+  /// change or from [_retuneSession] on a channel change. Tears down
+  /// whatever session/subscriptions are currently active first — safe to
+  /// call with `_session == null` (the first-boot case).
+  ///
+  /// **Re-entrancy (review round-1 finding (d)).** `session.start()` is a
+  /// real suspension point (LOCAL binds UDP sockets and runs discovery), so
+  /// two overlapping calls are possible whenever two session-affecting
+  /// settings fields change close together. [_sessionGeneration] is
+  /// captured on entry and re-checked after the `await`: a call that
+  /// resumes to find a newer call already in flight (or already landed)
+  /// disposes the session it just started instead of adopting it, so
+  /// exactly one — the most recent — session ever ends up assigned to
+  /// [_session].
+  Future<void> _startSession({
+    required DeviceIdentity identity,
+    required KeryxSettings settings,
+    required int initialChannel,
+    required int initialCode,
+  }) async {
+    final myGeneration = ++_sessionGeneration;
+    final previousSession = _session;
+    await _stationsSub?.cancel();
+    _stationsSub = null;
+    await _floorEffectsSub?.cancel();
+    _floorEffectsSub = null;
+    if (previousSession != null) {
+      // Review round-1 finding (e), non-blocking: a throw here was
+      // previously invisible (bare `unawaited`). `debugPrint` is a cheap
+      // telltale — no user-visible error surface exists for a
+      // teardown-path failure yet, so this at least reaches the device log
+      // instead of vanishing into the zone.
+      unawaited(
+        previousSession.dispose().catchError(
+          (Object error, StackTrace stack) => debugPrint(
+            'FaceScreen: previous session dispose failed: $error\n$stack',
+          ),
+        ),
+      );
+    }
+    if (mounted) {
+      setState(() {
+        _session = null;
+        _floorEngine = null;
+        _stations = const <roster.StationInfo>[];
+      });
+    }
+
+    final session = widget.sessionFactory(
+      localPeerId: identity.peerId,
+      callsign: identity.callsign.value,
+      settings: settings,
+      dispatch: _dispatch,
+      initialChannel: initialChannel,
+      initialCode: initialCode,
+    );
+    await session.start();
+    if (!mounted || myGeneration != _sessionGeneration) {
+      // Torn down, or superseded by a newer `_startSession` call that
+      // arrived while this one was suspended in `session.start()` — either
+      // way this session must not become `_session`. Dispose it rather
+      // than leak its transport/sockets.
+      unawaited(session.dispose());
+      return;
+    }
+
+    _appliedSettings = settings;
+    _floorEffectsSub = session.floorEngine.effects.listen((effect) {
+      if (!_floorEffectsProxy.isClosed) _floorEffectsProxy.add(effect);
+    });
+    _stationsSub = session.stations.listen((stations) {
+      if (!mounted) return;
+      setState(
+        () => _stations = stations
+            .map(_toRosterStation)
+            .toList(growable: false),
+      );
+    });
+
+    setState(() {
+      _session = session;
+      _floorEngine = session.floorEngine;
+    });
+  }
+
+  void _onSettingsChanged(
+    AsyncValue<KeryxSettings>? previous,
+    AsyncValue<KeryxSettings> next,
+  ) {
+    final settings = next.valueOrNull;
+    // Still loading, or a load error — keep whatever session is already
+    // running rather than tearing it down over a transient read failure.
+    if (settings == null) return;
+    if (!_settingsStream.isClosed) _settingsStream.add(settings);
+    unawaited(_maybeRebuildSession(settings));
+  }
+
+  /// **Disclosed decision — rebuild the session, don't live-patch it.**
+  /// `RadioSessionController`'s own dartdoc (TASK-035) is explicit that
+  /// settings are a construction-time snapshot: "a meaningfully different
+  /// settings value … needs a new `RadioSessionController` from the host."
+  /// So "a settings change made [in the back panel] is observed by the face
+  /// without restart" is satisfied at this boundary by tearing down and
+  /// reconstructing the session on the session-affecting subset of fields
+  /// ([_sessionAffectingFieldsChanged]) — matching that precedent exactly
+  /// rather than asking the session layer to react live to arbitrary
+  /// setting flips.
+  Future<void> _maybeRebuildSession(KeryxSettings settings) async {
+    final identity = _identity;
+    final applied = _appliedSettings;
+    if (identity == null || applied == null) {
+      return; // no session yet to rebuild (still booting)
+    }
+    if (!_sessionAffectingFieldsChanged(applied, settings)) {
+      _appliedSettings = settings;
+      return;
+    }
+    final state = ref.read(radioStateProvider);
+    await _startSession(
+      identity: identity,
+      settings: settings,
+      initialChannel: state.channel,
+      initialCode: state.privacyCode,
+    );
+  }
+
+  /// The subset of [KeryxSettings] that actually changes which transport
+  /// chain (or which channel-scoped resources within it) `RadioSessionController`
+  /// builds — see its `_resolveEffectiveMode`/`_startLocal`/`_startLinked`.
+  /// Everything else (squelch, roger beep, DSP intensity, …) is consumed
+  /// downstream of the session (by [SfxProjection]/[SfxEngine] directly via
+  /// [_settingsStream]) and does not warrant tearing the session down.
+  bool _sessionAffectingFieldsChanged(KeryxSettings a, KeryxSettings b) =>
+      a.mode != b.mode ||
+      a.forceLocalOnly != b.forceLocalOnly ||
+      a.relayUrl != b.relayUrl ||
+      a.tokenServiceUrl != b.tokenServiceUrl ||
+      a.totSeconds != b.totSeconds ||
+      a.busyLockout != b.busyLockout ||
+      a.region != b.region;
+
+  roster.StationInfo _toRosterStation(StationInfo station) {
+    final peerId = station.peerId.isEmpty ? 'unknown-peer' : station.peerId;
+    final callsign = station.callsign.isEmpty ? peerId : station.callsign;
+    return roster.StationInfo(
+      peerId: peerId,
+      callsign: callsign,
+      signalQuality: station.signalQuality,
+    );
+  }
+
   @override
   void dispose() {
-    unawaited(_bridge?.dispose());
-    _floorEngine?.dispose();
-    _transport?.dispose();
+    _sfxTick?.cancel();
+    unawaited(_stationsSub?.cancel());
+    unawaited(_floorEffectsSub?.cancel());
+    _radioStateListener?.close();
+    _settingsListener?.close();
+    unawaited(_sfxProjection?.dispose());
+    _sfxEngine?.dispose();
+    final sink = _audioSink;
+    if (sink != null) unawaited(widget.audioSinkDisposer(sink));
+    unawaited(_session?.dispose());
+    unawaited(_radioStateStream.close());
+    unawaited(_floorEffectsProxy.close());
+    unawaited(_settingsStream.close());
     _flipController.dispose();
     _amplitude.dispose();
     super.dispose();
@@ -108,12 +457,35 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
     final clampedChannel = _clampChannel(channel);
     final clampedCode = _clampCode(code);
     _dispatch(TuneTo(channel: clampedChannel, privacyCode: clampedCode));
+    unawaited(_retuneSession(clampedChannel, clampedCode));
     final entry = TunedChannel(channel: clampedChannel, privacyCode: clampedCode);
     unawaited(
-      _settings.rememberChannel(entry).then((updated) {
-        if (mounted) setState(() => _channelMemory = updated.channelMemory);
-      }),
+      ref
+          .read(settingsProvider.notifier)
+          .rememberChannel(entry)
+          .then((updated) {
+            if (mounted) setState(() => _channelMemory = updated.channelMemory);
+          }),
     );
+  }
+
+  /// Channel-scoped retune: `RadioSessionController.retune`'s own contract
+  /// is a full teardown/rebuild of the channel-scoped parts (LOCAL's
+  /// discovery/signaling bind, LINKED's room id are both derived from
+  /// channel+code), so a tune has to rebuild the transport, not just the
+  /// reducer's numeral. A no-op before the session has finished its first
+  /// [SessionHost.start] — nothing to retune yet, and the very next `start()`
+  /// already carries whatever channel is current by then.
+  Future<void> _retuneSession(int channel, int code) async {
+    final session = _session;
+    if (session == null) return;
+    try {
+      await session.retune(channel: channel, code: code);
+    } catch (error, stack) {
+      // Review round-1 finding (e), non-blocking: see `_startSession`'s
+      // dispose-failure telltale for the same rationale.
+      debugPrint('FaceScreen: retune failed: $error\n$stack');
+    }
   }
 
   void _tuneChannelDelta(RadioState state, int delta) {
@@ -181,6 +553,88 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
     );
   }
 
+  /// FR-043/FR-044 scan entry point — pushed from [StationListPanel]'s
+  /// header (see `FaceView`'s own dartdoc for that placement decision). A
+  /// no-op before the first session exists (nothing to `joinEvent` into
+  /// yet); [EventQrScanScreen] itself owns the camera lifecycle.
+  ///
+  /// Review round-1 finding (b): [GlassFlipController.pauseAutoFlip] before
+  /// pushing so the 5 s auto-flip-back timer doesn't fire invisibly while
+  /// this full-screen route covers the panel, and
+  /// [GlassFlipController.resumeAutoFlipFresh] on return so the operator
+  /// gets a full fresh window rather than whatever was left when they
+  /// navigated away.
+  void _onScanQr(BuildContext context) {
+    _flipController.pauseAutoFlip();
+    unawaited(
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute<void>(
+              builder: (scanContext) => Scaffold(
+                appBar: AppBar(title: const Text('Scan event QR')),
+                body: EventQrScanScreen(
+                  onTuned: (payload) =>
+                      unawaited(_joinEvent(scanContext, payload)),
+                ),
+              ),
+            ),
+          )
+          .whenComplete(_flipController.resumeAutoFlipFresh),
+    );
+  }
+
+  /// Review round-1 finding (e), non-blocking: [SessionHost.joinEvent]
+  /// "requires an already-active LINKED chain" (see its own dartdoc) — a
+  /// scan while LOCAL was previously a silent no-op per FR-044 ("scanning
+  /// tunes the radio instantly"). A snackbar is a cheap, visible telltale;
+  /// it does not replace a real LOCAL->LINKED prompt flow, which is out of
+  /// this task's scope.
+  Future<void> _joinEvent(BuildContext context, EventLinkPayload payload) async {
+    final session = _session;
+    if (session == null) return;
+    try {
+      await session.joinEvent(payload);
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not join event: $error')),
+      );
+    }
+  }
+
+  /// FR-043/FR-044 export entry point — see [_onScanQr]'s placement note
+  /// and its auto-flip pause/resume note. Only the numbered-channel case is
+  /// wired here: a keyed-channel export needs [buildKeyedEventLink]'s
+  /// passphrase input, which has no home in this face yet (out of this
+  /// task's scope; the export screen itself already supports it via its
+  /// `payloadBuilder` seam for whoever wires that up later).
+  void _onExportQr(BuildContext context, RadioState state) {
+    final region = _appliedSettings?.region ?? KeryxSettings.defaultRegion;
+    _flipController.pauseAutoFlip();
+    unawaited(
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute<void>(
+              builder: (_) => Scaffold(
+                appBar: AppBar(title: const Text('Export event QR')),
+                body: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: EventQrExportScreen(
+                    payloadBuilder: (expiresAt) => NumberedEventLink(
+                      region: region,
+                      channel: state.channel,
+                      code: state.privacyCode,
+                      expiresAt: expiresAt,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          )
+          .whenComplete(_flipController.resumeAutoFlipFresh),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(radioStateProvider);
@@ -202,9 +656,14 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
       onMonHoldStart: () => _dispatch(const MonitorChanged(true)),
       onMonHoldEnd: () => _dispatch(const MonitorChanged(false)),
       onScan: () => _dispatch(ScanChanged(!state.isScanning)),
-      onSayAgain: () {}, // FR-046 replay playback is core/audio's territory; no hook exists yet
-      onSettings: () {}, // TASK-018 (settings panel) is still TBD; no screen to open yet
+      // FR-065 replay playback is a later wave (Pro feature); handler stays
+      // empty until that lands. (Not FR-046 — that FR is the force-local-only
+      // privacy toggle, unrelated to this key.)
+      onSayAgain: () {},
+      onSettings: () => Navigator.of(context).pushNamed(backPanelRouteName),
       onEmergencyToggled: _onEmergencyToggled,
+      onScanQr: () => _onScanQr(context),
+      onExportQr: () => _onExportQr(context, state),
     );
   }
 }

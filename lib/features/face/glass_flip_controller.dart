@@ -40,6 +40,26 @@ class GlassFlipController extends ChangeNotifier {
     }
   }
 
+  /// Review round-1 finding (b): stops the 5 s auto-flip-back countdown
+  /// without touching [showStations] — for a host that is about to cover
+  /// the panel with another route (e.g. the FR-043 QR scan/export screens)
+  /// and does not want the flip to fire invisibly underneath it. Pair with
+  /// [resumeAutoFlipFresh] when control returns. A no-op if the panel isn't
+  /// currently showing stations (nothing to pause).
+  void pauseAutoFlip() {
+    _autoFlipTimer?.cancel();
+    _autoFlipTimer = null;
+  }
+
+  /// Restarts a full, fresh [autoFlipBackAfter] window — the counterpart to
+  /// [pauseAutoFlip]. No-op if the panel isn't showing stations (nothing to
+  /// resume).
+  void resumeAutoFlipFresh() {
+    if (!_showStations) return;
+    _autoFlipTimer?.cancel();
+    _autoFlipTimer = Timer(autoFlipBackAfter, flipToGlass);
+  }
+
   @override
   void dispose() {
     _disposed = true;

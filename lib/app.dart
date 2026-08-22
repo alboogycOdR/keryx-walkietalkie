@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:keryx/features/face/face.dart';
+import 'package:keryx/features/settings_panel/back_panel_screen.dart';
 
 /// The app shell. No Material chrome — the radio face is the whole UI
 /// (dark background, no app bar, no default Material theming that would
@@ -32,6 +33,13 @@ class _KeryxMaterialShell extends StatelessWidget {
         scaffoldBackgroundColor: Colors.black,
       ),
       home: const Scaffold(body: FaceScreen()),
+      // `onSettings` (`FaceScreen`) navigates here by name — see
+      // `back_panel_screen.dart`'s `backPanelRouteName` dartdoc for why
+      // that screen itself stays host-agnostic (no `Navigator.push` call
+      // inside `lib/features/settings_panel/**`).
+      routes: <String, WidgetBuilder>{
+        backPanelRouteName: (context) => const BackPanelScreen(),
+      },
     );
   }
 }

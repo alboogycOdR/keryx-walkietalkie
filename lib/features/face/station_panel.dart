@@ -13,40 +13,113 @@ import 'roster.dart';
 /// true. Rendered inside the same glass-sized box as [KeryxLcdDisplay] so
 /// the flip reads as one panel turning over, not a separate overlay.
 class StationListPanel extends StatelessWidget {
-  const StationListPanel({super.key, required this.stations});
+  const StationListPanel({
+    super.key,
+    required this.stations,
+    this.onScan,
+    this.onExport,
+    this.onInteraction,
+  });
 
   final List<StationInfo> stations;
 
+  /// FR-043/FR-044 Event QR entry points — see [FaceView]'s dartdoc on why
+  /// this panel is where they live. `null` renders a disabled button
+  /// rather than hiding it, so the layout stays stable regardless of
+  /// whether a host has wired the callback yet.
+  final VoidCallback? onScan;
+  final VoidCallback? onExport;
+
+  /// Review round-1 finding (b): `GlassFlipController.flipToStations`'s 5 s
+  /// auto-flip (FR-067) does not otherwise know this panel is being looked
+  /// at or reached for, so a slow-to-find tap on [onScan]/[onExport] could
+  /// get flipped away mid-interaction. Fired on every pointer-down anywhere
+  /// in this panel; the host wires it to restart the auto-flip window (see
+  /// `FaceView._glassRegion`) rather than let it lapse under the user's
+  /// thumb. `null` disables the behaviour (e.g. in tests that don't care).
+  final VoidCallback? onInteraction;
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: const Key('keryx-station-panel'),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-      decoration: BoxDecoration(
-        color: KeryxTheme.glass,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: KeryxTheme.glassBorder),
-        boxShadow: <BoxShadow>[
-          KeryxTheme.glassInnerShadow,
-          KeryxTheme.glassHighlight,
-        ],
-      ),
-      child: stations.isEmpty
-          ? Center(
-              child: Text(
-                'NO OTHER STATIONS',
-                style: KeryxTheme.glassSecondary.copyWith(
-                  color: KeryxTheme.lcd.withValues(alpha: 0.6),
-                ),
-              ),
-            )
-          : ListView.separated(
-              itemCount: stations.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 6),
-              itemBuilder: (context, index) => _StationRow(
-                station: stations[index],
-              ),
+    return Listener(
+      onPointerDown: (_) => onInteraction?.call(),
+      child: Container(
+        key: const Key('keryx-station-panel'),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+        decoration: BoxDecoration(
+          color: KeryxTheme.glass,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: KeryxTheme.glassBorder),
+          boxShadow: <BoxShadow>[
+            KeryxTheme.glassInnerShadow,
+            KeryxTheme.glassHighlight,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _StationPanelHeader(onScan: onScan, onExport: onExport),
+            const SizedBox(height: 6),
+            Expanded(
+              child: stations.isEmpty
+                  ? Center(
+                      child: Text(
+                        'NO OTHER STATIONS',
+                        style: KeryxTheme.glassSecondary.copyWith(
+                          color: KeryxTheme.lcd.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: stations.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 6),
+                      itemBuilder: (context, index) => _StationRow(
+                        station: stations[index],
+                      ),
+                    ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StationPanelHeader extends StatelessWidget {
+  const _StationPanelHeader({required this.onScan, required this.onExport});
+
+  final VoidCallback? onScan;
+  final VoidCallback? onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: <Widget>[
+        // DS L134: "Touch targets >= 48 dp" is unconditional — the icon
+        // itself stays visually small (`iconSize: 18`) but the tappable
+        // `BoxConstraints` must not shrink below the accessibility floor.
+        IconButton(
+          key: const Key('keryx-station-panel-scan'),
+          tooltip: 'Scan event QR',
+          iconSize: 18,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          color: KeryxTheme.lcd,
+          onPressed: onScan,
+          icon: const Icon(Icons.qr_code_scanner),
+        ),
+        IconButton(
+          key: const Key('keryx-station-panel-export'),
+          tooltip: 'Export event QR',
+          iconSize: 18,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          color: KeryxTheme.lcd,
+          onPressed: onExport,
+          icon: const Icon(Icons.qr_code),
+        ),
+      ],
     );
   }
 }
