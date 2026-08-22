@@ -2309,7 +2309,7 @@ Clean territory, no conflicts. Next: read `RadioServiceController` (TASK-026, li
 
 ### TASK-039
 **Title:** Production deployment validation + release build + two-phone field runbook
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §11 E6 (KRX-050 relay deployment + hardening checklist), D2 (single-VPS self-host), NFR-05 (LINKED connect success), NFR-01/02 (latency targets the runbook measures); relay/** (compose + HARDENING.md — validate, don't rebuild), token-svc/** (same); android/app/build.gradle + proguard (release build has never been attempted — `flutter build apk --release` with flutter_webrtc + livekit_client typically needs keep rules)
@@ -2317,10 +2317,10 @@ Clean territory, no conflicts. Next: read `RadioServiceController` (TASK-026, li
 **Depends_On:** TASK-037, TASK-040
 **Description:** **SCOPE REDUCED 2026-08-22 — the relay/token-svc/ops-draft half moved to TASK-040 (see that block); this task is now only the parts that genuinely need the integrated app to exist.** (1) **Release build**: `flutter build apk --release` green, with whatever proguard/R8 keep rules flutter_webrtc/livekit_client/mobile_scanner/flutter_soloud need; a signing-config TEMPLATE (keystore instructions, NO real keys committed — verify `key.properties` is gitignored). Note TASK-033's debug-APK size is NOT a reliable baseline (211MB claimed vs 152MB independently reproduced, cache-state dependent) — measure the release APK yourself, don't compare against that number. (2) **Field-test script**: APPEND the app-side operator script to `ops/TWO_PHONE_TEST.md`, which TASK-040 created with the relay bring-up + triage sections already in place — do NOT rewrite its sections, add yours after them: `--dart-define` build command with the relay URL, install on two phones, LOCAL script (same Wi-Fi: discover, PTT both directions, busy lockout, TOT, emergency), LINKED script (one phone on mobile data via the relay), Event QR script (export on A, scan on B), and the expected sound at each step (TASK-033/034 make sound real — say which SFX should fire where). Each step cites the FR it demonstrates; this doubles as the acceptance script for the whole integration wave.
 **Acceptance_Criteria:**
-- [ ] `flutter build apk --release` succeeds; keep rules committed and each rule commented with why; signing template present, real keys provably absent (`key.properties` gitignored — verify, don't assume)
-- [ ] Release APK size measured and recorded from your own build (do not carry TASK-033's debug figure forward)
-- [ ] `ops/TWO_PHONE_TEST.md`'s app-side sections complete per the Description, appended to TASK-040's existing sections without rewriting them — every step FR-cited, expected SFX named per step
-- [ ] Full `flutter test` green, `flutter analyze` clean (prove no drift from the release-build config changes)
+- [x] `flutter build apk --release` succeeds; keep rules committed and each rule commented with why; signing template present, real keys provably absent (`key.properties` gitignored — verify, don't assume)
+- [x] Release APK size measured and recorded from your own build (do not carry TASK-033's debug figure forward)
+- [x] `ops/TWO_PHONE_TEST.md`'s app-side sections complete per the Description, appended to TASK-040's existing sections without rewriting them — every step FR-cited, expected SFX named per step
+- [x] Full `flutter test` green, `flutter analyze` clean (prove no drift from the release-build config changes)
 **Branch:** task/TASK-039-gb
 **Started_At:** 2026-08-22T20:08:00Z
 **Progress_Notes:**
@@ -2352,11 +2352,24 @@ Clean territory, no conflicts. Next: read `RadioServiceController` (TASK-026, li
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 android/** and ops/TWO_PHONE_TEST.md are existing (append-only on the runbook). Dossier is new. Next: signing template + R8 keep rules, then `flutter build apk --release`, then append the app-side script after `<!-- TASK-039 APP-SIDE START -->`.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-22T20:36:00Z] [GB] needs_review. Commits on `task/TASK-039-gb`: `0474b95` signing+R8, `57a4a1c` runbook append, `57dfba1` Play Core dontwarn + size. `flutter build apk --release` exit 0 → `build/app/outputs/flutter-apk/app-release.apk` **119,739,048 bytes (114.19 MB)**, sha256 `F105033786135CC4A813288DF06282CAC7160431EA3CE5C33960A93CDFE3C3A7` (not TASK-033's debug figure). R8 on; keep rules in `android/app/proguard-rules.pro` each commented. Signing template `android/key.properties.example` + `android/SIGNING.md`; debug-keystore fallback when properties absent. `git check-ignore -v android/key.properties` → `android/.gitignore:12:key.properties`. No `key.properties` / `.jks` tracked. Runbook appended after `<!-- TASK-039 APP-SIDE START -->` only (§0–§5 untouched); §8 is the TASK-037 (f) ⚙ → BackPanelScreen manual check; LOCAL/LINKED/Event QR steps FR-cited with `SfxProjection` stems; TokenClient origin-vs-`/token` gotcha documented (Dart out of territory). Analyze: 8 warnings, all frozen `test/services/session/radio_session_controller_test.dart` (TASK-035, same as TASK-037); zero new, none in Owned_Paths.
+**Artifacts:**
+- android/.gitignore
+- android/SIGNING.md
+- android/key.properties.example
+- android/app/build.gradle.kts
+- android/app/proguard-rules.pro
+- ops/TWO_PHONE_TEST.md
+- dossiers/TASK-039.md
+**Test_Evidence:**
+- [2026-08-22T20:36:00Z] [GB] `git check-ignore -v android/key.properties` → `android/.gitignore:12:key.properties    android/key.properties`. `git check-ignore -v android/upload-keystore.jks` → `android/.gitignore:14:**/*.jks`. `git ls-files` has no `key.properties` / `*.jks` / `*.keystore` (only `android/key.properties.example` placeholders).
+- [2026-08-22T20:36:00Z] [GB] `flutter test` — 1048 passed, 0 failed, 40 skipped (named FR-025 parked seeds). Exit 0.
+- [2026-08-22T20:36:00Z] [GB] `flutter analyze` — 8 issues, all in `test/services/session/radio_session_controller_test.dart` (TASK-035 frozen territory; identical set TASK-037 disclosed). Zero issues under `android/**` / this task's Dart (none written).
+- [2026-08-22T20:36:00Z] [GB] `flutter build apk --release` — exit 0 after: (1) `import java.util.Properties` because `:app` shadows `java`; (2) Gradle daemon crash on cold flutter_soloud x86 cmake (TASK-033 class) — `ndk.abiFilters arm64-v8a` (plugin JNI still packs v7a+x86_64); (3) R8 missing Play Core split classes — `-dontwarn` from AGP `missing_rules.txt`. Artifact `build/app/outputs/flutter-apk/app-release.apk` 119,739,048 bytes (114.19 MB), sha256 F105033786135CC4A813288DF06282CAC7160431EA3CE5C33960A93CDFE3C3A7. Debug-keystore fallback (no `key.properties` on this checkout).
+- [2026-08-22T20:36:00Z] [GB] `git diff master...HEAD --name-only` = android/.gitignore, android/SIGNING.md, android/app/build.gradle.kts, android/app/proguard-rules.pro, android/key.properties.example, dossiers/TASK-039.md, ops/TWO_PHONE_TEST.md. All inside Owned_Paths. No Dart. No new widget tests (none in territory); revert-mutation N/A.
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-22T20:12:00Z
+**Updated_At:** 2026-08-22T20:36:00Z
 
 ### TASK-040
 **Title:** Relay + token-service deployment validation (no app dependency) + runbook foundation
