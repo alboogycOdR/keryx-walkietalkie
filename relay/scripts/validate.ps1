@@ -4,8 +4,9 @@ $ErrorActionPreference = "Stop"
 $RelayRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RelayRoot
 
-Write-Host "== render templates from .env.example =="
-python "$RelayRoot\scripts\render_config.py" --env "$RelayRoot\.env.example" --out "$RelayRoot\generated"
+Write-Host "== render templates from .env.example (temp dir; do not clobber generated/) =="
+$RenderOut = Join-Path $env:TEMP "keryx-relay-validate"
+python "$RelayRoot\scripts\render_config.py" --env "$RelayRoot\.env.example" --out $RenderOut
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "== docker compose --env-file .env.example config =="

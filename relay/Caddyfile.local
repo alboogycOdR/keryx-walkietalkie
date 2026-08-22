@@ -1,0 +1,32 @@
+# Localhost HTTP edge for proving Caddy /token → token-svc without ACME.
+# NOT mounted by docker-compose.yml. Production uses Caddyfile (TLS 1.3 + ACME).
+#
+# Why this file exists: Let's Encrypt will not issue a cert for `localhost`,
+# and Docker Desktop's host-network namespace is not the Windows loopback.
+# This file is the honest local stand-in for `https://DOMAIN/token`.
+#
+# Run next to host-network LiveKit + token-svc (same loopback):
+#   docker run --rm --name keryx-token-edge --network host ^
+#     -e TOKEN_SVC_UPSTREAM=127.0.0.1:8080 ^
+#     -e LIVEKIT_UPSTREAM=127.0.0.1:7880 ^
+#     -v %CD%/Caddyfile.local:/etc/caddy/Caddyfile:ro ^
+#     caddy:2.9.1-alpine
+#
+# Docker Desktop: host-network is the Linux VM, not Windows localhost.
+# Prove from `docker run --network host`, not from a Windows curl.
+
+{
+	auto_https off
+	admin off
+}
+
+:8880 {
+	@token path /token /token/*
+	handle @token {
+		reverse_proxy {$TOKEN_SVC_UPSTREAM}
+	}
+
+	handle {
+		reverse_proxy {$LIVEKIT_UPSTREAM}
+	}
+}

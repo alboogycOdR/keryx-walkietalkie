@@ -6,6 +6,9 @@
 # Host networking is required for WebRTC UDP (LiveKit RTC + coturn relay).
 # `docker compose config` validates on any OS; `up` is intended for a Linux VPS.
 #
+# token-svc is deliberately NOT a service here (TASK-040: no new services).
+# Caddy reverse-proxies /token to TOKEN_SVC_UPSTREAM (loopback :8080).
+#
 # Before first start: copy .env.example → .env, fill secrets, then
 #   python scripts/render_config.py --env .env
 #   docker compose --env-file .env config     # must be clean
@@ -58,9 +61,11 @@ services:
       redis:
         condition: service_healthy
     environment:
+      # LiveKit parses this as "key: secret" (space after the colon is
+      # required). Without the space the process exits: "Could not parse keys".
       # Keys also live in the rendered yaml; env form is a second injection
       # path so operators can rotate without re-rendering if they prefer.
-      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}:${LIVEKIT_API_SECRET}"
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
     volumes:
       - ./generated/livekit.yaml:/etc/livekit.yaml:ro
 
@@ -95,6 +100,9 @@ services:
     environment:
       DOMAIN: "${DOMAIN}"
       ACME_EMAIL: "${ACME_EMAIL}"
+      # Loopback upstream for token-svc. The process itself is not in this
+      # compose (TASK-040: no new services). Default matches token-svc Dockerfile.
+      TOKEN_SVC_UPSTREAM: "${TOKEN_SVC_UPSTREAM}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
