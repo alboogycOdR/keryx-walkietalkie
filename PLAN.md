@@ -2187,7 +2187,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-037
 **Title:** Face integration — real transports, live roster, settings/QR navigation, sound projection instantiation
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2 (single state source), FR-067 (station flip panel — live data), FR-069 (S-meter aggregate), FR-043 (QR join entry point), §11 E2 (KRX-016 back-panel reachability); lib/features/face/face_screen.dart (every hardcoded seam: `LocalFloorTransport`, `_stations = const []`, `onSettings: () {}`, private `SettingsRepository`); lib/services/session/** (TASK-035's API — your single upstream), lib/services/sound/** (TASK-034's projection — you instantiate it), lib/core/audio/** (TASK-033's real sink — you construct it and hand it to `SfxEngine`)
@@ -2207,11 +2207,12 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 **Progress_Notes:**
 - [2026-08-21T19:30:00Z] [ORCH] Created from the 2026-08-21 integration recon. Assigned S5 (authored the face, TASK-017). The convergence task — waits for 033/034/035/036.
 - [2026-08-22T11:00:00Z] [S5] Claimed. All 4 deps (033/034/035/036) confirmed done/merged in PLAN.md. Branched `task/TASK-037-s5` from master tip `832cc50` in the S5 worktree. Preflight next.
+- [2026-08-22T11:05:00Z] [S5] Status → in_progress. Preflight (`python scripts/preflight_paths.py TASK-037`): `lib/features/face/**` 10 existing files (amplitude_source, face, face_screen, face_view, glass_flip_controller, housing, local_floor_transport, roster, station_panel, status_strip); `lib/app.dart` exists (37 lines); `lib/main.dart` exists (9 lines); `test/features/face/**` 7 existing test files; `dossiers/TASK-037.md` NEW (parent dir exists). Clean territory, no conflicts. Note on tooling: PLAN.md edits must target the worktree's own local copy (`wt-s5-walkietalkie-keryx/PLAN.md`) for the territory-firewall hook's legacy PLAN.md fast-path to recognize `rel === 'PLAN.md'`; editing the main-checkout copy directly triggers a false Owned_Paths block since the hook's repoRoot resolves to the worktree. Workflow used: edit worktree PLAN.md → `cp` it over the main-checkout copy → `scripts/plan_commit.sh`. Next: read `RadioSessionController` (TASK-035), `SfxEngine`/projection (TASK-034), `AudioSink` (TASK-033), `settingsProvider` (TASK-036), and current `face_screen.dart` to ground the composition.
 **Artifacts:** —
 **Test_Evidence:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-08-22T11:00:00Z
+**Updated_At:** 2026-08-22T11:05:00Z
 
 ### TASK-038
 **Title:** Runtime permissions + foreground service lifecycle wiring
