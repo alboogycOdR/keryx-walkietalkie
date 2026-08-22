@@ -2257,7 +2257,7 @@ NON-BLOCKING:
 
 ### TASK-038
 **Title:** Runtime permissions + foreground service lifecycle wiring
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md L368 (foreground service `mediaPlayback`+`microphone`, partial wake lock during RX/TX only, MulticastLock only while LOCAL discovery active), §11 E9 (KRX-080), KRX-092 (permission explainers — minimal viable form here, full first-run flow is a later wave); lib/services/platform/** (TASK-026's `RadioServiceController` — built, tested, invoked by nobody); lib/services/discovery/README.md (runtime `NEARBY_WIFI_DEVICES` grant is "the caller's job when the radio powers on")
@@ -2270,16 +2270,42 @@ NON-BLOCKING:
 - [ ] All three `RadioServiceEvent`s handled and tested: PTT action drives a real transmit request, power-off action powers off, killed → state reflects reality
 - [ ] `RadioServiceFailed` path: no crash, radio functional, condition surfaced on-face
 - [ ] Full `flutter test` green, `flutter analyze` clean, `flutter build apk --debug` succeeds
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-038-s5
+**Started_At:** 2026-08-22T20:10:00Z
 **Progress_Notes:**
 - [2026-08-21T19:30:00Z] [ORCH] Created from the 2026-08-21 integration recon. Assigned S5, serial after TASK-037 in the same reopened territory.
 - [2026-08-22T19:58:00Z] [ORCH] **UNBLOCKED — TASK-037 merged as `36491b2`; eligible for S5 dispatch.** Same `lib/features/face/**` territory, strictly serial after 037 (now satisfied). Inherits two non-blocking items from TASK-037's round-3 findings: (j) add a `_disposed` guard to `GlassFlipController.resumeAutoFlipFresh`; (k) restate which face widgets actually fall below DS L134's 48 dp with the real `meetsGuideline` failure text, or retract. Standing rule from TASK-037's reviews applies: revert-mutation-check every new regression test before resubmitting.
+- [2026-08-22T20:10:00Z] [S5] Claimed. Worktree already fast-forwarded to master tip `dfc07fc` by ORCH per that commit's dispatch note. Branched `task/TASK-038-s5`. Preflight (`python scripts/preflight_paths.py TASK-038`):
+```
+[preflight] TASK-038 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/face/**  -> 10 file(s):
+           lib/features/face/amplitude_source.dart
+           lib/features/face/face.dart
+           lib/features/face/face_screen.dart
+           lib/features/face/face_view.dart
+           lib/features/face/glass_flip_controller.dart
+           lib/features/face/housing.dart
+           lib/features/face/roster.dart
+           lib/features/face/session_host.dart
+           lib/features/face/station_panel.dart
+           lib/features/face/status_strip.dart
+  GLOB   test/features/face/**  -> 7 file(s):
+           test/features/face/amplitude_source_test.dart
+           test/features/face/face_screen_test.dart
+           test/features/face/face_view_test.dart
+           test/features/face/glass_flip_controller_test.dart
+           test/features/face/roster_test.dart
+           test/features/face/station_panel_test.dart
+           test/features/face/status_strip_test.dart
+  NEW    dossiers/TASK-038.md  -> does not exist; parent dossiers/ exists
+```
+Clean territory, no conflicts. Next: read `RadioServiceController` (TASK-026, lib/services/platform/**), `permission_handler` allocation (TASK-033), current `face_screen.dart`/`FaceScreen._boot` to ground the wiring, then implement.
 **Artifacts:** —
 **Test_Evidence:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-21T19:30:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-08-22T20:10:00Z
 
 ### TASK-039
 **Title:** Production deployment validation + release build + two-phone field runbook
