@@ -2309,7 +2309,7 @@ Clean territory, no conflicts. Next: read `RadioServiceController` (TASK-026, li
 
 ### TASK-039
 **Title:** Production deployment validation + release build + two-phone field runbook
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §11 E6 (KRX-050 relay deployment + hardening checklist), D2 (single-VPS self-host), NFR-05 (LINKED connect success), NFR-01/02 (latency targets the runbook measures); relay/** (compose + HARDENING.md — validate, don't rebuild), token-svc/** (same); android/app/build.gradle + proguard (release build has never been attempted — `flutter build apk --release` with flutter_webrtc + livekit_client typically needs keep rules)
@@ -2329,11 +2329,34 @@ Clean territory, no conflicts. Next: read `RadioServiceController` (TASK-026, li
 - [2026-08-22T13:37:00Z] [ORCH] From TASK-037's review, finding (f): `lib/app.dart`'s `backPanelRouteName` route registration has NO automated coverage and structurally cannot get any (the widget harness declares its own `routes:` map rather than pumping `KeryxApp`, because pumping the real `KeryxApp` hits the real session/sink/identity factories and hangs under `flutter test`). **Add to this task's operator script as an explicit manual check: press the settings key on the face and confirm it actually reaches `BackPanelScreen`, and that a change made there is visible on the face on return.** If that route map were wrong, nothing in the 1048-test suite would fail.
 - [2026-08-22T19:58:00Z] [ORCH] **UNBLOCKED — both `Depends_On` (TASK-037, TASK-040) are now done; eligible for GB dispatch.** Release build + app-side field script only; append to `ops/TWO_PHONE_TEST.md` after TASK-040's sections, never rewrite them. Carry the manual check from the note above.
 - [2026-08-22T20:08:00Z] [GB] Claimed TASK-039. Resume scan: no GB task in_progress/claimed. Depends_On TASK-037 and TASK-040 both done. Branching `task/TASK-039-gb` from master; preflight next.
+- [2026-08-22T20:12:00Z] [GB] Status → in_progress. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-039 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   android/**  -> 35 file(s):
+           android/app/build.gradle.kts
+           android/app/src/debug/AndroidManifest.xml
+           android/app/src/main/AndroidManifest.xml
+           android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+           android/app/src/main/kotlin/za/co/basileia/keryx/MainActivity.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/NsdPlugin.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/RadioForegroundService.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/RadioServiceBridge.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/RadioServiceContract.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/RadioServicePlugin.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/RadioServiceStore.kt
+           android/app/src/main/res/drawable-v21/launch_background.xml
+           ... and 23 more
+  FILE   ops/TWO_PHONE_TEST.md  -> exists, 271 line(s), 12511 bytes
+  NEW    dossiers/TASK-039.md  -> does not exist; parent dossiers/ exists
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+android/** and ops/TWO_PHONE_TEST.md are existing (append-only on the runbook). Dossier is new. Next: signing template + R8 keep rules, then `flutter build apk --release`, then append the app-side script after `<!-- TASK-039 APP-SIDE START -->`.
 **Artifacts:** —
 **Test_Evidence:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-22T20:08:00Z
+**Updated_At:** 2026-08-22T20:12:00Z
 
 ### TASK-040
 **Title:** Relay + token-service deployment validation (no app dependency) + runbook foundation
