@@ -2187,7 +2187,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-037
 **Title:** Face integration — real transports, live roster, settings/QR navigation, sound projection instantiation
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.2 (single state source), FR-067 (station flip panel — live data), FR-069 (S-meter aggregate), FR-043 (QR join entry point), §11 E2 (KRX-016 back-panel reachability); lib/features/face/face_screen.dart (every hardcoded seam: `LocalFloorTransport`, `_stations = const []`, `onSettings: () {}`, private `SettingsRepository`); lib/services/session/** (TASK-035's API — your single upstream), lib/services/sound/** (TASK-034's projection — you instantiate it), lib/core/audio/** (TASK-033's real sink — you construct it and hand it to `SfxEngine`)
@@ -2202,15 +2202,16 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 - [ ] `SfxEngine` + projection constructed over the injected sink; power-on produces the `powerOn` play call (asserted via `RecordingAudioSink` in the widget test)
 - [ ] All disposals verified (session, engine, sink, projection) — no leaked subscriptions after widget teardown
 - [ ] Full `flutter test` green, `flutter analyze` clean, `flutter build apk --debug` succeeds
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-037-s5
+**Started_At:** 2026-08-22T11:00:00Z
 **Progress_Notes:**
 - [2026-08-21T19:30:00Z] [ORCH] Created from the 2026-08-21 integration recon. Assigned S5 (authored the face, TASK-017). The convergence task — waits for 033/034/035/036.
+- [2026-08-22T11:00:00Z] [S5] Claimed. All 4 deps (033/034/035/036) confirmed done/merged in PLAN.md. Branched `task/TASK-037-s5` from master tip `832cc50` in the S5 worktree. Preflight next.
 **Artifacts:** —
 **Test_Evidence:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-21T19:30:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-08-22T11:00:00Z
 
 ### TASK-038
 **Title:** Runtime permissions + foreground service lifecycle wiring
