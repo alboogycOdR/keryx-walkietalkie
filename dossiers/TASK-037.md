@@ -166,6 +166,79 @@ convention already established in this file.
   imports/locals) — confirmed via `git log` to predate this task's diff
   entirely; not touched, not introduced here.
 
+## Rework Round 1 (2026-08-22, response to ORCH's 13:30Z REWORK verdict)
+
+All four blocking findings fixed on the same branch (`task/TASK-037-s5`),
+commit `cdd6352`:
+
+- **(a) 28dp touch targets.** `station_panel.dart`'s two `IconButton`s
+  (`keryx-station-panel-scan`/`-export`) had
+  `BoxConstraints(minWidth: 28, minHeight: 28)` — DS L134 requires >= 48dp
+  unconditionally. Bumped both to 48x48; `iconSize` (18) unchanged, so the
+  glyph stays visually small while the tappable area grows. New test
+  asserts `tester.getSize` on both keys is >= `Size(48, 48)`.
+  **Disclosed decision:** did not use a whole-screen
+  `meetsGuideline(tester, androidTapTargetGuideline)` as literally suggested
+  in the finding — running it found several *other*, pre-existing,
+  out-of-territory tap targets below 48dp elsewhere on the face (the PTT
+  key row's compact keys, the STN status-strip button), which are not this
+  task's fix and would make the assertion fail for reasons unrelated to (a).
+  The scoped `tester.getSize` check enforces DS L134 exactly where this
+  task's fix applies without misattributing pre-existing debt.
+- **(b) FR-043 entry point trapped in the 5s auto-flip window.**
+  `GlassFlipController` gained `pauseAutoFlip()`/`resumeAutoFlipFresh()`.
+  `face_screen.dart`'s `_onScanQr`/`_onExportQr` now pause the auto-flip
+  before pushing the QR route (so it can't fire invisibly under a
+  full-screen cover) and resume a *fresh* 5s window via
+  `.whenComplete(...)` on return. Separately, `StationListPanel` now takes
+  an `onInteraction` callback (wired to `flipController.flipToStations`,
+  which restarts the timer even when already showing) fired on any
+  pointer-down anywhere in the panel — covers the "found the panel, still
+  hunting for the tiny icon" case without needing a route push at all. Two
+  new widget tests: one simulates a slow interaction well past the original
+  5s and confirms the icon is still reachable; one confirms the auto-flip
+  doesn't fire while the scan screen is open and a fresh window starts on
+  return.
+- **(c) Criterion 6 checked without assertions.** Extended: `_Harness` now
+  records `audioSinkDisposeCalled` via a custom `audioSinkDisposer`
+  override, and the disposal test asserts it alongside
+  `session.disposeCalled`. Left as documented rather than independently
+  asserted: `SfxEngine`/`SfxProjection` have no observable "disposed" state
+  of their own (see `sound.dart`) — `audioSinkDisposer` is the single
+  externally-observable seam for "the whole sound pipeline (engine +
+  projection + sink) was torn down together". The `_sfxTick` `Timer
+  .periodic` cancellation proof (previously implicit — `flutter_test`'s
+  `FakeAsync` fails any test that ends with a pending periodic timer) is now
+  stated explicitly in the test's own comment.
+- **(d) `_startSession` re-entrancy.** Added `_sessionGeneration`, a
+  monotonic counter captured at entry and re-checked after `await
+  session.start()`. A call that resumes to find itself superseded (a newer
+  call landed or is still in flight) disposes the session it just built
+  instead of assigning it to `_session` — closing the leak where two rapid
+  session-affecting settings changes (no pump between them) left the first
+  session's transport/sockets running forever and doubled up the
+  `floorEngine.effects` -> `_floorEffectsProxy` feed. New widget test fires
+  two `settingsProvider.save` calls back-to-back inside `tester.runAsync`
+  (no await between them) and asserts exactly one of the resulting sessions
+  ends up undisposed.
+
+Non-blocking (e), fixed since cheap: `previousSession.dispose()` in
+`_startSession` now routes a failure to `debugPrint` instead of a silently
+swallowed zone error; `_retuneSession` wraps `session.retune` in try/catch
+with the same telltale; `_onScanQr`'s `joinEvent` call now goes through a
+new `_joinEvent` helper that shows a `SnackBar` on failure (FR-044: a
+scan-while-LOCAL rejection is otherwise invisible). (f) and (g) left as
+recorded in Review_Findings — (f) is ORCH-acknowledged unavoidable given the
+test harness's own constraints, (g) is explicitly not this task's scope.
+
+Full evidence (independently re-run, not just claimed): `flutter analyze`
+0 new issues (same 8 pre-existing TASK-035 warnings, confirmed untouched);
+`flutter test` 1048 passed / 0 failed / 40 skipped (1044 baseline + 4 net
+new tests: touch-target size, two auto-flip-reachability tests, one
+re-entrancy test); `flutter build apk --debug` succeeded,
+225,948,227 bytes — identical to the pre-rework build (deterministic given
+no dependency/asset changes).
+
 ## Process Notes
 - Drafted via a bounded in-worktree implementation pass (same convention
   TASK-035 used), reviewed line-by-line, then verified independently:
