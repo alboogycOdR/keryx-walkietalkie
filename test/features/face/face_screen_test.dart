@@ -480,16 +480,29 @@ void main() {
         // charged with fixing — a global guideline check would fail on
         // those too and misattribute the finding. DS L134 is checked
         // exactly where this task's own fix (a) applies.
-        final scanSize = tester.getSize(
+        //
+        // Round-2 review finding (h): `tester.getSize` is NOT a valid probe
+        // here — under Material 3, `IconButton` routes through
+        // `ButtonStyleButton`'s `_InputPadding`, which pads the rendered
+        // hit-test box to 48x48 under `MaterialTapTargetSize.padded`
+        // regardless of the `constraints` actually passed to the
+        // `IconButton`. That means `getSize` would return >= 48 even with
+        // the pre-fix `minWidth: 28, minHeight: 28` — the assertion must
+        // instead read the `IconButton.constraints` property directly,
+        // which is the value (a) actually changed. Mutation-verified:
+        // reverting `station_panel.dart`'s constraints to 28/28 fails this
+        // test (widget property visibly 28 < 48); with the fix in place it
+        // passes.
+        final scanButton = tester.widget<IconButton>(
           find.byKey(const Key('keryx-station-panel-scan')),
         );
-        final exportSize = tester.getSize(
+        final exportButton = tester.widget<IconButton>(
           find.byKey(const Key('keryx-station-panel-export')),
         );
-        expect(scanSize.width, greaterThanOrEqualTo(48));
-        expect(scanSize.height, greaterThanOrEqualTo(48));
-        expect(exportSize.width, greaterThanOrEqualTo(48));
-        expect(exportSize.height, greaterThanOrEqualTo(48));
+        expect(scanButton.constraints?.minWidth, greaterThanOrEqualTo(48));
+        expect(scanButton.constraints?.minHeight, greaterThanOrEqualTo(48));
+        expect(exportButton.constraints?.minWidth, greaterThanOrEqualTo(48));
+        expect(exportButton.constraints?.minHeight, greaterThanOrEqualTo(48));
       },
     );
   });
@@ -503,16 +516,37 @@ void main() {
         await harness.boot(tester);
         await _flipToStations(tester);
 
-        // Simulate an operator taking their time to find the icon: a
-        // pointer-down on the panel (any interaction, per
-        // `StationListPanel.onInteraction`) followed by most of a 5s
-        // window elapsing — without the fix, the panel would already have
-        // auto-flipped back to the glass display by the time this taps.
+        // Round-2 review finding (i): the original version of this test
+        // pumped only ~4s total from the `_flipToStations` tap in one big
+        // jump, which (a) never exceeded the original 5s window even with
+        // NO interaction reset at all, and (b) even when the window is
+        // exceeded, `GlassFlipper`'s flip-back is a 320ms
+        // `AnimationController.animateTo(0)` — a single large `pump` only
+        // renders one frame *after* the jump and never gives that
+        // in-flight animation the intermediate frames it needs to
+        // actually settle to "front", so the "back" panel (and its scan
+        // icon) stays visible in the tree even once the un-reset timer
+        // has fired. Discriminating version: elapse most of the
+        // *original* window first (4s, no interaction), THEN interact,
+        // THEN pump forward in small increments (so any flip-back
+        // animation that starts gets to run to completion) past the
+        // original 5s deadline. The panel can only still be showing
+        // because the interaction restarted the clock via
+        // `onInteraction`. Mutation-verified: deleting
+        // `onInteraction: flipController.flipToStations` from
+        // `face_view.dart` fails this test (the un-reset timer fires at
+        // ~5s, the flip-back animation settles during the granular pumps,
+        // and the scan icon is gone by the final check); with the fix in
+        // place it passes.
+        await tester.pump(const Duration(seconds: 4));
+
         final gesture = await tester.startGesture(
           tester.getCenter(find.byKey(const Key('keryx-station-panel'))),
         );
         await gesture.up();
-        await tester.pump(const Duration(seconds: 4));
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 200));
+        }
 
         expect(
           find.byKey(const Key('keryx-station-panel-scan')),
