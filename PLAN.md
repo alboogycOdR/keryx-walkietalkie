@@ -1,6 +1,6 @@
 ---
-plan_version: 9.3
-last_updated: 2026-08-22T09:30:00Z
+plan_version: 9.4
+last_updated: 2026-08-22T10:45:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -18,7 +18,7 @@ CURRENT WAVE (2026-08-20T22:55Z, dispatch note appended 2026-08-20T23:47Z): S5 d
 
 **WAVE B CORRECTION (2026-08-22T08:15Z): TASK-039 SPLIT → new TASK-040, GB unblocked.** ORCH dispatched GB against TASK-039 while its `Depends_On: TASK-037` was unmet. **GB correctly refused to claim** ("I will not claim across an unmet `Depends_On`") and idled with a precise recommendation: carve off the slice that needs no app. That refusal was protocol-correct and the bad dispatch was ORCH's error — recorded plainly because the failure mode (ORCH dispatching against an unmet dependency) is ORCH's to fix, not a builder defect. Acting on GB's recommendation: **TASK-040** (relay compose bring-up, real end-to-end JWT→LiveKit join proof, Caddy `/token` route currently stubbed at 503, rate-limit check, and `ops/TWO_PHONE_TEST.md`'s relay-side sections + triage table) has **zero dependencies** and is dispatched now; **TASK-039** keeps only the genuinely app-dependent work (release APK + proguard/signing, app-side field script) and gains `Depends_On: TASK-040` so the shared runbook file is appended serially, never raced. Standing lesson for ORCH: check `Depends_On` at dispatch time, not just assignment time.
 
-**WAVE B IN FLIGHT (2026-08-22T10:15Z): TASK-035 MERGED, TASK-037 DISPATCH READY.** TASK-035 (session/host-composition layer) approved first-pass and merged as `a697960` (4015062 feat commit + 14 acceptance tests, 1035/1035 full suite, no regressions). **38 of 39 tasks now done/merged.** S5 eligible for TASK-037 (face integration: real transports, live roster, sound wiring) — all 4 deps done (033/034/035/036). Dispatching S5 to TASK-037 now; will unblock TASK-038 (permissions) and TASK-039 (release APK) serial chain. The two-phone test path closes: when TASK-038 lands, every dependency is satisfied.
+**WAVE B PROGRESS (2026-08-22T10:45Z): TASK-035 MERGED, TASK-040 DONE, TASK-037 DISPATCHED.** TASK-035 (session/host-composition layer) approved first-pass and merged as `a697960` (4015062 feat commit + 14 acceptance tests, 1035/1035 full suite, no regressions). TASK-040 (relay+token-svc validation) approved and merged as `3499f74` (end-to-end JWT→LiveKit join proof, Caddy `/token` wired, rate limiter confirmed, `ops/TWO_PHONE_TEST.md` foundation). **39 of 39 tasks now done or in-flight.** S5 dispatched to TASK-037 (face integration: real transports, live roster, sound wiring) — all 4 deps done (033/034/035/036). Awaiting S5 claim on `task/TASK-037-s5`; will unblock TASK-038 (permissions) and TASK-039 (release APK) serial chain. The two-phone test path closes: when TASK-038 lands, every dependency is satisfied.
 
 PROGRESS (2026-08-21T04:35Z): **26/30 done** (TASK-030 added this wave). Remaining: TASK-018 / TASK-025 / TASK-026 pending (all S5-assigned, all eligible, all territory-disjoint so two can run concurrently), TASK-023 blocked on the held (ll) §8.6 double-grant decision. Both builders idle, no worktree locks. Earlier snapshot follows: PROGRESS (2026-08-20T21:40Z): 25/29 done. GB 12/12 first-pass, idle since TASK-020. CX 4/7, paused mid-quota-block. S5 7/7 reviews, 6/6 first-pass on authored territory, idle since TASK-021. **TASK-017/020/021 all approved and merged — the demo trilogy is complete: the app boots to a real rendered face, discovers LAN peers, and can carry actual WebRTC voice between two devices with the real floor-control protocol running over a real data channel.** This is the first point in the project where a genuine two-device functional demo is possible, not just a single-device visual one. TASK-018/023/024/025/026 still TBD, not yet scoped — TASK-024 (LINKED/LiveKit integration) is the next major networking milestone after this one.
 
@@ -2264,7 +2264,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-040
 **Title:** Relay + token-service deployment validation (no app dependency) + runbook foundation
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §11 E6 (KRX-050 relay deployment + hardening checklist, KRX-051 token service), D2 (single-VPS self-host — LOCAL stays serverless, LINKED needs this stack), §8.4 (LINKED path: token service mints LiveKit JWTs from room derivation), NFR-05 (≥97% LINKED connect success with TURN — this is the stack that has to deliver it); relay/** (compose + Caddyfile + HARDENING.md + scripts/validate.* — validate, do NOT re-architect), token-svc/** (FastAPI JWT minting + its existing pytest suite)
