@@ -2309,7 +2309,7 @@ Clean territory, no conflicts. Next: read `RadioServiceController` (TASK-026, li
 
 ### TASK-039
 **Title:** Production deployment validation + release build + two-phone field runbook
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §11 E6 (KRX-050 relay deployment + hardening checklist), D2 (single-VPS self-host), NFR-05 (LINKED connect success), NFR-01/02 (latency targets the runbook measures); relay/** (compose + HARDENING.md — validate, don't rebuild), token-svc/** (same); android/app/build.gradle + proguard (release build has never been attempted — `flutter build apk --release` with flutter_webrtc + livekit_client typically needs keep rules)
@@ -2321,18 +2321,19 @@ Clean territory, no conflicts. Next: read `RadioServiceController` (TASK-026, li
 - [ ] Release APK size measured and recorded from your own build (do not carry TASK-033's debug figure forward)
 - [ ] `ops/TWO_PHONE_TEST.md`'s app-side sections complete per the Description, appended to TASK-040's existing sections without rewriting them — every step FR-cited, expected SFX named per step
 - [ ] Full `flutter test` green, `flutter analyze` clean (prove no drift from the release-build config changes)
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-039-gb
+**Started_At:** 2026-08-22T20:08:00Z
 **Progress_Notes:**
 - [2026-08-21T19:30:00Z] [ORCH] Created from the 2026-08-21 integration recon. Assigned GB (built relay TASK-002 + token-svc TASK-003 hardening lineage; disjoint from all S5 lanes). Depends on TASK-037 so the release build compiles the real integrated app.
 - [2026-08-22T08:15:00Z] [ORCH] **SCOPE SPLIT — relay/token-svc/ops-draft carved out into TASK-040, on GB's own correct recommendation.** ORCH dispatched GB against this task while `Depends_On: TASK-037` was unmet; **GB correctly REFUSED to claim** ("I will not claim across an unmet `Depends_On`") and idled with a precise, actionable alternative: split off the no-dependency slice so GB isn't blocked for the whole of S5's 035→037 chain. That refusal is exactly right and the dispatch was ORCH's error, not GB's. Acting on GB's recommendation: `relay/**`, `token-svc/**` and the runbook's relay-side sections have NO dependency on the Flutter app and are now TASK-040. This block keeps only the genuinely app-dependent work (release APK, app-side field script) and gains `Depends_On: TASK-040` so the runbook is appended to, not raced against. `android/**` stays here in full (single owner for signing/proguard); `ops/TWO_PHONE_TEST.md` is deliberately shared SERIALLY (040 creates, 039 appends) — never concurrent, enforced by the new Depends_On.
 - [2026-08-22T13:37:00Z] [ORCH] From TASK-037's review, finding (f): `lib/app.dart`'s `backPanelRouteName` route registration has NO automated coverage and structurally cannot get any (the widget harness declares its own `routes:` map rather than pumping `KeryxApp`, because pumping the real `KeryxApp` hits the real session/sink/identity factories and hangs under `flutter test`). **Add to this task's operator script as an explicit manual check: press the settings key on the face and confirm it actually reaches `BackPanelScreen`, and that a change made there is visible on the face on return.** If that route map were wrong, nothing in the 1048-test suite would fail.
 - [2026-08-22T19:58:00Z] [ORCH] **UNBLOCKED — both `Depends_On` (TASK-037, TASK-040) are now done; eligible for GB dispatch.** Release build + app-side field script only; append to `ops/TWO_PHONE_TEST.md` after TASK-040's sections, never rewrite them. Carry the manual check from the note above.
+- [2026-08-22T20:08:00Z] [GB] Claimed TASK-039. Resume scan: no GB task in_progress/claimed. Depends_On TASK-037 and TASK-040 both done. Branching `task/TASK-039-gb` from master; preflight next.
 **Artifacts:** —
 **Test_Evidence:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-22T08:15:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-22T20:08:00Z
 
 ### TASK-040
 **Title:** Relay + token-service deployment validation (no app dependency) + runbook foundation
