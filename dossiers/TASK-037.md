@@ -253,3 +253,65 @@ no dependency/asset changes).
   Editing the main-checkout copy directly trips a false Owned_Paths block.
   Workflow: edit the worktree's `PLAN.md` → `cp` it over the main-checkout
   copy → `scripts/plan_commit.sh`.
+
+## Rework Round 2 (2026-08-22)
+
+ORCH's round-2 review mutation-tested all four round-1 fixes in an isolated
+scratch worktree and confirmed (d) and (b) both bite (deletion/weakening of
+the production fix flips the corresponding test red) — no production
+regression there. Two blocking findings, both test-efficacy defects with
+**no production code change required**:
+
+- **(h) DS L134 touch-target test asserted the wrong thing.** The test read
+  `tester.getSize(find.byKey(...))` and checked it was `>= 48`. Under
+  Material 3, `IconButton` routes through `ButtonStyleButton`'s
+  `_InputPadding`, which pads the widget's *rendered hit-test box* to
+  48x48 under `MaterialTapTargetSize.padded` regardless of the
+  `constraints` actually passed to the `IconButton` — so `getSize` would
+  return `>= 48` even reverted to the pre-fix `minWidth: 28, minHeight:
+  28`. The assertion was structurally incapable of failing on the value it
+  claimed to check, and the comment above it asserted otherwise (false).
+  Fixed by asserting `IconButton.constraints` directly — the actual
+  property fix (a) changed. Mutation-verified: reverting
+  `station_panel.dart`'s constraints back to `28, 28` now fails this test.
+- **(i) FR-043 reachability test's timeline never discriminated.** Two
+  compounding defects: (1) the original pump totalled ~4s from the STN
+  tap, which never exceeded the original 5s auto-flip window even with
+  *no* interaction reset at all; (2) even fixed to exceed 5s, a single
+  large `tester.pump(Duration(seconds: N))` renders exactly one frame
+  *after* the elapsed time jumps — it does not step through the
+  intermediate frames an in-flight animation needs. `GlassFlipper`'s
+  flip-back is a 320ms `AnimationController.animateTo(0)`
+  (`station_panel.dart`), so even after the un-reset timer fires,
+  the "back" panel (with the scan icon) stayed mounted in the widget tree
+  because the animation never got the frames to visually settle before
+  the test's one post-jump frame rendered. Confirmed by instrumenting both
+  `GlassFlipController` (print on `flipToStations`/`flipToGlass`) and
+  `_GlassFlipperState.build` (print `_turn.value`/`showBack`) during
+  debugging: `flipToGlass()` *was* firing at the 5s mark even under the
+  mutation, but `_turn.value` stayed pinned at `1.0` (i.e. `showBack`
+  stayed `true`) straight through the test's single big final pump — the
+  rebuild triggered by `notifyListeners()` renders synchronously, before
+  the newly-started `animateTo(0)` ticker gets a chance to advance.
+  Fixed: elapse the first 4s in one pump (before interacting, matching the
+  original intent), then after the interaction pump forward in twenty
+  200ms increments (4s total) instead of one 4s jump — this gives any
+  in-flight flip-back animation the frames it needs to actually settle
+  before the final assertion. Mutation-verified: deleting
+  `onInteraction: flipController.flipToStations` from `face_view.dart`
+  now fails this test (the un-reset timer fires, the flip-back animation
+  settles during the granular pumps, the scan icon is gone by the check);
+  restoring the wiring passes it again.
+
+Both mutations run and confirmed red-then-green myself before resubmitting,
+per ORCH's explicit instruction in the round-2 finding. No production file
+touched this round — `test/features/face/face_screen_test.dart` only.
+
+Full evidence, independently re-run: `flutter analyze` 0 new issues (same 8
+pre-existing TASK-035 warnings in `test/services/session/radio_session_controller_test.dart`,
+confirmed untouched); `flutter test` (full suite) 1048 passed / 0 failed /
+40 skipped — identical counts to the round-1 evidence, since no test was
+added or removed, only two rewritten; `flutter build apk --debug`
+succeeded, `build/app/outputs/flutter-apk/app-debug.apk`,
+225,948,227 bytes — byte-identical to the round-1 build (expected, no
+dependency/asset changes).
