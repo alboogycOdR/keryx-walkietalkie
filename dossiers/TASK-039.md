@@ -55,3 +55,25 @@ Signing template (`key.properties.example`, `SIGNING.md`, `android/.gitignore`),
 R8 keep rules + minify in `app/build.gradle.kts`, app-side runbook appended.
 Next: `git check-ignore` proof, `flutter build apk --release`, full
 `flutter test` + `flutter analyze`.
+
+### [2026-08-22T20:40:00Z] [GB]
+
+`flutter test` 1048 passed / 0 failed / 40 skipped (named FR-025 parked
+seeds). `flutter analyze` 8 issues, all in frozen
+`test/services/session/radio_session_controller_test.dart` (TASK-035
+debt; same as TASK-037; none in Owned_Paths).
+
+Release build: first `java.util.Properties` FQCN failed because `:app`
+shadows `java` as the Android Java plugin extension — switched to
+`import java.util.Properties`. Fat APK then killed the Gradle daemon
+during flutter_soloud cmake of x86 (same class as TASK-033). Added
+`ndk.abiFilters arm64-v8a`. R8 then failed on Flutter Play Core split
+stubs; added `-dontwarn` from AGP `missing_rules.txt`. Retry:
+`flutter build apk --release` exit 0,
+`app-release.apk` 119,739,048 bytes (114.19 MB),
+sha256 F105033786135CC4A813288DF06282CAC7160431EA3CE5C33960A93CDFE3C3A7.
+Packaged JNI still includes armeabi-v7a + x86_64 (plugin .so); filters
+did not strip those. Debug-keystore fallback (no key.properties).
+`git check-ignore -v android/key.properties` →
+`android/.gitignore:12:key.properties`. No secrets tracked.
+→ needs_review.

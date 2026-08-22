@@ -342,9 +342,13 @@ Select-String -Path android/key.properties,android/*.jks,android/*.keystore -Pat
 
 #### APK size (measured this task, not TASK-033's debug figure)
 
-Recorded after the TASK-039 release build on this machine. Fill-in lives
-in `dossiers/TASK-039.md` / PLAN.md Test_Evidence — do not reuse the
-TASK-033 211 MB / 152 MB debug numbers.
+`flutter build apk --release` (this machine, 2026-08-22T20:40Z):
+`build/app/outputs/flutter-apk/app-release.apk` = **119,739,048 bytes
+(114.19 MB)**, sha256
+`F105033786135CC4A813288DF06282CAC7160431EA3CE5C33960A93CDFE3C3A7`.
+JNI dirs in the APK: `arm64-v8a`, `armeabi-v7a`, `x86_64`. Signed with
+the debug keystore (no `android/key.properties` on this checkout). Do
+not reuse TASK-033's 211 MB / 152 MB debug numbers.
 
 ---
 

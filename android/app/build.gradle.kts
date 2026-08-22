@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -9,10 +11,13 @@ plugins {
 // see android/key.properties.example and android/SIGNING.md. Absence is a
 // deliberate fallback so `flutter build apk --release` still works on a
 // clean checkout (debug keystore, not a Play upload).
-val keystoreProperties = java.util.Properties()
+//
+// Do not write `java.util.Properties()` here — in :app, `java` is the
+// Android Java plugin extension, so that FQCN is an unresolved `util`.
+val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
 
 android {
@@ -36,6 +41,14 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Fat APK (all ABIs) kills the Gradle daemon while flutter_soloud
+        // cmake-builds x86 / armeabi-v7a (same failure class as TASK-033's
+        // debug fat APK). Field phones for this wave are arm64 (HONOR 90
+        // Lite / two-phone script). `flutter build apk --release` then
+        // produces a single-ABI artifact without extra flags.
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     signingConfigs {
