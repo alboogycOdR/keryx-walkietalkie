@@ -9,6 +9,7 @@ import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/protocol/protocol.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
+import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/features/event_qr/event_link.dart';
 import 'package:keryx/features/event_qr/qr_export_screen.dart';
 import 'package:keryx/features/event_qr/qr_scan_screen.dart';
@@ -18,6 +19,7 @@ import 'package:keryx/features/event_qr/qr_scan_screen.dart';
 // file means every time it says `StationInfo` unqualified.
 import 'package:keryx/features/face/face.dart' hide StationInfo;
 import 'package:keryx/features/settings_panel/back_panel_screen.dart';
+import 'package:keryx/services/platform/platform.dart';
 import 'package:keryx/services/session/session.dart' show StationInfo;
 
 /// TASK-037 acceptance criterion 1 ("`LocalFloorTransport` no longer
@@ -54,7 +56,23 @@ class FakeSessionHost implements SessionHost {
     required this.localPeerId,
     required this.callsign,
     required this.settings,
-  });
+  }) {
+    // TASK-038: declare a solo roster immediately, mirroring production's
+    // `RadioSessionController` (`lib/services/session/radio_session_controller.dart`
+    // calls `_floorEngine?.updateRoster(ids)` from its own discovery/
+    // presence wiring, out of this task's `Owned_Paths`). `FloorEngine`'s
+    // own dartdoc is explicit that a constructor-default `{self}` roster
+    // does NOT set `_rosterDeclared` — and self-grant needs it declared
+    // before a lone peer's `requestTransmit()` can be granted
+    // synchronously. Without this call, `FloorEngine._rosterConverged`
+    // also requires the clock to not have moved past `_joinedAt`
+    // (`floor_engine.dart`'s own comment: "VirtualClock fixtures that PTT
+    // without elapsing... still need a synchronous solo grant") — this
+    // fixture uses a real `WallClock`, so by the time any `await`-based
+    // test interacts with it, that window has already closed and a PTT
+    // would be join-guard-denied forever.
+    _engine.updateRoster({localPeerId});
+  }
 
   final String localPeerId;
   final String callsign;
@@ -113,6 +131,39 @@ class FakeSessionHost implements SessionHost {
   }
 }
 
+/// Hand-written [FacePermissionGate] double — same rationale as
+/// [FakeSessionHost]: the real `permission_handler` plugin has no
+/// registered implementation under `flutter test` at all (not even a fake
+/// one shipped by the package), so this records every call and returns
+/// whatever outcome the test pre-arms, entirely off any platform channel.
+class _FakePermissionGate implements FacePermissionGate {
+  FacePermissionOutcome microphoneOutcome = FacePermissionOutcome.granted;
+  FacePermissionOutcome notificationsOutcome = FacePermissionOutcome.granted;
+  FacePermissionOutcome nearbyWifiOutcome = FacePermissionOutcome.granted;
+
+  int microphoneCalls = 0;
+  int notificationsCalls = 0;
+  int nearbyWifiCalls = 0;
+
+  @override
+  Future<FacePermissionOutcome> ensureMicrophone() async {
+    microphoneCalls++;
+    return microphoneOutcome;
+  }
+
+  @override
+  Future<FacePermissionOutcome> ensureNotifications() async {
+    notificationsCalls++;
+    return notificationsOutcome;
+  }
+
+  @override
+  Future<FacePermissionOutcome> ensureNearbyWifiDevices() async {
+    nearbyWifiCalls++;
+    return nearbyWifiOutcome;
+  }
+}
+
 /// Records every pushed route so a test can inspect (or manually
 /// `buildPage`) it without ever letting the real destination widget — in
 /// particular `EventQrScanScreen`'s `MobileScanner`, which has no camera
@@ -138,6 +189,29 @@ class _Harness {
   final RecordingAudioSink sink = RecordingAudioSink();
   final InMemorySettingsStore store = InMemorySettingsStore();
   final _RecordingNavigatorObserver observer = _RecordingNavigatorObserver();
+  final _FakePermissionGate permissionGate = _FakePermissionGate();
+
+  /// One [FakeRadioServicePlatform] per `radioServiceFactory()` call —
+  /// normally exactly one, since `_boot` only calls it once. [service] is
+  /// the convenience accessor for that single instance.
+  final List<FakeRadioServicePlatform> servicePlatforms =
+      <FakeRadioServicePlatform>[];
+
+  FakeRadioServicePlatform get service => servicePlatforms.single;
+
+  /// Pre-arm the fault `radioServiceFactory()` will construct its platform
+  /// with — set before [boot] so `_boot`'s own `radioService.start(...)`
+  /// call throws inside its `try`/`catch`.
+  Object? radioServiceStartError;
+
+  RadioServiceController _radioServiceFactory() {
+    final platform = FakeRadioServicePlatform();
+    if (radioServiceStartError != null) {
+      platform.startError = radioServiceStartError;
+    }
+    servicePlatforms.add(platform);
+    return ChannelRadioServiceController(platform: platform);
+  }
 
   /// Review round-1 finding (c): `audioSinkDisposer` is already an
   /// injected function (see `FaceScreen.audioSinkDisposer`'s dartdoc for
@@ -196,6 +270,8 @@ class _Harness {
             audioSinkFactory: _audioSinkFactory,
             audioSinkDisposer: _audioSinkDisposer,
             identityFactory: _identityFactory,
+            permissionGateFactory: () => permissionGate,
+            radioServiceFactory: _radioServiceFactory,
           ),
         ),
       ),
@@ -629,6 +705,244 @@ void main() {
         // be disposed — none leaked.
         final undisposed = harness.sessions.where((s) => !s.disposeCalled);
         expect(undisposed, hasLength(1));
+      },
+    );
+  });
+
+  group('TASK-038 permissions (criterion 1)', () {
+    testWidgets(
+      'granted path: mic granted lets the radio reach idle; all three '
+      'permissions were requested',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(FaceScreen)),
+        );
+        expect(container.read(radioStateProvider).phase, RadioPhase.idle);
+        expect(harness.permissionGate.microphoneCalls, 1);
+        expect(harness.permissionGate.notificationsCalls, 1);
+        expect(harness.permissionGate.nearbyWifiCalls, 1);
+      },
+    );
+
+    testWidgets(
+      'RECORD_AUDIO denied: the radio never reaches idle; a non-modal '
+      'telltale is shown; no Dialog/AlertDialog is ever pushed',
+      (tester) async {
+        final harness = _Harness()
+          ..permissionGate.microphoneOutcome = FacePermissionOutcome.denied;
+        await harness.boot(tester);
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(FaceScreen)),
+        );
+        expect(
+          container.read(radioStateProvider).phase,
+          isNot(RadioPhase.idle),
+        );
+        expect(find.text('MIC REQUIRED'), findsOneWidget);
+        expect(find.byType(Dialog), findsNothing);
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
+  group('TASK-038 foreground service lifecycle (criterion 2)', () {
+    testWidgets(
+      'start is called on power-on with a "CH XX · YY" channel label',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+
+        expect(harness.service.calls, contains(RadioServiceConstants.methodStart));
+        expect(harness.service.channelLabel, matches(RegExp(r'^CH \d{2} · \d{2}$')));
+      },
+    );
+
+    testWidgets(
+      'RadioState phase transitions map to setPhase(idle/rx/tx)',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(FaceScreen)),
+        );
+        final notifier = container.read(radioStateProvider.notifier);
+
+        notifier.dispatch(const RemoteFloorStarted());
+        await tester.pump();
+        notifier.dispatch(const RemoteFloorEnded());
+        await tester.pump();
+        notifier.dispatch(const RequestTransmit());
+        await tester.pump();
+        notifier.dispatch(const TransmitGranted());
+        await tester.pump();
+        notifier.dispatch(const EndTransmit());
+        await tester.pump();
+
+        expect(
+          harness.service.calls,
+          containsAllInOrder(<String>[
+            '${RadioServiceConstants.methodSetPhase}:${RadioServiceConstants.phaseIdle}',
+            '${RadioServiceConstants.methodSetPhase}:${RadioServiceConstants.phaseRx}',
+            '${RadioServiceConstants.methodSetPhase}:${RadioServiceConstants.phaseIdle}',
+            '${RadioServiceConstants.methodSetPhase}:${RadioServiceConstants.phaseTx}',
+            '${RadioServiceConstants.methodSetPhase}:${RadioServiceConstants.phaseIdle}',
+          ]),
+        );
+      },
+    );
+
+    testWidgets(
+      'retuning the channel calls updateNotification with the new label',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+
+        // Same known false-positive hit-test warning class as the
+        // settings-key test above: the tap correctly reaches (and fires)
+        // the `Listener` inside `ChStepperButton`'s transform-scaled
+        // render stack even though `flutter_test`'s hit-test heuristic
+        // flags the resolved offset as landing on the button's own glyph
+        // `Text` first.
+        await tester.tap(
+          find.byKey(const ValueKey<String>('keryx-stepper-up')),
+          warnIfMissed: false,
+        );
+        await tester.pump();
+
+        expect(
+          harness.service.calls,
+          contains(RadioServiceConstants.methodUpdateNotification),
+        );
+      },
+    );
+
+    testWidgets(
+      'power-off action dispatches the honest PowerOff state (native has '
+      'already stopped the service by the time this event arrives — see '
+      '`ChannelRadioServiceController`\'s own facade tests: `isRunning` '
+      'is already false here with no `stop()` call from the host at all)',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(FaceScreen)),
+        );
+
+        harness.service.simulatePowerOffAction();
+        // Two async broadcast-stream hops sit between the platform event
+        // and this widget's own subscription — see the RadioServiceFailed
+        // group's note for the full chain.
+        await tester.pump();
+        await tester.pump();
+
+        expect(container.read(radioStateProvider).phase, RadioPhase.off);
+        expect(harness.service.running, isFalse);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
+  group('TASK-038 RadioServiceEvent handling (criterion 3)', () {
+    testWidgets(
+      'a notification PTT action toggles transmit on the active session\'s '
+      'FloorEngine: requests, then releases',
+      (tester) async {
+        // A lone peer's `FloorEngine` is its own arbiter and grants itself
+        // the floor synchronously inside `requestTransmit()` — no need to
+        // separately simulate a grant round-trip (see `floor_engine.dart`'s
+        // `requestTransmit`/`_arbitrate`).
+        final harness = _Harness();
+        await harness.boot(tester);
+        final engine = harness.sessions.single.floorEngine;
+        expect(engine.isTransmitting, isFalse);
+
+        harness.service.simulatePttAction();
+        await tester.pump();
+        await tester.pump();
+        expect(engine.isTransmitting, isTrue);
+
+        harness.service.simulatePttAction();
+        await tester.pump();
+        await tester.pump();
+        expect(engine.isTransmitting, isFalse);
+      },
+    );
+
+    testWidgets(
+      'RadioServiceKilled dispatches the honest off state — no silent '
+      'zombie',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(FaceScreen)),
+        );
+
+        harness.service.simulateOemKill();
+        await tester.pump();
+        await tester.pump();
+
+        expect(container.read(radioStateProvider).phase, RadioPhase.off);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
+  group('TASK-038 RadioServiceFailed path (criterion 4)', () {
+    testWidgets(
+      'a start() fault degrades gracefully: no crash, radio still boots '
+      'to idle, the fault is surfaced on-face',
+      (tester) async {
+        final harness = _Harness()
+          ..radioServiceStartError = StateError('native start failed');
+        await harness.boot(tester);
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('SVC FAULT'), findsOneWidget);
+        // Radio functional despite the service fault: boot still reaches
+        // idle (mic was granted; the service fault is unrelated).
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(FaceScreen)),
+        );
+        expect(container.read(radioStateProvider).phase, RadioPhase.idle);
+        expect(harness.sessions.single.startCalled, isTrue);
+      },
+    );
+
+    testWidgets(
+      'a post-boot RadioServiceFailed stream event also degrades '
+      'gracefully: no crash, radio keeps working, fault surfaced on-face',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+        expect(tester.takeException(), isNull);
+
+        harness.service.emit(const RadioServiceFailed('native fault'));
+        // Two hops of broadcast-stream delivery sit between `emit` and
+        // this widget rebuilding (`FakeRadioServicePlatform.events` ->
+        // `ChannelRadioServiceController.events` -> `FaceScreen`'s own
+        // subscription), each an async microtask boundary — one `pump()`
+        // is not reliably enough to drain both.
+        await tester.pump();
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('SVC FAULT'), findsOneWidget);
+        // Radio functional: session still alive, PTT still works.
+        expect(harness.sessions.single.disposeCalled, isFalse);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(FaceScreen)),
+        );
+        container
+            .read(radioStateProvider.notifier)
+            .dispatch(const RequestTransmit());
+        await tester.pump();
+        expect(container.read(radioStateProvider).phase, RadioPhase.txRequest);
       },
     );
   });

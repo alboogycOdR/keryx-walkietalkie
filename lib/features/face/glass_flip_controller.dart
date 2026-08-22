@@ -54,8 +54,17 @@ class GlassFlipController extends ChangeNotifier {
   /// Restarts a full, fresh [autoFlipBackAfter] window — the counterpart to
   /// [pauseAutoFlip]. No-op if the panel isn't showing stations (nothing to
   /// resume).
+  ///
+  /// TASK-037 round-3 finding (j), fixed here: also a no-op once
+  /// [dispose] has run. Without this guard, a caller whose route pops via
+  /// `.whenComplete(resumeAutoFlipFresh)` (see `FaceScreen._onScanQr`/
+  /// `_onExportQr`) after the controller itself was disposed (e.g. the
+  /// whole face was torn down while the QR route was still open) would arm
+  /// a fresh `Timer` on a dead controller — harmless today only because
+  /// [notifyListeners] is itself disposed-safe, but still a pending timer
+  /// past `dispose()` that a widened test's `FakeAsync` would rightly flag.
   void resumeAutoFlipFresh() {
-    if (!_showStations) return;
+    if (_disposed || !_showStations) return;
     _autoFlipTimer?.cancel();
     _autoFlipTimer = Timer(autoFlipBackAfter, flipToGlass);
   }

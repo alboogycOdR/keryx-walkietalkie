@@ -46,6 +46,7 @@ class FaceView extends StatelessWidget {
     required this.onEmergencyToggled,
     this.onScanQr,
     this.onExportQr,
+    this.statusOverride,
   });
 
   final RadioState state;
@@ -78,6 +79,16 @@ class FaceView extends StatelessWidget {
   /// session yet to `joinEvent` into).
   final VoidCallback? onScanQr;
   final VoidCallback? onExportQr;
+
+  /// TASK-038: a non-modal, on-face telltale line for a condition
+  /// [RadioState] itself has no field for — a denied `RECORD_AUDIO`
+  /// permission, or a foreground-service fault (`RadioServiceFailed`) —
+  /// per FR-045's "never a modal" rule. `FaceScreen` computes this locally
+  /// (both conditions live outside the frozen `lib/core/state` reducer,
+  /// out of this task's `Owned_Paths`) and it takes priority over
+  /// [_statusLine]'s own [RadioState]-derived text when non-null; `null`
+  /// (the default) leaves the glass showing exactly what it always did.
+  final String? statusOverride;
 
   static const int _flexScale = 1000;
 
@@ -130,6 +141,7 @@ class FaceView extends StatelessWidget {
   }
 
   String _statusLine() {
+    if (statusOverride != null) return statusOverride!;
     if (state.isTransmitDenied) return 'DENIED';
     if (state.phase == RadioPhase.txRequest) return 'REQUESTING';
     if (state.phase == RadioPhase.tx) {

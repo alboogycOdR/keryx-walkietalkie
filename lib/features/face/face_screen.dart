@@ -14,6 +14,16 @@ import 'package:keryx/features/event_qr/qr_scan_screen.dart';
 import 'package:keryx/features/ptt/ptt.dart';
 import 'package:keryx/features/settings_panel/back_panel_screen.dart';
 import 'package:keryx/features/tuning/tuning.dart';
+import 'package:keryx/services/platform/platform.dart'
+    show
+        ChannelRadioServiceController,
+        RadioServiceController,
+        RadioServiceEvent,
+        RadioServiceFailed,
+        RadioServiceKilled,
+        RadioServicePowerOffAction,
+        RadioServicePttAction,
+        RadioTransportPhase;
 import 'package:keryx/services/session/session.dart'
     show RadioSessionController, StationInfo;
 import 'package:keryx/services/sound/sound.dart';
@@ -21,6 +31,7 @@ import 'package:keryx/services/sound/sound.dart';
 import 'amplitude_source.dart';
 import 'face_view.dart';
 import 'glass_flip_controller.dart';
+import 'permission_gate.dart';
 import 'roster.dart' as roster;
 import 'session_host.dart';
 
@@ -52,6 +63,8 @@ class FaceScreen extends ConsumerStatefulWidget {
     this.audioSinkFactory = _defaultAudioSinkFactory,
     this.audioSinkDisposer = _defaultAudioSinkDisposer,
     this.identityFactory = _defaultIdentityFactory,
+    this.permissionGateFactory = _defaultPermissionGateFactory,
+    this.radioServiceFactory = _defaultRadioServiceFactory,
   });
 
   final SessionHost Function({
@@ -86,6 +99,21 @@ class FaceScreen extends ConsumerStatefulWidget {
   /// unchanged, a test can substitute a synchronous fake identity.
   final Future<DeviceIdentity> Function() identityFactory;
 
+  /// TASK-038: `permission_handler`'s real plugin is a platform channel with
+  /// no registered implementation under `flutter test` — same story as
+  /// [identityFactory]. Production default wraps `DeviceFacePermissionGate`
+  /// (see `permission_gate.dart`); tests inject a fake gate that never
+  /// touches a real platform channel.
+  final FacePermissionGate Function() permissionGateFactory;
+
+  /// TASK-038: the Android radio foreground service (KRX-080). Production
+  /// default is `ChannelRadioServiceController.production()`; tests inject
+  /// `ChannelRadioServiceController(platform: FakeRadioServicePlatform())`
+  /// — that fake already lives in `lib/services/platform/platform.dart`
+  /// (TASK-026's own facade tests use it), so no new test double needs
+  /// hand-writing here.
+  final RadioServiceController Function() radioServiceFactory;
+
   static SessionHost _defaultSessionFactory({
     required String localPeerId,
     required String callsign,
@@ -118,6 +146,12 @@ class FaceScreen extends ConsumerStatefulWidget {
 
   static Future<DeviceIdentity> _defaultIdentityFactory() =>
       IdentityRepository(SecureIdentityStore()).loadOrCreate();
+
+  static FacePermissionGate _defaultPermissionGateFactory() =>
+      const DeviceFacePermissionGate();
+
+  static RadioServiceController _defaultRadioServiceFactory() =>
+      ChannelRadioServiceController.production();
 
   @override
   ConsumerState<FaceScreen> createState() => _FaceScreenState();
@@ -185,6 +219,33 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
   StreamSubscription<List<StationInfo>>? _stationsSub;
   StreamSubscription<FloorEffect>? _floorEffectsSub;
 
+  /// TASK-038 foreground service (KRX-080). `null` until [_boot] constructs
+  /// it (or if construction never runs because the widget was unmounted
+  /// mid-boot).
+  RadioServiceController? _radioService;
+  StreamSubscription<RadioServiceEvent>? _radioServiceSub;
+
+  /// Last [RadioTransportPhase] actually pushed to [_radioService] —
+  /// de-dupes [_syncServicePhase] so an unrelated [RadioState] field
+  /// changing (e.g. a station joining) doesn't re-issue an identical
+  /// `setPhase` call on every emission.
+  RadioTransportPhase? _lastServicePhase;
+
+  /// Set when [FacePermissionGate.ensureMicrophone] resolves denied.
+  /// Gates [_boot] from ever dispatching [BootCompleted] (TASK-038
+  /// acceptance criterion: "radio does not enter idle") and drives
+  /// [_statusOverride]'s non-modal on-face telltale (FR-045: never a
+  /// modal).
+  bool _micPermissionDenied = false;
+
+  /// Non-null on a [RadioServiceFailed] event — TASK-038's "no crash,
+  /// radio functional, condition surfaced on-face" requirement. Cleared
+  /// only by a fresh boot (no automatic retry/recovery signal exists to
+  /// clear it early; see the dossier's disclosed-decision note).
+  String? _serviceFaultMessage;
+
+  static const String _serviceFaultLabel = 'SVC FAULT';
+
   /// Advances [SfxEngine]'s duck envelope on a wall clock — see
   /// `SfxProjection.tick`'s own dartdoc ("Lets a polling host advance the
   /// engine's duck envelope"). 50 ms keeps the duck release well inside the
@@ -208,6 +269,27 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
   Future<void> _boot() async {
     final identity = await widget.identityFactory();
     final settings = await ref.read(settingsProvider.future);
+    if (!mounted) return;
+
+    // TASK-038 permissions (TS L368, KRX-092). RECORD_AUDIO is blocking —
+    // the radio cannot transmit without it, so [_micPermissionDenied] gates
+    // [BootCompleted] below (radio stays in `boot`, never reaches `idle`);
+    // a non-modal telltale is shown via [_statusOverride] instead of any
+    // dialog, per FR-045. POST_NOTIFICATIONS / NEARBY_WIFI_DEVICES are
+    // non-blocking (API 33+ only; see `permission_gate.dart`'s dartdoc for
+    // why no explicit SDK-version branch is needed here) — awaited
+    // together only so tests can observe both deterministically, not to
+    // gate anything on their result.
+    final permissionGate = widget.permissionGateFactory();
+    final micOutcome = await permissionGate.ensureMicrophone();
+    if (!mounted) return;
+    final micDenied = micOutcome == FacePermissionOutcome.denied;
+    setState(() => _micPermissionDenied = micDenied);
+
+    await Future.wait<FacePermissionOutcome>(<Future<FacePermissionOutcome>>[
+      permissionGate.ensureNotifications(),
+      permissionGate.ensureNearbyWifiDevices(),
+    ]);
     if (!mounted) return;
 
     final sink = await widget.audioSinkFactory();
@@ -253,6 +335,7 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
       next,
     ) {
       if (!_radioStateStream.isClosed) _radioStateStream.add(next);
+      unawaited(_syncServicePhase(next));
     }, fireImmediately: true);
     _settingsListener = ref.listenManual<AsyncValue<KeryxSettings>>(
       settingsProvider,
@@ -262,6 +345,28 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
     _dispatch(const PowerOn());
 
     final initial = ref.read(radioStateProvider);
+
+    final radioService = widget.radioServiceFactory();
+    _radioServiceSub = radioService.events.listen(_onRadioServiceEvent);
+    try {
+      await radioService.start(
+        channelLabel: _channelLabel(initial.channel, initial.privacyCode),
+      );
+    } catch (error, stack) {
+      // TASK-038 acceptance criterion: a `start()` fault degrades
+      // gracefully — the radio keeps working foregrounded, this is a
+      // telltale only, never a crash. `ChannelRadioServiceController.start`
+      // already logs+rethrows; this is the boundary that stops the throw
+      // from reaching `_boot`'s caller.
+      debugPrint('FaceScreen: radio service start failed: $error\n$stack');
+      if (mounted) setState(() => _serviceFaultMessage = _serviceFaultLabel);
+    }
+    if (!mounted) {
+      unawaited(radioService.dispose());
+      return;
+    }
+    setState(() => _radioService = radioService);
+
     await _startSession(
       identity: identity,
       settings: settings,
@@ -269,7 +374,96 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
       initialCode: initial.privacyCode,
     );
     if (!mounted) return;
-    _dispatch(const BootCompleted());
+    // Denied mic: never reach `idle` (TASK-038 acceptance criterion) — the
+    // telltale from `_statusOverride` stands in for the radio being usable.
+    if (!_micPermissionDenied) {
+      _dispatch(const BootCompleted());
+    }
+  }
+
+  /// `'CH 01 · 05'` — the exact `'CH XX · YY'` shape TASK-038's own
+  /// description names, matching [KeryxLcdDisplay.primaryLine]'s existing
+  /// zero-padded format so the persistent notification's channel label
+  /// never disagrees with the glass.
+  String _channelLabel(int channel, int code) =>
+      'CH ${channel.toString().padLeft(2, '0')} · '
+      '${code.toString().padLeft(2, '0')}';
+
+  void _onRadioServiceEvent(RadioServiceEvent event) {
+    switch (event) {
+      case RadioServiceKilled():
+        // TS §8.8 / FR-105: OEM/system killed the FGS without a user
+        // power-off. Dispatch the honest state rather than leaving a
+        // silent zombie — as far as the app is concerned the radio really
+        // is off now (the native FGS, wake lock and audio focus are all
+        // already gone).
+        _dispatch(const PowerOff());
+      case RadioServicePttAction():
+        // Notification PTT is a click/toggle (`lib/services/platform`'s
+        // own README: "a shade button cannot be a mechanical PTT hold"),
+        // not a press-and-hold — so it toggles around whatever the
+        // *floor engine's own* transmit state currently is (not
+        // `radioStateProvider`'s: that only reflects `FloorEngine`'s
+        // `DispatchRadio` effects once something bridges them — TASK-035's
+        // `RadioStateBridge`, wired by `RadioSessionController` in
+        // production, out of this task's `Owned_Paths` — and reading it
+        // here would be one hop further from the truth than asking the
+        // engine directly, which every other PTT entry point on this
+        // screen already does). Mirrors the on-screen PTT key's own
+        // press/release pair — `FloorEngine.requestTransmit`/
+        // `releaseTransmit` are both idempotent no-ops in every state
+        // where the toggle guess is wrong, so a stale read here is
+        // harmless, not just usually-right.
+        final engine = _floorEngine;
+        if (engine != null) {
+          if (engine.isTransmitting) {
+            engine.releaseTransmit();
+          } else {
+            engine.requestTransmit();
+          }
+        }
+      case RadioServicePowerOffAction():
+        // `ChannelRadioServiceController`'s own `_onEvent` already marks
+        // itself not-running the instant this event arrives (native has
+        // already torn the FGS down by the time Dart hears about it —
+        // `test/services/platform/radio_service_controller_test.dart`
+        // asserts `controller.isRunning == false` right after this event
+        // with no `stop()` call from the host at all). Calling `.stop()`
+        // here would be a same-tick no-op (`ChannelRadioServiceController
+        // .stop` bails immediately once `_started` is false) — dispatching
+        // the honest state is this handler's entire job, exactly like
+        // `RadioServiceKilled` just above.
+        _dispatch(const PowerOff());
+      case RadioServiceFailed(:final message):
+        // Graceful degrade: log + on-face telltale, never a crash. The
+        // radio (session, floor, sound) keeps running exactly as it was.
+        debugPrint('FaceScreen: radio service fault: $message');
+        if (mounted) setState(() => _serviceFaultMessage = _serviceFaultLabel);
+    }
+  }
+
+  /// Maps [RadioState.phase] to the native service's coarser
+  /// [RadioTransportPhase] (`lib/services/platform/radio_transport_phase.dart`'s
+  /// own dartdoc: `rxActive`→`rx`, `tx`/`txRequest`→`tx`, everything else
+  /// powered-on→`idle`) and pushes it through only on an actual change, so
+  /// unrelated [RadioState] emissions (a station joining, a signal-quality
+  /// tick) don't re-issue an identical `setPhase` call. A no-op before the
+  /// service has started (nothing to push to yet) or after it has stopped.
+  Future<void> _syncServicePhase(RadioState state) async {
+    final service = _radioService;
+    if (service == null || !service.isRunning) return;
+    final phase = switch (state.phase) {
+      RadioPhase.rxActive => RadioTransportPhase.rx,
+      RadioPhase.tx || RadioPhase.txRequest => RadioTransportPhase.tx,
+      _ => RadioTransportPhase.idle,
+    };
+    if (phase == _lastServicePhase) return;
+    _lastServicePhase = phase;
+    try {
+      await service.setPhase(phase);
+    } catch (error, stack) {
+      debugPrint('FaceScreen: radio service setPhase failed: $error\n$stack');
+    }
   }
 
   void _dispatch(RadioEvent event) =>
@@ -439,6 +633,8 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
     final sink = _audioSink;
     if (sink != null) unawaited(widget.audioSinkDisposer(sink));
     unawaited(_session?.dispose());
+    unawaited(_radioServiceSub?.cancel());
+    unawaited(_radioService?.dispose());
     unawaited(_radioStateStream.close());
     unawaited(_floorEffectsProxy.close());
     unawaited(_settingsStream.close());
@@ -478,13 +674,33 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
   /// already carries whatever channel is current by then.
   Future<void> _retuneSession(int channel, int code) async {
     final session = _session;
-    if (session == null) return;
-    try {
-      await session.retune(channel: channel, code: code);
-    } catch (error, stack) {
-      // Review round-1 finding (e), non-blocking: see `_startSession`'s
-      // dispose-failure telltale for the same rationale.
-      debugPrint('FaceScreen: retune failed: $error\n$stack');
+    if (session != null) {
+      try {
+        await session.retune(channel: channel, code: code);
+      } catch (error, stack) {
+        // Review round-1 finding (e), non-blocking: see `_startSession`'s
+        // dispose-failure telltale for the same rationale.
+        debugPrint('FaceScreen: retune failed: $error\n$stack');
+      }
+    }
+
+    // TASK-038: keep the persistent notification's channel label in sync
+    // on every retune, independent of session state — a tune can arrive
+    // before the very first `session.start()` resolves (session == null
+    // above), and the notification should still show the right channel
+    // the moment it exists.
+    final service = _radioService;
+    if (service != null && service.isRunning) {
+      try {
+        await service.updateNotification(
+          channelLabel: _channelLabel(channel, code),
+        );
+      } catch (error, stack) {
+        debugPrint(
+          'FaceScreen: radio service updateNotification failed: '
+          '$error\n$stack',
+        );
+      }
     }
   }
 
@@ -664,6 +880,17 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
       onEmergencyToggled: _onEmergencyToggled,
       onScanQr: () => _onScanQr(context),
       onExportQr: () => _onExportQr(context, state),
+      statusOverride: _statusOverride(),
     );
+  }
+
+  /// TASK-038 non-modal telltale (FR-045). Mic denial takes priority over
+  /// a service fault (a mic-less radio can't be usable at all regardless
+  /// of the FGS; the two are exceedingly unlikely to both be true, but the
+  /// priority order still has to be someone's disclosed decision).
+  String? _statusOverride() {
+    if (_micPermissionDenied) return 'MIC REQUIRED';
+    if (_serviceFaultMessage != null) return _serviceFaultMessage;
+    return null;
   }
 }
