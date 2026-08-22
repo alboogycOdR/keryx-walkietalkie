@@ -13,9 +13,21 @@ import 'roster.dart';
 /// true. Rendered inside the same glass-sized box as [KeryxLcdDisplay] so
 /// the flip reads as one panel turning over, not a separate overlay.
 class StationListPanel extends StatelessWidget {
-  const StationListPanel({super.key, required this.stations});
+  const StationListPanel({
+    super.key,
+    required this.stations,
+    this.onScan,
+    this.onExport,
+  });
 
   final List<StationInfo> stations;
+
+  /// FR-043/FR-044 Event QR entry points — see [FaceView]'s dartdoc on why
+  /// this panel is where they live. `null` renders a disabled button
+  /// rather than hiding it, so the layout stays stable regardless of
+  /// whether a host has wired the callback yet.
+  final VoidCallback? onScan;
+  final VoidCallback? onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -31,22 +43,67 @@ class StationListPanel extends StatelessWidget {
           KeryxTheme.glassHighlight,
         ],
       ),
-      child: stations.isEmpty
-          ? Center(
-              child: Text(
-                'NO OTHER STATIONS',
-                style: KeryxTheme.glassSecondary.copyWith(
-                  color: KeryxTheme.lcd.withValues(alpha: 0.6),
-                ),
-              ),
-            )
-          : ListView.separated(
-              itemCount: stations.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 6),
-              itemBuilder: (context, index) => _StationRow(
-                station: stations[index],
-              ),
-            ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          _StationPanelHeader(onScan: onScan, onExport: onExport),
+          const SizedBox(height: 6),
+          Expanded(
+            child: stations.isEmpty
+                ? Center(
+                    child: Text(
+                      'NO OTHER STATIONS',
+                      style: KeryxTheme.glassSecondary.copyWith(
+                        color: KeryxTheme.lcd.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: stations.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    itemBuilder: (context, index) => _StationRow(
+                      station: stations[index],
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StationPanelHeader extends StatelessWidget {
+  const _StationPanelHeader({required this.onScan, required this.onExport});
+
+  final VoidCallback? onScan;
+  final VoidCallback? onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: <Widget>[
+        IconButton(
+          key: const Key('keryx-station-panel-scan'),
+          tooltip: 'Scan event QR',
+          iconSize: 18,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          color: KeryxTheme.lcd,
+          onPressed: onScan,
+          icon: const Icon(Icons.qr_code_scanner),
+        ),
+        IconButton(
+          key: const Key('keryx-station-panel-export'),
+          tooltip: 'Export event QR',
+          iconSize: 18,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          color: KeryxTheme.lcd,
+          onPressed: onExport,
+          icon: const Icon(Icons.qr_code),
+        ),
+      ],
     );
   }
 }

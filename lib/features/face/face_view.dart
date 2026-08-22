@@ -44,6 +44,8 @@ class FaceView extends StatelessWidget {
     required this.onSayAgain,
     required this.onSettings,
     required this.onEmergencyToggled,
+    this.onScanQr,
+    this.onExportQr,
   });
 
   final RadioState state;
@@ -66,6 +68,16 @@ class FaceView extends StatelessWidget {
   final VoidCallback onSayAgain;
   final VoidCallback onSettings;
   final VoidCallback onEmergencyToggled;
+
+  /// FR-043/FR-044 Event QR entry points, surfaced as two small icon
+  /// buttons in [StationListPanel]'s header — that panel is already the
+  /// face's natural "flip to a secondary screen" home (FR-067's station
+  /// list), so it is where a scan/export affordance reads as belonging,
+  /// rather than adding a seventh DS §4 band or overloading an existing
+  /// PTT-row key. `null` disables the corresponding button (e.g. no
+  /// session yet to `joinEvent` into).
+  final VoidCallback? onScanQr;
+  final VoidCallback? onExportQr;
 
   static const int _flexScale = 1000;
 
@@ -152,7 +164,11 @@ class FaceView extends StatelessWidget {
           child: KeryxLcdDisplay(model: _displayModel()),
         ),
       ),
-      back: StationListPanel(stations: stations),
+      back: StationListPanel(
+        stations: stations,
+        onScan: onScanQr,
+        onExport: onExportQr,
+      ),
     );
   }
 
