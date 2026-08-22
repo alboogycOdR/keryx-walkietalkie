@@ -2260,7 +2260,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-040
 **Title:** Relay + token-service deployment validation (no app dependency) + runbook foundation
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §11 E6 (KRX-050 relay deployment + hardening checklist, KRX-051 token service), D2 (single-VPS self-host — LOCAL stays serverless, LINKED needs this stack), §8.4 (LINKED path: token service mints LiveKit JWTs from room derivation), NFR-05 (≥97% LINKED connect success with TURN — this is the stack that has to deliver it); relay/** (compose + Caddyfile + HARDENING.md + scripts/validate.* — validate, do NOT re-architect), token-svc/** (FastAPI JWT minting + its existing pytest suite)
@@ -2268,13 +2268,13 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 **Depends_On:** —
 **Description:** Carved out of TASK-039 (2026-08-22) on GB's own recommendation, because none of this needs the Flutter app to exist — it can and should run while S5 works 035→037. Both `relay/**` and `token-svc/**` were built and unit-tested long ago but **have never actually been stood up and talked to each other**; that gap is exactly what breaks a real two-phone LINKED test. (1) **Relay bring-up**: from `relay/.env.example` + README, bring the compose stack up locally (Docker is available on this machine), run `relay/scripts/validate.ps1` (or `.sh`), and fix ONLY what is genuinely broken in the configs/scripts — no re-architecture, no new services. Document the exact working command sequence, and the DNS/TLS prerequisites a real VPS needs that localhost does not (Caddy will want a real domain for ACME — say so plainly rather than pretending localhost proves it). (2) **Token service**: bring it up against that relay, and prove **end-to-end** that a minted JWT is accepted by LiveKit — a real join, via `livekit-cli` or a scripted client, not just "the endpoint returned 200". Confirm the rate limiter actually responds under repeat calls. Note `relay/Caddyfile`'s `@token path /token /token/*` handler currently `respond`s 503 "token-svc not wired" — wiring that route to the real service IS in your territory and is likely the single highest-value fix here; TASK-036 already pinned `https://HOST/token` as the client-side convention, so match it. (3) **Runbook foundation**: CREATE `ops/TWO_PHONE_TEST.md` (new file, new `ops/` territory — builders cannot write `docs/**`) with the relay-side operator sections: VPS bring-up, env/secret checklist, how to verify the stack is healthy before any phone is involved, and the **failure-triage table** (what `NO LINK` means, what a token 4xx/5xx means, which container logs to pull for each symptom). Leave the app-side script to TASK-039, which appends after you — write your sections so they can be appended to, and say at the top which sections are yours.
 **Acceptance_Criteria:**
-- [ ] Relay compose stack starts locally with the documented command sequence; `validate` script passes; every config fix is minimal and individually explained (what was broken, why the fix is right)
-- [ ] Token service mints a JWT that **LiveKit actually accepts on a real join** — end-to-end evidence in Test_Evidence (the command and its output), not an endpoint-returned-200 claim
-- [ ] Caddy's `/token` route reaches the real token service (the 503 placeholder is gone) and matches TASK-036's `https://HOST/token` client convention — or, if you determine it should NOT be wired in the local compose, say exactly why and what the VPS deployment does instead
-- [ ] Rate limiting demonstrated responding under repeat requests
-- [ ] `ops/TWO_PHONE_TEST.md` created with the relay-side sections + failure-triage table, structured for TASK-039 to append app-side sections after
-- [ ] DNS/TLS prerequisites for a real VPS documented honestly, including anything localhost cannot prove
-- [ ] `token-svc` pytest suite still green; no Dart touched (this task changes no Flutter code — state that plainly)
+- [x] Relay compose stack starts locally with the documented command sequence; `validate` script passes; every config fix is minimal and individually explained (what was broken, why the fix is right)
+- [x] Token service mints a JWT that **LiveKit actually accepts on a real join** — end-to-end evidence in Test_Evidence (the command and its output), not an endpoint-returned-200 claim
+- [x] Caddy's `/token` route reaches the real token service (the 503 placeholder is gone) and matches TASK-036's `https://HOST/token` client convention — or, if you determine it should NOT be wired in the local compose, say exactly why and what the VPS deployment does instead
+- [x] Rate limiting demonstrated responding under repeat requests
+- [x] `ops/TWO_PHONE_TEST.md` created with the relay-side sections + failure-triage table, structured for TASK-039 to append app-side sections after
+- [x] DNS/TLS prerequisites for a real VPS documented honestly, including anything localhost cannot prove
+- [x] `token-svc` pytest suite still green; no Dart touched (this task changes no Flutter code — state that plainly)
 **Branch:** task/TASK-040-gb
 **Started_At:** 2026-08-22T04:44:20Z
 **Progress_Notes:**
@@ -2315,8 +2315,29 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Existing relay + token-svc are real (not NEW). ops/ and dossier are new territory. Next: wire Caddy `/token` (drop 503), bring compose up locally, prove JWT join, write runbook. No Dart.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-08-22T05:08:15Z] [GB] needs_review. Caddy `/token` 503 → `reverse_proxy {$TOKEN_SVC_UPSTREAM}` (default 127.0.0.1:8080); token-svc is NOT a compose service. Two genuine start-up bugs: LIVEKIT_KEYS needed a space after the colon (`key: secret`) or LiveKit exits `Could not parse keys`; validate.ps1/.sh now render `.env.example` to a temp dir so they cannot clobber `generated/` from a real `.env`. Local compose `up -d redis livekit coturn` (caddy skipped: ACME will not issue for localhost). Docker Desktop host-network is the Linux VM — Windows curl :7880 fails even when the stack is healthy; proof ran in `docker run --network host`. Commits `bc57800` + `463dc7e` on `task/TASK-040-gb`. No Dart files in the diff.
+**Artifacts:**
+- relay/Caddyfile
+- relay/Caddyfile.local
+- relay/docker-compose.yml
+- relay/.env.example
+- relay/README.md
+- relay/HARDENING.md
+- relay/scripts/e2e_linked_proof.py
+- relay/scripts/gen_local_env.py
+- relay/scripts/validate.ps1
+- relay/scripts/validate.sh
+- relay/tests/test_relay_config.py
+- token-svc/README.md
+- ops/TWO_PHONE_TEST.md
+- dossiers/TASK-040.md
+**Test_Evidence:**
+- [2026-08-22T05:08:15Z] [GB] `python relay/tests/test_relay_config.py` — 18/18 OK (includes `docker compose --env-file .env.example config` and the LIVEKIT_KEYS space assertion).
+- [2026-08-22T05:08:15Z] [GB] `python -m pytest token-svc/tests` — 23 passed, 0 failed (1 Starlette TestClient deprecation warning, pre-existing). No Dart; `git diff --name-only -- '*.dart'` empty.
+- [2026-08-22T05:08:15Z] [GB] `powershell -File relay/scripts/validate.ps1` — render (temp dir) + compose config + 18 unit checks green.
+- [2026-08-22T05:08:15Z] [GB] Local stack: `docker compose --env-file .env up -d redis livekit coturn` — redis healthy, coturn up, livekit up after the KEYS space fix (was restart-looping). token-svc `docker run --network host` → `GET /healthz` `{"ok":true}`.
+- [2026-08-22T05:08:15Z] [GB] Real join (`docker run --rm --network host --env-file token-svc/.env -v e2e.py:/e2e.py keryx-token-svc python /e2e.py --edge-url http://127.0.0.1:8880/token`): garbage JWT `/rtc` → HTTP 401 Unauthorized; minted JWT `/rtc` → HTTP 101 Switching Protocols; `ListParticipants identities=['BRAVO-7#dfd853d9']`; `JOIN OK identity=BRAVO-7#dfd853d9 room=ABCDEFGHIJKLMNOP`; `Caddy /token path minted identity=BRAVO-7#8c9e3c67`.
+- [2026-08-22T05:08:15Z] [GB] Rate limit (`python /e2e.py --rate-limit --skip-join`): `successes=28 limited=4 last=429` with `detail=rate_limited`.
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-08-22T04:48:00Z
+**Updated_At:** 2026-08-22T05:08:15Z
