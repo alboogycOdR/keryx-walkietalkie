@@ -2260,7 +2260,7 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 
 ### TASK-040
 **Title:** Relay + token-service deployment validation (no app dependency) + runbook foundation
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §11 E6 (KRX-050 relay deployment + hardening checklist, KRX-051 token service), D2 (single-VPS self-host — LOCAL stays serverless, LINKED needs this stack), §8.4 (LINKED path: token service mints LiveKit JWTs from room derivation), NFR-05 (≥97% LINKED connect success with TURN — this is the stack that has to deliver it); relay/** (compose + Caddyfile + HARDENING.md + scripts/validate.* — validate, do NOT re-architect), token-svc/** (FastAPI JWT minting + its existing pytest suite)
@@ -2275,12 +2275,13 @@ Existing audio engine + 6 tests present; dossier is new. Next: package evaluatio
 - [ ] `ops/TWO_PHONE_TEST.md` created with the relay-side sections + failure-triage table, structured for TASK-039 to append app-side sections after
 - [ ] DNS/TLS prerequisites for a real VPS documented honestly, including anything localhost cannot prove
 - [ ] `token-svc` pytest suite still green; no Dart touched (this task changes no Flutter code — state that plainly)
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-040-gb
+**Started_At:** 2026-08-22T04:44:20Z
 **Progress_Notes:**
 - [2026-08-22T08:15:00Z] [ORCH] Created by splitting TASK-039, acting on GB's own correct recommendation after it refused to claim TASK-039 across an unmet `Depends_On` (see TASK-039's note — the refusal was right, the dispatch was ORCH's error). Zero dependencies: this is the wave's only work that needs neither the session layer nor the face. Assigned GB (authored the relay hardening and token-svc lineage). Territory verified disjoint from S5's live TASK-035 (`lib/services/session/**`) and from TASK-037/038's face territory; `ops/TWO_PHONE_TEST.md` is shared with TASK-039 but SERIALLY — 040 creates it, 039 appends, enforced by TASK-039's new `Depends_On: TASK-040`.
+- [2026-08-22T04:44:20Z] [GB] Claimed TASK-040. Resume scan: no GB task in_progress/claimed. TASK-039 remains pending behind TASK-037+TASK-040 (not claimed). Branching `task/TASK-040-gb` from master; preflight next.
 **Artifacts:** —
 **Test_Evidence:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-08-22T08:15:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-08-22T04:44:20Z
