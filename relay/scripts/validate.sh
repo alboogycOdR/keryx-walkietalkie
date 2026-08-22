@@ -4,8 +4,9 @@ set -euo pipefail
 RELAY_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$RELAY_ROOT"
 
-echo "== render templates from .env.example =="
-python3 "$RELAY_ROOT/scripts/render_config.py" --env "$RELAY_ROOT/.env.example" --out "$RELAY_ROOT/generated"
+echo "== render templates from .env.example (temp dir; do not clobber generated/) =="
+RENDER_OUT="${TMPDIR:-/tmp}/keryx-relay-validate"
+python3 "$RELAY_ROOT/scripts/render_config.py" --env "$RELAY_ROOT/.env.example" --out "$RENDER_OUT"
 
 echo "== docker compose --env-file .env.example config =="
 docker compose --env-file "$RELAY_ROOT/.env.example" config

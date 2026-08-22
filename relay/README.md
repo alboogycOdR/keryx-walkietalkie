@@ -7,7 +7,7 @@ enough to start). One Docker Compose file brings up:
 |---|---|
 | **LiveKit** | SFU. One room per channel. Audio publish/subscribe mirrors PTT. Floor-control messages ride LiveKit data messages (TS §8.4). |
 | **Redis** | Ephemeral room/routing state for LiveKit. **No persistence.** |
-| **Caddy** | TLS 1.3 on `DOMAIN`, reverse-proxy to LiveKit `:7880`. `/token` reserved for the token service (wired later). |
+| **Caddy** | TLS 1.3 on `DOMAIN`, reverse-proxy to LiveKit `:7880`. `/token` reverse-proxies to token-svc on `TOKEN_SVC_UPSTREAM` (loopback `:8080`). |
 | **coturn** | TURN for hostile NATs (TS §8.4, NFR-05 ≥ 97% connection success). |
 
 There is **no** LiveKit Egress/Ingress/recording container. Voice is never
@@ -24,7 +24,8 @@ validates on any OS; `docker compose up` is for a Linux VPS.
 | `.env.example` | Every required variable; copy to `.env` |
 | `livekit.yaml.tmpl` | LiveKit config (rendered) |
 | `turnserver.conf.tmpl` | coturn config (rendered) |
-| `Caddyfile` | Caddy TLS + `/token` reservation |
+| `Caddyfile` | Caddy TLS + `/token` → token-svc |
+| `Caddyfile.local` | Localhost HTTP edge for proving `/token` without ACME. **Not** mounted by compose. |
 | `redis.conf` | Bind localhost, no RDB/AOF |
 | `scripts/render_config.py` | `${VAR}` substitution into `generated/` |
 | `scripts/validate.ps1` / `validate.sh` | `compose config` + unit checks |
@@ -176,8 +177,70 @@ docker compose down
 
 A full TLS + TURN probe needs real DNS and is an operator step, not CI.
 
-## Token service
+## Token service (TASK-040)
 
-`Caddyfile` reserves `https://DOMAIN/token` and returns **503** until TASK-003
-is wired. Do not add a `token-svc` service in this compose — that file tree
-belongs to `token-svc/**`.
+Caddy `https://DOMAIN/token` reverse-proxies to `TOKEN_SVC_UPSTREAM`
+(default `127.0.0.1:8080`). That is the TASK-036 client convention
+(`wss://HOST` → `https://HOST/token`). The FastAPI app's route is `POST /token`,
+so the public URL and the process URL are the same path.
+
+token-svc is **not** a compose service. Run it next to this stack, sharing
+`LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` with `.env`:
+
+```bash
+# on the VPS, loopback-only so WAN cannot hit :8080
+docker build -t keryx-token-svc ../token-svc
+docker run -d --name keryx-token-svc --restart unless-stopped \
+  -p 127.0.0.1:8080:8080 --env-file ../token-svc/.env keryx-token-svc
+```
+
+Do not add it to `docker-compose.yml` — host-network LiveKit/Caddy already
+reach loopback, and WAN exposure of `:8080` is a HARDENING miss.
+
+`LIVEKIT_KEYS` in compose is `"${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"`
+(space after the colon). LiveKit 1.9.11 exits with `Could not parse keys`
+if the space is missing — that was a real bring-up bug, not a docs miss.
+
+## What localhost cannot prove
+
+This compose uses `network_mode: host` (WebRTC UDP) and Caddy ACME for a real
+`DOMAIN`. A developer laptop therefore **cannot** stand in for a VPS:
+
+| Thing | Localhost | Real VPS |
+|---|---|---|
+| `docker compose config` + unit tests | yes | yes |
+| LiveKit signaling on `:7880` | yes inside the host-network namespace. Docker Desktop: that namespace is the Linux VM, **not** Windows localhost | yes |
+| Caddy TLS 1.3 + Let's Encrypt | **no** — ACME will not issue for `localhost` / `127.0.0.1` | yes, after `DOMAIN` A/AAAA points at the VPS and :80/:443 are open |
+| TURN against a hostile NAT (NFR-05) | **no** — coturn `external-ip=127.0.0.1` and `denied-peer-ip` covers RFC1918 | yes, with `EXTERNAL_IP` = public IPv4 |
+| `https://DOMAIN/token` | **no** (no cert). Use `Caddyfile.local` on `:8880` as an HTTP stand-in | yes |
+
+Local bring-up (Windows/Docker Desktop included) therefore starts **redis +
+livekit + coturn only**, runs token-svc on loopback `:8080`, and proves the
+Caddy `/token` matcher with `Caddyfile.local`. That is a documentation gap
+being closed, not a production compose change.
+
+```powershell
+python scripts\gen_local_env.py
+python scripts\render_config.py --env .env
+docker compose --env-file .env up -d redis livekit coturn
+# token-svc shares the VM loopback with LiveKit (Docker Desktop host-network).
+docker build -t keryx-token-svc ..\token-svc
+docker run -d --name keryx-token-svc --network host --env-file ..\token-svc\.env keryx-token-svc
+# e2e must also use --network host — Windows curl to :7880 will fail
+docker run --rm --network host --env-file ..\token-svc\.env `
+  -v ${PWD}\scripts\e2e_linked_proof.py:/e2e.py:ro `
+  keryx-token-svc python /e2e.py --rate-limit
+```
+
+Optional HTTP edge (proves Caddy `/token` reaches token-svc without ACME):
+
+```powershell
+docker run --rm --name keryx-token-edge --network host `
+  -e TOKEN_SVC_UPSTREAM=127.0.0.1:8080 `
+  -e LIVEKIT_UPSTREAM=127.0.0.1:7880 `
+  -v ${PWD}/Caddyfile.local:/etc/caddy/Caddyfile:ro `
+  caddy:2.9.1-alpine
+docker run --rm --network host --env-file ..\token-svc\.env `
+  -v ${PWD}\scripts\e2e_linked_proof.py:/e2e.py:ro `
+  keryx-token-svc python /e2e.py --edge-url http://127.0.0.1:8880/token
+```

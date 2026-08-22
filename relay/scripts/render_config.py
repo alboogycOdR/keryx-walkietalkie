@@ -58,6 +58,19 @@ def render(template: str, values: dict[str, str], source: Path) -> str:
     return rendered
 
 
+def display_write_path(dest: Path, root: Path) -> str:
+    """Human-readable dest for the write log.
+
+    `validate.ps1` / `validate.sh` render into $TEMP / $TMPDIR so they cannot
+    clobber `relay/generated/`. `Path.relative_to` raises ValueError when dest
+    is outside `root`; fall back to the absolute path instead of crashing.
+    """
+    try:
+        return str(dest.relative_to(root))
+    except ValueError:
+        return str(dest)
+
+
 def main() -> int:
     here = Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
@@ -94,7 +107,7 @@ def main() -> int:
     }
     for src, dest in mapping.items():
         dest.write_text(render(src.read_text(encoding="utf-8"), values, src), encoding="utf-8")
-        print(f"[render] wrote {dest.relative_to(here)}")
+        print(f"[render] wrote {display_write_path(dest, here)}")
     return 0
 
 

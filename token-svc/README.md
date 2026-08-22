@@ -7,7 +7,10 @@ The client derives `roomId` itself (TS §8.7). This service never sees
 passphrases, never stores users, and logs nothing beyond ephemeral IP-scoped
 rate-limit counters.
 
-Compose wiring into `relay/` is **not** this directory's job.
+Compose does **not** run this process (relay compose stays LiveKit + Redis +
+Caddy + coturn). Caddy reverse-proxies `https://DOMAIN/token` to
+`TOKEN_SVC_UPSTREAM` (default `127.0.0.1:8080`) — TASK-036's client convention.
+Bind loopback-only on a VPS so WAN never sees `:8080`.
 
 ## Run
 
@@ -21,8 +24,11 @@ Docker:
 
 ```bash
 docker build -t keryx-token-svc .
-docker run --rm -p 8080:8080 --env-file .env keryx-token-svc
+docker run --rm -p 127.0.0.1:8080:8080 --env-file .env keryx-token-svc
 ```
+
+Share `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` with `relay/.env`. Generate a
+paired pair of gitignored files with `python relay/scripts/gen_local_env.py`.
 
 ## Environment
 

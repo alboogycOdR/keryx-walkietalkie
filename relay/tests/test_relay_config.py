@@ -17,7 +17,7 @@ from pathlib import Path
 
 RELAY = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RELAY / "scripts"))
-from render_config import parse_env, render  # noqa: E402
+from render_config import display_write_path, parse_env, render  # noqa: E402
 
 
 REQUIRED_SERVICES = {"livekit", "redis", "caddy", "coturn"}
@@ -80,10 +80,27 @@ class RelayConfigTests(unittest.TestCase):
         self.assertIn("protocols tls1.3", self.caddy)
         self.assertIn("{$DOMAIN}", self.caddy)
 
-    def test_token_route_reserved(self) -> None:
+    def test_token_route_wired_to_loopback_token_svc(self) -> None:
         self.assertIn("/token", self.caddy)
-        self.assertIn("503", self.caddy)
+        self.assertIn("reverse_proxy {$TOKEN_SVC_UPSTREAM}", self.caddy)
+        self.assertNotIn("token-svc not wired", self.caddy)
+        self.assertIsNone(
+            re.search(r"respond\s+\".*\"\s+503", self.caddy),
+            "Caddy /token must not still be the 503 placeholder",
+        )
         self.assertNotIn("token-svc:", self.compose)
+        self.assertIn("TOKEN_SVC_UPSTREAM", self.env)
+        self.assertEqual(self.env["TOKEN_SVC_UPSTREAM"], "127.0.0.1:8080")
+        self.assertIn("TOKEN_SVC_UPSTREAM", self.compose)
+
+    def test_local_caddyfile_is_http_only_and_not_mounted(self) -> None:
+        local = (RELAY / "Caddyfile.local").read_text(encoding="utf-8")
+        self.assertIn("auto_https off", local)
+        self.assertIn("reverse_proxy {$TOKEN_SVC_UPSTREAM}", local)
+        self.assertIn("reverse_proxy {$LIVEKIT_UPSTREAM}", local)
+        self.assertIn("@token path /token /token/*", local)
+        self.assertNotIn("Caddyfile.local", self.compose)
+        self.assertIn("./Caddyfile:/etc/caddy/Caddyfile:ro", self.compose)
 
     def test_livekit_wires_coturn(self) -> None:
         self.assertIn("turn_servers:", self.livekit)
@@ -91,6 +108,13 @@ class RelayConfigTests(unittest.TestCase):
         self.assertIn("protocol: udp", self.livekit)
         self.assertIn("protocol: tls", self.livekit)
         self.assertIn(self.env["TURN_SHARED_SECRET"], self.livekit)
+
+    def test_livekit_keys_env_has_required_space(self) -> None:
+        # LiveKit rejects "key:secret" (no space) with "Could not parse keys".
+        self.assertIn(
+            'LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"',
+            self.compose,
+        )
 
     def test_livekit_uses_redis(self) -> None:
         self.assertIn("address: 127.0.0.1:6379", self.livekit)
@@ -142,10 +166,13 @@ class RelayConfigTests(unittest.TestCase):
     def test_no_real_secrets_in_committed_files(self) -> None:
         skip_suffixes = {".pyc"}
         skip_dirs = {"generated", "__pycache__"}
+        skip_names = {".env", ".env.local"}
         for path in RELAY.rglob("*"):
             if not path.is_file():
                 continue
             if any(part in skip_dirs for part in path.parts):
+                continue
+            if path.name in skip_names:
                 continue
             if path.suffix in skip_suffixes:
                 continue
@@ -226,6 +253,48 @@ class RelayConfigTests(unittest.TestCase):
             f"compose config services={services}, expected {REQUIRED_SERVICES}",
         )
         self.assertTrue(services.isdisjoint(FORBIDDEN_SERVICES))
+
+    def test_render_config_accepts_out_of_tree_dest(self) -> None:
+        """validate.ps1 writes to $TEMP; relative_to(relay/) must not crash.
+
+        This is the caller/callee contract the gate scripts rely on. A
+        subprocess (not just the helper) is required so a print-path
+        regression fails this test the same way it fails the gate.
+        """
+        import tempfile
+
+        with tempfile.TemporaryDirectory(prefix="keryx-relay-render-") as tmp:
+            dest = Path(tmp)
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    str(RELAY / "scripts" / "render_config.py"),
+                    "--env",
+                    str(RELAY / ".env.example"),
+                    "--out",
+                    str(dest),
+                ],
+                cwd=RELAY,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(
+                proc.returncode,
+                0,
+                f"render_config.py --out {dest} failed:\n"
+                f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}",
+            )
+            self.assertTrue((dest / "livekit.yaml").is_file())
+            self.assertTrue((dest / "turnserver.conf").is_file())
+            self.assertIn("[render] wrote", proc.stdout)
+            self.assertNotIn("ValueError", proc.stderr)
+            self.assertNotIn("is not in the subpath", proc.stderr + proc.stdout)
+            in_tree = display_write_path(RELAY / "generated" / "livekit.yaml", RELAY)
+            self.assertEqual(in_tree.replace("\\", "/"), "generated/livekit.yaml")
+            outside = display_write_path(dest / "livekit.yaml", RELAY)
+            self.assertEqual(outside, str(dest / "livekit.yaml"))
 
 
 if __name__ == "__main__":

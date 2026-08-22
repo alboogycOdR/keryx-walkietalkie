@@ -44,6 +44,11 @@ after the control is actually in place — not when you intend to do it.
 - [ ] Token-svc rate limits (KRX-051) are the application-level cap; this
       host still needs a connection-rate limit on 443 (`ufw limit` or
       `iptables -m hashlimit`) so a scan cannot pin Caddy.
+- [ ] **token-svc bind is loopback-only** (`docker run -p 127.0.0.1:8080:8080`).
+      `:8080` is **not** in the WAN allow list. Caddy `/token` is the only
+      public mint path (`TOKEN_SVC_UPSTREAM=127.0.0.1:8080`).
+- [ ] token-svc `.env` `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` match this
+      compose. `EVENT_TOKEN_SECRET` is shared with the app, not with LiveKit.
 - [ ] coturn requires `use-auth-secret` (already in the template). Never
       switch it to a static username/password that is shared with clients.
 

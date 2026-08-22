@@ -33,8 +33,11 @@ https://{$DOMAIN} {
 
 	@token path /token /token/*
 	handle @token {
-		# Reserved route. Do not create token-svc files here (Owned_Paths: relay/**).
-		respond "token-svc not wired" 503
+		# TASK-040: token-svc (KRX-051) listens on loopback :8080 and is NOT a
+		# compose service (no re-architecture of this stack). Caddy is the only
+		# public mint path. Matches TASK-036's client convention:
+		# wss://HOST → POST https://HOST/token (FastAPI route is also POST /token).
+		reverse_proxy {$TOKEN_SVC_UPSTREAM}
 	}
 
 	handle {
