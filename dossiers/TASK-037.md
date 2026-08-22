@@ -315,3 +315,45 @@ added or removed, only two rewritten; `flutter build apk --debug`
 succeeded, `build/app/outputs/flutter-apk/app-debug.apk`,
 225,948,227 bytes — byte-identical to the round-1 build (expected, no
 dependency/asset changes).
+
+## Resume after context checkpoint (2026-08-22, session restart)
+
+Session was compacted right after round-2 findings (h)/(i) were fixed and
+committed (`1d0b7cd` code, `9689a666` dossier writeup) but before PLAN.md
+was flipped back to `needs_review` on master — the checkpoint's snapshot
+line still read `needs_review` from before the round-2 REWORK verdict, so
+on resume I re-read PLAN.md fresh off master (per the resume procedure) and
+found the true state: `in_progress`, round-2 REWORK, branch retained. No
+re-claim/re-branch — same branch, same worktree, as instructed.
+
+Before flipping status again I did not trust the prior session's own
+"mutation-verified" claims in the commit message at face value — re-ran
+both mutations myself in this session, from the worktree's current code:
+- (h): reverted `station_panel.dart`'s two `IconButton` `BoxConstraints`
+  48->28 by hand, ran the "touch targets" test alone -> **failed** exactly
+  as the finding predicted (`Actual: Size(28.0, 28.0)`... assertion on
+  `>= Size(48,48)` trips). Restored via `git checkout --`, re-ran -> green.
+- (i): set `onInteraction: null` in `face_view.dart` (nullable callback, so
+  this is a clean semantic revert, not a compile-breaking one), ran the
+  "reachability" tests alone -> **failed** exactly as the finding
+  predicted (`keryx-station-panel-scan` not found — panel had already
+  auto-flipped back). Restored via `git checkout --`, re-ran -> green.
+
+Both bite. Then reran the full acceptance suite fresh in this session as
+independent re-verification, not a copy of the prior session's numbers:
+`flutter analyze` — 8 issues, identical set, all in
+`test/services/session/radio_session_controller_test.dart` (TASK-035,
+frozen, untouched); `flutter test` (full suite) — 1048 passed / 0 failed /
+40 skipped; `flutter build apk --debug` — succeeded.
+
+(k) (non-blocking, ORCH-owned per the round-2 verdict) not actioned this
+round — probing the exact `meetsGuideline` failure text for the PTT
+key-row/status-strip widgets needs a full `FaceScreen` harness with real
+session/sink fakes wired, which is disproportionate to a note ORCH already
+said it isn't charging to this task. Widget identities are already on
+record in the round-1 section above; leaving the exact failure string as
+open ORCH debt rather than spending a build cycle on a non-blocking ask.
+(j) (`resumeAutoFlipFresh` missing a `_disposed` guard) likewise not
+touched — non-blocking, no production change requested for this round.
+
+Status -> needs_review.
