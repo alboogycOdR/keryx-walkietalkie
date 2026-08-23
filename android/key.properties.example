@@ -1,0 +1,12 @@
+# Copy to android/key.properties and fill in. NEVER commit key.properties or
+# the keystore file — both are gitignored by android/.gitignore.
+#
+# Generate a keystore (once, store it outside the repo):
+#   keytool -genkey -v -keystore %USERPROFILE%\keryx-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# Then set:
+storePassword=replace-me
+keyPassword=replace-me
+keyAlias=upload
+# Absolute path, or a path relative to android/app/ (this file's Gradle module).
+storeFile=C:\\Users\\YOU\\keryx-upload.jks
