@@ -5,7 +5,7 @@ via WebRTC (`flutter_webrtc` LOCAL mode / `livekit_client` LINKED mode) over a
 self-hosted LiveKit relay (Docker compose: LiveKit + Redis + Caddy + coturn) with a
 FastAPI token service minting LiveKit JWTs (no user accounts).
 
-- **Current focus:** INTEGRATION WAVE (TASK-032..039, 37/39 done). **CRITICAL PATH: S5 TASK-035** (session/host-composition layer — gates 037/038/039). See handover 2026-08-22 for the two-phone test roadmap. S5 lane active (035 in progress); GB/CX idle (next eligible after TASK-037). All 31 pre-wave tasks done and merged (soak suite green with 40 named parked FR-025 skips).
+- **Current focus:** FIELD TESTING & DIAGNOSIS. **INTEGRATION WAVE COMPLETE (40/40 tasks)** — release APK built and deployed on two Android phones; LOCAL mode discovery working on real hardware; **PTT audio transmission blocked** (voice doesn't flow despite peer detection). Next: user diagnostic feedback on boot sound, media volume, and mic permission state will narrow root cause. After audio fixed: Phase 2 design engagement (UI redesign to skeuomorphic radio aesthetic) + small post-wave debt items (token URL double-append, app size, mic-denied recovery). See handover 2026-08-23 for field test status.
 - FR-025 emergency-preemption double-grant (~40/500 soak seeds) is PARKED by
   explicit owner decision 2026-08-21T17:05Z — no successor task; do not chase.
 - Scaffolded and 31/31 pre-integration tasks merged. Source root is `lib/**` +
