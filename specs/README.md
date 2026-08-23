@@ -10,3 +10,12 @@ ambiguities, with a versioned changelog note at the top of the edited spec:
 
 Each spec should carry a stable filename (referenced by PLAN.md `Spec_References`)
 and section numbers (referenced by `Acceptance_Criteria`).
+
+Current specs:
+
+| File | Role |
+|---|---|
+| `KERYX_Product_Technical_Spec_v1.1.md` | Phase 1 product + architecture (TS) |
+| `KERYX_UI_Design_Specification_v1.0.md` | Face tokens, states, copy voice (DS) |
+| `keryx-face-prototype.html` | Interactive face prototype (PT) |
+| `KERYX_World_Band_Radio_Spec_v1.0.md` | Phase 2 World Band — internet broadcast listen, traced from PocketClaw |
