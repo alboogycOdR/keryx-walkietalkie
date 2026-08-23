@@ -8,7 +8,11 @@ import 'package:keryx/features/knob/knob.dart';
 import 'package:keryx/features/ptt/ptt.dart';
 
 void main() {
-  Widget buildFace({RadioState? state, GlassFlipController? flipController}) {
+  Widget buildFace({
+    RadioState? state,
+    GlassFlipController? flipController,
+    String? statusOverride,
+  }) {
     return MaterialApp(
       home: FaceView(
         state: state ?? const RadioState(phase: RadioPhase.idle),
@@ -30,6 +34,7 @@ void main() {
         onSayAgain: () {},
         onSettings: () {},
         onEmergencyToggled: () {},
+        statusOverride: statusOverride,
       ),
     );
   }
@@ -139,4 +144,28 @@ void main() {
     );
     expect(find.textContaining('42'), findsWidgets);
   });
+
+  testWidgets(
+    'TASK-038: statusOverride replaces the normal status line on the glass',
+    (tester) async {
+      await tester.pumpWidget(
+        buildFace(
+          state: const RadioState(phase: RadioPhase.boot),
+          statusOverride: 'MIC REQUIRED',
+        ),
+      );
+      expect(find.text('MIC REQUIRED'), findsOneWidget);
+      // The ordinary boot-phase status line text must not also be present.
+      expect(find.text('CHANNEL CLEAR'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'null statusOverride (the default) leaves the ordinary status line '
+    'exactly as before',
+    (tester) async {
+      await tester.pumpWidget(buildFace());
+      expect(find.text('CHANNEL CLEAR'), findsOneWidget);
+    },
+  );
 }
