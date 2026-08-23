@@ -181,3 +181,48 @@ half of the task at all.
 - 2026-08-22 [S5]: Claimed, implemented permission gate + foreground-service
   wiring + `statusOverride` telltale + the two inherited TASK-037 follow-ups,
   full test suite green, debug build green. Submitted `needs_review`.
+- 2026-08-23 [S5]: **Rework round 1 — review finding (a) fixed.** ORCH's
+  reviewer (claude-fable-5) found that `_boot`'s `Future.wait([ensureNotifications(),
+  ensureNearbyWifiDevices()])` overlaps two `permission_handler` `.request()`
+  calls; the Android plugin rejects a second concurrent request with a
+  `PlatformException` ("A request for permissions is already running..."),
+  so a genuine first launch on API 33+ (both not-yet-granted) threw out of
+  `Future.wait`, unhandled, aborting `_boot` before the radio ever powered
+  on — reproduces only on a device that has never granted before, which is
+  exactly why the fake gate (no concurrency constraint) and every prior test
+  missed it.
+  - **Fix, two parts, both required by the finding:** (i) replaced the
+    `Future.wait` with two sequential `await`s (notifications, then
+    nearby-Wi-Fi) so the plugin never sees an overlapping request; (ii)
+    added `_safeEnsurePermission`, a boundary around every
+    `FacePermissionGate` call (mic included) that catches any exception,
+    `debugPrint`s it, and degrades to `FacePermissionOutcome.denied` for
+    that one permission instead of letting it escape `_boot` — same shape
+    already used for `radioService.start()`.
+  - **Tests added** (both required by the finding, both mutation-checked
+    before resubmitting — see below): (1) `_FakePermissionGate.notificationsGate`
+    (a `Completer`) holds `ensureNotifications` open; asserts
+    `nearbyWifiCalls == 0` while pending, `1` once completed — proves
+    sequential ordering, would have gone red under the old `Future.wait`.
+    (2) `_FakePermissionGate.notificationsError`/`nearbyWifiError` make
+    both non-blocking calls throw; asserts the radio still reaches `idle`,
+    all three permissions were still called exactly once, and
+    `tester.takeException()` is null — proves the boundary swallows the
+    exception rather than it escaping `_boot`.
+  - **Mutation-checked myself, both red as expected, then restored:**
+    reverting (i) (put the `Future.wait` back) turned only test (1) red;
+    reverting (ii) (drop the `try`/`catch`, call `ensure()` directly) turned
+    only test (2) red (uncaught exception surfaced via `tester.takeException()`
+    and the radio stayed at `RadioPhase.off`).
+  - **Re-verified full suite after the fix restored:** `flutter test` full
+    suite 1066 passed / 0 failed / 40 skipped (1064 baseline + 2 net new);
+    `flutter analyze` repo-wide — same 8 pre-existing warnings, all in
+    TASK-035's `radio_session_controller_test.dart`, none in any file this
+    task touches; `flutter build apk --debug` succeeded,
+    `build/app/outputs/flutter-apk/app-debug.apk`, 252,346,991 bytes.
+  - Non-blocking findings (b)–(f) from the round-1 review: no action taken
+    per the review's own text — (b)/(d)/(e) are disclosed-and-accepted
+    design points carried to later successor tasks, (f) is the documented
+    edit-locally-then-copy `PLAN.md` workflow (not stray work). (c) — the
+    commit-message `[TASK-NNN]`-suffix-in-subject-not-body finding — is
+    addressed in this round's commit messages.

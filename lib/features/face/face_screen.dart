@@ -281,15 +281,35 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
     // together only so tests can observe both deterministically, not to
     // gate anything on their result.
     final permissionGate = widget.permissionGateFactory();
-    final micOutcome = await permissionGate.ensureMicrophone();
+    final micOutcome = await _safeEnsurePermission(
+      permissionGate.ensureMicrophone,
+      label: 'microphone',
+    );
     if (!mounted) return;
     final micDenied = micOutcome == FacePermissionOutcome.denied;
     setState(() => _micPermissionDenied = micDenied);
 
-    await Future.wait<FacePermissionOutcome>(<Future<FacePermissionOutcome>>[
-      permissionGate.ensureNotifications(),
-      permissionGate.ensureNearbyWifiDevices(),
-    ]);
+    // Review round-1 finding (a): these two MUST be sequential, never
+    // `Future.wait`-ed together. `permission_handler`'s Android side
+    // rejects an overlapping `.request()` outright
+    // (`PermissionManager.java`: "A request for permissions is already
+    // running..."), so on a first launch on API 33+ — where both are
+    // simultaneously not-yet-granted — running them concurrently threw a
+    // `PlatformException` out of the second future, `Future.wait` rejected,
+    // and `_boot` aborted before the radio ever powered on. Sequential
+    // awaits are the fix; each call is also wrapped in [_safeEnsurePermission]
+    // so any platform-side exception degrades to denied + a debug log
+    // instead of escaping `_boot` (both are non-blocking permissions —
+    // nothing here gates on the outcome, same as before).
+    await _safeEnsurePermission(
+      permissionGate.ensureNotifications,
+      label: 'notifications',
+    );
+    if (!mounted) return;
+    await _safeEnsurePermission(
+      permissionGate.ensureNearbyWifiDevices,
+      label: 'nearby Wi-Fi devices',
+    );
     if (!mounted) return;
 
     final sink = await widget.audioSinkFactory();
@@ -378,6 +398,24 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
     // telltale from `_statusOverride` stands in for the radio being usable.
     if (!_micPermissionDenied) {
       _dispatch(const BootCompleted());
+    }
+  }
+
+  /// Review round-1 finding (a), part (ii): a boundary around every
+  /// [FacePermissionGate] call so a thrown `PlatformException` (or
+  /// anything else the real `permission_handler` plugin can raise)
+  /// degrades to [FacePermissionOutcome.denied] for that one permission
+  /// and is logged, rather than escaping `_boot` and aborting it —
+  /// the same shape already used for `radioService.start()` below.
+  Future<FacePermissionOutcome> _safeEnsurePermission(
+    Future<FacePermissionOutcome> Function() ensure, {
+    required String label,
+  }) async {
+    try {
+      return await ensure();
+    } catch (error, stack) {
+      debugPrint('FaceScreen: $label permission check failed: $error\n$stack');
+      return FacePermissionOutcome.denied;
     }
   }
 

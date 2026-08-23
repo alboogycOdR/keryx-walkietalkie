@@ -145,6 +145,22 @@ class _FakePermissionGate implements FacePermissionGate {
   int notificationsCalls = 0;
   int nearbyWifiCalls = 0;
 
+  /// Review round-1 finding (a), test (1): when set, [ensureNotifications]
+  /// awaits this instead of resolving immediately, so a test can hold it
+  /// open and assert [nearbyWifiCalls] is still `0` — i.e. that
+  /// `_boot` awaits notifications to completion *before* even calling
+  /// `ensureNearbyWifiDevices`, which is the whole point of replacing the
+  /// old `Future.wait` with sequential awaits.
+  Completer<FacePermissionOutcome>? notificationsGate;
+
+  /// Review round-1 finding (a), test (2): when set, the matching
+  /// `ensure*` method throws this instead of returning, standing in for a
+  /// real `permission_handler` `PlatformException` — proving
+  /// `FaceScreen._safeEnsurePermission` catches it rather than letting it
+  /// escape `_boot`.
+  Object? notificationsError;
+  Object? nearbyWifiError;
+
   @override
   Future<FacePermissionOutcome> ensureMicrophone() async {
     microphoneCalls++;
@@ -154,12 +170,16 @@ class _FakePermissionGate implements FacePermissionGate {
   @override
   Future<FacePermissionOutcome> ensureNotifications() async {
     notificationsCalls++;
+    if (notificationsError != null) throw notificationsError!;
+    final gate = notificationsGate;
+    if (gate != null) return gate.future;
     return notificationsOutcome;
   }
 
   @override
   Future<FacePermissionOutcome> ensureNearbyWifiDevices() async {
     nearbyWifiCalls++;
+    if (nearbyWifiError != null) throw nearbyWifiError!;
     return nearbyWifiOutcome;
   }
 }
@@ -745,6 +765,65 @@ void main() {
         expect(find.text('MIC REQUIRED'), findsOneWidget);
         expect(find.byType(Dialog), findsNothing);
         expect(find.byType(AlertDialog), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'review round-1 finding (a), test (1): notifications and nearby-Wi-Fi '
+      'are requested sequentially, never concurrently — nearbyWifi is not '
+      'called until notifications resolves',
+      (tester) async {
+        final harness = _Harness();
+        harness.permissionGate.notificationsGate =
+            Completer<FacePermissionOutcome>();
+
+        tester.view.physicalSize = const Size(360, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(harness.build());
+        await tester.pump();
+        await tester.pump();
+
+        expect(harness.permissionGate.notificationsCalls, 1);
+        expect(
+          harness.permissionGate.nearbyWifiCalls,
+          0,
+          reason:
+              'a Future.wait regression would have already called '
+              'ensureNearbyWifiDevices even while notifications is pending',
+        );
+
+        harness.permissionGate.notificationsGate!.complete(
+          FacePermissionOutcome.granted,
+        );
+        await tester.pumpAndSettle();
+
+        expect(harness.permissionGate.nearbyWifiCalls, 1);
+      },
+    );
+
+    testWidgets(
+      'review round-1 finding (a), test (2): a thrown PlatformException from '
+      'either non-blocking permission degrades to denied and never escapes '
+      '_boot — the radio still reaches idle, no uncaught exception',
+      (tester) async {
+        final harness = _Harness()
+          ..permissionGate.notificationsError = Exception(
+            'A request for permissions is already running',
+          )
+          ..permissionGate.nearbyWifiError = Exception(
+            'A request for permissions is already running',
+          );
+        await harness.boot(tester);
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(FaceScreen)),
+        );
+        expect(container.read(radioStateProvider).phase, RadioPhase.idle);
+        expect(harness.permissionGate.microphoneCalls, 1);
+        expect(harness.permissionGate.notificationsCalls, 1);
+        expect(harness.permissionGate.nearbyWifiCalls, 1);
         expect(tester.takeException(), isNull);
       },
     );
