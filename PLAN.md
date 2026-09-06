@@ -2577,7 +2577,7 @@ subpath of 'C:\...\relay'
 
 ### TASK-042
 **Title:** Phase 2 PTT redesign — single hero PTT disc with a live amplitude-ring meter
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** Approved Phase 2 design canvas (https://claude.ai/code/artifact/885a21ca-a4f2-4605-bc9a-7a36807be74e, Main.dc.html interactive prototype — the ring-meter behaviour, disc press/release states, and glyph swap are normative here, not a written spec section) — supersedes specs/KERYX_UI_Design_Specification_v1.0.md §4 Key travel ("Pressed keys move 1 dp down... same three changes on every control" — the disc keeps this rule, only its shape and size change) and the PTT portion of §5 Signature Elements; §2 Colour Tokens (tx #E23D2E, rx #7FD1A0, lcd/idle amber #F2A93B, emergency #FF7A18 — all via KeryxTheme, no literal hexes in widget code); lib/features/ptt/** (frozen, reopened here — ptt_button.dart, key_row.dart, edge_glow.dart, emg_key.dart, ptt_haptics.dart all in territory)
@@ -2592,15 +2592,15 @@ subpath of 'C:\...\relay'
 - [ ] key_row.dart (MON/SCAN/STN/EMG rail) still passes its existing tests unmodified in behaviour, laid out beneath the new disc in a combined widget test
 - [ ] emg_key.dart hold-to-arm interaction is unchanged in behaviour; only its colour token changed — a before/after diff note in the dossier confirms this
 - [ ] flutter analyze clean on every file this task touches; flutter test green for test/features/ptt/**
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-042-cx
+**Started_At:** 2026-09-06T05:14:29Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-05T23:09:35Z
+**Updated_By:** CX
+**Updated_At:** 2026-09-06T05:14:29Z
 
 ### TASK-043
 **Title:** Phase 2 PTT redesign — assemble the new hero-PTT home screen, station roster screen, and emergency band
