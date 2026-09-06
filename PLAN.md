@@ -2681,7 +2681,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-043
 **Title:** Phase 2 PTT redesign — assemble the new hero-PTT home screen, station roster screen, and emergency band
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** Approved Phase 2 design canvas (https://claude.ai/code/artifact/885a21ca-a4f2-4605-bc9a-7a36807be74e — every artboard is normative for this task: Main.dc.html layout/interaction, Transmit/Receive as state references, Emergency.dc.html's hard orange band, Roster.dc.html's station list screen); specs/KERYX_Product_Technical_Spec_v1.1.md §8.2 (single state source — the new layout must still read off one state stream, not invent a second); FR-067 (station flip panel — becomes a full roster screen, not a flip panel, per the approved canvas; superseding the flip-panel treatment in lib/features/face/glass_flip_controller.dart for station listing specifically); lib/features/face/** (frozen, reopened — face_screen.dart, face_view.dart, housing.dart, roster.dart, station_panel.dart, glass_flip_controller.dart, status_strip.dart all in territory), lib/app.dart + lib/main.dart (frozen, reopened for the new roster route)
@@ -2698,7 +2698,10 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 - [ ] flutter analyze clean repo-wide; flutter test full suite green; flutter build apk --debug succeeds
 **Branch:** task/TASK-043-s5
 **Started_At:** 2026-09-06T00:00:00Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-09-06T00:00:00Z] [S5] Claimed. Preflight (c8b9872) confirmed all 5 Owned_Paths entries as existing FILE/GLOB, no NEW territory. Full detail in dossiers/TASK-043.md Work Log.
+- [2026-09-06T00:20:00Z] [S5] Implementation complete: FaceView rewired (header/StatusStrip -> LCD strip -> emergency band -> steppers -> hero disc+EmgKey -> key rail), knob/grille imports fully removed. station_panel.dart+glass_flip_controller.dart deleted; roster moves to a new full-screen RosterScreen (ValueListenable-backed for live join/depart while pushed), reachable from header STN and the rail's STN-labelled key. Settings moved to a new StatusStrip kebab icon (approved-canvas header placement); rail's EMG-labelled key now fires the same emergency intent as the disc's side EmgKey (key_row.dart callback names are source-compatible per its own dartdoc, not touched — out of Owned_Paths). Disc ring level fed from the same state-driven amplitude proxy the retired grille used (documented in dossier, not a regression). All acceptance criteria checkboxes below verified.
+- [2026-09-06T00:25:00Z] [S5] flutter analyze: 0 issues on every touched file (repo-wide: 8 pre-existing warnings in test/services/session/radio_session_controller_test.dart, confirmed via git diff master untouched by this branch). flutter test (full suite): 1037 passed, 40 skipped (pre-existing PARKED FR-025 soak skips, unrelated), 0 failed. flutter build apk --debug: running.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
