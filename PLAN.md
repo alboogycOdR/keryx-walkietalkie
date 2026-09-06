@@ -2681,7 +2681,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-043
 **Title:** Phase 2 PTT redesign — assemble the new hero-PTT home screen, station roster screen, and emergency band
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** Approved Phase 2 design canvas (https://claude.ai/code/artifact/885a21ca-a4f2-4605-bc9a-7a36807be74e — every artboard is normative for this task: Main.dc.html layout/interaction, Transmit/Receive as state references, Emergency.dc.html's hard orange band, Roster.dc.html's station list screen); specs/KERYX_Product_Technical_Spec_v1.1.md §8.2 (single state source — the new layout must still read off one state stream, not invent a second); FR-067 (station flip panel — becomes a full roster screen, not a flip panel, per the approved canvas; superseding the flip-panel treatment in lib/features/face/glass_flip_controller.dart for station listing specifically); lib/features/face/** (frozen, reopened — face_screen.dart, face_view.dart, housing.dart, roster.dart, station_panel.dart, glass_flip_controller.dart, status_strip.dart all in territory), lib/app.dart + lib/main.dart (frozen, reopened for the new roster route)
@@ -2696,12 +2696,12 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 - [ ] Emergency band appears when the session reports an active emergency and disappears when it clears; disc/rail reflect the emergency colour state — widget-tested
 - [ ] Every pre-existing test/features/face/** test either still passes unmodified or was replaced by an equivalent test for the same behaviour against the new widgets — dossier lists every deleted assertion and its replacement (or states none was needed)
 - [ ] flutter analyze clean repo-wide; flutter test full suite green; flutter build apk --debug succeeds
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-043-s5
+**Started_At:** 2026-09-06T00:00:00Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-05T23:09:35Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-06T00:00:00Z
