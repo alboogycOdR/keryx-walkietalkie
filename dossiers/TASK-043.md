@@ -187,5 +187,13 @@ reshaped, not rebuilt from scratch.
   confirmed via `git diff master` to be untouched by this branch). Full
   `flutter test` — all tests green (1037 passed, 40 skipped — the 40 are
   the pre-existing, project-owner-PARKED FR-025 soak skips, unrelated to
-  this task; 0 failures). `flutter build apk --debug` run in background;
-  result to follow before handoff to needs_review.
+  this task; 0 failures). `flutter build apk --debug`: **succeeded**
+  (`build/app/outputs/flutter-apk/app-debug.apk`, 232 MB, exit code 0).
+  Gradle's Kotlin incremental compiler threw a chain of *suppressed*
+  exceptions about relocating `livekit_client`'s cache paths across drive
+  roots (`E:\...` vs `C:\Users\...\pub-cache\...`) — cosmetic, non-fatal
+  (all under `Suppressed:`, not the primary exception), environment-specific
+  to this multi-drive dev machine, unrelated to anything this task touched
+  (`lib/features/face/**` has no native/Kotlin code) — build still completed
+  with `[exited with code 0]` and a real APK on disk. All acceptance
+  criteria met; handing off to needs_review.
