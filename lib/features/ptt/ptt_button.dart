@@ -288,16 +288,19 @@ class _PttRingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
     final radius = size.shortestSide / 2 - 7;
-    final litPerSide = PttRingController.litTickCountForLevel(level) ~/ 2;
+    final litPairs = PttRingController.litTickCountForLevel(level) ~/ 2;
     final paint = Paint()
       ..strokeWidth = 3.5
       ..strokeCap = StrokeCap.round;
     for (var index = 0; index < tickCount; index++) {
-      final distanceFromTop = index <= tickCount ~/ 2
-          ? index
-          : tickCount - index;
-      final lit = distanceFromTop <= litPerSide;
-      final angle = -math.pi / 2 + ((2 * math.pi * index) / tickCount);
+      // A 64-tick ring has no single top tick: put one pair either side of
+      // twelve o'clock, then grow in mirrored pairs. This keeps the painted
+      // count exactly aligned with the controller's reported count, including
+      // zero and full-scale.
+      final pairFromTop = math.min(index, tickCount - 1 - index);
+      final lit = pairFromTop < litPairs;
+      final angle =
+          -math.pi / 2 + ((2 * math.pi * (index + .5)) / tickCount);
       final outer = center + Offset(math.cos(angle), math.sin(angle)) * radius;
       final inner =
           center + Offset(math.cos(angle), math.sin(angle)) * (radius - 11);

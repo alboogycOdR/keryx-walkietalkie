@@ -19,6 +19,8 @@ assembly; TASK-043 owns the final action wiring.
 
 ## Emergency hold behaviour
 
-`EmgKey` was not behaviourally changed. Its 600 ms hold-to-arm timer and
-callback remain intact; its already-tokenized pinned/armed orange treatment
-uses the same `KeryxTheme.emergency` value as the hero disc.
+`EmgKey` was not behaviourally changed. Before and after this task, its
+pointer-down starts the same 600 ms timer, crossing the threshold invokes
+`onEmergencyToggled` once, and pointer-up cancels the timer without a second
+callback. Its already-tokenized pinned/armed orange treatment uses the same
+`KeryxTheme.emergency` value as the hero disc.

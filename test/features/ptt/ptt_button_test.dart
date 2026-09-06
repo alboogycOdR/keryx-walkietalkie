@@ -85,6 +85,10 @@ void main() {
       controller.setLevel(75);
       await tester.pump();
       expect(meter('Amplitude meter, 48 of 64 ticks'), findsOneWidget);
+
+      controller.setLevel(100);
+      await tester.pump();
+      expect(meter('Amplitude meter, 64 of 64 ticks'), findsOneWidget);
     },
   );
 
