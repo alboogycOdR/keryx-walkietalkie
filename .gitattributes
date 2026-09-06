@@ -4,6 +4,7 @@
 # confirmed as a real failure mode (see the git log around the
 # test_dispatch_worktree.py fixture fix).
 *.sh text eol=lf
+hooks/git/pre-commit text eol=lf
 
 # Python/JS tolerate either line ending at runtime, so this pin is pure
 # hygiene (clean diffs, no autocrlf-induced churn on Windows checkouts) —

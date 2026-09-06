@@ -91,7 +91,7 @@ foreach ($line in $RegOut) {
 $Id = $Reg["UNIT"]; $Cli = $Reg["CLI"]; $Model = $Reg["MODEL"]
 $Suffix = $Reg["BRANCH_SUFFIX"]; $Briefing = $Reg["BRIEFING"]
 $AutoLoadsContext = ($Reg["AUTO_LOADS_CONTEXT"] -eq "true")
-$AuthMode = $Reg["AUTH_MODE"]; $AuthValue = $Reg["AUTH_VALUE"]
+$AuthMode = $Reg["AUTH_MODE"]; $AuthValue = $Reg["AUTH_VALUE"]; $AuthEnvVar = $Reg["AUTH_ENV_VAR"]
 $Identity = $Reg["IDENTITY"]; if (-not $Identity) { $Identity = "preamble" }
 $AgentName = $Reg["AGENT_NAME"]; if (-not $AgentName) { $AgentName = "devteam-builder" }
 if (-not $Id -or -not $Cli -or -not $Reg["WORKTREE_SUFFIX"] -or -not $Suffix -or -not $Briefing) {
@@ -317,17 +317,20 @@ if ($InstinctsSection.Trim().Length -gt 0) {
 }
 
 # v4.7: per-unit auth, resolved BEFORE the dry-run branch so previews are
-# accurate about it. config_dir mode sets CLAUDE_CONFIG_DIR for the launch
-# only -- saved and restored around each builder invocation, never left set
-# for the rest of this script's life (PS 5.1 has no env(1)-style scoping,
-# so save/restore in finally is the equivalent).
+# accurate about it. config_dir mode sets ONE env var for the launch only --
+# saved and restored around each builder invocation, never left set for the
+# rest of this script's life (PS 5.1 has no env(1)-style scoping, so
+# save/restore in finally is the equivalent). WHICH env var is per-cli
+# (CLAUDE_CONFIG_DIR for claude, CODEX_HOME for codex -- see
+# builder_registry.py's CONFIG_DIR_ENV_BY_CLI, resolved server-side into
+# AUTH_ENV_VAR so this script never hardcodes a single CLI's variable name).
 $AuthDir = $null
-if ($AuthMode -eq "config_dir" -and $AuthValue) {
+if ($AuthMode -eq "config_dir" -and $AuthValue -and $AuthEnvVar) {
     $AuthDir = $AuthValue -replace '^~', $env:USERPROFILE
-    Write-Host "[dispatch] Unit $Id authenticates via CLAUDE_CONFIG_DIR=$AuthDir (scoped to this launch)." -ForegroundColor Cyan
+    Write-Host "[dispatch] Unit $Id authenticates via $AuthEnvVar=$AuthDir (scoped to this launch)." -ForegroundColor Cyan
 }
 $AuthNote = ""
-if ($AuthDir) { $AuthNote = "CLAUDE_CONFIG_DIR=$AuthDir " }
+if ($AuthDir) { $AuthNote = "$AuthEnvVar=$AuthDir " }
 
 if ($DryRun) {
     Write-Host "[dispatch] DRY RUN - would run: (cd $Wt ; $AuthNote$Cmd $($CmdArgs -join ' ') `"<prompt>`")" -ForegroundColor Yellow
@@ -354,15 +357,17 @@ if ($ControlMode -eq "strict") {
     $LogPath = Join-Path $DevteamDir "$TaskId-$RunTs.log"
 
     Push-Location $Wt
-    $PrevConfigDir = $env:CLAUDE_CONFIG_DIR
+    $PrevConfigDir = if ($AuthEnvVar) { (Get-Item -Path "Env:$AuthEnvVar" -ErrorAction SilentlyContinue).Value } else { $null }
     try {
-        if ($AuthDir) { $env:CLAUDE_CONFIG_DIR = $AuthDir }
+        if ($AuthDir) { Set-Item -Path "Env:$AuthEnvVar" -Value $AuthDir }
         & $Cmd @($CmdArgs + @($Prompt)) 2>&1 | Tee-Object -FilePath $LogPath
     } catch {
         Write-Warning "[dispatch] Builder process error: $($_.Exception.Message)"
     } finally {
-        if ($null -eq $PrevConfigDir) { Remove-Item Env:\CLAUDE_CONFIG_DIR -ErrorAction SilentlyContinue }
-        else { $env:CLAUDE_CONFIG_DIR = $PrevConfigDir }
+        if ($AuthEnvVar) {
+            if ($null -eq $PrevConfigDir) { Remove-Item -Path "Env:$AuthEnvVar" -ErrorAction SilentlyContinue }
+            else { Set-Item -Path "Env:$AuthEnvVar" -Value $PrevConfigDir }
+        }
         Pop-Location
     }
 
@@ -401,7 +406,7 @@ if ($ControlMode -eq "strict") {
         "Set-Location -LiteralPath '$Wt'",
         "`$env:DEVTEAM_UNIT = '$Id'"
     )
-    if ($AuthDir) { $RunnerLines += "`$env:CLAUDE_CONFIG_DIR = '$AuthDir'" }
+    if ($AuthDir) { $RunnerLines += "`$env:$AuthEnvVar = '$AuthDir'" }
     $RunnerLines += @(
         "`$Prompt = [System.IO.File]::ReadAllText('$PromptPath')",
         "Write-Host '[$Id] starting in $Wt' -ForegroundColor Green",
@@ -426,15 +431,17 @@ if ($ControlMode -eq "strict") {
     exit 0
 } else {
     Push-Location $Wt
-    $PrevConfigDir = $env:CLAUDE_CONFIG_DIR
+    $PrevConfigDir = if ($AuthEnvVar) { (Get-Item -Path "Env:$AuthEnvVar" -ErrorAction SilentlyContinue).Value } else { $null }
     try {
-        if ($AuthDir) { $env:CLAUDE_CONFIG_DIR = $AuthDir }
+        if ($AuthDir) { Set-Item -Path "Env:$AuthEnvVar" -Value $AuthDir }
         & $Cmd @($CmdArgs + @($Prompt))
     } catch {
         Write-Warning "[dispatch] Builder process error: $($_.Exception.Message)"
     } finally {
-        if ($null -eq $PrevConfigDir) { Remove-Item Env:\CLAUDE_CONFIG_DIR -ErrorAction SilentlyContinue }
-        else { $env:CLAUDE_CONFIG_DIR = $PrevConfigDir }
+        if ($AuthEnvVar) {
+            if ($null -eq $PrevConfigDir) { Remove-Item -Path "Env:$AuthEnvVar" -ErrorAction SilentlyContinue }
+            else { Set-Item -Path "Env:$AuthEnvVar" -Value $PrevConfigDir }
+        }
         Pop-Location
     }
 

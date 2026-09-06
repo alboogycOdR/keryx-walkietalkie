@@ -1,0 +1,10 @@
+#!/bin/sh
+# Tracked git hook (activated via `git config core.hooksPath hooks/git` —
+# see scripts/install_git_hooks.sh/.ps1). This is the CLI-agnostic backstop:
+# it fires for every `git commit` in every worktree, regardless of which
+# builder CLI (grok/codex/claude) made it, unlike territory-firewall.js
+# which only fires inside a literal `claude` CLI session. See
+# hooks/pre-commit-territory.js for the actual check and its full rationale.
+set -eu
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+node "$REPO_ROOT/hooks/pre-commit-territory.js"

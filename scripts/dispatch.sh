@@ -45,14 +45,14 @@ REG_KV="$(python3 scripts/builder_registry.py resolve "$BUILDER" --repo "$REPO_R
 }
 ID="";      CLI="";        MODEL="";      WORKTREE_SUFFIX=""
 SUFFIX="";  BRIEFING="";   AUTO_LOADS_CONTEXT="false"
-AUTH_MODE="default";       AUTH_VALUE=""
+AUTH_MODE="default";       AUTH_VALUE="";  AUTH_ENV_VAR=""
 IDENTITY="preamble";       AGENT_NAME="devteam-builder"
 while IFS='=' read -r k v; do
   case "$k" in
     UNIT) ID="$v" ;; CLI) CLI="$v" ;; MODEL) MODEL="$v" ;;
     WORKTREE_SUFFIX) WORKTREE_SUFFIX="$v" ;; BRANCH_SUFFIX) SUFFIX="$v" ;;
     BRIEFING) BRIEFING="$v" ;; AUTO_LOADS_CONTEXT) AUTO_LOADS_CONTEXT="$v" ;;
-    AUTH_MODE) AUTH_MODE="$v" ;; AUTH_VALUE) AUTH_VALUE="$v" ;;
+    AUTH_MODE) AUTH_MODE="$v" ;; AUTH_VALUE) AUTH_VALUE="$v" ;; AUTH_ENV_VAR) AUTH_ENV_VAR="$v" ;;
     IDENTITY) IDENTITY="$v" ;; AGENT_NAME) AGENT_NAME="$v" ;;
   esac
 done <<< "$REG_KV"
@@ -223,14 +223,17 @@ ${INSTINCTS_SECTION}"
 fi
 
 # v4.7: per-unit auth, resolved BEFORE the dry-run branch so previews are
-# accurate about it. config_dir mode sets CLAUDE_CONFIG_DIR for the launch
-# only (scoped inside the launch subshell via env(1) — it must not leak
-# into this script's own environment or any post-launch step).
+# accurate about it. config_dir mode sets ONE env var for the launch only
+# (scoped inside the launch subshell via env(1) — it must not leak into
+# this script's own environment or any post-launch step). WHICH env var is
+# per-cli (CLAUDE_CONFIG_DIR for claude, CODEX_HOME for codex — see
+# builder_registry.py's CONFIG_DIR_ENV_BY_CLI, resolved server-side into
+# AUTH_ENV_VAR so this script never hardcodes a single CLI's variable name).
 AUTH_ENV=()
-if [[ "$AUTH_MODE" == "config_dir" ]]; then
+if [[ "$AUTH_MODE" == "config_dir" && -n "$AUTH_ENV_VAR" ]]; then
   AUTH_DIR="${AUTH_VALUE/#\~/$HOME}"
-  AUTH_ENV=(env "CLAUDE_CONFIG_DIR=$AUTH_DIR")
-  echo "[dispatch] Unit $ID authenticates via CLAUDE_CONFIG_DIR=$AUTH_DIR (scoped to this launch)."
+  AUTH_ENV=(env "${AUTH_ENV_VAR}=$AUTH_DIR")
+  echo "[dispatch] Unit $ID authenticates via ${AUTH_ENV_VAR}=$AUTH_DIR (scoped to this launch)."
 fi
 
 if [[ "$DRY" == "--dry-run" ]]; then

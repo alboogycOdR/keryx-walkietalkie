@@ -34,14 +34,14 @@ it. The pack ships **S5B** in exactly this state (see Activation below).
 |---|---|
 | `cli` | Invocation family: `grok` / `codex` / `claude`. Picks the CLI-quirk row in dispatch (flags, non-interactive conventions) — deliberately NOT what determines worktree/branch/briefing. |
 | `model` | Pinned model string, or `null` for the CLI's own default. |
-| `auth` | `{"mode": "default"}` (ambient credentials) or `{"mode": "config_dir", "value": "~/.claude-s5b"}` — dispatch sets `CLAUDE_CONFIG_DIR` to that path **scoped to the launch only** (bash: `env(1)` in the launch subshell; PS 5.1: save/restore in `finally`). |
+| `auth` | `{"mode": "default"}` (ambient credentials) or `{"mode": "config_dir", "value": "<path>"}` — dispatch sets that cli's config-dir env var (see `CONFIG_DIR_ENV_BY_CLI` in `scripts/builder_registry.py`: `CLAUDE_CONFIG_DIR` for `cli=claude`, `CODEX_HOME` for `cli=codex`) to that path **scoped to the launch only** (bash: `env(1)` in the launch subshell; PS 5.1: save/restore in `finally`). A `config_dir` entry whose `cli` has no mapping in that table is **rejected loudly at load** — guessing the env var wrong would silently leave the unit sharing session state with everything else on that cli, exactly the collision this mode exists to prevent. |
 | `worktree_suffix` | → `wt-<suffix>-<project>` (sibling of the project root). |
 | `branch_suffix` | → `task/TASK-NNN-<suffix>`. |
 | `briefing` | The unit's briefing file. Two same-cli units may share one (S5/S5B do). |
 | `auto_loads_ambient_context` | `true` for literal `claude`-CLI units: they auto-load CLAUDE.md (which says "You are ORCH"), so dispatch prepends the identity-override preamble with a registry-computed peer list. Defaults to `cli == "claude"`. |
 | `identity` | How a claude-CLI unit is told who it is: `preamble` (default) or `agent`. See "Builder identity" below. |
 | `agent_name` | Agent used when `identity: "agent"` (default `devteam-builder`). |
-| `usage_provider` | Budget/usage bucket: `"codex"`, `"claude"`, `null` (never usage-gated), or compound `"claude:<tag>"` reserved for a separate login's independent window — gated only once the per-account probe exists (increment 9); until then compound providers simply never trip, per fail-open. |
+| `usage_provider` | Budget/usage bucket: `"codex"`, `"claude"`, `null` (never usage-gated — `S5B`'s current setting), or a compound `"<provider>:<tag>"` (`CX9`'s `"codex:cx9"`) reserved for a separate login's independent window — gated only once the per-account probe exists (increment 9); until then compound providers simply never trip, per fail-open. |
 
 Required: `cli`, `worktree_suffix`, `branch_suffix`, `briefing`. A defined
 entry missing any of these is **rejected loudly at load** (a builder with an
@@ -123,6 +123,73 @@ procedure; only credentials differ, and those live in the registry, not the
 briefing. (Briefing templating was evaluated and deferred: the three
 briefings carry hard-won CLI-specific content — grok's trust-dialog
 behavior, S5's identity override — that a shared template would flatten.)
+
+## Activating CX9 (a second Codex identity, same pattern as S5B)
+
+CX9 = a second `codex`-CLI builder authenticated as a **different**
+OpenAI/ChatGPT account or API key from the default `~/.codex` profile CX
+uses. The point is not capability — CX and CX9 are the same model — it is
+genuine concurrency: one Codex account has its own concurrency/rate
+ceiling, so a single account can only run one builder session at
+reasonable throughput. Two separately-authenticated identities let two
+Codex-CLI tasks actually run at the same time instead of queuing behind
+each other. It is defined but inactive until:
+
+1. **Create the second identity's isolated `CODEX_HOME`** and log it into a
+   different account:
+   ```bash
+   mkdir ~/.codex-second-identity
+   CODEX_HOME=~/.codex-second-identity codex login   # complete OAuth/API-key setup for the SECOND account
+   ```
+2. **Live-verify isolation** — the load-bearing assumption, same discipline
+   as S5B's `CLAUDE_CONFIG_DIR` check:
+   ```bash
+   codex exec -s read-only "reply with exactly: OK"                                    # account 1 (default ~/.codex)
+   CODEX_HOME=~/.codex-second-identity codex exec -s read-only "reply with exactly: OK" # account 2
+   ```
+   Confirm both respond, and that nothing in either session's output suggests
+   shared state (same account name, same conversation history, etc.). Then
+   run one session under EACH `CODEX_HOME` **concurrently** and confirm
+   neither errors on a lock or shared session file — that concurrency is
+   the entire reason CX9 exists.
+3. Adjust `auth.value` in the `CX9` entry if a different path was used.
+4. Add `"CX9"` to `builders.active`.
+5. Smoke it: `powershell -File scripts\dispatch.ps1 -Builder CX9 -DryRun`
+   — the preview must show `wt-codex9-<project>` and the scoped
+   `CODEX_HOME` note (not `CLAUDE_CONFIG_DIR` — that would mean the
+   `CONFIG_DIR_ENV_BY_CLI` mapping picked the wrong cli's variable). Then a
+   real dispatch on a small task, run alongside a live CX dispatch to prove
+   the two don't contend.
+
+CX9 reuses `CODEX_BRIEFING.md` deliberately, same as S5B reusing S5's —
+only credentials differ, and those live in the registry.
+
+## The territory git-hook backstop (covers every CLI, not just `claude`)
+
+`hooks/territory-firewall.js` (via `.claude/settings.json`'s `PreToolUse`
+wiring) only fires **inside a literal `claude` CLI session** — Claude Code
+is the only CLI here that reads that hooks config. GB (`grok`) and CX/CX9
+(`codex`) never see it: every `Edit`/`Write` they make is completely
+unchecked at write time by that mechanism. `hooks/pre-commit-territory.js`
+closes that gap as a real, CLI-agnostic **git hook** — it fires at `git
+commit` regardless of which CLI made the change, reusing `hooks/lib.js`'s
+exact `Owned_Paths` parser and glob matcher so the two enforcement points
+can never diverge on what counts as "in territory".
+
+**One-time setup per machine/clone** (repo-config, not per-worktree — a
+single run covers the main checkout and every `git worktree add` sibling):
+```bash
+bash scripts/install_git_hooks.sh        # or: powershell -File scripts\install_git_hooks.ps1
+```
+This points `core.hooksPath` at the tracked `hooks/git/` directory instead
+of the untracked, unshareable `.git/hooks/`. Fail posture mirrors
+`territory-firewall.js`'s own documented split: `DEVTEAM_UNIT` unset or
+`ORCH` → allow; set-but-unknown → **block** (fail-closed, same v4.7 fix);
+a known unit's staged files outside its active task(s)' `Owned_Paths` →
+**block**; any unexpected internal error (unreadable `PLAN.md`, a `git`
+command failing) → allow with a loud warning, because a hook bug must
+never brick every commit in the repo — the validator and human review
+remain the real backstop for that failure class.
 
 ## Adding any future unit
 

@@ -35,7 +35,10 @@ Entry schema (per unit):
   model                     pinned model string, or None for CLI default
   auth                      {"mode": "default"} or
                             {"mode": "config_dir", "value": "<path>"}
-                            (sets CLAUDE_CONFIG_DIR for that unit's launch)
+                            (sets that cli's config-dir env var — see
+                            CONFIG_DIR_ENV_BY_CLI below — for that unit's
+                            launch only: CLAUDE_CONFIG_DIR for cli=claude,
+                            CODEX_HOME for cli=codex)
   worktree_suffix           -> wt-<suffix>-<project>
   branch_suffix             -> task/TASK-NNN-<suffix>
   briefing                  path to the unit's briefing file
@@ -96,6 +99,18 @@ LEGACY_DEFINITIONS: dict[str, dict] = {
 
 REQUIRED_FIELDS = ("cli", "worktree_suffix", "branch_suffix", "briefing")
 
+# auth.mode == "config_dir" sets ONE env var, scoped to that unit's launch
+# only, pointing it at an isolated credentials/session directory so two
+# units on the SAME cli family (S5/S5B on claude; CX/CX9 on codex) don't
+# fight over one account's session state or rate limit. Which env var
+# depends on the cli family — this is the one place that mapping lives, so
+# adding a future CLI family's config-dir override is a one-line addition
+# here, not a hunt through dispatch.sh/.ps1's string literals.
+CONFIG_DIR_ENV_BY_CLI = {
+    "claude": "CLAUDE_CONFIG_DIR",
+    "codex": "CODEX_HOME",
+}
+
 # Structural (non-builder) units — always valid, never in the registry.
 STRUCTURAL_UNITS = frozenset({"ORCH", "SV"})
 
@@ -134,8 +149,16 @@ def _normalize_entry(unit: str, entry: dict) -> dict:
         raise RegistryError(
             f"builders.defined['{unit}'].auth must be "
             f'{{"mode": "default"}} or {{"mode": "config_dir", "value": "<path>"}}')
-    if auth.get("mode") == "config_dir" and not auth.get("value"):
-        raise RegistryError(f"builders.defined['{unit}'].auth.mode=config_dir requires a value")
+    if auth.get("mode") == "config_dir":
+        if not auth.get("value"):
+            raise RegistryError(f"builders.defined['{unit}'].auth.mode=config_dir requires a value")
+        if out.get("cli") not in CONFIG_DIR_ENV_BY_CLI:
+            raise RegistryError(
+                f"builders.defined['{unit}'].auth.mode=config_dir has no known env var for "
+                f"cli='{out.get('cli')}' (known: {', '.join(sorted(CONFIG_DIR_ENV_BY_CLI))}) — "
+                f"add a CONFIG_DIR_ENV_BY_CLI entry before using config_dir with this cli, "
+                f"otherwise the unit's launch is NOT actually isolated and will silently share "
+                f"session state with every other unit on that cli.")
     return out
 
 
@@ -253,6 +276,7 @@ def _main(argv: list[str]) -> int:
         print(f"AUTO_LOADS_CONTEXT={'true' if e.get('auto_loads_ambient_context') else 'false'}")
         print(f"AUTH_MODE={auth.get('mode', 'default')}")
         print(f"AUTH_VALUE={auth.get('value', '')}")
+        print(f"AUTH_ENV_VAR={CONFIG_DIR_ENV_BY_CLI.get(e.get('cli'), '') if auth.get('mode') == 'config_dir' else ''}")
         print(f"IDENTITY={e.get('identity', 'preamble')}")
         print(f"AGENT_NAME={e.get('agent_name', 'devteam-builder')}")
         return 0

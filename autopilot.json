@@ -43,6 +43,21 @@
         "auto_loads_ambient_context": false,
         "usage_provider": "codex"
       },
+      "CX9": {
+        "cli": "codex",
+        "model": "gpt-5.6-terra",
+        "auth": {
+          "mode": "config_dir",
+          "value": "~/.codex-second-identity"
+        },
+        "worktree_suffix": "codex9",
+        "branch_suffix": "cx9",
+        "briefing": "briefings/CODEX_BRIEFING.md",
+        "auto_loads_ambient_context": false,
+        "usage_provider": "codex:cx9",
+        "_comment": "Defined but NOT active: a second Codex identity for genuine parallel dispatch alongside CX (same model, separate account/session, so the two don't contend for one account's concurrency ceiling or rate limit -- not a capability difference). Activate by (1) mkdir ~/.codex-second-identity, (2) CODEX_HOME=~/.codex-second-identity codex login with a DIFFERENT OpenAI/ChatGPT account or API key than the default ~/.codex profile CX uses, (3) live-verify isolation the same way BUILDER_REGISTRY.md's S5B section verifies CLAUDE_CONFIG_DIR -- run one health probe under each CODEX_HOME and confirm they report different identities/sessions with no shared state, then run both CONCURRENTLY once to confirm no lock/session contention, (4) add 'CX9' to builders.active. usage_provider is the compound 'codex:cx9' form BUILDER_REGISTRY.md documents for a separate login's independent window -- it will not actually gate anything until the per-account usage probe exists (same caveat as S5B's), which is fine: it fails open, same as every other usage_provider today.",
+        "_blocked": "NOT yet activatable: ~/.codex-second-identity does not exist and no second OpenAI/ChatGPT account has been authenticated into it. This is the actual prerequisite, not a config gap -- see _comment for the exact steps."
+      },
       "S5": {
         "cli": "claude",
         "model": "claude-sonnet-5",
