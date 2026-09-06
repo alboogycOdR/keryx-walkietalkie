@@ -2577,7 +2577,7 @@ subpath of 'C:\...\relay'
 
 ### TASK-042
 **Title:** Phase 2 PTT redesign — single hero PTT disc with a live amplitude-ring meter
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** Approved Phase 2 design canvas (https://claude.ai/code/artifact/885a21ca-a4f2-4605-bc9a-7a36807be74e, Main.dc.html interactive prototype — the ring-meter behaviour, disc press/release states, and glyph swap are normative here, not a written spec section) — supersedes specs/KERYX_UI_Design_Specification_v1.0.md §4 Key travel ("Pressed keys move 1 dp down... same three changes on every control" — the disc keeps this rule, only its shape and size change) and the PTT portion of §5 Signature Elements; §2 Colour Tokens (tx #E23D2E, rx #7FD1A0, lcd/idle amber #F2A93B, emergency #FF7A18 — all via KeryxTheme, no literal hexes in widget code); lib/features/ptt/** (frozen, reopened here — ptt_button.dart, key_row.dart, edge_glow.dart, emg_key.dart, ptt_haptics.dart all in territory)
@@ -2600,7 +2600,7 @@ subpath of 'C:\...\relay'
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-09-06T05:14:29Z
+**Updated_At:** 2026-09-06T05:16:00Z
 
 ### TASK-043
 **Title:** Phase 2 PTT redesign — assemble the new hero-PTT home screen, station roster screen, and emergency band
