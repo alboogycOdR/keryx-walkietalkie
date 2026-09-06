@@ -2622,7 +2622,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-042
 **Title:** Phase 2 PTT redesign — single hero PTT disc with a live amplitude-ring meter
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** Approved Phase 2 design canvas (https://claude.ai/code/artifact/885a21ca-a4f2-4605-bc9a-7a36807be74e, Main.dc.html interactive prototype — the ring-meter behaviour, disc press/release states, and glyph swap are normative here, not a written spec section) — supersedes specs/KERYX_UI_Design_Specification_v1.0.md §4 Key travel ("Pressed keys move 1 dp down... same three changes on every control" — the disc keeps this rule, only its shape and size change) and the PTT portion of §5 Signature Elements; §2 Colour Tokens (tx #E23D2E, rx #7FD1A0, lcd/idle amber #F2A93B, emergency #FF7A18 — all via KeryxTheme, no literal hexes in widget code); lib/features/ptt/** (frozen, reopened here — ptt_button.dart, key_row.dart, edge_glow.dart, emg_key.dart, ptt_haptics.dart all in territory)
@@ -2672,10 +2672,10 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 **Test_Evidence:**
 - [2026-09-06T06:06:37Z] [CX] `flutter analyze lib/features/ptt test/features/ptt` — No issues found (exit 0).
 - [2026-09-06T06:06:37Z] [CX] `flutter test test/features/ptt` — 21/21 passed (hero state colour/glyph/legend, injected meter at 0/75/100, press treatment, rail layout, existing haptic/edge/EMG tests).
-**Review_Findings:** —
+**Review_Findings:** **APPROVED first-pass (2026-09-06T06:20:41Z, reviewed on claude-opus-5, AUTOPILOT L1 wave 1). Merged as `57ae96c`; branch `task/TASK-042-cx` deleted.** Full verification detail in REVIEW.md's TASK-042 row: territory clean (6 files, all inside Owned_Paths); `edge_glow.dart`/`emg_key.dart`/`ptt_haptics.dart` confirmed byte-identical to master (genuinely reused, not duplicated — verified via `git diff`, not taken from the dossier); `PttState` extended rather than a parallel enum invented; every colour/spacing token confirmed real and pre-existing in `theme.dart` (`keyTravel`, `snapDuration`, `snapCurve`, `raisedMaterialEdges`); 21/21 named tests via delegated independent run; full merged-tree suite re-checked post-merge to confirm no new breakage beyond TASK-041's already-disclosed face-layer state. **UNLOCKS TASK-043** — both dependencies (041, 042) are now done.
 **Blocked_Reason:** —
-**Updated_By:** CX
-**Updated_At:** 2026-09-06T06:06:37Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-06T06:20:41Z
 
 ### TASK-043
 **Title:** Phase 2 PTT redesign — assemble the new hero-PTT home screen, station roster screen, and emergency band
