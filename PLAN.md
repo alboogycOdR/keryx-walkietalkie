@@ -2550,7 +2550,7 @@ subpath of 'C:\...\relay'
 
 ### TASK-041
 **Title:** Phase 2 PTT redesign — retire the knob and grille, collapse the display into a top LCD strip
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** Approved Phase 2 design canvas (https://claude.ai/code/artifact/885a21ca-a4f2-4605-bc9a-7a36807be74e, artboards Main/Transmit/Receive/Emergency) — supersedes specs/KERYX_UI_Design_Specification_v1.0.md §5.1 ("The knob... is the element the app is remembered by") and §5.3 (the grille's amplitude tremble) for the main screen only; §2 Colour Tokens (unchanged — KeryxFacePlate.fieldBlack stays the single source, no new hexes); §3 Typography row 1 (DSEG7 Classic numerals / Share Tech Mono — the strip keeps the real seven-segment face, only the surrounding layout shrinks); lib/features/knob/**, lib/features/grille/** (both frozen, reopened here to be deleted); lib/features/display/keryx_lcd_display.dart (frozen, reopened here to be reshaped into a compact header strip)
@@ -2558,13 +2558,13 @@ subpath of 'C:\...\relay'
 **Depends_On:** —
 **Description:** First of two independent lanes that converge in TASK-043. This task does NOT touch lib/features/face/**, lib/features/ptt/**, or lib/app.dart/lib/main.dart — it only prepares the display component and clears the two features the redesign drops. (1) Delete lib/features/knob/** and lib/features/grille/** in full (widgets, physics/feedback helpers, README) and their test directories — the approved design has no channel-turning control and no speaker grille; channel selection moves to the LCD strip + roster screen (TASK-043's job to wire, not this task's). Before deleting, grep the full repo for any import of lib/features/knob or lib/features/grille outside their own directories and outside lib/features/face/** (TASK-043's territory, expected to still reference them until it lands) — anything else importing them is a hidden coupling to flag, not silently break. (2) Rework lib/features/display/keryx_lcd_display.dart into a self-contained, narrower "LCD strip" component matching the approved canvas's header block: one row of mode/status telltales (LOCAL/LINKED/TX/RX, each either lit amber #F2A93B or the frozen ghostSegmentOpacity 7% ghost), a CH ## seven-segment readout using the real DSEG7 Classic face with its own 7%-opacity ghost digits behind the lit ones (88 ghost, live value on top — same technique as TASK-005's original glass), a small S-meter bar cluster, and a mono status line beneath (CHANNEL CLEAR / TX 00:07 / RX <callsign>). Keep the existing recessed-glass chrome (KeryxTheme.glassBorder, glassInnerShadow, glassHighlight, the backlight-bloom gradient) — the material is not changing, only what sits inside it and its height. The widget must work standalone (constructor takes plain data — mode, channel, telltale states, status text — no coupling to FaceScreen or session types), since TASK-043 composes it into the new hero layout, not this task. (3) Keep or delete AmplitudeSource-style RX-driven grille logic per what TASK-042's new PTT ring needs — if the amplitude ring in TASK-042 needs a shared meter-smoothing utility that used to live under lib/features/grille/grille_motion.dart, extract the pure math (no widget) into lib/features/display/** or note in the dossier that TASK-042 should own its own copy; do not leave a dangling import into a deleted directory.
 **Acceptance_Criteria:**
-- [ ] lib/features/knob/** and lib/features/grille/** no longer exist; a repo-wide grep for features/knob and features/grille finds no reference outside lib/features/face/** (documented as TASK-043's cleanup) and this task's own dossier/PLAN.md text
-- [ ] test/features/knob/** and test/features/grille/** are removed with the code they tested
-- [ ] New/reworked display strip widget renders standalone in a widget test with fake data for every telltale combination (LOCAL lit, LINKED lit, TX lit, RX lit, all-ghost idle) and for the three status-line strings named above
-- [ ] Channel readout uses real DSEG7 Classic glyphs with visible ghost segments behind the lit value, matching the existing glass's ghost-segment technique (KeryxTheme.ghostSegmentOpacity)
-- [ ] Strip widget takes no FaceScreen/session/controller types as constructor args — verified by the widget test constructing it with only plain values
-- [ ] flutter analyze clean on every file this task touches; flutter test green for test/features/display/** (knob/grille test suites deleted, not left red)
-- [ ] Dossier states plainly whether any shared meter-math utility was extracted for TASK-042, and where
+- [x] lib/features/knob/** and lib/features/grille/** no longer exist; a repo-wide grep for features/knob and features/grille finds no reference outside lib/features/face/** (documented as TASK-043's cleanup) and this task's own dossier/PLAN.md text
+- [x] test/features/knob/** and test/features/grille/** are removed with the code they tested
+- [x] New/reworked display strip widget renders standalone in a widget test with fake data for every telltale combination (LOCAL lit, LINKED lit, TX lit, RX lit, all-ghost idle) and for the three status-line strings named above
+- [x] Channel readout uses real DSEG7 Classic glyphs with visible ghost segments behind the lit value, matching the existing glass's ghost-segment technique (KeryxTheme.ghostSegmentOpacity)
+- [x] Strip widget takes no FaceScreen/session/controller types as constructor args — verified by the widget test constructing it with only plain values
+- [x] flutter analyze clean on every file this task touches; flutter test green for test/features/display/** (knob/grille test suites deleted, not left red)
+- [x] Dossier states plainly whether any shared meter-math utility was extracted for TASK-042, and where
 **Branch:** task/TASK-041-gb
 **Started_At:** 2026-09-06T05:16:58Z
 **Progress_Notes:**
@@ -2599,12 +2599,22 @@ subpath of 'C:\...\relay'
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Existing territory: delete knob+grille wholesale; rework display into compact LCD strip. No NEW paths. Creating `task/TASK-041-gb` off current master.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-06T05:23:52Z] [GB] needs_review. Commit `351eaff` on `task/TASK-041-gb`. Knob+grille source and tests deleted (`Test-Path` False for all four dirs). LCD strip: LOCAL/LINKED/TX/RX amber-or-7%-ghost, `CH` + DSEG7 two-digit with `88` ghost, 9-bar S-meter, status line. Constructor is plain data only (`KeryxDisplayModel` ints/strings/enum/double — no FaceScreen/session types). Digit size 32 (DS §3's 56 was full-glass; canvas shrinks layout). Chrome now consumes `KeryxTheme.glassBorder`/`glassInnerShadow`/`glassHighlight`/`glassBloomStop`. **Meter-math: NOT extracted** — `GrilleMotion` is slot-tremble; TASK-042's 64-tick ring is a level→lit-tick map; TASK-042 should own its own copy (dossier + `lib/features/display/README.md`). Grep remainder: Dart imports only in `lib/features/face/face_view.dart` + `test/features/face/face_view_test.dart` (TASK-043 cleanup, expected). Comment-only hits in `lib/features/tuning/tuning_physics.dart`, `tuning_haptics.dart`, `lib/features/ptt/ptt_haptics.dart`, `test/features/ptt/ptt_button_test.dart` — not imports, other-owned, flagged not edited. Historical dossiers/docs/REVIEW.md also mention the old paths (protected / other-owned). Full suite will not compile until TASK-043 drops those face imports — in-scope for 043, not a 041 defect.
+**Artifacts:**
+- `lib/features/display/keryx_lcd_display.dart` (reworked strip)
+- `lib/features/display/display.dart`
+- `lib/features/display/README.md` (TASK-043 constructor notes + meter-math decision)
+- `test/features/display/keryx_lcd_display_test.dart` (13 tests)
+- `dossiers/TASK-041.md`
+- deleted: `lib/features/knob/**`, `lib/features/grille/**`, `test/features/knob/**`, `test/features/grille/**`
+**Test_Evidence:**
+- [2026-09-06T05:23:52Z] [GB] `flutter analyze lib/features/display test/features/display` — No issues found! (exit 0). Flutter's auto-upgrade of `analysis_options.yaml` was reverted (not in territory).
+- [2026-09-06T05:23:52Z] [GB] `flutter test test/features/display` — 13/13 passed (telltales LOCAL/LINKED/TX/RX + all-ghost idle, status CHANNEL CLEAR / TX 00:07 / RX BRAVO-7, DSEG7+88 ghost, plain-value constructor, S-meter, dim, boot flash).
+- [2026-09-06T05:23:52Z] [GB] Revert-mutation: TX telltale colour → `KeryxTheme.tx` fails `TX lit uses amber` (expected lcd, actual tx red); restored. Unlit opacity `0.09` (old glass) fails `all-ghost idle` (Expected 0.07, Actual 0.09); restored.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-06T05:16:58Z
+**Updated_At:** 2026-09-06T05:23:52Z
 
 ### TASK-042
 **Title:** Phase 2 PTT redesign — single hero PTT disc with a live amplitude-ring meter
