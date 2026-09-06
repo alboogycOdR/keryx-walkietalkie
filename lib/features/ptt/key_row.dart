@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:keryx/core/theme/theme.dart';
 
-/// The four secondary keys in TS §6.1's face diagram:
-/// `[MON] [SCAN] [SAY AGN] [⚙]`.
+/// The Phase 2 rail's four secondary keys: `[MON] [SCAN] [STN] [EMG]`.
+///
+/// The enum callback names remain source-compatible until TASK-043 rewires
+/// the face assembly to the roster and emergency flows.
 enum PttSecondaryKey { mon, scan, sayAgain, settings }
 
-/// Secondary key row: MON, SCAN, SAY AGAIN, settings (TS §6.1, §11 KRX-015).
+/// Secondary key row: MON, SCAN, station roster, emergency (Phase 2 canvas).
 ///
 /// Pure presentation + intent, mirroring [PttButton]. [lockedKeys] renders
 /// the Pro-locked dimmed treatment (TS §6.1 "Pro keys shown dimmed/locked
@@ -85,7 +87,7 @@ class PttKeyRow extends StatelessWidget {
           Expanded(
             child: _SecondaryKeyCap(
               keyId: PttSecondaryKey.sayAgain,
-              label: 'SAY AGN',
+              label: 'STN',
               locked: lockedKeys.contains(PttSecondaryKey.sayAgain),
               enabled: enabled,
               onPressStart: _noop,
@@ -95,7 +97,7 @@ class PttKeyRow extends StatelessWidget {
           Expanded(
             child: _SecondaryKeyCap(
               keyId: PttSecondaryKey.settings,
-              label: '⚙', // ⚙ per TS §6.1 face diagram.
+              label: 'EMG',
               locked: lockedKeys.contains(PttSecondaryKey.settings),
               enabled: enabled,
               onPressStart: _noop,
