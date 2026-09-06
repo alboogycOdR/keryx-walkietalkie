@@ -31,4 +31,11 @@ enum PttState {
   /// Visually a held-open [granted]: floor stays held without a continuous
   /// press.
   latched,
+
+  /// Another station owns the floor. The hero disc uses its RX treatment.
+  receiving,
+
+  /// A parent-owned emergency session is active. [EmgKey]'s hold behaviour
+  /// remains unchanged; this only supplies the hero disc's orange visual.
+  emergency,
 }

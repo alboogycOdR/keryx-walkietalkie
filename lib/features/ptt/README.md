@@ -1,58 +1,30 @@
-# PTT button, secondary key row, EMG side key (KRX-015)
+# Hero PTT controls
 
-The transmit controls: the full-width thumb-native PTT (`PttButton`), a
-standalone TX edge-glow overlay (`PttEdgeGlow`), the secondary key row
-(`PttKeyRow`: MON/SCAN/SAY AGN/settings), and the orange EMG side key
-(`EmgKey`).
+`PttButton` is the Phase 2 hero disc: a 320 dp outer meter ring enclosing a
+236 dp raised circular face. It remains presentation plus intent only;
+callers provide `PttState`, floor callbacks, and an optional live
+`ValueListenable<double>` level source.
 
 ## Contract
 
-Every widget here is presentation + intent only. None talks to
-`FloorEngine` (`lib/core/floor/**`, TASK-022, frozen) directly — a caller
-(a future TASK-017-class assembly) derives `PttState` from
-`RadioPhase`/`FloorEffect` and turns this package's intent callbacks into
-`FloorEngine.requestTransmit()` / `.releaseTransmit()` / `.clearEmergency()`
-calls, same relationship `KeryxTuningKnob` has to `RadioReducer`.
+- `PttRingController` accepts a clamped `0..100` level. Inject it (or any
+  `ValueListenable<double>`) from live TX/RX audio. A gentle owned preview
+  ticker is used only when no source is supplied, so the standalone widget is
+  visible in previews and tests.
+- `PttState.granted`/`latched`, `receiving`, and `emergency` render TX red,
+  RX green, and emergency orange respectively. Idle uses LCD amber. RX swaps
+  the mic for a speaker and reads `BUSY`; emergency reads `CANCEL`.
+- The disc keeps the existing hold-to-talk/latch callbacks and invokes the
+  existing `PttHapticFeedback.grant`/`.denied` seams on the same transitions.
+  `PttEdgeGlow` remains the assembly-level TX glow hook.
+- `PttKeyRow` visually presents MON/SCAN/STN/EMG below the disc. Its legacy
+  callback names are intentionally source-compatible until TASK-043 wires the
+  roster and emergency actions at face-assembly level.
+- `EmgKey` retains its unchanged 600 ms hold-to-arm interaction and already
+  uses `KeryxTheme.emergency` for its pinned/armed orange treatment.
 
-- `PttButton(state, onPressStart, onPressEnd, onLatchToggled, latchEnabled)`
-  — hold-to-talk by default; when `latchEnabled`, a double-tap
-  (`kDoubleTapTimeout` window — PT has no latch implementation to source a
-  ratified figure from) engages `onLatchToggled(true)` instead, and any tap
-  while `state == PttState.latched` fires `onLatchToggled(false)`.
-- `PttEdgeGlow(active, {child})` — standalone housing-level overlay,
-  exported separately so TASK-017 can mount it once regardless of which
-  widget currently owns TX state.
-- `PttKeyRow` — MON carries press-and-hold semantics
-  (`onMonHoldStart`/`onMonHoldEnd`); SCAN/SAY AGN/settings are plain taps.
-  `lockedKeys` renders the Pro-locked dimmed treatment but the key's intent
-  still fires on a locked press (PT's own locked-key `onclick` still calls
-  `SFX.deny()`) — the caller turns a locked intent into a deny sound.
-- `EmgKey(onEmergencyToggled, pinned)` — fires once a 600 ms press-and-hold
-  threshold (PT L386-388) is crossed; `pinned` is purely the externally-owned
-  lit/dimmed visual, not internal state.
+## Press treatment
 
-## Haptics
-
-`PttHapticFeedback` mirrors `knob_feedback.dart`'s shape: `grant()` (TS
-§6.4 `PRIMITIVE_QUICK_RISE`, single pulse), `denied()` (`PRIMITIVE_THUD ×2`,
-pulse/pause/pulse matching PT's own `[18,40,18]` deny vibration), and
-`totWarning()` (`PRIMITIVE_TICK ×3`) — the last is a composition primitive
-only; `PttButton` never fires it itself, since TOT is a `FloorEffect.TotWarn()`
-concern outside this widget's state machine. `grant()`/`denied()` fire
-automatically from `PttButton`'s own state transitions (test/production seam:
-`onGrantHaptic`/`onDeniedHaptic`, defaulting to the real implementation).
-
-## Visuals
-
-- PTT: PT's own `.ptt`/`.ptt.on`/`.ptt.deny` gradients (no theme token
-  exists for these key-cap gradients — hardcoded with the same disclosure
-  class as TASK-012's glass-recess chrome). Denied state shows PT's 260 ms
-  deny flash (`PttButtonState.denyFlashDuration`) regardless of how long the
-  caller holds `PttState.denied`.
-- Press travel: `KeryxTheme.keyTravel` (1 dp) uniformly across every key in
-  this package, including the PTT surface — DS §4's explicit "same three
-  changes on every control" generalization, over PT's PTT-specific 2 px
-  literal (disclosed in `ptt_button.dart`'s library dartdoc, same resolution
-  direction TASK-016 took for the settle curve).
-- Red (`KeryxTheme.tx`) appears only in `PttButton`'s granted/latched visuals
-  and `PttEdgeGlow` when `active` — never elsewhere in this package (DS §2).
+The TX or actively touched face moves down `KeryxTheme.keyTravel` (1 dp),
+loses raised material edges, and gains an inner shadow. All state colours are
+read from `KeryxTheme`; no widget-level signal colour literals are used.

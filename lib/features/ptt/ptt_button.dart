@@ -1,57 +1,53 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:keryx/core/theme/theme.dart';
 import 'package:keryx/features/ptt/ptt_haptics.dart';
 import 'package:keryx/features/ptt/ptt_state.dart';
 
-/// The hero push-to-talk surface (TS §6.1, §6.4; FR-020/021/022/026).
+/// Injectable amplitude source for [PttButton]'s 64-tick meter ring.
 ///
-/// Pure presentation + intent — this widget owns no floor state. [state] is
-/// externally driven (see `ptt_state.dart`'s library dartdoc for the
-/// caller/`FloorEngine` relationship); this widget only decides how to
-/// *render* a given state and which gesture intents to emit for a caller to
-/// turn into `FloorEngine.requestTransmit()` / `.releaseTransmit()` calls.
+/// Values are percentages in `0..100`. The default preview controller moves
+/// gently so the component remains useful in isolation; production callers
+/// inject their live mic/RX value.
+class PttRingController extends ValueNotifier<double> {
+  PttRingController([double level = 0]) : super(level.clamp(0, 100).toDouble());
+
+  factory PttRingController.preview() => _PreviewPttRingController();
+
+  void setLevel(double level) => value = level.clamp(0, 100).toDouble();
+
+  @visibleForTesting
+  static int litTickCountForLevel(double level) =>
+      ((level.clamp(0, 100) / 100) * _PttRingPainter.tickCount).round();
+}
+
+class _PreviewPttRingController extends PttRingController {
+  _PreviewPttRingController() : super(24) {
+    _ticker = Timer.periodic(const Duration(milliseconds: 110), (_) {
+      _phase += .16;
+      setLevel(18 + ((math.sin(_phase) + 1) * 22));
+    });
+  }
+
+  late final Timer _ticker;
+  double _phase = 0;
+
+  @override
+  void dispose() {
+    _ticker.cancel();
+    super.dispose();
+  }
+}
+
+/// The Phase 2 hero push-to-talk disc.
 ///
-/// **Gesture contract** (FR-020 hold-to-talk, FR-021 latch mode):
-/// - A plain press-and-release calls [onPressStart] on pointer-down and
-///   [onPressEnd] on pointer-up/cancel — the default hold-to-talk path.
-/// - When [latchEnabled] and the second pointer-down of a rapid double-tap
-///   arrives (within [doubleTapWindow], defaulting to Flutter's own
-///   `kDoubleTapTimeout` — PT has no latch implementation at all to source a
-///   ratified figure from, see below), [onLatchToggled] fires with `true`
-///   instead of [onPressStart]/[onPressEnd] for that gesture.
-/// - While [state] is [PttState.latched], any tap fires [onLatchToggled]
-///   with `false` (release) instead of the hold-to-talk callbacks.
-///
-/// This widget deliberately uses raw pointer callbacks (`Listener`), not
-/// `GestureDetector`'s `onTap`/`onDoubleTap`, because those two recognizers
-/// share a gesture arena that would delay every single hold-to-talk press by
-/// `kDoubleTapTimeout` while Flutter waits to see if a second tap follows —
-/// unacceptable for a control FR-020 requires to attack within 50 ms of
-/// grant. Manual pointer-timestamp comparison (mirroring the tuning knob's
-/// own manual velocity tracking in `knob_widget.dart`) keeps every
-/// hold-to-talk press instantaneous and layers latch-detection on top.
-///
-/// **PT/FR-021 gap, disclosed non-blocking (same class as the knob's
-/// PT-vs-TS settle disclosure):** `keryx-face-prototype.html`'s own PTT
-/// script implements only mousedown/touchstart/keydown → mouseup/touchend/
-/// keyup hold-to-talk; latch mode is not present in the prototype at all, so
-/// there is no PT-ratified double-tap timing window to match. This widget
-/// uses Flutter's standard `kDoubleTapTimeout` (300 ms) as the most
-/// defensible default absent a spec number, flagged for ORCH.
-///
-/// **PT/DS press-travel tension, disclosed non-blocking:** PT's own `.on`
-/// (granted) rule uses `transform:translateY(2px)`, twice [KeryxTheme]'s
-/// general `keyTravel` (1 dp) — but DS §4 states pressed-key travel is "the
-/// same three changes on every control" (1 dp, lost top highlight, inner
-/// shadow), explicitly generalized across every control. This widget follows
-/// DS's explicit generalization (`KeryxTheme.keyTravel`) for consistency
-/// with every other key-cap in the face, rather than PT's literal 2 px for
-/// this one control — same resolution direction TASK-016 took for the
-/// settle curve (DS's general rule over a PT-specific literal), flagged for
-/// ORCH rather than silently picked.
+/// It preserves the existing floor-intent callbacks and haptic seam. Callers
+/// own [PttState] and inject a meter [ringController]; this widget samples no
+/// audio and reads no session state.
 class PttButton extends StatefulWidget {
   const PttButton({
     super.key,
@@ -59,133 +55,91 @@ class PttButton extends StatefulWidget {
     required this.onPressStart,
     required this.onPressEnd,
     required this.onLatchToggled,
+    this.ringController,
     this.latchEnabled = false,
     this.enabled = true,
-    this.height = 104,
+    this.outerDiameter = 320,
+    this.faceDiameter = 236,
     this.doubleTapWindow = kDoubleTapTimeout,
     this.onGrantHaptic,
     this.onDeniedHaptic,
   });
 
-  /// Current PTT state — externally driven, see the library dartdoc.
   final PttState state;
-
-  /// Fired on the leading edge of a hold-to-talk press (pointer-down),
-  /// unless suppressed by a latch-toggle or latch-release gesture (see the
-  /// class dartdoc's gesture contract).
   final VoidCallback onPressStart;
-
-  /// Fired on the trailing edge of a hold-to-talk press (pointer-up or
-  /// pointer-cancel), symmetrically suppressed with [onPressStart].
   final VoidCallback onPressEnd;
-
-  /// Fired with `true` when a double-tap engages latch mode, `false` when a
-  /// tap releases an already-latched floor (FR-021).
   final ValueChanged<bool> onLatchToggled;
-
-  /// Setting gate for latch mode (FR-021: "as a setting"). When `false`,
-  /// every press is a plain hold-to-talk gesture and [onLatchToggled] never
-  /// fires.
+  final ValueListenable<double>? ringController;
   final bool latchEnabled;
-
-  /// When `false`, all gestures are ignored (e.g. radio powered off).
   final bool enabled;
-
-  /// TS §6.1 "≥ 96 dp tall" / PT `.ptt` `height:104px` — 104 is PT's own
-  /// figure and clears the 96 dp floor with margin.
-  final double height;
-
-  /// Max gap between two pointer-downs to count as a latch-engaging
-  /// double-tap. See the class dartdoc's PT/FR-021 gap disclosure.
+  final double outerDiameter;
+  final double faceDiameter;
   final Duration doubleTapWindow;
-
-  /// Test/production seam for the grant haptic. Defaults to
-  /// [PttHapticFeedback.grant].
   final Future<void> Function()? onGrantHaptic;
-
-  /// Test/production seam for the denied haptic. Defaults to
-  /// [PttHapticFeedback.denied].
   final Future<void> Function()? onDeniedHaptic;
 
   @override
   State<PttButton> createState() => PttButtonState();
 }
 
-/// Public so widget tests can inspect the deny-flash visual directly.
 class PttButtonState extends State<PttButton> {
-  /// PT `.deny` flash duration (L346: `setTimeout(..., 260)`).
-  static const Duration denyFlashDuration = Duration(milliseconds: 260);
-
   DateTime? _lastPointerDownAt;
   bool _downWasSuppressed = false;
-  bool _showDenyFlash = false;
-  Timer? _denyFlashTimer;
+  bool _pointerDown = false;
+  PttRingController? _previewController;
 
-  /// Exposed for widget tests: whether the transient deny-flash overlay is
-  /// currently showing.
   @visibleForTesting
-  bool get isShowingDenyFlash => _showDenyFlash;
+  bool get isPressed => _pointerDown || _isTransmitState(widget.state);
+
+  ValueListenable<double> get _ringController =>
+      widget.ringController ??
+      (_previewController ??= PttRingController.preview());
 
   @override
   void didUpdateWidget(PttButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.state == PttState.denied &&
-        oldWidget.state != PttState.denied) {
-      unawaited((widget.onDeniedHaptic ?? PttHapticFeedback.denied)());
-      _armDenyFlash();
-    }
-    if (widget.state == PttState.granted &&
-        oldWidget.state != PttState.granted) {
+    if (_isTransmitState(widget.state) && !_isTransmitState(oldWidget.state)) {
       unawaited((widget.onGrantHaptic ?? PttHapticFeedback.grant)());
     }
-  }
-
-  void _armDenyFlash() {
-    _denyFlashTimer?.cancel();
-    setState(() => _showDenyFlash = true);
-    _denyFlashTimer = Timer(denyFlashDuration, () {
-      if (mounted) setState(() => _showDenyFlash = false);
-    });
+    if (widget.state == PttState.denied && oldWidget.state != PttState.denied) {
+      unawaited((widget.onDeniedHaptic ?? PttHapticFeedback.denied)());
+    }
   }
 
   @override
   void dispose() {
-    _denyFlashTimer?.cancel();
+    _previewController?.dispose();
     super.dispose();
   }
 
   void _onPointerDown(PointerDownEvent event) {
     if (!widget.enabled) return;
+    setState(() => _pointerDown = true);
     final now = DateTime.now();
-
     if (widget.state == PttState.latched) {
       _downWasSuppressed = true;
       _lastPointerDownAt = now;
       widget.onLatchToggled(false);
       return;
     }
-
-    final isDoubleTap =
+    final doubleTap =
         widget.latchEnabled &&
         _lastPointerDownAt != null &&
         now.difference(_lastPointerDownAt!) <= widget.doubleTapWindow;
     _lastPointerDownAt = now;
-
-    if (isDoubleTap) {
+    if (doubleTap) {
       _downWasSuppressed = true;
-      // Reset so a third rapid tap starts a fresh window rather than
-      // re-triggering immediately.
       _lastPointerDownAt = null;
       widget.onLatchToggled(true);
       return;
     }
-
     _downWasSuppressed = false;
     widget.onPressStart();
   }
 
   void _onPointerUpOrCancel() {
     if (!widget.enabled) return;
+    setState(() => _pointerDown = false);
     if (_downWasSuppressed) {
       _downWasSuppressed = false;
       return;
@@ -193,105 +147,118 @@ class PttButtonState extends State<PttButton> {
     widget.onPressEnd();
   }
 
-  _PttVisual _visualFor(PttState state) {
-    switch (state) {
-      case PttState.idle:
-      case PttState.requesting:
-        return const _PttVisual(
-          // PT `.ptt` idle gradient (L114) — no theme token exists for this
-          // exact key-cap gradient (only `KeryxTheme.shell500`/`shell700`
-          // solids), same disclosed-hardcode class as TASK-012's glass-recess
-          // chrome.
-          gradientTop: Color(0xFF3A4045),
-          gradientBottom: Color(0xFF272C30),
-          foreground: Color(0xFFCFCBC0),
-          pressed: false,
-        );
-      case PttState.granted:
-      case PttState.latched:
-        return const _PttVisual(
-          // PT `.ptt.on` gradient (L118).
-          gradientTop: Color(0xFF5A1D18),
-          gradientBottom: Color(0xFF3A1310),
-          foreground: Color(0xFFFFD9D4),
-          pressed: true,
-        );
-      case PttState.denied:
-        return const _PttVisual(
-          // PT `.ptt.deny` gradient (L120).
-          gradientTop: Color(0xFF3A2B18),
-          gradientBottom: Color(0xFF2A1F12),
-          foreground: Color(0xFFCFCBC0),
-          pressed: false,
-        );
-    }
-  }
+  static bool _isTransmitState(PttState state) =>
+      state == PttState.granted || state == PttState.latched;
 
-  String _semanticValueFor(PttState state) {
-    switch (state) {
-      case PttState.idle:
-        return 'idle';
-      case PttState.requesting:
-        return 'requesting';
-      case PttState.granted:
-        return 'transmitting';
-      case PttState.denied:
-        return 'denied';
-      case PttState.latched:
-        return 'transmitting, latched';
+  _DiscVisual _visualFor(PttState state) {
+    if (state == PttState.receiving) {
+      return _DiscVisual(KeryxTheme.rx, 'BUSY', Icons.volume_up_outlined);
     }
+    if (state == PttState.emergency) {
+      return _DiscVisual(
+        KeryxTheme.emergency,
+        'CANCEL',
+        Icons.mic_none_outlined,
+      );
+    }
+    if (_isTransmitState(state)) {
+      return _DiscVisual(KeryxTheme.tx, 'PTT', Icons.mic_none_outlined);
+    }
+    return _DiscVisual(KeryxTheme.lcd, 'PTT', Icons.mic_none_outlined);
   }
 
   @override
   Widget build(BuildContext context) {
-    final visual = _showDenyFlash
-        ? _visualFor(PttState.denied)
-        : _visualFor(widget.state);
-    final pressed = visual.pressed;
-
+    final visual = _visualFor(widget.state);
+    final pressed = isPressed;
     return Semantics(
       button: true,
       enabled: widget.enabled,
       label: 'Push to talk',
-      value: _semanticValueFor(widget.state),
-      child: Listener(
-        behavior: HitTestBehavior.opaque,
-        onPointerDown: _onPointerDown,
-        onPointerUp: (_) => _onPointerUpOrCancel(),
-        onPointerCancel: (_) => _onPointerUpOrCancel(),
-        child: AnimatedContainer(
-          key: const Key('keryx-ptt-surface'),
-          duration: KeryxTheme.snapDuration,
-          curve: KeryxTheme.snapCurve,
-          width: double.infinity,
-          height: widget.height,
-          transform: pressed
-              ? (Matrix4.identity()
-                  ..translateByDouble(0.0, KeryxTheme.keyTravel, 0.0, 1.0))
-              : Matrix4.identity(),
-          transformAlignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: <Color>[visual.gradientTop, visual.gradientBottom],
-            ),
-            boxShadow: pressed
-                ? const <BoxShadow>[
-                    BoxShadow(
-                      color: Color.fromRGBO(0, 0, 0, 0.5),
-                      blurRadius: 6,
-                      blurStyle: BlurStyle.inner,
+      value: visual.legend.toLowerCase(),
+      child: SizedBox(
+        key: const Key('keryx-ptt-disc'),
+        width: widget.outerDiameter,
+        height: widget.outerDiameter,
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: _onPointerDown,
+          onPointerUp: (_) => _onPointerUpOrCancel(),
+          onPointerCancel: (_) => _onPointerUpOrCancel(),
+          child: Stack(
+            alignment: Alignment.center,
+            children: <Widget>[
+              ValueListenableBuilder<double>(
+                valueListenable: _ringController,
+                builder: (context, level, _) => Semantics(
+                  label:
+                      'Amplitude meter, ${PttRingController.litTickCountForLevel(level)} of 64 ticks',
+                  child: CustomPaint(
+                    key: const Key('keryx-ptt-ring'),
+                    size: Size.square(widget.outerDiameter),
+                    painter: _PttRingPainter(
+                      level: level,
+                      activeColor: visual.color,
+                      inactiveColor: visual.color.withValues(alpha: .14),
                     ),
-                  ]
-                : KeryxTheme.raisedMaterialEdges,
+                  ),
+                ),
+              ),
+              AnimatedContainer(
+                key: const Key('keryx-ptt-surface'),
+                duration: KeryxTheme.snapDuration,
+                curve: KeryxTheme.snapCurve,
+                width: widget.faceDiameter,
+                height: widget.faceDiameter,
+                transform: pressed
+                    ? (Matrix4.identity()
+                        ..translateByDouble(0, KeryxTheme.keyTravel, 0, 1))
+                    : Matrix4.identity(),
+                transformAlignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[
+                      Color.lerp(KeryxTheme.shell500, visual.color, .22)!,
+                      Color.lerp(KeryxTheme.shell900, visual.color, .12)!,
+                    ],
+                  ),
+                  border: Border.all(color: visual.color.withValues(alpha: .7)),
+                  boxShadow: pressed
+                      ? const <BoxShadow>[
+                          BoxShadow(
+                            color: Color.fromRGBO(0, 0, 0, .55),
+                            blurRadius: 8,
+                            blurStyle: BlurStyle.inner,
+                          ),
+                        ]
+                      : KeryxTheme.raisedMaterialEdges,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Icon(
+                      visual.icon,
+                      key: const Key('keryx-ptt-glyph'),
+                      color: visual.color,
+                      size: 54,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      visual.legend,
+                      key: const Key('keryx-ptt-legend'),
+                      style: KeryxTheme.legendLabel.copyWith(
+                        color: visual.color,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          alignment: Alignment.center,
-          child: Text('PTT', style: KeryxTheme.legendLabel.copyWith(
-            color: visual.foreground,
-            fontSize: 18,
-          )),
         ),
       ),
     );
@@ -299,16 +266,49 @@ class PttButtonState extends State<PttButton> {
 }
 
 @immutable
-class _PttVisual {
-  const _PttVisual({
-    required this.gradientTop,
-    required this.gradientBottom,
-    required this.foreground,
-    required this.pressed,
-  });
+class _DiscVisual {
+  const _DiscVisual(this.color, this.legend, this.icon);
+  final Color color;
+  final String legend;
+  final IconData icon;
+}
 
-  final Color gradientTop;
-  final Color gradientBottom;
-  final Color foreground;
-  final bool pressed;
+class _PttRingPainter extends CustomPainter {
+  const _PttRingPainter({
+    required this.level,
+    required this.activeColor,
+    required this.inactiveColor,
+  });
+  final double level;
+  final Color activeColor;
+  final Color inactiveColor;
+  static const int tickCount = 64;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final radius = size.shortestSide / 2 - 7;
+    final litPerSide = PttRingController.litTickCountForLevel(level) ~/ 2;
+    final paint = Paint()
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round;
+    for (var index = 0; index < tickCount; index++) {
+      final distanceFromTop = index <= tickCount ~/ 2
+          ? index
+          : tickCount - index;
+      final lit = distanceFromTop <= litPerSide;
+      final angle = -math.pi / 2 + ((2 * math.pi * index) / tickCount);
+      final outer = center + Offset(math.cos(angle), math.sin(angle)) * radius;
+      final inner =
+          center + Offset(math.cos(angle), math.sin(angle)) * (radius - 11);
+      paint.color = lit ? activeColor : inactiveColor;
+      canvas.drawLine(inner, outer, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PttRingPainter old) =>
+      old.level != level ||
+      old.activeColor != activeColor ||
+      old.inactiveColor != inactiveColor;
 }
