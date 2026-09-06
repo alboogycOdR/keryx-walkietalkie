@@ -1,70 +1,82 @@
 import 'package:flutter/material.dart';
 import 'package:keryx/core/theme/theme.dart';
 
+/// Mode/status telltales in the compact LCD strip.
+///
+/// Lit = [KeryxTheme.lcd] (amber). Unlit = the same colour at
+/// [KeryxTheme.ghostSegmentOpacity] (7% ghost). The strip does not use
+/// signal colours for these four labels — TX red / RX green live on the
+/// PTT disc (TASK-042), not here.
+enum KeryxStripTelltale { local, linked, tx, rx }
+
 /// Immutable information rendered by [KeryxLcdDisplay].
 ///
-/// This model deliberately owns no radio state. A host derives it from the
-/// reducer, floor engine, and settings, then replaces it as those sources
-/// change.
+/// Plain data only: no `FaceScreen`, session, or controller types. A host
+/// (TASK-043) derives these fields from the reducer and replaces the model
+/// as those sources change.
 @immutable
 class KeryxDisplayModel {
-  const KeryxDisplayModel.numbered({
+  const KeryxDisplayModel({
     required this.channel,
-    required this.code,
-    this.modeLabel = 'LOCAL',
+    this.mode = 'LOCAL',
+    this.telltales = const <KeryxStripTelltale>{},
     this.statusLine = 'CHANNEL CLEAR',
-    this.telltales = const <KeryxTelltale>{},
-    this.isBooting = false,
+    this.signalQuality = 0,
     this.dimLevel = 1,
-  }) : privateLabel = null,
-       assert(channel >= 1 && channel <= 99),
-       assert(code >= 0 && code <= 38),
-       assert(dimLevel >= 0 && dimLevel <= 1);
-
-  const KeryxDisplayModel.private({
-    required String label,
-    this.modeLabel = 'LOCAL',
-    this.statusLine = 'KEYED CHANNEL',
-    this.telltales = const <KeryxTelltale>{},
     this.isBooting = false,
-    this.dimLevel = 1,
-  }) : channel = -1,
-       code = -1,
-       privateLabel = label,
-       assert(label != ''),
-       assert(dimLevel >= 0 && dimLevel <= 1);
+  }) : assert(channel >= 1 && channel <= 99),
+       assert(signalQuality >= 0 && signalQuality <= 9),
+       assert(dimLevel >= 0 && dimLevel <= 1),
+       assert(mode != '');
 
+  /// Numbered channel 1–99. Rendered as two DSEG7 digits.
   final int channel;
-  final int code;
-  final String? privateLabel;
-  final String modeLabel;
+
+  /// Mode label for semantics / TalkBack (e.g. `LOCAL`, `LINKED`, `AUTO`).
+  /// Lighting LOCAL vs LINKED is independent and lives in [telltales].
+  final String mode;
+
+  /// Which of LOCAL / LINKED / TX / RX are lit. Absent = ghost.
+  final Set<KeryxStripTelltale> telltales;
+
+  /// Mono status line. Host supplies copy such as `CHANNEL CLEAR`,
+  /// `TX 00:07`, or `RX BRAVO-7`.
   final String statusLine;
-  final Set<KeryxTelltale> telltales;
-  final bool isBooting;
+
+  /// Aggregate S-meter 0–9 (0 = none lit, 1–9 = S1–S9 per FR-069).
+  final int signalQuality;
 
   /// Glass luminance, from 0 (dark) to 1 (normal). Supplied by dim settings.
   final double dimLevel;
 
-  bool get isPrivate => privateLabel != null;
+  /// When true the digit field shows the all-segments `88` flash (FR-109).
+  final bool isBooting;
 
-  String get primaryLine {
-    if (isBooting) return '88 · 88';
-    if (isPrivate) return 'PRV';
-    return 'CH ${channel.toString().padLeft(2, '0')} · '
-        '${code.toString().padLeft(2, '0')}';
-  }
+  /// Two-digit channel field, zero-padded. Boot flash is `88`.
+  String get channelDigits =>
+      isBooting ? '88' : channel.toString().padLeft(2, '0');
 
-  String get secondaryLine => isPrivate ? privateLabel! : statusLine;
+  /// Spoken / semantic primary readout, e.g. `CH 07`.
+  String get primaryLine => 'CH $channelDigits';
 }
 
-/// Indicators which can be lit inside the display glass.
-enum KeryxTelltale { tx, mon, prv, vox, emg, noLink, replay }
-
-/// The radio's self-contained transflective LCD glass.
+/// Compact transflective LCD header strip.
+///
+/// Telltale row (LOCAL / LINKED / TX / RX) + `CH ##` seven-segment +
+/// S-meter cluster + a mono status line, recessed in the same glass chrome
+/// as the original full-size display. Height is intrinsic; the host sizes
+/// the band around it.
 class KeryxLcdDisplay extends StatelessWidget {
   const KeryxLcdDisplay({super.key, required this.model});
 
   final KeryxDisplayModel model;
+
+  /// Compact strip scale. DS §3 lists channel numerals at 56 for the
+  /// original full glass; the approved canvas shrinks the surrounding
+  /// layout, so the face stays DSEG7 Classic at a strip-sized 32.
+  static const double _digitSize = 32;
+
+  static const int _sMeterBars = 9;
 
   @override
   Widget build(BuildContext context) {
@@ -75,19 +87,14 @@ class KeryxLcdDisplay extends StatelessWidget {
         opacity: model.dimLevel,
         child: Container(
           key: const Key('keryx-lcd-glass'),
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           decoration: BoxDecoration(
             color: KeryxTheme.glass,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFF0A0F0C)),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color.fromRGBO(0, 0, 0, 0.85),
-                offset: Offset(0, 3),
-                blurRadius: 10,
-                blurStyle: BlurStyle.inner,
-              ),
-              BoxShadow(color: Color.fromRGBO(255, 255, 255, 0.05)),
+            border: Border.all(color: KeryxTheme.glassBorder),
+            boxShadow: <BoxShadow>[
+              KeryxTheme.glassInnerShadow,
+              KeryxTheme.glassHighlight,
             ],
           ),
           child: Stack(
@@ -101,7 +108,7 @@ class KeryxLcdDisplay extends StatelessWidget {
                         radius: 1.15,
                         colors: <Color>[
                           KeryxTheme.lcd.withValues(alpha: 0.06),
-                          Colors.transparent,
+                          KeryxTheme.glassBloomStop,
                         ],
                       ),
                     ),
@@ -109,13 +116,14 @@ class KeryxLcdDisplay extends StatelessWidget {
                 ),
               ),
               Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  _primaryRow(),
-                  const SizedBox(height: 8),
-                  _secondaryRow(),
-                  const SizedBox(height: 7),
                   _telltaleRow(),
+                  const SizedBox(height: 6),
+                  _channelRow(),
+                  const SizedBox(height: 6),
+                  _statusLine(),
                 ],
               ),
             ],
@@ -125,105 +133,149 @@ class KeryxLcdDisplay extends StatelessWidget {
     );
   }
 
-  Widget _primaryRow() => Row(
-    crossAxisAlignment: CrossAxisAlignment.baseline,
-    textBaseline: TextBaseline.alphabetic,
-    children: <Widget>[
-      Expanded(
-        child: Stack(
-          alignment: Alignment.centerLeft,
-          children: <Widget>[
-            Text(
-              '88 · 88',
-              key: const Key('keryx-lcd-ghost-segments'),
-              style: KeryxTheme.channelNumerals.copyWith(
-                color: KeryxTheme.lcd.withValues(
-                  alpha: KeryxTheme.ghostSegmentOpacity,
-                ),
-              ),
-            ),
-            Text(
-              model.primaryLine,
-              key: const Key('keryx-lcd-primary'),
-              style: KeryxTheme.channelNumerals.copyWith(
-                color: KeryxTheme.lcd,
-                shadows: <Shadow>[
-                  Shadow(
-                    color: KeryxTheme.lcd.withValues(alpha: 0.35),
-                    blurRadius: 14,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      Text(
-        model.modeLabel,
-        key: const Key('keryx-lcd-mode'),
-        style: KeryxTheme.telltale.copyWith(
-          color: KeryxTheme.lcd.withValues(alpha: 0.85),
-          letterSpacing: 11 * 0.16,
-        ),
-      ),
-    ],
-  );
-
-  Widget _secondaryRow() => Row(
-    children: <Widget>[
-      Expanded(
-        child: Text(
-          model.secondaryLine,
-          key: const Key('keryx-lcd-secondary'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: KeryxTheme.glassSecondary.copyWith(color: KeryxTheme.lcd),
-        ),
-      ),
-    ],
-  );
-
-  Widget _telltaleRow() => Wrap(
-    spacing: 7,
-    children: KeryxTelltale.values
+  Widget _telltaleRow() => Row(
+    children: KeryxStripTelltale.values
         .map(
-          (indicator) => _TelltaleIndicator(
-            telltale: indicator,
-            isActive:
-                model.telltales.contains(indicator) ||
-                (model.isPrivate && indicator == KeryxTelltale.prv),
+          (indicator) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _TelltaleIndicator(
+              telltale: indicator,
+              isActive: model.telltales.contains(indicator),
+            ),
           ),
         )
         .toList(growable: false),
   );
 
-  String _semanticLabel() =>
-      '${model.primaryLine}, ${model.secondaryLine}, '
-      '${model.modeLabel}${model.telltales.isEmpty ? '' : ', indicators active'}';
+  Widget _channelRow() => Row(
+    crossAxisAlignment: CrossAxisAlignment.end,
+    children: <Widget>[
+      Padding(
+        padding: const EdgeInsets.only(bottom: 2, right: 6),
+        child: Text(
+          'CH',
+          key: const Key('keryx-lcd-channel-prefix'),
+          style: KeryxTheme.glassSecondary.copyWith(
+            color: KeryxTheme.lcd.withValues(alpha: 0.85),
+          ),
+        ),
+      ),
+      Stack(
+        alignment: Alignment.centerLeft,
+        children: <Widget>[
+          Text(
+            '88',
+            key: const Key('keryx-lcd-ghost-segments'),
+            style: KeryxTheme.channelNumerals.copyWith(
+              fontSize: _digitSize,
+              color: KeryxTheme.lcd.withValues(
+                alpha: KeryxTheme.ghostSegmentOpacity,
+              ),
+            ),
+          ),
+          Text(
+            model.channelDigits,
+            key: const Key('keryx-lcd-primary'),
+            style: KeryxTheme.channelNumerals.copyWith(
+              fontSize: _digitSize,
+              color: KeryxTheme.lcd,
+              shadows: <Shadow>[
+                Shadow(
+                  color: KeryxTheme.lcd.withValues(alpha: 0.35),
+                  blurRadius: 14,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      const Spacer(),
+      _SMeter(quality: model.signalQuality),
+    ],
+  );
+
+  Widget _statusLine() => Text(
+    model.statusLine,
+    key: const Key('keryx-lcd-secondary'),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: KeryxTheme.glassSecondary.copyWith(color: KeryxTheme.lcd),
+  );
+
+  String _semanticLabel() {
+    final lit = model.telltales.map((t) => t.name.toUpperCase()).join(', ');
+    final meter = model.signalQuality == 0
+        ? 'no signal'
+        : 'signal S${model.signalQuality}';
+    return '${model.primaryLine}, ${model.mode}, ${model.statusLine}, '
+        '$meter${lit.isEmpty ? '' : ', $lit'}';
+  }
 }
 
 class _TelltaleIndicator extends StatelessWidget {
   const _TelltaleIndicator({required this.telltale, required this.isActive});
 
-  final KeryxTelltale telltale;
+  final KeryxStripTelltale telltale;
   final bool isActive;
+
+  static const Map<KeryxStripTelltale, String> _labels =
+      <KeryxStripTelltale, String>{
+        KeryxStripTelltale.local: 'LOCAL',
+        KeryxStripTelltale.linked: 'LINKED',
+        KeryxStripTelltale.tx: 'TX',
+        KeryxStripTelltale.rx: 'RX',
+      };
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (telltale) {
-      KeryxTelltale.tx => KeryxTheme.tx,
-      KeryxTelltale.emg => KeryxTheme.emergency,
-      _ => KeryxTheme.lcd,
-    };
     return Opacity(
-      opacity: isActive ? 1 : 0.09,
+      opacity: isActive ? 1 : KeryxTheme.ghostSegmentOpacity,
       child: Text(
-        telltale.name == 'noLink' ? 'NO LINK' : telltale.name.toUpperCase(),
+        _labels[telltale]!,
         key: Key('keryx-lcd-telltale-${telltale.name}'),
         style: KeryxTheme.telltale.copyWith(
-          color: color,
+          color: KeryxTheme.lcd,
           letterSpacing: 11 * 0.12,
         ),
+      ),
+    );
+  }
+}
+
+/// Nine-bar S-meter cluster (FR-069 S1–S9). Lit bars use the RX signal
+/// token; unlit bars are LCD-ghost so they stay inside the glass amber
+/// rule for unlit segments.
+class _SMeter extends StatelessWidget {
+  const _SMeter({required this.quality});
+
+  final int quality;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: quality == 0 ? 'No signal' : 'Signal S$quality',
+      child: Row(
+        key: const Key('keryx-lcd-smeter'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List<Widget>.generate(KeryxLcdDisplay._sMeterBars, (index) {
+          final bar = index + 1;
+          final lit = bar <= quality;
+          return Container(
+            key: Key('keryx-lcd-smeter-bar-$bar'),
+            width: 3,
+            height: 4 + index * 1.1,
+            margin: const EdgeInsets.only(left: 2),
+            decoration: BoxDecoration(
+              color: lit
+                  ? KeryxTheme.rx
+                  : KeryxTheme.lcd.withValues(
+                      alpha: KeryxTheme.ghostSegmentOpacity,
+                    ),
+              borderRadius: BorderRadius.circular(1),
+            ),
+          );
+        }),
       ),
     );
   }
