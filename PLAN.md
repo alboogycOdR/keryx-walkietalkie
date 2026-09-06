@@ -2550,7 +2550,7 @@ subpath of 'C:\...\relay'
 
 ### TASK-041
 **Title:** Phase 2 PTT redesign — retire the knob and grille, collapse the display into a top LCD strip
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** Approved Phase 2 design canvas (https://claude.ai/code/artifact/885a21ca-a4f2-4605-bc9a-7a36807be74e, artboards Main/Transmit/Receive/Emergency) — supersedes specs/KERYX_UI_Design_Specification_v1.0.md §5.1 ("The knob... is the element the app is remembered by") and §5.3 (the grille's amplitude tremble) for the main screen only; §2 Colour Tokens (unchanged — KeryxFacePlate.fieldBlack stays the single source, no new hexes); §3 Typography row 1 (DSEG7 Classic numerals / Share Tech Mono — the strip keeps the real seven-segment face, only the surrounding layout shrinks); lib/features/knob/**, lib/features/grille/** (both frozen, reopened here to be deleted); lib/features/display/keryx_lcd_display.dart (frozen, reopened here to be reshaped into a compact header strip)
@@ -2565,15 +2565,46 @@ subpath of 'C:\...\relay'
 - [ ] Strip widget takes no FaceScreen/session/controller types as constructor args — verified by the widget test constructing it with only plain values
 - [ ] flutter analyze clean on every file this task touches; flutter test green for test/features/display/** (knob/grille test suites deleted, not left red)
 - [ ] Dossier states plainly whether any shared meter-math utility was extracted for TASK-042, and where
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-041-gb
+**Started_At:** 2026-09-06T05:16:58Z
+**Progress_Notes:**
+- [2026-09-06T05:16:58Z] [GB] Claimed TASK-041. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-041 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+[preflight] 7 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/knob/**  -> 5 file(s):
+           lib/features/knob/README.md
+           lib/features/knob/knob.dart
+           lib/features/knob/knob_feedback.dart
+           lib/features/knob/knob_physics.dart
+           lib/features/knob/knob_widget.dart
+  GLOB   lib/features/grille/**  -> 4 file(s):
+           lib/features/grille/README.md
+           lib/features/grille/grille.dart
+           lib/features/grille/grille_motion.dart
+           lib/features/grille/keryx_speaker_grille.dart
+  GLOB   lib/features/display/**  -> 2 file(s):
+           lib/features/display/display.dart
+           lib/features/display/keryx_lcd_display.dart
+  GLOB   test/features/knob/**  -> 3 file(s):
+           test/features/knob/keryx_tuning_knob_test.dart
+           test/features/knob/knob_feedback_test.dart
+           test/features/knob/knob_physics_test.dart
+  GLOB   test/features/grille/**  -> 2 file(s):
+           test/features/grille/grille_motion_test.dart
+           test/features/grille/keryx_speaker_grille_test.dart
+  GLOB   test/features/display/**  -> 1 file(s):
+           test/features/display/keryx_lcd_display_test.dart
+  FILE   dossiers/TASK-041.md  -> exists, 50 line(s), 2921 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Existing territory: delete knob+grille wholesale; rework display into compact LCD strip. No NEW paths. Creating `task/TASK-041-gb` off current master.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-05T23:09:35Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-06T05:16:58Z
 
 ### TASK-042
 **Title:** Phase 2 PTT redesign — single hero PTT disc with a live amplitude-ring meter
