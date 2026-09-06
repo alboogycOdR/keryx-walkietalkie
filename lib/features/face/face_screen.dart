@@ -30,9 +30,9 @@ import 'package:keryx/services/sound/sound.dart';
 
 import 'amplitude_source.dart';
 import 'face_view.dart';
-import 'glass_flip_controller.dart';
 import 'permission_gate.dart';
 import 'roster.dart' as roster;
+import 'roster_screen.dart';
 import 'session_host.dart';
 
 /// Boots identity + settings + the radio session (TASK-035's
@@ -158,8 +158,25 @@ class FaceScreen extends ConsumerStatefulWidget {
 }
 
 class _FaceScreenState extends ConsumerState<FaceScreen> {
-  final GlassFlipController _flipController = GlassFlipController();
   final FaceAmplitudeSource _amplitude = FaceAmplitudeSource();
+
+  /// TASK-043: feeds the hero disc's 64-tick ring meter. `FaceAmplitudeSource`
+  /// (see its own dartdoc) is the same state-driven placeholder TASK-016's
+  /// review already approved for the retired grille — neither spec
+  /// constrains the amplitude source, and no raw mic/RX RMS tap is exposed
+  /// to the UI layer yet. `_amplitude`'s 0-0.65 scale is remapped to the
+  /// ring's 0-100 scale in [_syncRingLevel]. Disclosed plainly (dossier):
+  /// real per-sample TX mic RMS and real remote RX metering are both later
+  /// waves — this is a documented proxy for both, not a regression from a
+  /// "real" source that existed before (none did).
+  final PttRingController _ringController = PttRingController(0);
+
+  /// TASK-043: backs [RosterScreen]'s live join/depart guarantee while the
+  /// screen is pushed — `setState`-triggered rebuilds of [FaceScreen] don't
+  /// reach a screen that is no longer part of this widget's own subtree, so
+  /// the roster needs its own listenable rather than a plain snapshot.
+  final ValueNotifier<List<roster.StationInfo>> _stationsNotifier =
+      ValueNotifier<List<roster.StationInfo>>(const <roster.StationInfo>[]);
 
   /// Relays [radioStateProvider] into [SfxProjection] as a plain broadcast
   /// `Stream<RadioState>` — the notifier itself exposes no stream (only a
@@ -548,6 +565,7 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
         ),
       );
     }
+    _stationsNotifier.value = const <roster.StationInfo>[];
     if (mounted) {
       setState(() {
         _session = null;
@@ -580,11 +598,9 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
     });
     _stationsSub = session.stations.listen((stations) {
       if (!mounted) return;
-      setState(
-        () => _stations = stations
-            .map(_toRosterStation)
-            .toList(growable: false),
-      );
+      final mapped = stations.map(_toRosterStation).toList(growable: false);
+      _stationsNotifier.value = mapped;
+      setState(() => _stations = mapped);
     });
 
     setState(() {
@@ -676,8 +692,9 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
     unawaited(_radioStateStream.close());
     unawaited(_floorEffectsProxy.close());
     unawaited(_settingsStream.close());
-    _flipController.dispose();
     _amplitude.dispose();
+    _ringController.dispose();
+    _stationsNotifier.dispose();
     super.dispose();
   }
 
@@ -754,12 +771,20 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
     _tuneTo(next, state.privacyCode);
   }
 
+  /// TASK-043: extended for the hero disc's two new visual states —
+  /// [PttState.emergency] (active emergency, checked first: it overrides
+  /// every other visual per the approved canvas's Emergency artboard) and
+  /// [PttState.receiving] (another station holds the floor). Neither is a
+  /// new state *source* — both read off the same `RadioState` fields the
+  /// old PTT key already used (`isEmergency`, `phase == rxActive`).
   PttState _pttStateFor(RadioState state) {
+    if (state.isEmergency) return PttState.emergency;
     if (state.isTransmitDenied) return PttState.denied;
     if (state.phase == RadioPhase.txRequest) return PttState.requesting;
     if (state.phase == RadioPhase.tx) {
       return _latched ? PttState.latched : PttState.granted;
     }
+    if (state.phase == RadioPhase.rxActive) return PttState.receiving;
     return PttState.idle;
   }
 
@@ -807,33 +832,43 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
     );
   }
 
-  /// FR-043/FR-044 scan entry point — pushed from [StationListPanel]'s
-  /// header (see `FaceView`'s own dartdoc for that placement decision). A
-  /// no-op before the first session exists (nothing to `joinEvent` into
-  /// yet); [EventQrScanScreen] itself owns the camera lifecycle.
-  ///
-  /// Review round-1 finding (b): [GlassFlipController.pauseAutoFlip] before
-  /// pushing so the 5 s auto-flip-back timer doesn't fire invisibly while
-  /// this full-screen route covers the panel, and
-  /// [GlassFlipController.resumeAutoFlipFresh] on return so the operator
-  /// gets a full fresh window rather than whatever was left when they
-  /// navigated away.
-  void _onScanQr(BuildContext context) {
-    _flipController.pauseAutoFlip();
+  /// TASK-043: FR-067's successor — opens the full-screen [RosterScreen]
+  /// (replacing the old flip-panel STN treatment). Pushed from both the
+  /// header's STN tap and the rail's STN-labelled key (`_railRegion`'s
+  /// `onSayAgain`).
+  void _openRoster(BuildContext context) {
     unawaited(
-      Navigator.of(context)
-          .push(
-            MaterialPageRoute<void>(
-              builder: (scanContext) => Scaffold(
-                appBar: AppBar(title: const Text('Scan event QR')),
-                body: EventQrScanScreen(
-                  onTuned: (payload) =>
-                      unawaited(_joinEvent(scanContext, payload)),
-                ),
-              ),
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (rosterContext) => RosterScreen(
+            stations: _stationsNotifier,
+            onScan: () => _onScanQr(rosterContext),
+            onExport: () => _onExportQr(rosterContext, ref.read(radioStateProvider)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// FR-043/FR-044 scan entry point — pushed from [RosterScreen]'s app bar.
+  /// A no-op before the first session exists (nothing to `joinEvent` into
+  /// yet); [EventQrScanScreen] itself owns the camera lifecycle. The old
+  /// glass-flip pause/resume dance is gone with the flip panel it protected
+  /// — the roster is now its own full-screen route, so there is no
+  /// background auto-flip timer to race against.
+  void _onScanQr(BuildContext context) {
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (scanContext) => Scaffold(
+            appBar: AppBar(title: const Text('Scan event QR')),
+            body: EventQrScanScreen(
+              onTuned: (payload) =>
+                  unawaited(_joinEvent(scanContext, payload)),
             ),
-          )
-          .whenComplete(_flipController.resumeAutoFlipFresh),
+          ),
+        ),
+      ),
     );
   }
 
@@ -856,51 +891,66 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
     }
   }
 
-  /// FR-043/FR-044 export entry point — see [_onScanQr]'s placement note
-  /// and its auto-flip pause/resume note. Only the numbered-channel case is
-  /// wired here: a keyed-channel export needs [buildKeyedEventLink]'s
-  /// passphrase input, which has no home in this face yet (out of this
-  /// task's scope; the export screen itself already supports it via its
-  /// `payloadBuilder` seam for whoever wires that up later).
+  /// FR-043/FR-044 export entry point — see [_onScanQr]'s placement note.
+  /// Only the numbered-channel case is wired here: a keyed-channel export
+  /// needs [buildKeyedEventLink]'s passphrase input, which has no home in
+  /// this face yet (out of this task's scope; the export screen itself
+  /// already supports it via its `payloadBuilder` seam for whoever wires
+  /// that up later).
   void _onExportQr(BuildContext context, RadioState state) {
     final region = _appliedSettings?.region ?? KeryxSettings.defaultRegion;
-    _flipController.pauseAutoFlip();
     unawaited(
-      Navigator.of(context)
-          .push(
-            MaterialPageRoute<void>(
-              builder: (_) => Scaffold(
-                appBar: AppBar(title: const Text('Export event QR')),
-                body: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: EventQrExportScreen(
-                    payloadBuilder: (expiresAt) => NumberedEventLink(
-                      region: region,
-                      channel: state.channel,
-                      code: state.privacyCode,
-                      expiresAt: expiresAt,
-                    ),
-                  ),
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Export event QR')),
+            body: Padding(
+              padding: const EdgeInsets.all(24),
+              child: EventQrExportScreen(
+                payloadBuilder: (expiresAt) => NumberedEventLink(
+                  region: region,
+                  channel: state.channel,
+                  code: state.privacyCode,
+                  expiresAt: expiresAt,
                 ),
               ),
             ),
-          )
-          .whenComplete(_flipController.resumeAutoFlipFresh),
+          ),
+        ),
+      ),
     );
+  }
+
+  /// TASK-043: TX uses the same state-driven [_amplitude] proxy the retired
+  /// grille used (0-0.65 "active" scale, see [_amplitude]'s dartdoc);
+  /// documented RX proxy is identical — neither the disc nor the spec
+  /// distinguishes a TX-only vs RX-only source yet, so both drive the same
+  /// ring off the same [RadioPhase] signal until a real audio-engine RMS
+  /// tap is wired (later wave, matching TASK-016/041's precedent).
+  void _syncRingLevel(RadioState state) {
+    _amplitude.update(state);
+    // FaceAmplitudeSource eases 0 -> 0.65 on its own 90ms timer; sample its
+    // *target* here (cheap, synchronous) rather than subscribing to its
+    // stream a second time — the disc's ring only needs "is something
+    // active right now", not the same smoothing curve as the retired
+    // grille's tremble animation.
+    final active =
+        state.phase == RadioPhase.tx ||
+        state.phase == RadioPhase.rxActive ||
+        state.isMonitorOpen;
+    _ringController.setLevel(active ? 65 : 8);
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(radioStateProvider);
-    _amplitude.update(state);
+    _syncRingLevel(state);
     return FaceView(
       state: state,
       stations: _stations,
-      amplitude: _amplitude.stream,
-      flipController: _flipController,
+      ringLevel: _ringController,
       pttState: _pttStateFor(state),
       batteryLevel: 1.0,
-      onDetent: (delta) => _tuneChannelDelta(state, delta),
       onStep: (delta) => _tuneChannelDelta(state, delta),
       onDirectTuneRequested: () => _onDirectTuneRequested(context, state),
       onRecallRequested: () => _onRecallRequested(context),
@@ -910,10 +960,7 @@ class _FaceScreenState extends ConsumerState<FaceScreen> {
       onMonHoldStart: () => _dispatch(const MonitorChanged(true)),
       onMonHoldEnd: () => _dispatch(const MonitorChanged(false)),
       onScan: () => _dispatch(ScanChanged(!state.isScanning)),
-      // FR-065 replay playback is a later wave (Pro feature); handler stays
-      // empty until that lands. (Not FR-046 — that FR is the force-local-only
-      // privacy toggle, unrelated to this key.)
-      onSayAgain: () {},
+      onOpenRoster: () => _openRoster(context),
       onSettings: () => Navigator.of(context).pushNamed(backPanelRouteName),
       onEmergencyToggled: _onEmergencyToggled,
       onScanQr: () => _onScanQr(context),

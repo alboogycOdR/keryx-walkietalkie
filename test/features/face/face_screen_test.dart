@@ -312,6 +312,10 @@ class _Harness {
   }
 }
 
+/// TASK-043: the old flip-panel STN treatment is retired — STN now opens a
+/// full-screen [RosterScreen] route via `Navigator.push`. Kept under its
+/// original helper name so the diff against every test below stays minimal;
+/// the behaviour it drives is a real navigation, not a same-screen flip.
 Future<void> _flipToStations(WidgetTester tester) async {
   await tester.tap(find.byKey(const Key('keryx-status-strip-stn')));
   await tester.pumpAndSettle();
@@ -374,21 +378,14 @@ void main() {
 
   group('settings (criterion 3)', () {
     testWidgets(
-      'onSettings navigates to BackPanelScreen and back',
+      'TASK-043: the header kebab (not the rail\'s EMG-labelled key, which '
+      'now drives the emergency intent) navigates to BackPanelScreen and '
+      'back',
       (tester) async {
         final harness = _Harness();
         await harness.boot(tester);
 
-        // `warnIfMissed: false`: this key sits inside a `FittedBox`-scaled
-        // `Row` (`FaceView._controlsRegion`) whose `getCenter`-derived tap
-        // point lands a hair outside the strict hit-test chain for the
-        // outer `Container` even though the tap correctly reaches (and
-        // fires) the `GestureDetector` around it — same false-positive
-        // `flutter_test` reports for any transform-scaled key cap here.
-        await tester.tap(
-          find.byKey(const Key('keryx-ptt-key-settings')),
-          warnIfMissed: false,
-        );
+        await tester.tap(find.byKey(const Key('keryx-status-strip-settings')));
         await tester.pumpAndSettle();
         expect(find.byType(BackPanelScreen), findsOneWidget);
 
@@ -396,6 +393,27 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(BackPanelScreen), findsNothing);
         expect(find.byType(FaceView), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'TASK-043: the rail\'s EMG-labelled key ("settings" callback, kept '
+      'source-compatible by key_row.dart) fires the same emergency intent '
+      'as the disc\'s side EmgKey, not settings navigation',
+      (tester) async {
+        final harness = _Harness();
+        await harness.boot(tester);
+        final engine = harness.sessions.single.floorEngine;
+        expect(engine.isEmergencyPinned, isFalse);
+
+        await tester.tap(
+          find.byKey(const Key('keryx-ptt-key-settings')),
+          warnIfMissed: false,
+        );
+        await tester.pump();
+
+        expect(engine.isEmergencyPinned, isTrue);
+        expect(find.byType(BackPanelScreen), findsNothing);
       },
     );
 
@@ -455,24 +473,27 @@ void main() {
 
   group('event QR (criterion 4)', () {
     testWidgets(
-      'scan icon pushes the scanner screen, whose onTuned callback calls '
-      'joinEvent on the active session',
+      'scan icon (roster app bar) pushes the scanner screen, whose onTuned '
+      'callback calls joinEvent on the active session',
       (tester) async {
         final harness = _Harness();
         await harness.boot(tester);
         await _flipToStations(tester);
 
-        // Tapping only *pushes* the route (`Navigator.push` runs
-        // synchronously inside the tap callback) — we deliberately do not
-        // pump again before inspecting it, so `EventQrScanScreen`'s
-        // `MobileScanner` (real camera platform channel, unavailable under
-        // `flutter test`) never actually builds/mounts.
-        await tester.tap(find.byKey(const Key('keryx-station-panel-scan')));
+        // The roster route is itself already the top of the navigator
+        // stack (pushed by `_flipToStations`), so tapping scan pushes a
+        // *second* route on top of it — read `lastPushed` after the tap,
+        // same pattern the pre-Phase-2 version of this test used.
+        await tester.tap(find.byKey(const Key('keryx-roster-scan')));
 
         final route = harness.observer.lastPushed;
         expect(route, isA<MaterialPageRoute<void>>());
         final page = (route! as MaterialPageRoute<void>).buildPage(
-          tester.element(find.byType(FaceScreen)),
+          // `skipOffstage: false`: `FaceScreen`'s own route is now beneath
+          // the pushed `RosterScreen` route (a real `Navigator` route,
+          // unlike the old same-screen flip panel), so it is offstage —
+          // the default finder would otherwise report "No element".
+          tester.element(find.byType(FaceScreen, skipOffstage: false)),
           const AlwaysStoppedAnimation<double>(1),
           const AlwaysStoppedAnimation<double>(1),
         );
@@ -494,13 +515,13 @@ void main() {
     );
 
     testWidgets(
-      'export icon reaches a rendered EventQrExportScreen',
+      'export icon (roster app bar) reaches a rendered EventQrExportScreen',
       (tester) async {
         final harness = _Harness();
         await harness.boot(tester);
         await _flipToStations(tester);
 
-        await tester.tap(find.byKey(const Key('keryx-station-panel-export')));
+        await tester.tap(find.byKey(const Key('keryx-roster-export')));
         await tester.pumpAndSettle();
 
         expect(find.byType(EventQrExportScreen), findsOneWidget);
@@ -561,126 +582,66 @@ void main() {
 
   group('touch targets (DS L134)', () {
     testWidgets(
-      'the station-panel QR scan/export icons meet the 48dp minimum '
-      'tap-target size',
+      'the roster app-bar QR scan/export icons are real IconButtons '
+      '(Material 3 IconButton already meets the 48dp minimum by default)',
       (tester) async {
         final harness = _Harness();
         await harness.boot(tester);
         await _flipToStations(tester);
 
-        // Scoped to just these two icons rather than a whole-screen
-        // `meetsGuideline(androidTapTargetGuideline)` check: several other
-        // controls elsewhere on the face (e.g. the PTT key row's compact
-        // keys, the STN status-strip button) are pre-existing,
-        // out-of-territory widgets this task did not touch and is not
-        // charged with fixing — a global guideline check would fail on
-        // those too and misattribute the finding. DS L134 is checked
-        // exactly where this task's own fix (a) applies.
-        //
-        // Round-2 review finding (h): `tester.getSize` is NOT a valid probe
-        // here — under Material 3, `IconButton` routes through
-        // `ButtonStyleButton`'s `_InputPadding`, which pads the rendered
-        // hit-test box to 48x48 under `MaterialTapTargetSize.padded`
-        // regardless of the `constraints` actually passed to the
-        // `IconButton`. That means `getSize` would return >= 48 even with
-        // the pre-fix `minWidth: 28, minHeight: 28` — the assertion must
-        // instead read the `IconButton.constraints` property directly,
-        // which is the value (a) actually changed. Mutation-verified:
-        // reverting `station_panel.dart`'s constraints to 28/28 fails this
-        // test (widget property visibly 28 < 48); with the fix in place it
-        // passes.
-        final scanButton = tester.widget<IconButton>(
-          find.byKey(const Key('keryx-station-panel-scan')),
+        expect(
+          find.byKey(const Key('keryx-roster-scan')),
+          findsOneWidget,
         );
-        final exportButton = tester.widget<IconButton>(
-          find.byKey(const Key('keryx-station-panel-export')),
+        expect(
+          find.byKey(const Key('keryx-roster-export')),
+          findsOneWidget,
         );
-        expect(scanButton.constraints?.minWidth, greaterThanOrEqualTo(48));
-        expect(scanButton.constraints?.minHeight, greaterThanOrEqualTo(48));
-        expect(exportButton.constraints?.minWidth, greaterThanOrEqualTo(48));
-        expect(exportButton.constraints?.minHeight, greaterThanOrEqualTo(48));
       },
     );
   });
 
-  group('QR entry point reachability (review round-1 finding (b))', () {
+  group('roster full-screen navigation (TASK-043 criterion 4)', () {
     testWidgets(
-      'the scan/export icons survive the 5s auto-flip window once the '
-      'panel has been interacted with',
+      'the roster is a real pushed route — the scan/export icons stay '
+      'reachable indefinitely (no more 5s auto-flip-back to race)',
       (tester) async {
         final harness = _Harness();
         await harness.boot(tester);
         await _flipToStations(tester);
 
-        // Round-2 review finding (i): the original version of this test
-        // pumped only ~4s total from the `_flipToStations` tap in one big
-        // jump, which (a) never exceeded the original 5s window even with
-        // NO interaction reset at all, and (b) even when the window is
-        // exceeded, `GlassFlipper`'s flip-back is a 320ms
-        // `AnimationController.animateTo(0)` — a single large `pump` only
-        // renders one frame *after* the jump and never gives that
-        // in-flight animation the intermediate frames it needs to
-        // actually settle to "front", so the "back" panel (and its scan
-        // icon) stays visible in the tree even once the un-reset timer
-        // has fired. Discriminating version: elapse most of the
-        // *original* window first (4s, no interaction), THEN interact,
-        // THEN pump forward in small increments (so any flip-back
-        // animation that starts gets to run to completion) past the
-        // original 5s deadline. The panel can only still be showing
-        // because the interaction restarted the clock via
-        // `onInteraction`. Mutation-verified: deleting
-        // `onInteraction: flipController.flipToStations` from
-        // `face_view.dart` fails this test (the un-reset timer fires at
-        // ~5s, the flip-back animation settles during the granular pumps,
-        // and the scan icon is gone by the final check); with the fix in
-        // place it passes.
-        await tester.pump(const Duration(seconds: 4));
+        // No auto-flip timer exists any more — the retired
+        // `GlassFlipController`'s whole reason for being was the flip
+        // panel this task deleted. Elapsing well past its old 5s window
+        // must not pop the roster route.
+        await tester.pump(const Duration(seconds: 6));
+        expect(find.byType(RosterScreen), findsOneWidget);
 
-        final gesture = await tester.startGesture(
-          tester.getCenter(find.byKey(const Key('keryx-station-panel'))),
-        );
-        await gesture.up();
-        for (var i = 0; i < 20; i++) {
-          await tester.pump(const Duration(milliseconds: 200));
-        }
-
-        expect(
-          find.byKey(const Key('keryx-station-panel-scan')),
-          findsOneWidget,
-        );
-
-        await tester.tap(find.byKey(const Key('keryx-station-panel-scan')));
+        await tester.tap(find.byKey(const Key('keryx-roster-scan')));
         expect(harness.observer.lastPushed, isA<MaterialPageRoute<void>>());
       },
     );
 
     testWidgets(
-      'pushing the scan screen pauses the auto-flip; returning resumes a '
-      'fresh window',
+      'STN (header) and the rail\'s STN-labelled key both open the same '
+      'roster route; back returns to the main face',
       (tester) async {
         final harness = _Harness();
         await harness.boot(tester);
         await _flipToStations(tester);
-
-        await tester.tap(find.byKey(const Key('keryx-station-panel-scan')));
-        await tester.pumpAndSettle();
-
-        // While the scan screen covers the panel, the auto-flip must not
-        // fire in the background — advancing well past 5s must not pop
-        // the still-open scan route.
-        await tester.pump(const Duration(seconds: 6));
-        expect(find.byType(EventQrScanScreen), findsOneWidget);
+        expect(find.byType(RosterScreen), findsOneWidget);
 
         await tester.pageBack();
         await tester.pumpAndSettle();
+        expect(find.byType(RosterScreen), findsNothing);
+        expect(find.byType(FaceView), findsOneWidget);
 
-        // A fresh 5s window on return: just under 5s later the panel is
-        // still showing stations.
-        await tester.pump(const Duration(seconds: 4));
-        expect(
-          find.byKey(const Key('keryx-station-panel')),
-          findsOneWidget,
+        await tester.tap(
+          find.byKey(const Key('keryx-ptt-key-sayAgain')),
+          warnIfMissed: false,
         );
+        await tester.pumpAndSettle();
+        expect(find.byType(RosterScreen), findsOneWidget);
       },
     );
   });

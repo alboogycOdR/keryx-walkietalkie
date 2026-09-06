@@ -1,27 +1,25 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/theme/theme.dart';
 import 'package:keryx/features/face/face_view.dart';
-import 'package:keryx/features/face/glass_flip_controller.dart';
-import 'package:keryx/features/knob/knob.dart';
 import 'package:keryx/features/ptt/ptt.dart';
 
 void main() {
   Widget buildFace({
     RadioState? state,
-    GlassFlipController? flipController,
+    ValueListenable<double>? ringLevel,
+    PttState? pttState,
     String? statusOverride,
   }) {
     return MaterialApp(
       home: FaceView(
         state: state ?? const RadioState(phase: RadioPhase.idle),
         stations: const [],
-        amplitude: const Stream<double>.empty(),
-        flipController: flipController ?? GlassFlipController(),
-        pttState: PttState.idle,
+        ringLevel: ringLevel ?? ValueNotifier<double>(0),
+        pttState: pttState ?? PttState.idle,
         batteryLevel: 1,
-        onDetent: (_) {},
         onStep: (_) {},
         onDirectTuneRequested: () {},
         onRecallRequested: () {},
@@ -31,17 +29,13 @@ void main() {
         onMonHoldStart: () {},
         onMonHoldEnd: () {},
         onScan: () {},
-        onSayAgain: () {},
+        onOpenRoster: () {},
         onSettings: () {},
         onEmergencyToggled: () {},
         statusOverride: statusOverride,
       ),
     );
   }
-
-  setUp(() {});
-
-  tearDown(() {});
 
   testWidgets('boots to the face without throwing', (tester) async {
     await tester.pumpWidget(buildFace());
@@ -50,8 +44,7 @@ void main() {
   });
 
   testWidgets(
-    'portrait vertical allocation matches DS §4 fractions '
-    '(status 6% / glass 18% / grille 26% / controls 22% / ptt 22% / safe 6%)',
+    'portrait vertical allocation matches the face allocation fractions',
     (tester) async {
       tester.view.physicalSize = const Size(360, 1000);
       tester.view.devicePixelRatio = 1.0;
@@ -59,11 +52,11 @@ void main() {
       await tester.pumpWidget(buildFace());
 
       final bandKeys = [
-        FaceView.bandKeyStatus,
-        FaceView.bandKeyGlass,
-        FaceView.bandKeyGrille,
-        FaceView.bandKeyControls,
-        FaceView.bandKeyPtt,
+        FaceView.bandKeyHeader,
+        FaceView.bandKeyDisplay,
+        FaceView.bandKeySteppers,
+        FaceView.bandKeyDisc,
+        FaceView.bandKeyRail,
         FaceView.bandKeySafeArea,
       ];
       final flexibles = bandKeys
@@ -92,8 +85,8 @@ void main() {
   );
 
   testWidgets(
-    'controls never occupy the top third (DS §4) — the control cluster '
-    'renders below 1/3 of the face height',
+    'the hero disc renders below 1/3 of the face height (replaces the '
+    'retired knob for the "controls never occupy the top third" rule)',
     (tester) async {
       const height = 1000.0;
       tester.view.physicalSize = const Size(360, height);
@@ -101,10 +94,10 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(buildFace());
 
-      final knobFinder = find.byType(KeryxTuningKnob);
-      expect(knobFinder, findsOneWidget);
-      final knobTopY = tester.getTopLeft(knobFinder).dy;
-      expect(knobTopY, greaterThan(height / 3));
+      final discFinder = find.byKey(const Key('keryx-ptt-disc'));
+      expect(discFinder, findsOneWidget);
+      final discTopY = tester.getTopLeft(discFinder).dy;
+      expect(discTopY, greaterThan(height / 3));
     },
   );
 
@@ -120,21 +113,42 @@ void main() {
     expect(find.byKey(const Key('keryx-lcd-glass')), findsOneWidget);
   });
 
-  testWidgets('STN tap flips the glass to the station list', (tester) async {
-    final flipController = GlassFlipController();
-    await tester.pumpWidget(buildFace(flipController: flipController));
-    await tester.tap(find.byKey(const Key('keryx-status-strip-stn')));
-    await tester.pumpAndSettle();
-    expect(find.byKey(const Key('keryx-station-panel')), findsOneWidget);
+  testWidgets(
+    'STN tap (header) opens the roster via onOpenRoster',
+    (tester) async {
+      var opened = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: FaceView(
+            state: const RadioState(phase: RadioPhase.idle),
+            stations: const [],
+            ringLevel: ValueNotifier<double>(0),
+            pttState: PttState.idle,
+            batteryLevel: 1,
+            onStep: (_) {},
+            onDirectTuneRequested: () {},
+            onRecallRequested: () {},
+            onPttPressStart: () {},
+            onPttPressEnd: () {},
+            onLatchToggled: (_) {},
+            onMonHoldStart: () {},
+            onMonHoldEnd: () {},
+            onScan: () {},
+            onOpenRoster: () => opened++,
+            onSettings: () {},
+            onEmergencyToggled: () {},
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('keryx-status-strip-stn')));
+      expect(opened, 1);
 
-    // The 5s auto-flip-back Timer the tap just started is still pending
-    // here — cancel it explicitly (addTearDown runs too late relative to
-    // the pending-timer invariant check to catch a still-ticking Timer in
-    // this SDK).
-    flipController.dispose();
-  });
+      await tester.tap(find.byKey(const Key('keryx-ptt-key-sayAgain')));
+      expect(opened, 2);
+    },
+  );
 
-  testWidgets('displays a channel/code numeral driven by RadioState', (
+  testWidgets('displays a channel numeral driven by RadioState', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -155,7 +169,6 @@ void main() {
         ),
       );
       expect(find.text('MIC REQUIRED'), findsOneWidget);
-      // The ordinary boot-phase status line text must not also be present.
       expect(find.text('CHANNEL CLEAR'), findsNothing);
     },
   );
@@ -166,6 +179,56 @@ void main() {
     (tester) async {
       await tester.pumpWidget(buildFace());
       expect(find.text('CHANNEL CLEAR'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'emergency band appears when RadioState.isEmergency is true and is '
+    'absent otherwise',
+    (tester) async {
+      await tester.pumpWidget(buildFace());
+      expect(find.byKey(const Key('keryx-emergency-band')), findsNothing);
+
+      await tester.pumpWidget(
+        buildFace(
+          state: const RadioState(phase: RadioPhase.idle, isEmergency: true),
+          pttState: PttState.emergency,
+        ),
+      );
+      expect(find.byKey(const Key('keryx-emergency-band')), findsOneWidget);
+      expect(find.text('EMERGENCY ACTIVE'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'PttState.emergency renders the disc in its emergency colour/legend',
+    (tester) async {
+      await tester.pumpWidget(buildFace(pttState: PttState.emergency));
+      expect(find.text('CANCEL'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'PttState.receiving renders the disc in its RX colour/legend',
+    (tester) async {
+      await tester.pumpWidget(buildFace(pttState: PttState.receiving));
+      expect(find.text('BUSY'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'ring level is fed straight through to the disc (no internal demo '
+    'animation driving it)',
+    (tester) async {
+      final level = ValueNotifier<double>(0);
+      await tester.pumpWidget(buildFace(ringLevel: level));
+      expect(
+        PttRingController.litTickCountForLevel(0),
+        0,
+      );
+      level.value = 100;
+      await tester.pump();
+      expect(find.byKey(const Key('keryx-ptt-ring')), findsOneWidget);
     },
   );
 }
