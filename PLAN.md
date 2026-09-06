@@ -2724,3 +2724,35 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-06T07:04:31Z
+
+
+### TASK-044
+**Title:** Field audio fix — configure Android WebRTC audio session/routing (ORCH-direct exception)
+**Status:** done
+**Assigned_To:** TBD
+**Priority:** critical
+**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md §8.1/§8.5 (voice path — silent on the audio-session/routing question; this is genuinely spec-silent, pinned here as an implementation decision, not a spec violation); the 2026-08-23 field-test handover (docs/handovers/2026-08-23.md) — "PTT button responds... but no voice flows to the peer"; lib/services/mesh/rtc_adapter_flutter_webrtc.dart (frozen, reopened here)
+**Owned_Paths:** lib/services/mesh/rtc_adapter_flutter_webrtc.dart
+**Depends_On:** —
+**Description:** **PROCESS EXCEPTION, disclosed plainly per this project's own norms:** this task was implemented directly by ORCH, not a builder, at the project owner's explicit request (interactive session, 2026-09-06, choosing "fast track" over the normal claim->implement->review->merge pipeline for time). ORCH does not build under this project's protocol (CLAUDE.md/AGENTS.md); this is a one-off exception for a narrow, well-understood fix, not a precedent — the normal pipeline resumes for the next task. Diagnosis: the 2026-08-23 field test found LOCAL discovery working but zero audio between two real phones despite peer detection. Code audit (this session) found the actual root cause candidate: **nothing anywhere in the codebase ever configures Android's WebRTC audio session** — no `AudioManager` mode, no speakerphone routing, no `flutter_webrtc` `Helper.setAndroidAudioConfiguration`/`setSpeakerphoneOn` call exists anywhere (grep-confirmed, zero hits). An unconfigured Android WebRTC session can default call audio to the earpiece at a very low level (or stay in `MODE_NORMAL`), which is indistinguishable from "no audio" on a hand-held device not held to the ear. Fix: `FlutterWebrtcAdapter.getLocalAudioTrack()` now calls `Helper.setAndroidAudioConfiguration()` (mode `inCommunication`, stream `voiceCall`, usage `voiceCommunication`, content type `speech`, `manageAudioFocus: false` — `RadioForegroundService.kt` already owns its own `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` request with matching attributes, so a second focus grab would conflict) then `Helper.setSpeakerphoneOn(true)` to force loudspeaker routing, once per session before the first `getUserMedia` call. iOS is unaffected (AVAudioSession already routes voice-chat audio to the speaker by default; the Android-only native call is a no-op there). **A second, structural gap was found and NOT fixed here, deliberately out of scope**: `onTrack`/remote-stream handling does not exist anywhere in the `RtcAdapter` abstraction — the app has no visibility into or control over the incoming peer's audio track at all. Remote audio likely still auto-plays at the native layer without it (standard WebRTC behaviour for audio-only, unlike video), so it is not believed to be the actual cause of the reported symptom, but it is a real completeness gap (no RX volume/mute control, no metering source for a real amplitude ring per TASK-043's own disclosed proxy-not-real-source decision). Recorded as follow-up debt for a real task, not fixed under this exception's narrow scope.
+**Acceptance_Criteria:**
+- [x] `Helper.setAndroidAudioConfiguration` called once per session with `inCommunication`/`voiceCall`/`voiceCommunication`/`speech` and `manageAudioFocus: false`
+- [x] `Helper.setSpeakerphoneOn(true)` called once per session, forcing loudspeaker routing
+- [x] No conflict with `RadioForegroundService.kt`'s existing audio focus request (confirmed by reading its exact `AudioFocusRequest` attributes before choosing `manageAudioFocus: false`)
+- [x] `flutter analyze` clean on the touched file and repo-wide (only the 8 pre-existing TASK-035 warnings, unrelated); `flutter test` full suite green, no regression (1037/40/0, unchanged from pre-fix)
+- [x] `flutter build apk --release` succeeds and produces a real APK for field testing
+- [ ] **NOT verifiable in this session**: no phone is attached to this dev machine, so this fix is unverified on real hardware. It is the highest-confidence code-level candidate found by audit, not a confirmed fix — the next two-phone field test is what actually confirms or refutes it.
+**Branch:** — (committed directly to master, ORCH-direct exception, no task branch)
+**Started_At:** 2026-09-06T09:48:50Z
+**Progress_Notes:**
+- [2026-09-06T09:48:50Z] [ORCH] Diagnosed via full code audit (no device attached, code-level only): traced getUserMedia -> addTrack -> offer/answer -> ICE -> TX-gate (`MeshController._onFloorEffect`) end to end; TX-side gating logic confirmed correct and already reviewed (TASK-021). Grepped entire `lib/` for `onTrack`/`onAddStream`/`RTCTrackEvent`/audio-routing calls (`AudioManager`/`setSpeakerphoneOn`/`Helper.`) — zero hits for routing, confirming the audio-session gap. Checked `RadioForegroundService.kt`'s own `AudioFocusRequest` to avoid a conflicting second focus grab. Implemented the fix, reverted the incidental `analysis_options.yaml` auto-upgrade before committing (same discipline as every builder this session), ran full analyze + test suite clean, built a release APK for field testing.
+**Artifacts:**
+- lib/services/mesh/rtc_adapter_flutter_webrtc.dart (audio session/routing config in `getLocalAudioTrack()`)
+**Test_Evidence:**
+- [2026-09-06T09:48:50Z] [ORCH] `flutter analyze` (repo-wide) — 8 pre-existing warnings, all in `test/services/session/radio_session_controller_test.dart` (TASK-035 debt, unrelated); zero issues in the touched file.
+- [2026-09-06T09:48:50Z] [ORCH] `flutter test` (full suite) — 1037 passed, 40 skipped (pre-existing PARKED FR-025 soak skips), 0 failed — no regression from the pre-fix baseline.
+- [2026-09-06T09:48:50Z] [ORCH] `flutter build apk --release` — first attempt killed by the OS for low memory (a stray Gradle daemon from an earlier build was still holding ~3GB); `gradlew --stop` freed it (3.2GB → 7.4GB free), retry succeeded cleanly. Exit 0, `build/app/outputs/flutter-apk/app-release.apk` 121,326,480 bytes (~115.7MB), sha256 `a3351d8cea2ff162f5a15a54e19da4b351fa63e4852f14455007c40bc612c42c`. Debug-keystore-signed (no release signing key exists yet, per TASK-039's carried debt) — installable for field testing, not a Play upload.
+**Review_Findings:** — (no independent review performed — this is the disclosed process exception; the project owner accepted this trade-off explicitly when choosing "fast track")
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-06T09:48:50Z

@@ -14,6 +14,37 @@ class FlutterWebrtcAdapter implements RtcAdapter {
 
   @override
   Future<RtcLocalAudioTrack> getLocalAudioTrack() async {
+    // ORCH-direct field fix (2026-09-06): the two-phone field test
+    // (2026-08-23 handover) found peer discovery working but no audio
+    // flowing on PTT. Nothing anywhere in this codebase ever configured
+    // WebRTC's audio session/routing — flutter_webrtc's native engine can
+    // default an unconfigured Android session to the earpiece at a very
+    // low level (or leave AudioManager in MODE_NORMAL), which reads
+    // exactly like "no audio" on a device this isn't held up to the ear
+    // for. `manageAudioFocus: false` because `RadioForegroundService.kt`
+    // already owns a AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK request with the
+    // same VOICE_COMMUNICATION/SPEECH attributes — a second, conflicting
+    // focus request from here (the `.communication` preset's default
+    // `AudioFocusMode.gain`) would fight it. iOS has no earpiece-default
+    // failure mode analogous to this (AVAudioSession routes voice-chat
+    // audio to the speaker by default), so this is Android-only; a no-op
+    // call on iOS is harmless (`WebRTC.platformIsAndroid` guards it).
+    await webrtc.Helper.setAndroidAudioConfiguration(
+      webrtc.AndroidAudioConfiguration(
+        manageAudioFocus: false,
+        androidAudioMode: webrtc.AndroidAudioMode.inCommunication,
+        androidAudioStreamType: webrtc.AndroidAudioStreamType.voiceCall,
+        androidAudioAttributesUsageType:
+            webrtc.AndroidAudioAttributesUsageType.voiceCommunication,
+        androidAudioAttributesContentType:
+            webrtc.AndroidAudioAttributesContentType.speech,
+      ),
+    );
+    // A hand-held walkie-talkie is meant to be heard without holding the
+    // phone to the ear — force loudspeaker routing rather than trusting
+    // whatever the (now-configured) communication mode defaults to.
+    await webrtc.Helper.setSpeakerphoneOn(true);
+
     final stream = await webrtc.navigator.mediaDevices.getUserMedia({
       'audio': MeshConfig.audioConstraints,
       'video': false,
