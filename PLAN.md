@@ -2622,7 +2622,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-042
 **Title:** Phase 2 PTT redesign — single hero PTT disc with a live amplitude-ring meter
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** Approved Phase 2 design canvas (https://claude.ai/code/artifact/885a21ca-a4f2-4605-bc9a-7a36807be74e, Main.dc.html interactive prototype — the ring-meter behaviour, disc press/release states, and glyph swap are normative here, not a written spec section) — supersedes specs/KERYX_UI_Design_Specification_v1.0.md §4 Key travel ("Pressed keys move 1 dp down... same three changes on every control" — the disc keeps this rule, only its shape and size change) and the PTT portion of §5 Signature Elements; §2 Colour Tokens (tx #E23D2E, rx #7FD1A0, lcd/idle amber #F2A93B, emergency #FF7A18 — all via KeryxTheme, no literal hexes in widget code); lib/features/ptt/** (frozen, reopened here — ptt_button.dart, key_row.dart, edge_glow.dart, emg_key.dart, ptt_haptics.dart all in territory)
@@ -2630,22 +2630,52 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 **Depends_On:** —
 **Description:** Second of two independent lanes that converge in TASK-043; does not touch lib/features/face/**, lib/features/display/**, lib/features/knob/**/grille/**, or lib/app.dart/lib/main.dart. Rebuilds the PTT control as the approved design's hero disc, replacing the old compact key-style PttButton. (1) New disc widget: a large circular control (approved canvas uses a 320dp outer diameter with a 236dp raised face — treat those as the reference proportions, adjust only if a real device safe-area forces it, and say so if you do) surrounded by a ring of 64 short radial ticks that light up symmetrically from the top as a live amplitude meter — the ring is driven by an external level value (0-100) the widget receives, NOT computed internally, so FaceScreen (TASK-043) can feed it real mic/RX amplitude later; ship a PttRingController/ValueListenable<double> seam (constructor-injectable, defaulting to a simple internal ticker for standalone preview/tests) rather than hardcoding a demo animation into the shipped widget. (2) State colour: idle ring+glyph amber (KeryxTheme.lcd), pressed/TX red (KeryxTheme.tx), external RX-active state green (KeryxTheme.rx), emergency state orange (KeryxTheme.emergency) — expose state as an enum the parent sets, mirroring how ptt_state.dart already models PTT state today; check that file before inventing a second state enum. (3) Press/release: reuse KeryxTheme's pressed-key convention (1 dp down, drop the top highlight, gain the inner shadow) applied to the disc's raised-face gradient, exactly as the approved canvas's Transmit artboard shows; wire through existing ptt_haptics.dart and edge_glow.dart hook points rather than duplicating haptic/glow logic. (4) Icon glyph swaps mic -> speaker outline when the parent reports RX-active (matches the canvas); centre legend text swaps PTT / BUSY / CANCEL per state, driven by the same enum. (5) key_row.dart's four-key rail (MON/SCAN/STN/EMG) stays as a separate row below the disc per the canvas — keep it, just confirm it still lays out correctly beneath the larger disc and is not a dependency of the disc itself. (6) emg_key.dart's existing emergency-hold behaviour is preserved; only the visual state colour (orange) plumbing changes to match the disc, not the hold-to-arm interaction logic itself, unless FR text you find says otherwise — if so, cite it in the dossier.
 **Acceptance_Criteria:**
-- [ ] New disc widget renders standalone in a widget test at each of idle/tx/rx/emergency, asserting ring stroke colour and centre glyph/legend per state
-- [ ] Ring level is driven by an injected value/listenable, not an internal hardcoded animation — a widget test sets the level directly and asserts the number of lit ticks changes accordingly
-- [ ] Press produces the 1dp-down / no-top-highlight / inner-shadow treatment (asserted via the same technique existing key_row_test.dart/ptt_button_test.dart use for other keys, or documented if a new assertion approach was needed)
-- [ ] Existing ptt_haptics.dart and edge_glow.dart are reused, not duplicated — dossier states which hook points were wired
-- [ ] key_row.dart (MON/SCAN/STN/EMG rail) still passes its existing tests unmodified in behaviour, laid out beneath the new disc in a combined widget test
-- [ ] emg_key.dart hold-to-arm interaction is unchanged in behaviour; only its colour token changed — a before/after diff note in the dossier confirms this
-- [ ] flutter analyze clean on every file this task touches; flutter test green for test/features/ptt/**
+- [x] New disc widget renders standalone in a widget test at each of idle/tx/rx/emergency, asserting ring stroke colour and centre glyph/legend per state
+- [x] Ring level is driven by an injected value/listenable, not an internal hardcoded animation — a widget test sets the level directly and asserts the number of lit ticks changes accordingly
+- [x] Press produces the 1dp-down / no-top-highlight / inner-shadow treatment (asserted via the same technique existing key_row_test.dart/ptt_button_test.dart use for other keys, or documented if a new assertion approach was needed)
+- [x] Existing ptt_haptics.dart and edge_glow.dart are reused, not duplicated — dossier states which hook points were wired
+- [x] key_row.dart (MON/SCAN/STN/EMG rail) still passes its existing tests unmodified in behaviour, laid out beneath the new disc in a combined widget test
+- [x] emg_key.dart hold-to-arm interaction is unchanged in behaviour; only its colour token changed — a before/after diff note in the dossier confirms this
+- [x] flutter analyze clean on every file this task touches; flutter test green for test/features/ptt/**
 **Branch:** task/TASK-042-cx
 **Started_At:** 2026-09-06T05:14:29Z
-**Progress_Notes:** —
-**Artifacts:** —
-**Test_Evidence:** —
+**Progress_Notes:**
+- [2026-09-06T06:06:37Z] [CX] Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-042 Owned_Paths inspected in E:/DELL-PROJECTS/wt-codex-WALKIETALKIE
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/ptt/**  -> 8 file(s):
+           lib/features/ptt/README.md
+           lib/features/ptt/edge_glow.dart
+           lib/features/ptt/emg_key.dart
+           lib/features/ptt/key_row.dart
+           lib/features/ptt/ptt.dart
+           lib/features/ptt/ptt_button.dart
+           lib/features/ptt/ptt_haptics.dart
+           lib/features/ptt/ptt_state.dart
+  GLOB   test/features/ptt/**  -> 5 file(s):
+           test/features/ptt/edge_glow_test.dart
+           test/features/ptt/emg_key_test.dart
+           test/features/ptt/key_row_test.dart
+           test/features/ptt/ptt_button_test.dart
+           test/features/ptt/ptt_haptics_test.dart
+  FILE   dossiers/TASK-042.md  -> exists, 24 line(s), 1175 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+- [2026-09-06T06:06:37Z] [CX] Hero disc implementation complete on `task/TASK-042-cx` (`51cc66f`, plus meter-count correction `464b653`). The 64-tick ring now paints exactly the injected controller's 0–64 count in symmetric pairs from top.
+**Artifacts:**
+- `lib/features/ptt/ptt_button.dart` (hero disc, injected ring controller, painter)
+- `lib/features/ptt/ptt_state.dart` (RX/emergency presentation states)
+- `lib/features/ptt/key_row.dart` and `lib/features/ptt/README.md` (Phase 2 rail/documentation)
+- `test/features/ptt/ptt_button_test.dart` (state, meter, press, and combined rail coverage)
+- `dossiers/TASK-042.md` (hook and emergency-hold diff documentation)
+**Test_Evidence:**
+- [2026-09-06T06:06:37Z] [CX] `flutter analyze lib/features/ptt test/features/ptt` — No issues found (exit 0).
+- [2026-09-06T06:06:37Z] [CX] `flutter test test/features/ptt` — 21/21 passed (hero state colour/glyph/legend, injected meter at 0/75/100, press treatment, rail layout, existing haptic/edge/EMG tests).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-09-06T05:16:00Z
+**Updated_At:** 2026-09-06T06:06:37Z
 
 ### TASK-043
 **Title:** Phase 2 PTT redesign — assemble the new hero-PTT home screen, station roster screen, and emergency band
