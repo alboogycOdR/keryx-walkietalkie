@@ -11,6 +11,7 @@ class StatusStrip extends StatelessWidget {
     required this.modeLabel,
     required this.batteryLevel,
     required this.onStationsTap,
+    required this.onSettingsTap,
   });
 
   /// FR-067 `STN n` count, aggregate across the whole roster.
@@ -28,6 +29,11 @@ class StatusStrip extends StatelessWidget {
   final double batteryLevel;
 
   final VoidCallback onStationsTap;
+
+  /// Approved Phase 2 canvas: the header kebab menu is Settings' new home
+  /// now that the old rail's settings key drives the emergency intent
+  /// instead (see `FaceView._railRegion`'s dartdoc).
+  final VoidCallback onSettingsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +66,21 @@ class StatusStrip extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           _Battery(level: batteryLevel),
+          const SizedBox(width: 6),
+          Semantics(
+            button: true,
+            label: 'Settings',
+            child: IconButton(
+              key: const Key('keryx-status-strip-settings'),
+              tooltip: 'Settings',
+              iconSize: 18,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              color: KeryxTheme.legend,
+              onPressed: onSettingsTap,
+              icon: const Icon(Icons.more_vert),
+            ),
+          ),
         ],
       ),
     );

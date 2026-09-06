@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/features/face/status_strip.dart';
 
+void _noop() {}
+
 void main() {
   Future<void> pump(
     WidgetTester tester, {
     required int stationCount,
     required int? signalQuality,
     required VoidCallback onStationsTap,
+    VoidCallback onSettingsTap = _noop,
   }) {
     return tester.pumpWidget(
       MaterialApp(
@@ -18,6 +21,7 @@ void main() {
             modeLabel: 'AUTO',
             batteryLevel: 0.84,
             onStationsTap: onStationsTap,
+            onSettingsTap: onSettingsTap,
           ),
         ),
       ),
@@ -45,6 +49,22 @@ void main() {
     await tester.tap(find.byKey(const Key('keryx-status-strip-stn')));
     expect(tapped, isTrue);
   });
+
+  testWidgets(
+    'tapping the settings icon fires onSettingsTap (Phase 2 header kebab)',
+    (tester) async {
+      var tapped = false;
+      await pump(
+        tester,
+        stationCount: 0,
+        signalQuality: null,
+        onStationsTap: () {},
+        onSettingsTap: () => tapped = true,
+      );
+      await tester.tap(find.byKey(const Key('keryx-status-strip-settings')));
+      expect(tapped, isTrue);
+    },
+  );
 
   testWidgets('renders battery percentage', (tester) async {
     await pump(
