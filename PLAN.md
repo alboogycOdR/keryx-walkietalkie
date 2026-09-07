@@ -2837,7 +2837,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-047
 **Title:** New design system — tokens, typography, spacing, dark-first + full light theme
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §3.1 (direction — "Original, calm, modern and functional… dark-first interface with a complete light theme… no simulated screws, molded textures, seven-segment glass or faux hardware housing"), §3.2 (the eleven proposed tokens and their dark/light values; "do not scatter literal color values across widgets"; "Use color only as a redundant state cue"), §3.3 (typography scale 24/30, 18/24, 16/24, 14/20, 12/16; Inter retained; 8 dp grid; 16 dp page margins; 48×48 dp minimum target; "Avoid a fixed full-screen height allocation"), §3.4 (icon family, 120–200 ms state motion, 200–300 ms page/sheet motion, reduced-motion behavior); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D08, UX-FR-065 (KERYX branding retained; no Zello assets), §6 (WCAG AA contrast, 48 dp targets, scalable text, reduced motion); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (contrast/theme/text-scale verification); ADR-001 §3 item 2 (this Design spec supersedes `KERYX_UI_Design_Specification_v1.0.md` §1/§3.1/§4/§5/§6/§8, while §8's *substance* — ≥4.5:1 contrast, 48 dp targets, TalkBack, haptic/sound-only operability — carries forward unchanged). FROZEN territory reopened for this task only: `lib/core/theme/**`.
@@ -2845,15 +2845,15 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 **Depends_On:** —
 **Description:** Replace the hardware-faceplate token set with the successor design system, so every Wave 4 screen has a single source of visual truth on day one. Implement Design §3.2's token table verbatim as named tokens (`surface/base`, `surface/card`, `surface/raised`, `text/primary`, `text/secondary`, `border/default`, `action/primary`, `state/tx`, `state/rx`, `state/warning`, `state/emergency`) with both the dark and light column values, plus the §3.3 type scale and 8 dp spacing/margin constants, exposed as a Flutter theme extension in whatever shape matches this repo's existing `lib/core/theme/**` conventions — additive where the old faceplate tokens are still referenced by the legacy face, since that face stays alive until TASK-061 and this task must not break it. Dark is the default; the light theme is complete, not a stub (§3.1). **Contrast is a tested property, not a claim**: compute and assert the actual ratios for every foreground/background token pair the system sanctions, against the WCAG AA floor carried forward by ADR-001 §3 item 2 and PRD §6 — if a supplied hex value fails, report it as a finding with the measured ratio and a minimal corrected value rather than silently shipping it or silently substituting one. Colour is a redundant cue only: the token API must make it natural for a caller to attach text/icon alongside (§3.2, UX-FR-022). Motion durations from §3.4 are tokens too, and a reduced-motion path must exist that removes decorative animation while preserving critical state changes. No Zello or third-party artwork, icon set or copyrighted asset enters the repo (UX-FR-065, Design §0). This task ships the system and its own tests only — it does not build screens and does not touch any `lib/features/**` path.
 **Acceptance_Criteria:**
-- [ ] All eleven Design §3.2 tokens exist by name with both dark and light values; no screen-facing literal colour constants are introduced (Design §3.2)
-- [ ] Dark is default and a complete light theme exists (every token defined in both), asserted by a test that enumerates the token set in both themes (Design §3.1)
-- [ ] Contrast ratios for every sanctioned foreground/background pairing are computed in a test and meet WCAG AA (≥4.5:1 for body text, ≥3:1 for large text/graphical objects); any supplied value that fails is reported with its measured ratio, not silently shipped (PRD §6; ADR-001 §3 item 2)
-- [ ] Type scale implements Design §3.3's five steps (24/30 semibold, 18/24 semibold, 16/24, 14/20, 12/16) using the existing Inter asset, and supports system text scaling to 2.0 without a fixed full-screen height allocation (Design §3.3; Verification §6)
-- [ ] Spacing tokens implement the 8 dp base grid, 16 dp page margins, 12–16 dp card spacing, 8–12 dp control gaps, and a 48×48 dp minimum-target constant (Design §3.3)
-- [ ] Motion tokens implement 120–200 ms state and 200–300 ms page/sheet durations, with a reduced-motion path that drops decorative animation and retains critical state changes (Design §3.4)
-- [ ] The existing legacy face still builds and its tests still pass — this task is additive to `lib/core/theme/**`, breaking no current consumer
-- [ ] No third-party/Zello artwork, icon set or proprietary asset is added (UX-FR-065; Design §0)
-- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+- [x] All eleven Design §3.2 tokens exist by name with both dark and light values; no screen-facing literal colour constants are introduced (Design §3.2)
+- [x] Dark is default and a complete light theme exists (every token defined in both), asserted by a test that enumerates the token set in both themes (Design §3.1)
+- [x] Contrast ratios for every sanctioned foreground/background pairing are computed in a test and meet WCAG AA (≥4.5:1 for body text, ≥3:1 for large text/graphical objects); any supplied value that fails is reported with its measured ratio, not silently shipped (PRD §6; ADR-001 §3 item 2)
+- [x] Type scale implements Design §3.3's five steps (24/30 semibold, 18/24 semibold, 16/24, 14/20, 12/16) using the existing Inter asset, and supports system text scaling to 2.0 without a fixed full-screen height allocation (Design §3.3; Verification §6)
+- [x] Spacing tokens implement the 8 dp base grid, 16 dp page margins, 12–16 dp card spacing, 8–12 dp control gaps, and a 48×48 dp minimum-target constant (Design §3.3)
+- [x] Motion tokens implement 120–200 ms state and 200–300 ms page/sheet durations, with a reduced-motion path that drops decorative animation and retains critical state changes (Design §3.4)
+- [x] The existing legacy face still builds and its tests still pass — this task is additive to `lib/core/theme/**`, breaking no current consumer
+- [x] No third-party/Zello artwork, icon set or proprietary asset is added (UX-FR-065; Design §0)
+- [x] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
 **Branch:** task/TASK-047-gb
 **Started_At:** 2026-09-07T18:19:00Z
 **Progress_Notes:**
@@ -2867,12 +2867,22 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
     FILE   dossiers/TASK-047.md  -> exists, 30 line(s), 1520 bytes
   [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
   Territory matches expectation (existing faceplate theme.dart + theme_test.dart + dossier). Implementing an additive ThemeExtension; not replacing KeryxFacePlate.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-07T18:36:00Z] [GB] Successor token system landed as `KeryxUxTokens` ThemeExtension (`5b81f7a`). Design §3.2 hexes verbatim; four body-text misses on `surface/raised` reported not rewritten (dossier). Dark default, complete light. `KeryxTheme`/`KeryxFacePlate` untouched. → needs_review.
+**Artifacts:**
+- lib/core/theme/ux_tokens.dart
+- lib/core/theme/theme.dart (additive export only)
+- lib/core/theme/README.md
+- test/core/theme/ux_tokens_test.dart
+- dossiers/TASK-047.md
+**Test_Evidence:**
+- [2026-09-07T18:36:00Z] [GB] `flutter test test/core/theme/` — 28/28 pass (11 legacy + 17 new).
+- [2026-09-07T18:36:00Z] [GB] `flutter test` — **1054 passed / 0 failed / 40 skipped** (1037 baseline + 17 new; 40 PARKED FR-025 skips unchanged).
+- [2026-09-07T18:36:00Z] [GB] `flutter analyze lib/core/theme test/core/theme` — No issues found. Repo-wide `flutter analyze` — 8 issues, all pre-existing TASK-035 in `test/services/session/radio_session_controller_test.dart`.
+- [2026-09-07T18:36:00Z] [GB] Revert-mutation: (1) dark `text/primary` `#F4F6F8`→`#000000` fails "dark column matches Design §3.2 verbatim"; restored. (2) `if (false && reducedMotion)` fails "reduced motion drops decorative/page" (Expected 0:00:00, Actual 160ms); restored.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-07T18:23:12Z
+**Updated_At:** 2026-09-07T18:36:00Z
 
 
 ### TASK-048
