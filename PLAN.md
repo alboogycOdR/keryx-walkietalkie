@@ -3401,7 +3401,7 @@ Territory matches expectation (existing gradle.kts + dossier). Removing the iner
 
 ### TASK-065
 **Title:** RX remote-track handling + real quality/amplitude telemetry source in RtcAdapter
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** ADR-001 §5 ("TASK-044's own disclosed gap (no `onTrack`/remote-stream handling in `RtcAdapter`, no real RX metering source) — matches the new Technical spec §5.3's own instruction… Folded in as its own task, not conflated with the shell/navigation work"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.3 ("Remove the simulated amplitude meter's measurement semantics or use a verified real audio tap in a separately scoped telemetry task"), §0 and §12 ("The baseline commit records a still-unverified real-device audio routing correction and remote-track handling gap… Review remote-track handling if voice remains absent"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-015 ("An actual amplitude meter requires a verified audio sample source"), §7 ("Review remote-track handling if voice remains absent"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-027, UX-FR-045; specs/KERYX_Product_Technical_Spec_v1.1.md §8.1/§8.5 (voice path); TASK-044's own Description (the gap as originally disclosed). FROZEN territory reopened for this task only: `lib/services/mesh/rtc_adapter.dart`, `lib/services/mesh/rtc_adapter_flutter_webrtc.dart`.
@@ -3416,12 +3416,23 @@ Territory matches expectation (existing gradle.kts + dossier). Removing the iner
 - [ ] No consumer wiring is added outside this territory; the seam is left for TASK-046/TASK-051 to consume later
 - [ ] Every new regression test is revert-mutation-checked
 - [ ] `flutter analyze` clean; full suite green with no regression; `flutter build apk --debug` succeeds
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-065-gb
+**Started_At:** 2026-09-07T19:45:16Z
+**Progress_Notes:**
+- [2026-09-07T19:45:16Z] [GB] Claimed TASK-065. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-065 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+[preflight] 4 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  FILE   lib/services/mesh/rtc_adapter.dart  -> exists, 104 line(s), 3570 bytes
+  FILE   lib/services/mesh/rtc_adapter_flutter_webrtc.dart  -> exists, 237 line(s), 8451 bytes
+  NEW    test/services/mesh/rtc_adapter_test.dart  -> does not exist; parent test/services/mesh/ exists
+  FILE   dossiers/TASK-065.md  -> exists, 34 line(s), 1759 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerConnection (out of territory); new PC members would break it. Remote-track surface will be an extension + Expando so the Fake keeps compiling. Honesty: inbound-rtp `audioLevel` only; no proxy from energy/jitter/loss.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-07T19:45:16Z
