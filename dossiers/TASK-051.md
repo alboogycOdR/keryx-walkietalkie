@@ -31,3 +31,117 @@ rather than widget colour. Emergency is reflected here as an overlay only — th
 control screen is TASK-054's, and FR-025 stays PARKED.
 
 ## Work Log
+
+- [2026-09-07T22:30:00Z] [S5] Claimed. Preflight (`python scripts/preflight_paths.py TASK-051`):
+  ```
+  [preflight] TASK-051 Owned_Paths inspected in E:/DELL-PROJECTS/wt-s5-WALKIETALKIE
+  [preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+    GLOB   lib/features/talk/**  -> matches nothing yet (new territory)
+    GLOB   test/features/talk/**  -> matches nothing yet (new territory)
+    FILE   dossiers/TASK-051.md  -> exists, 33 line(s), 1614 bytes
+  ```
+  Read TASK-046's `RadioViewState`/`RadioViewIntents`/telemetry types, TASK-045's
+  `RadioHost` contract, TASK-047's `KeryxUxTokens`, the legacy `PttButton`/`PttState`,
+  and Design/Technical/PRD/Verification §2.2/§4/§5/§5.1/§5.2/VT-010..015 in full before
+  writing code.
+
+  **Architecture decision — host injection, not an app_shell provider.** TASK-048's
+  `lib/app_shell/**` (including its `radioHostProvider` and the stand-in `TalkScreen`
+  it built) is frozen again post-merge and not in this task's `Owned_Paths`. Rather than
+  import an app_shell-owned provider into `lib/features/talk/**` (wrong dependency
+  direction — features should not depend on the shell composition root), `TalkScreen`
+  takes `RadioHost host` as a constructor parameter; `radioStateProvider`/
+  `settingsProvider` (both `lib/core/**`) are read via the normal Riverpod providers,
+  same as TASK-046/048's own screens.
+
+  **Known planning gap, flagged for ORCH, not a blocker for this task:** no task in
+  the current plan owns swapping `lib/app_shell/talk_screen.dart`'s stand-in for this
+  real widget — Owned_Paths for 049/050/051/053/054/055/056 (Wave 4) and 057/058
+  (Wave 5 gates) all exclude `lib/app_shell/**`, and TASK-058's own Description states
+  explicitly "this task modifies no production code (its territory contains none)".
+  TASK-048's Review_Findings (round 1, finding 3) anticipated this exact screen
+  "replaces wholesale" but Owned_Paths never reopened `lib/app_shell/talk_screen.dart`
+  for 051. Recommend a short single-owner wiring task (same shape as TASK-048 itself)
+  once all seven Wave 4 screens are done, analogous to how TASK-048 converged 045+046+047.
+
+  **Explicit replacement of `PttButton`'s double-tap latch (Technical §5.2, documented
+  rationale):** rather than reproduce the legacy quick-tap-then-second-down-within-window
+  gesture (which requires a real, if brief, TX blip before converting to a latch, and is
+  materially harder for switch/keyboard/TalkBack users to discover or trigger reliably
+  within a timing window), latch engagement is a separate, clearly-labeled "Lock
+  transmission" action in the secondary row, enabled only once a hold is genuinely
+  granted (`RadioPhase.tx`). Releasing a latch is likewise an explicit "Release
+  transmission" action calling `RadioHost.releaseLatch()`. This satisfies Design §5's
+  "Optional latch is clearly labeled" and the keyboard/switch-access requirement more
+  directly than a hidden gesture would, and is within round-1's own discretion window
+  ("preserve or explicitly replace... with documented rationale and the full test set").
+
+  Built `lib/features/talk/talk_copy.dart` (Design §5 copy constants), `talk_ptt_disc.dart`
+  (`TalkPttDisc` — responsive gesture disc, `TalkPttToggleAlternative` — non-drag
+  accessible alternative), `talk_screen.dart` (composition: header, connection line,
+  overlay-cue chips, status line, disc, toggle alternative, secondary latch/roster row,
+  all in `SafeArea`). VT-011/VT-012 safety net: `_holding`/`_latched` bookkeeping at the
+  screen layer (idempotent hold-start/hold-end, latch suppresses the ordinary release),
+  plus `WidgetsBindingObserver` for app-background release and snapshot-diffing for
+  permission-loss/floor-engine-replacement release — all disclosed in dartdoc.
+
+  Added `test/features/talk/fake_radio_host.dart` (same shape as
+  `test/app_shell/fake_radio_host.dart`, this task's own copy since `test/app_shell/**`
+  is out of territory) and `test/features/talk/talk_screen_test.dart` (23 cases):
+  VT-011 request/grant/release incl. a genuine two-pointer overlap (not a same-pointer
+  replay, which `GestureBinding` itself refuses to route twice) and a late-grant-after-
+  release case; VT-012 cancellation/unmount/backgrounding-is-structural(not directly
+  testable without a real platform lifecycle channel, covered via the same
+  `_releaseOrdinaryHoldIfOwed` code path as the other four triggers, so its own dedicated
+  test would exercise identical code, not additional risk)/permission-loss/engine-
+  replacement, plus a latch-survives-unmount case; latch engage/release; the latch
+  control disabled before a real grant; the non-drag toggle alternative; VT-010 state
+  matrix (pending-not-granted, receiving with resolved/unresolved callsign, disconnected-
+  never-Ready, emergency overlay, denied-flash-composed-with-granted-TX, off/no-engine/
+  permission-denied all disabling the PTT surface); VT-015 roster-unavailable honesty;
+  sizing (96 dp floor, 320 lpx width no-overflow).
+
+  While writing the emergency/denied-flash coverage, found and fixed a real bug: the
+  granted-TX branch of `_statusLineFor` rendered "Hold to talk" instead of Design §4's
+  "Transmitting" — added `TalkCopy.transmitting` and fixed the switch arm; the new
+  VT-010 cases are what caught it.
+
+  Revert-mutation-checked 3 load-bearing guards from within this task's own
+  `Owned_Paths`: (a) `TalkPttDiscState._onPointerUpOrCancel`'s `if (!_holding) return;`
+  guard — removed, flipped exactly the two-pointer-overlap VT-011 case red (release
+  count 2 instead of 1), nothing else; (b) `_TalkScreenState._handleHoldEnd`'s
+  `if (_latched) return;` suppression — removed, flipped exactly the latch-engage/
+  release case red (`releasePttCalls` went from 0 to 1 while latched), nothing else;
+  (c) the `engineReplaced` disjunct in `_onSnapshot`'s safety-net trigger — removed,
+  flipped exactly the engine-replacement VT-012 case red, nothing else. All three
+  reverted immediately after with a clean `git diff` confirmed.
+
+  Reverted the same two standing local-toolchain auto-edits every prior S5 task on
+  this repo has disclosed (`analysis_options.yaml`'s analyzer-exclude block from
+  `flutter analyze`; `android/gradle.properties` from `flutter build`) before every
+  commit — not part of this diff.
+
+  **Disclosed, honest gaps (not blockers, but real):**
+  - Content order (Design §2.2's exact sequence) is a structural claim verified by
+    reading the composed widget tree, not independently asserted by a dedicated
+    ordering test (`find...` position comparisons) — same testing-depth caveat
+    TASK-048 disclosed for its own structural claims.
+  - No decorative meter/ring animation was built on the PTT disc (Design mentions the
+    ring only insofar as it must not be mislabeled as measured — `RadioViewState
+    .meterLevel` exists and is `MeterLevel.decorative` today; this screen simply
+    doesn't render anything from it yet, which is a stricter, not weaker, reading of
+    VT-015 UX-FR-027, but is a visual-polish gap relative to the legacy `PttButton`'s
+    64-tick ring). Flagging for TASK-057 (a11y/responsive polish) or a design-review
+    follow-up rather than adding unreviewed visual design in this task.
+  - `RadioState.isTotWarning` is not projected onto `RadioViewState` at all (TASK-046's
+    own scope, `lib/core/presentation/**` is out of this task's territory) — this
+    screen therefore cannot and does not render a distinct TOT-warning indicator. TOT
+    hard-cut itself still operates through the existing engine unaffected (VT-013's
+    engine-level claim), this is purely a UI-surfacing gap.
+  - `RadioPhase.boot`/`RadioPhase.tuning` disabled/label states share the exact same
+    `ptteEnabled`/`_statusLineFor` code path already covered by the `off` and
+    `permission-denied` cases (all three gate on the same boolean expression), so a
+    dedicated test for each would exercise identical code — not added to keep the
+    suite additive rather than repetitive, but noted here rather than silently assumed.
+
+  Status -> needs_review.
