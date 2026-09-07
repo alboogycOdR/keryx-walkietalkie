@@ -2956,7 +2956,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-049
 **Title:** Channels landing screen — current channel card, recent recall, connection indicator
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.1 (Channels — landing: exact content order, current-channel card contents, recent list, empty state, "Do not show a fake online count", "no new background subscriptions to all 99 channels are authorized"), §1 (Channels owns Current channel / Recent channels / Select / Talk); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D01, UX-D05 (six-entry recall is not message history), UX-FR-002, UX-FR-004, UX-FR-005, UX-FR-008, UX-FR-010; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §1 traceability rows for UX-FR-002/008/045/046 and UX-FR-003/004/009/010, VT-020 (recall order/deduplication); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §6 ("Existing channel-memory writes remain serialized and deduplicated. No schema expansion is required for R1"); ADR-001 §6 (new widgets, reused data sources).
@@ -2978,12 +2978,20 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 **Started_At:** 2026-09-07T20:45:00Z
 **Progress_Notes:**
 - [2026-09-07T20:45:00Z] [GB] Claimed TASK-049 (Channels landing screen). Dependencies TASK-048 confirmed done. Starting on branch task/TASK-049-gb.
+- [2026-09-07T20:47:00Z] [GB] Preflight complete:
+  [preflight] TASK-049 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+  [preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+    GLOB   lib/features/channels/**  -> matches nothing yet (new territory)
+    GLOB   test/features/channels/**  -> matches nothing yet (new territory)
+    FILE   dossiers/TASK-049.md  -> exists, 29 line(s), 1332 bytes
+  [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+  Territory matches expectation: new `lib/features/channels/**` + `test/features/channels/**`, dossier already present. Implementing a fresh Channels landing (ADR-001 §7 item 2) that reads TASK-046's projection and dispatches TASK-046 intents; Select-channel is a launch callback (TASK-050 owns the flow). `lib/app_shell/channels_screen.dart` is frozen TASK-048 territory and will not be edited.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-07T20:45:00Z
+**Updated_At:** 2026-09-07T20:47:00Z
 
 
 ### TASK-050
