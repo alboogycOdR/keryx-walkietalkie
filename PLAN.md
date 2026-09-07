@@ -2956,7 +2956,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-049
 **Title:** Channels landing screen — current channel card, recent recall, connection indicator
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.1 (Channels — landing: exact content order, current-channel card contents, recent list, empty state, "Do not show a fake online count", "no new background subscriptions to all 99 channels are authorized"), §1 (Channels owns Current channel / Recent channels / Select / Talk); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D01, UX-D05 (six-entry recall is not message history), UX-FR-002, UX-FR-004, UX-FR-005, UX-FR-008, UX-FR-010; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §1 traceability rows for UX-FR-002/008/045/046 and UX-FR-003/004/009/010, VT-020 (recall order/deduplication); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §6 ("Existing channel-memory writes remain serialized and deduplicated. No schema expansion is required for R1"); ADR-001 §6 (new widgets, reused data sources).
@@ -2974,15 +2974,16 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 - [ ] All state/colour cues carry a text or icon equivalent and use TASK-047's tokens; no literal colour values (Design §3.2; UX-FR-022)
 - [ ] Widget tests use fake host/projection — no real sockets or native plugins (Verification §2)
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-049-gb
+**Started_At:** 2026-09-07T20:45:00Z
+**Progress_Notes:**
+- [2026-09-07T20:45:00Z] [GB] Claimed TASK-049 (Channels landing screen). Dependencies TASK-048 confirmed done. Starting on branch task/TASK-049-gb.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-07T20:45:00Z
 
 
 ### TASK-050
