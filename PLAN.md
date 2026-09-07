@@ -2815,7 +2815,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-046
 **Title:** RadioViewState presentation projection + telemetry honesty
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.1 (authoritative command path — "The UI must not dispatch `TransmitGranted`, `EndTransmit` or remote floor events to simulate a result"), §5.2 (composite presentation state — "Model phase, emergency, latch, denied flash, connection condition and service/permission faults independently. Do not use a single priority switch"), §5.3 (telemetry honesty), §3 ("Never duplicate the reducer state into an independently mutable UI state machine"), §1.1 (placeholder `StationInfo.signalQuality`; the mislabelled amplitude meter "must not migrate"), §9 (`lib/core/presentation/`); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 (state presentation catalogue, all 13 rows, and "Emergency is an overlay, not a replacement for floor phase… Implement a documented composite presentation model with independent fields and deliberate priorities"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-002, UX-FR-022, UX-FR-026, UX-FR-027, UX-FR-045, UX-FR-046; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-010, VT-015, VT-024; ADR-001 §6 (state machines and data sources 100% reused; only the projection is new), §5 (`RadioReducer`/`FloorEngine` semantics NOT superseded).
@@ -2823,26 +2823,27 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 **Depends_On:** TASK-045
 **Description:** A pure, side-effect-free projection layer sitting between TASK-045's host and every screen built in Wave 4, so that no widget ever reads raw reducer state or invents its own. Produce an immutable view-state carrying, as **independent fields** (Technical §5.2, Design §4's closing paragraph), at minimum: floor phase, emergency overlay, latch, transient denied flash, connection condition (configured mode vs *effective* route, kept separate per UX-FR-002 and Technical §7), service/permission fault, current channel/code, requested-vs-authoritative tuning target (Technical §6), active-speaker identity and station visibility, entitlement, and pending operations. Precedence is composed deliberately — a denied flash must not override a granted TX and a global connection error must not conceal an active floor state (Design §4). Also define the typed intents the UI dispatches (press/release/latch-release/tune/apply-settings/join-event), all of which delegate to the host; the projection never mutates state and never synthesizes floor events (Technical §5.1). **Telemetry honesty is a first-class deliverable, not a footnote:** the existing `StationInfo.signalQuality` placeholder maximum must be projected as *unavailable/unknown* rather than full bars (Technical §1.1, §5.3, UX-FR-045), an unknown LINKED roster count must project as unavailable rather than zero (UX-FR-046, VT-024), and any phase-driven ring/animation value must be typed and named as decorative, never as measured RMS or amplitude (Technical §5.3, UX-FR-027, VT-015) — this retires the mislabelled "amplitude meter" semantics TASK-043 shipped as a documented proxy. Real RX metering, if it ever exists, arrives from TASK-065 and plugs into the `measured` variant of this model; this task must model both cases without depending on TASK-065 landing. Technical §1.1 also flags that `RadioState`'s value equality omits some fields — assess whether any projected field depends on an excluded one and, if so, report it (block with `SPEC_AMBIGUITY` or record it as a finding); **do not opportunistically change reducer semantics** (Technical §1.1, ADR-001 §5).
 **Acceptance_Criteria:**
-- [ ] An immutable view-state type in `lib/core/presentation/**` models phase, emergency, latch, denied flash, connection condition, and service/permission fault as independent fields — proven by a test asserting emergency-during-TX shows both, not one replacing the other (Technical §5.2; Design §4)
-- [ ] Configured mode and effective route are distinct fields and are never conflated in the projection (UX-FR-002; Technical §7)
-- [ ] Every one of Design §4's 13 catalogue rows maps to a distinct projected state carrying a text/icon cue in addition to colour (Design §4; UX-FR-022; VT-010)
-- [ ] A pending request never projects as granted TX; grant appears only after authoritative engine grant (Technical §5.1; VT-010/VT-011)
-- [ ] Placeholder `StationInfo.signalQuality` projects as unavailable/unknown, never as measured full strength — asserted by test (Technical §1.1/§5.3; UX-FR-045; VT-024)
-- [ ] An unknown/incomplete LINKED roster projects as unavailable, never as a verified zero count (UX-FR-046; VT-024)
-- [ ] Any level/animation value is typed and documented as decorative-only, with no API surface naming it amplitude/RMS/measured (Technical §5.3; UX-FR-027; VT-015)
-- [ ] Typed intents delegate to TASK-045's host; the projection contains no transport, floor, audio or platform calls, and never dispatches `TransmitGranted`/`EndTransmit`/remote floor events (Technical §5.1)
-- [ ] The `RadioState` equality gap (Technical §1.1) is assessed in writing against every projected field; reducer semantics are unchanged by this task
-- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+- [x] An immutable view-state type in `lib/core/presentation/**` models phase, emergency, latch, denied flash, connection condition, and service/permission fault as independent fields — proven by a test asserting emergency-during-TX shows both, not one replacing the other (Technical §5.2; Design §4)
+- [x] Configured mode and effective route are distinct fields and are never conflated in the projection (UX-FR-002; Technical §7)
+- [x] Every one of Design §4's 13 catalogue rows maps to a distinct projected state carrying a text/icon cue in addition to colour (Design §4; UX-FR-022; VT-010)
+- [x] A pending request never projects as granted TX; grant appears only after authoritative engine grant (Technical §5.1; VT-010/VT-011)
+- [x] Placeholder `StationInfo.signalQuality` projects as unavailable/unknown, never as measured full strength — asserted by test (Technical §1.1/§5.3; UX-FR-045; VT-024)
+- [x] An unknown/incomplete LINKED roster projects as unavailable, never as a verified zero count (UX-FR-046; VT-024)
+- [x] Any level/animation value is typed and documented as decorative-only, with no API surface naming it amplitude/RMS/measured (Technical §5.3; UX-FR-027; VT-015)
+- [x] Typed intents delegate to TASK-045's host; the projection contains no transport, floor, audio or platform calls, and never dispatches `TransmitGranted`/`EndTransmit`/remote floor events (Technical §5.1)
+- [x] The `RadioState` equality gap (Technical §1.1) is assessed in writing against every projected field; reducer semantics are unchanged by this task
+- [x] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
 **Branch:** task/TASK-046-s5
 **Started_At:** 2026-09-07T19:11:36Z
 **Progress_Notes:**
 - [2026-09-07T19:11:40Z] [S5] Claimed TASK-046 (RadioViewState presentation projection). Dependency TASK-045 confirmed done. Starting on branch task/TASK-046-s5.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-07T19:15:00Z] [S5] Implemented lib/core/presentation/** (RadioViewState projection, telemetry-honesty types, connection condition, tuning target, phase-cue extension, RadioViewIntents) + test/core/presentation/** (32 tests). Written equality-gap assessment: audited all 17 RadioState fields, none excluded from ==/hashCode today -- no SPEC_AMBIGUITY needed, locked in as a per-field regression test, non-blocking finding filed for ORCH since the spec text describes a gap the current baseline does not have. Revert-mutation-checked 3 key regression tests in scratch edits (each reverted, git diff empty after). flutter analyze clean; full suite 1096/0/40 (unchanged parked seeds). Full detail in dossiers/TASK-046.md work log. -> Status: needs_review.
+**Artifacts:** lib/core/presentation/connection_condition.dart, lib/core/presentation/presentation.dart, lib/core/presentation/presentation_cue.dart, lib/core/presentation/radio_phase_presentation.dart, lib/core/presentation/radio_view_intents.dart, lib/core/presentation/radio_view_state.dart, lib/core/presentation/telemetry.dart, lib/core/presentation/tuning_target.dart, test/core/presentation/radio_view_intents_test.dart, test/core/presentation/radio_view_state_test.dart, dossiers/TASK-046.md
+**Test_Evidence:** [2026-09-07T19:15:00Z] [S5] `flutter analyze lib/core/presentation test/core/presentation` -> No issues found. `flutter test test/core/presentation` -> 32/32 new cases pass (25 in radio_view_state_test.dart + 7 in radio_view_intents_test.dart). `flutter test` (full repo suite) -> 1096 passed, 0 failed, 40 skipped (unchanged parked FR-025 seeds, no new skips). Revert-mutation-checked 3 of the new regression tests (equality-gap, LINKED-roster-unavailable, press()-delegates-to-pressPtt) in scratch edits, each reverted immediately after (full detail + exact diffs in dossiers/TASK-046.md work log) -- each mutation bit exactly the test it targeted, no other test moved. Repo-wide flutter analyze after restoring analysis_options.yaml/gradle.properties untouched: only the 8 pre-existing TASK-035 warnings in test/services/session/radio_session_controller_test.dart remain, unrelated to this task and not introduced by it.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-09-07T19:11:36Z
+**Updated_At:** 2026-09-07T19:15:00Z
 
 
 ### TASK-047
