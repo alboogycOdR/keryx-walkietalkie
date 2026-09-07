@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/services/linked/token_client.dart';
 
@@ -103,6 +106,75 @@ void main() {
         throwsA(isA<TokenTransportException>()),
       );
       unreachable.close();
+    });
+  });
+
+  group('TokenClient.resolveTokenUri', () {
+    TokenClient clientFor(String url) => TokenClient(baseUrl: Uri.parse(url));
+
+    test('origin-only base appends a single /token', () {
+      final client = clientFor('https://relay.example');
+      expect(client.resolveTokenUri().toString(), 'https://relay.example/token');
+      client.close();
+    });
+
+    test('path prefix is preserved and /token is appended (TASK-024)', () {
+      final client = clientFor('https://relay.example/api');
+      expect(client.resolveTokenUri().toString(), 'https://relay.example/api/token');
+      client.close();
+    });
+
+    test('trailing-slash prefix is preserved', () {
+      final client = clientFor('https://relay.example/api/');
+      expect(client.resolveTokenUri().toString(), 'https://relay.example/api/token');
+      client.close();
+    });
+
+    test('base that already ends in /token is not double-appended', () {
+      final client = clientFor('https://relay.example/token');
+      expect(client.resolveTokenUri().toString(), 'https://relay.example/token');
+      expect(client.resolveTokenUri().pathSegments, ['token']);
+      client.close();
+    });
+
+    test('base that already ends in /token/ still has exactly one token segment', () {
+      final client = clientFor('https://relay.example/token/');
+      final uri = client.resolveTokenUri();
+      expect(uri.pathSegments.where((s) => s.isNotEmpty).toList(), ['token']);
+      client.close();
+    });
+
+    test('prefix whose last segment is not token still appends', () {
+      final client = clientFor('https://relay.example/token-svc');
+      expect(client.resolveTokenUri().toString(), 'https://relay.example/token-svc/token');
+      client.close();
+    });
+
+    test('requestToken POSTs the resolved path (no double-append on /token base)', () async {
+      final bound = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      String? postedPath;
+      bound.listen((request) async {
+        postedPath = request.uri.path;
+        request.response.statusCode = 200;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          jsonEncode({'token': 'jwt', 'identity': 'i#1', 'ttl_seconds': 60}),
+        );
+        await request.response.close();
+      });
+      addTearDown(() => bound.close(force: true));
+
+      final base = Uri(
+        scheme: 'http',
+        host: '127.0.0.1',
+        port: bound.port,
+        path: '/token',
+      );
+      final client = TokenClient(baseUrl: base);
+      addTearDown(client.close);
+
+      await client.requestToken(roomId: 'ABCDEFGHIJKLMNOP', callsign: 'X');
+      expect(postedPath, '/token');
     });
   });
 }
