@@ -2815,7 +2815,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-046
 **Title:** RadioViewState presentation projection + telemetry honesty
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.1 (authoritative command path — "The UI must not dispatch `TransmitGranted`, `EndTransmit` or remote floor events to simulate a result"), §5.2 (composite presentation state — "Model phase, emergency, latch, denied flash, connection condition and service/permission faults independently. Do not use a single priority switch"), §5.3 (telemetry honesty), §3 ("Never duplicate the reducer state into an independently mutable UI state machine"), §1.1 (placeholder `StationInfo.signalQuality`; the mislabelled amplitude meter "must not migrate"), §9 (`lib/core/presentation/`); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 (state presentation catalogue, all 13 rows, and "Emergency is an overlay, not a replacement for floor phase… Implement a documented composite presentation model with independent fields and deliberate priorities"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-002, UX-FR-022, UX-FR-026, UX-FR-027, UX-FR-045, UX-FR-046; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-010, VT-015, VT-024; ADR-001 §6 (state machines and data sources 100% reused; only the projection is new), §5 (`RadioReducer`/`FloorEngine` semantics NOT superseded).
@@ -2833,15 +2833,16 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 - [ ] Typed intents delegate to TASK-045's host; the projection contains no transport, floor, audio or platform calls, and never dispatches `TransmitGranted`/`EndTransmit`/remote floor events (Technical §5.1)
 - [ ] The `RadioState` equality gap (Technical §1.1) is assessed in writing against every projected field; reducer semantics are unchanged by this task
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-046-s5
+**Started_At:** 2026-09-07T19:11:36Z
+**Progress_Notes:**
+- [2026-09-07T19:11:40Z] [S5] Claimed TASK-046 (RadioViewState presentation projection). Dependency TASK-045 confirmed done. Starting on branch task/TASK-046-s5.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T19:19:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-07T19:11:36Z
 
 
 ### TASK-047
