@@ -3356,7 +3356,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-064
 **Title:** NFR-11 app size — split-per-ABI release output and correct the inert abiFilters line
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md NFR-11 ("App size ≤ 60 MB installed") — currently red at a ~114 MB three-ABI fat release APK; ADR-001 §5 (pre-existing ORCH-owed debt carried into this wave as a narrowly scoped task — "NFR-11 app size (114 MB vs ≤60 MB target) + the inert `abiFilters` line in `android/app/build.gradle.kts`"); PLAN.md orchestrator_notes 2026-08-23T05:55Z (TASK-039 review finding: the APK's `lib/` was inspected and found to be a consistent three-ABI fat APK — arm64 39 MB / v7a 29 MB / x86_64 46 MB of `.so` alone — which makes GB's `ndk.abiFilters` line inert and its accompanying comment false); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §8 ("Retain the original performance budgets… Compare against baseline measurements rather than inventing replacement targets"), §2 (release build evidence required). FROZEN territory reopened for this task only: `android/app/build.gradle.kts`.
@@ -3364,12 +3364,12 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 **Depends_On:** —
 **Description:** Pure debt paydown, independent of the redesign. Two related defects in one file. First, the release output is a three-ABI fat APK, so every install carries native libraries for architectures the device cannot use — `--split-per-abi` (or the equivalent gradle `splits` configuration) produces per-ABI artifacts and is the direct route to NFR-11's ≤60 MB target; measure and report the **actual** resulting per-ABI sizes rather than asserting the target is met (Verification §8's "Compare against baseline measurements rather than inventing replacement targets"). Second, the existing `ndk.abiFilters` line is inert — TASK-039's review proved by inspecting the built APK's `lib/` directory that all three ABIs still ship — and its comment claims otherwise; either make it actually take effect or delete it, and in both cases correct the false comment. A lying comment about a size control is worse than no comment, which is why this is scoped as an acceptance criterion rather than a nicety. Nothing else in `android/**` is in this territory: no manifest, permission, service, signing or proguard change is authorized here, and the foreground service, notification actions, audio routing and permissions must all continue to work exactly as TASK-038/044 left them. Verify by building and confirming, from the artifact itself, which ABIs are actually present — the same evidence standard TASK-039's review used.
 **Acceptance_Criteria:**
-- [ ] Release build produces per-ABI artifacts (split-per-ABI or equivalent gradle `splits` configuration), with each artifact's exact byte size recorded (PTS NFR-11)
-- [ ] The per-ABI size figures are measured from real built artifacts and reported against the ≤60 MB target; if a split still exceeds it, that is reported as a fact with a recommendation, not papered over (Verification §8)
-- [ ] The built artifact's `lib/` directory is inspected and the ABIs actually present are listed as evidence — the same standard that exposed the inert line (PLAN.md 2026-08-23 finding)
-- [ ] The inert `ndk.abiFilters` line either takes real effect or is removed, and its false comment is corrected in either case (ADR-001 §5)
-- [ ] No manifest, permission, service, signing or proguard change is made; foreground service, notification actions, audio routing and permissions behave exactly as before
-- [ ] `flutter build apk --release --split-per-abi` succeeds; `flutter analyze` clean; full suite green with no regression
+- [x] Release build produces per-ABI artifacts (split-per-ABI or equivalent gradle `splits` configuration), with each artifact's exact byte size recorded (PTS NFR-11)
+- [x] The per-ABI size figures are measured from real built artifacts and reported against the ≤60 MB target; if a split still exceeds it, that is reported as a fact with a recommendation, not papered over (Verification §8)
+- [x] The built artifact's `lib/` directory is inspected and the ABIs actually present are listed as evidence — the same standard that exposed the inert line (PLAN.md 2026-08-23 finding)
+- [x] The inert `ndk.abiFilters` line either takes real effect or is removed, and its false comment is corrected in either case (ADR-001 §5)
+- [x] No manifest, permission, service, signing or proguard change is made; foreground service, notification actions, audio routing and permissions behave exactly as before
+- [x] `flutter build apk --release --split-per-abi` succeeds; `flutter analyze` clean; full suite green with no regression
 **Branch:** task/TASK-064-gb
 **Started_At:** 2026-09-07T19:06:44Z
 **Progress_Notes:**
@@ -3383,12 +3383,18 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 ```
 Territory matches expectation (existing gradle.kts + dossier). Removing the inert `ndk.abiFilters` (TASK-039 proved Flutter still packs all three ABIs) and configuring split-per-ABI so each architecture is its own artifact.
 - [2026-09-07T19:11:39Z] [GB] Root cause: FlutterPlugin.configureAbiWithoutSplits does `abiFilters.clear(); addAll(PLATFORM_ABI_LIST)` unless `-Psplit-per-abi` is set, so TASK-039's arm64-only filter was wiped before packaging and would also conflict with `--split-per-abi`. Deleting the ndk.abiFilters block (not trying to make it take effect — a working single-ABI filter would block per-ABI artifacts). No always-on gradle `splits {}` (fights unflagged `flutter build apk` used by CI / TWO_PHONE_TEST.md, both out of territory). Next: split-per-abi release build + lib/ inspect + full suite.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-07T19:25:08Z] [GB] Split-per-abi release green. Branch tip `47b35d9` (code `ad02731`). Three APKs, each `lib/` is a single ABI (16 `.so`): armeabi-v7a 34,461,372 B (32.86 MB) sha256 9CF3AC97…; arm64-v8a 44,872,796 B (42.79 MB) sha256 E45BA24D…; x86_64 51,642,828 B (49.25 MB) sha256 33C45E4F…. All three APKs and uncompressed entry totals under NFR-11's 60 MB (fat baseline was 114 MB). R8 mapping.txt 32,668,068 B. `ndk.abiFilters` removed; false single-ABI comment replaced. → needs_review.
+**Artifacts:**
+- android/app/build.gradle.kts
+- dossiers/TASK-064.md
+**Test_Evidence:**
+- [2026-09-07T19:25:08Z] [GB] `flutter build apk --release --split-per-abi` — exit 0, Gradle assembleRelease 535.2s. Artifacts `build/app/outputs/flutter-apk/`: `app-armeabi-v7a-release.apk` 34,461,372 bytes (32.86 MB, sha256 9CF3AC97CFBF96E5739AE7077A277B765E74C2F19BE7AB35F55AE6070C96CFC4, lib/=armeabi-v7a only, 16 .so, uncompressed .so 29,535,708); `app-arm64-v8a-release.apk` 44,872,796 bytes (42.79 MB, sha256 E45BA24D37D49AF0BE5EAD6224D9821AB33DB4D9321ADCAF0338387695F6E050, lib/=arm64-v8a only, 16 .so, uncompressed .so 39,936,432); `app-x86_64-release.apk` 51,642,828 bytes (49.25 MB, sha256 33C45E4FCFF42BE6BEFD4196504129D2707AAE497B912DAFD59D36C502FE1CAF, lib/=x86_64 only, 16 .so, uncompressed .so 46,715,896). No fat `app-release.apk`. All three APKs and uncompressed zip-entry totals (35.58 / 45.50 / 51.96 MB) are under ≤60 MB. R8: `build/app/outputs/mapping/release/mapping.txt` 32,668,068 bytes.
+- [2026-09-07T19:25:08Z] [GB] `flutter analyze` — 8 issues, all pre-existing in `test/services/session/radio_session_controller_test.dart` (TASK-035); zero in Owned_Paths. Analyzer auto-upgrade of `analysis_options.yaml` reverted, not committed.
+- [2026-09-07T19:25:08Z] [GB] `flutter test` — 1070 passed / 40 skipped (parked FR-025 soak seeds) / 0 failed. `All tests passed!`
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-07T19:11:39Z
+**Updated_At:** 2026-09-07T19:25:08Z
 
 
 ### TASK-065
