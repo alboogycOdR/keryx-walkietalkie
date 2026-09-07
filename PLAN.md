@@ -3343,7 +3343,7 @@ Re-submit as `needs_review` once (1) is fixed with the full suite, `flutter anal
 
 ### TASK-063
 **Title:** Fix token URL double-append (`/token/token` 404 on the default LINKED path)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** ADR-001 §5 (pre-existing ORCH-owed debt, explicitly carried into this wave as a narrowly scoped task rather than absorbed into a rewrite — "Token URL double-append (`/token/token` 404 on default LINKED path) — `lib/core/settings/settings_model.dart` + `lib/services/linked/token_client.dart`"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §0 ("Any confirmed transport defect is a separate, narrowly scoped corrective task"), §8 (token-service contracts retained); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-062 (actual route state), §4.5; PLAN.md orchestrator_notes 2026-08-23T05:55Z (the original defect record: `resolvedTokenServiceUrl` at `settings_model.dart:147-153` already ends in `/token`, `TokenClient._resolveTokenUri` at `token_client.dart:121-124` appends `token` again, wired together at `radio_session_controller.dart:299-300`); `ops/TWO_PHONE_TEST.md` §6 (the bare-origin workaround this fix retires). FROZEN territories reopened for this task only: `lib/core/settings/settings_model.dart`, `lib/services/linked/token_client.dart`.
@@ -3358,15 +3358,28 @@ Re-submit as `needs_review` once (1) is fixed with the full suite, `flutter anal
 - [ ] Token-service request/response contracts are otherwise unchanged (Technical §8)
 - [ ] The new regression test is revert-mutation-checked: reintroducing the double-append makes exactly that test fail
 - [ ] `flutter analyze` clean; full suite green with no regression
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-063-gb
+**Started_At:** 2026-09-07T20:14:20Z
+**Progress_Notes:**
+- [2026-09-07T20:14:20Z] [GB] Claimed TASK-063. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-063 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+[preflight] 5 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  FILE   lib/core/settings/settings_model.dart  -> exists, 345 line(s), 12073 bytes
+  FILE   lib/services/linked/token_client.dart  -> exists, 179 line(s), 6864 bytes
+  GLOB   test/core/settings/**  -> 1 file(s):
+           test/core/settings/settings_repository_test.dart
+  FILE   test/services/linked/token_client_test.dart  -> exists, 108 line(s), 3585 bytes
+  FILE   dossiers/TASK-063.md  -> exists, 33 line(s), 1562 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches expectation. Fixing TokenClient (not settings): `resolvedTokenServiceUrl` already names the Caddy `/token` route; `_resolveTokenUri` must not append a second `token` when the last path segment is already `token`. Prefix preservation (TASK-024) stays for any other last segment.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-07T20:14:20Z
 
 
 ### TASK-064
