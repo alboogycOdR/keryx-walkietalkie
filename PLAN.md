@@ -1,6 +1,6 @@
 ---
-plan_version: 11.0
-last_updated: 2026-09-05T23:09:35Z
+plan_version: 12.0
+last_updated: 2026-09-07T18:05:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -62,7 +62,13 @@ TICK 2 (2026-09-06T06:02Z): CX's TASK-042 `codex exec` session had already EXITE
 
 TICK 3 (2026-09-06T06:20-06:25Z): TASK-042 reviewed on claude-opus-5, APPROVED first-pass, merged as `57ae96c`, branch/worktree cleaned (same harmless empty-stub pattern as GB's — a lingering handle on `wt-codex-WALKIETALKIE` blocked rmdir; git bookkeeping already clean). CX tally: 10 reviews, 6 first-pass. Post-merge, an independent subagent confirmed the merged tree's compile-break is EXACTLY the state TASK-041 disclosed — 24 analyze issues (13 in face_view.dart incl. new detail: `KeryxDisplayModel.numbered` no longer exists post-TASK-041's rework, `KnobDetentCallback`/`KeryxTelltale`/`KeryxSpeakerGrille`/`KeryxTuningKnob` undefined; 2 in its test; 7 pre-existing radio_session_controller_test.dart), 1004/40/2-failed-to-load, zero new breakage from TASK-042's merge. **Both TASK-041 and TASK-042 done — TASK-043 unlocked and dispatched to S5** (log S5-20260906-062502, worktree wt-s5-WALKIETALKIE off master tip cdc1e2a, which carries both merges). Next tick: monitor S5, review on completion — this closes the Phase 2 redesign wave.
 
-TICK 4 / WAVE END (2026-09-06T07:04Z): TASK-043 reviewed on claude-opus-5, APPROVED first-pass, merged as `f65ac1e`, branch/worktree cleaned (same harmless empty-stub cleanup pattern as 041/042 — this time a Windows path-length limit on a build artifact, not a lock; git bookkeeping already clean). S5 tally: 18 reviews, 11 first-pass. Full repo suite post-merge: 1037/40/0, ZERO compile failures — the TASK-041-disclosed bounded red window is fully resolved as promised. `team_stats.py` run per autopilot procedure: GB 0.94 first-pass rate (materially higher than CX's 0.67 and S5's 0.83) — hint recorded for future critical-priority weighting, no action needed this wave. **PHASE 2 PTT REDESIGN WAVE COMPLETE: 3/3 tasks done, all first-pass, zero rework, zero escalations.** Knob and grille fully retired from the shipped app; frozen territories re-frozen (see FROZEN-territories line above). AUTOPILOT L1 wave ends here per docs/AUTOPILOT.md step 7 — digest reported to Alister, session returns to human control."
+TICK 4 / WAVE END (2026-09-06T07:04Z): TASK-043 reviewed on claude-opus-5, APPROVED first-pass, merged as `f65ac1e`, branch/worktree cleaned (same harmless empty-stub cleanup pattern as 041/042 — this time a Windows path-length limit on a build artifact, not a lock; git bookkeeping already clean). S5 tally: 18 reviews, 11 first-pass. Full repo suite post-merge: 1037/40/0, ZERO compile failures — the TASK-041-disclosed bounded red window is fully resolved as promised. `team_stats.py` run per autopilot procedure: GB 0.94 first-pass rate (materially higher than CX's 0.67 and S5's 0.83) — hint recorded for future critical-priority weighting, no action needed this wave. **PHASE 2 PTT REDESIGN WAVE COMPLETE: 3/3 tasks done, all first-pass, zero rework, zero escalations.** Knob and grille fully retired from the shipped app; frozen territories re-frozen (see FROZEN-territories line above). AUTOPILOT L1 wave ends here per docs/AUTOPILOT.md step 7 — digest reported to Alister, session returns to human control.
+
+**MOBILE UX REDESIGN WAVE SCOPED (2026-09-07T18:05Z, plan v12.0). ADR-001 (`docs/adr/ADR-001-mobile-ux-redesign-reconciliation.md`) is ACCEPTED** — it reconciles the five-doc `specs/KERYX_Mobile_UX_Redesign_*_v1.0.md` pack against PTS P1/§6.1 and the old UI spec §1/§4/§5/§6/§8, for the navigation and presentation layer only. Binding owner decisions (ADR-001 §7): the legacy hardware-radio face — including TASK-041/042/043's hero-PTT presentation — is **deleted outright** once the new shell passes real-device acceptance (no dormant classic-theme flag); the successor screens are **built fresh** against the new Design spec's mockups, not by wrapping TASK-043's widgets (only the engine, state machines and data sources are reused); UX-D01–D09 ratified as written. Engine/session/audio/discovery/privacy contracts are explicitly NOT superseded (ADR-001 §5), and FR-025 emergency-preemption stays PARKED.
+
+**21 tasks written: TASK-045..TASK-051, TASK-053..TASK-065 (no TASK-052 — "new PTT presentation" is merged into TASK-051 so two tasks never contend for `lib/features/talk/**`; the gap is deliberate, do not renumber).** Waves: **W1** 045 (persistent RadioHost extraction — the load-bearing task, everything depends on it transitively), 047 (design tokens/theme), plus independent debt 063/064/065; **W2** 046 (RadioViewState projection + telemetry honesty, needs 045); **W3** 048 (app shell + Channels/Settings nav + route registration, single owner, converges 045+046+047); **W4** seven parallel screens 049/050/051/053/054/055/056, all on 048 (051 also on 046; 055/056 also on 047); **W5** serial gates 057 (a11y/responsive, holds the union of the seven screen territories) → 058 (regression/goldens/G4) → 059 LOCAL + 060 LINKED hardware in parallel → 061 (legacy retirement) → 062 (release acceptance, also on 064). FROZEN territories REOPENED for this wave, each to exactly one task: `lib/core/theme/**` → TASK-047; `lib/features/face/face_screen.dart` → TASK-045 (hollowed only; the rest of `lib/features/face/**` is deleted later by TASK-061, which sits behind 045 in the dependency chain — no concurrency); `lib/app.dart`+`lib/main.dart` → TASK-048; `lib/core/settings/settings_model.dart`+`lib/services/linked/token_client.dart` → TASK-063; `android/app/build.gradle.kts` → TASK-064; `lib/services/mesh/rtc_adapter.dart`+`rtc_adapter_flutter_webrtc.dart` → TASK-065; `pubspec.yaml` → TASK-062 (version bump only). All re-freeze on merge. `lib/features/{channels,channel_selector,talk,stations,radio_controls,settings,event_qr_ui}/**`, `lib/core/{radio_host,presentation}/**` and `lib/app_shell/**` are new territories.
+
+**First dispatch wave: TASK-045 (S5), TASK-047 (GB), TASK-063 (S5), TASK-064 (GB), TASK-065 (GB)** — the five zero-dependency tasks; every W2+ task stays `Assigned_To: TBD` until its dependencies close, per this plan's established pattern. Roster read fresh from `autopilot.json`: `builders.active` is still `[GB, S5]`, so assignments use GB and S5 only — CX's 2026-09-06 live health probe is recorded above but the config was never updated, and ORCH is not flipping dispatch config as a side effect of a planning pass; if CX is reactivated, 065 is the natural first hand-off. TASK-063 is deliberately early so TASK-060's LINKED hardware test can use real default settings instead of the `ops/TWO_PHONE_TEST.md` §6 bare-origin workaround. Known disclosed cost (ADR-001 §7 item 2): TASK-043's hero-PTT/roster/emergency-band widgets become throwaway at TASK-061 — an informed owner choice, not an oversight. `validate_plan.py` 0 warnings at v12.0."
 ---
 
 # Project Plan
@@ -2756,3 +2762,609 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-06T09:48:50Z
+
+
+### TASK-045
+**Title:** Persistent RadioHost extraction — hoist session/floor/audio/service lifecycle out of FaceScreen
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** critical
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §1.1 ("The current `FaceScreen` owns identity/bootstrap, permission gates, SFX engine, session factory, floor effect subscriptions, foreground service, station notifier and tuning callbacks… A persistent host must be introduced first"), §2 (target architecture — persistent `RadioHost` under a single ProviderScope), §3 (host contract — illustrative `RadioHost` interface; "preserve the existing `SessionHost` seam and injected fakes where practical"), §4 (lifecycle invariants, all ten), §9 (module list: `lib/core/radio_host/`); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-001, UX-FR-005, UX-FR-028, UX-FR-029, UX-FR-030; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-001, VT-002, VT-003, VT-004; ADR-001 §6 (migration shape — "this is exactly the block currently inside `_FaceScreenState`, hoisted out, unchanged in substance… nothing in this box is rebuilt"), ADR-001 §5 (engine/session/audio contracts NOT superseded); specs/KERYX_Product_Technical_Spec_v1.1.md §8.2–§8.4 (single state source, floor arbitration, session composition/retune contracts — preserved verbatim, not reimplemented). FROZEN territory reopened for this task only: `lib/features/face/face_screen.dart`.
+**Owned_Paths:** lib/core/radio_host/**, lib/features/face/face_screen.dart, test/core/radio_host/**, dossiers/TASK-045.md
+**Depends_On:** —
+**Description:** The load-bearing task of the whole UX-redesign wave — every screen task depends on it transitively. Today `_FaceScreenState` constructs `SessionHost`/`RadioSessionController`, the `FloorEngine` (via the session), `AudioSink`, `SfxEngine`, `SfxProjection`, `RadioServiceController` and the station notifier inside `initState`→`_boot()`, and tears all of them down in `dispose()` (verified by reading the file; Technical §1.1 and ADR-001 §6 independently reach the same finding). Putting a disposable route between the app root and that widget would kill the radio session on every navigation, so the host has to come out **before** any navigation shell exists. Move that block, substance-unchanged, into a new app-scoped `lib/core/radio_host/**` lifecycle owner exposing a narrow, testable interface in the shape of Technical §3 (`start`/`powerOff`/`tune`/`applySettings`/`joinEvent`/`pressPtt`/`releasePtt`/`releaseLatch`/`dispose`, plus current-state access) — the exact names and return types are the builder's call per §3's "illustrative contract, not a demand", but typed results must distinguish success / validation failure / cancellation / unavailable route / transport failure, and the UI must never have to parse exception text (§3). Reuse the existing `lib/features/face/session_host.dart` injection seam and its fakes rather than inventing a second one (Technical §1 "Session seam" row). **Do not construct a new floor engine, session, audio pipeline or transport** — this is a hoist, not a rewrite (ADR-001 §5/§6). To keep this task inside its territory and the app green at every commit, `face_screen.dart` is hollowed to *consume* an injected/ambient host instead of constructing services itself; the host is still created at the same point in the tree for now, and the actual hoist above the navigator is TASK-048's job (Technical §9: "A separate integration task owns shared route registration, app.dart, shared providers and final wiring"). `lib/app.dart`/`lib/main.dart` are deliberately NOT in this territory. `face_screen.dart` remains in place after this task and is deleted later by TASK-061, which depends on this task transitively — no concurrency risk. Retune serialization work beyond preserving today's behavior belongs to TASK-050 (Technical §6); this task must not silently change tune semantics, but it must expose a single serialized entry point for them.
+**Acceptance_Criteria:**
+- [ ] A single app-scoped host type in `lib/core/radio_host/**` owns identity/settings bootstrap, permission coordination, `SessionHost`/`RadioSessionController`, the floor engine, `SfxEngine`/`SfxProjection`/`AudioSink`, `RadioServiceController` and the station stream — nothing in that list is still constructed by `face_screen.dart` (Technical §2, §1.1)
+- [ ] Host exposes the operations of Technical §3's contract with typed results distinguishing success / validation failure / cancellation / unavailable route / transport failure; no UI-facing API requires parsing exception text (Technical §3)
+- [ ] VT-001 evidence: with instrumented/fake factories, constructing and re-parenting the host across repeated widget rebuilds yields exactly one live session, one floor engine, one SFX pipeline and one service controller, and no extra `start`/`retune`/`dispose` call is caused by rebuilding presentation alone (Verification VT-001; Technical §4 "Navigation alone never invokes start, dispose, retune, powerOff or applySettings")
+- [ ] VT-002 evidence: overlapping boot requests completing out of order adopt exactly one session, leak no superseded resources, and end in a state matching the latest valid intent (Verification VT-002; Technical §4 "A single boot operation is in flight")
+- [ ] VT-004 evidence: host disposal releases every subscription, timer, session and audio resource; repeated disposal is safe; a service-killed event produces the documented off/recovery state (Verification VT-004; Technical §4)
+- [ ] No hot mic: power-off, permission loss, service kill and engine disposal each leave no locally transmitting track — asserted against authoritative engine state, not widget colour (Technical §4; PTS §8.5)
+- [ ] The existing `SessionHost` seam and its fakes are reused, not duplicated; no second audio/session/transport service is created beneath the host (Technical §9 "Do not create a parallel audio or session service beneath these modules")
+- [ ] `face_screen.dart` still renders the current face and the app still boots identically on device-equivalent fakes; `lib/app.dart`/`lib/main.dart` are untouched by this task
+- [ ] `flutter analyze` clean on touched files and repo-wide (only the 8 pre-existing TASK-035 warnings); `flutter test` full suite green with no regression from the 1037/40/0 baseline; `flutter build apk --debug` succeeds
+- [ ] Every new regression test is revert-mutation-checked (break the production change, confirm the intended test — and only it — fails), per this project's standing rule
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-046
+**Title:** RadioViewState presentation projection + telemetry honesty
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.1 (authoritative command path — "The UI must not dispatch `TransmitGranted`, `EndTransmit` or remote floor events to simulate a result"), §5.2 (composite presentation state — "Model phase, emergency, latch, denied flash, connection condition and service/permission faults independently. Do not use a single priority switch"), §5.3 (telemetry honesty), §3 ("Never duplicate the reducer state into an independently mutable UI state machine"), §1.1 (placeholder `StationInfo.signalQuality`; the mislabelled amplitude meter "must not migrate"), §9 (`lib/core/presentation/`); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 (state presentation catalogue, all 13 rows, and "Emergency is an overlay, not a replacement for floor phase… Implement a documented composite presentation model with independent fields and deliberate priorities"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-002, UX-FR-022, UX-FR-026, UX-FR-027, UX-FR-045, UX-FR-046; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-010, VT-015, VT-024; ADR-001 §6 (state machines and data sources 100% reused; only the projection is new), §5 (`RadioReducer`/`FloorEngine` semantics NOT superseded).
+**Owned_Paths:** lib/core/presentation/**, test/core/presentation/**, dossiers/TASK-046.md
+**Depends_On:** TASK-045
+**Description:** A pure, side-effect-free projection layer sitting between TASK-045's host and every screen built in Wave 4, so that no widget ever reads raw reducer state or invents its own. Produce an immutable view-state carrying, as **independent fields** (Technical §5.2, Design §4's closing paragraph), at minimum: floor phase, emergency overlay, latch, transient denied flash, connection condition (configured mode vs *effective* route, kept separate per UX-FR-002 and Technical §7), service/permission fault, current channel/code, requested-vs-authoritative tuning target (Technical §6), active-speaker identity and station visibility, entitlement, and pending operations. Precedence is composed deliberately — a denied flash must not override a granted TX and a global connection error must not conceal an active floor state (Design §4). Also define the typed intents the UI dispatches (press/release/latch-release/tune/apply-settings/join-event), all of which delegate to the host; the projection never mutates state and never synthesizes floor events (Technical §5.1). **Telemetry honesty is a first-class deliverable, not a footnote:** the existing `StationInfo.signalQuality` placeholder maximum must be projected as *unavailable/unknown* rather than full bars (Technical §1.1, §5.3, UX-FR-045), an unknown LINKED roster count must project as unavailable rather than zero (UX-FR-046, VT-024), and any phase-driven ring/animation value must be typed and named as decorative, never as measured RMS or amplitude (Technical §5.3, UX-FR-027, VT-015) — this retires the mislabelled "amplitude meter" semantics TASK-043 shipped as a documented proxy. Real RX metering, if it ever exists, arrives from TASK-065 and plugs into the `measured` variant of this model; this task must model both cases without depending on TASK-065 landing. Technical §1.1 also flags that `RadioState`'s value equality omits some fields — assess whether any projected field depends on an excluded one and, if so, report it (block with `SPEC_AMBIGUITY` or record it as a finding); **do not opportunistically change reducer semantics** (Technical §1.1, ADR-001 §5).
+**Acceptance_Criteria:**
+- [ ] An immutable view-state type in `lib/core/presentation/**` models phase, emergency, latch, denied flash, connection condition, and service/permission fault as independent fields — proven by a test asserting emergency-during-TX shows both, not one replacing the other (Technical §5.2; Design §4)
+- [ ] Configured mode and effective route are distinct fields and are never conflated in the projection (UX-FR-002; Technical §7)
+- [ ] Every one of Design §4's 13 catalogue rows maps to a distinct projected state carrying a text/icon cue in addition to colour (Design §4; UX-FR-022; VT-010)
+- [ ] A pending request never projects as granted TX; grant appears only after authoritative engine grant (Technical §5.1; VT-010/VT-011)
+- [ ] Placeholder `StationInfo.signalQuality` projects as unavailable/unknown, never as measured full strength — asserted by test (Technical §1.1/§5.3; UX-FR-045; VT-024)
+- [ ] An unknown/incomplete LINKED roster projects as unavailable, never as a verified zero count (UX-FR-046; VT-024)
+- [ ] Any level/animation value is typed and documented as decorative-only, with no API surface naming it amplitude/RMS/measured (Technical §5.3; UX-FR-027; VT-015)
+- [ ] Typed intents delegate to TASK-045's host; the projection contains no transport, floor, audio or platform calls, and never dispatches `TransmitGranted`/`EndTransmit`/remote floor events (Technical §5.1)
+- [ ] The `RadioState` equality gap (Technical §1.1) is assessed in writing against every projected field; reducer semantics are unchanged by this task
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-047
+**Title:** New design system — tokens, typography, spacing, dark-first + full light theme
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** high
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §3.1 (direction — "Original, calm, modern and functional… dark-first interface with a complete light theme… no simulated screws, molded textures, seven-segment glass or faux hardware housing"), §3.2 (the eleven proposed tokens and their dark/light values; "do not scatter literal color values across widgets"; "Use color only as a redundant state cue"), §3.3 (typography scale 24/30, 18/24, 16/24, 14/20, 12/16; Inter retained; 8 dp grid; 16 dp page margins; 48×48 dp minimum target; "Avoid a fixed full-screen height allocation"), §3.4 (icon family, 120–200 ms state motion, 200–300 ms page/sheet motion, reduced-motion behavior); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D08, UX-FR-065 (KERYX branding retained; no Zello assets), §6 (WCAG AA contrast, 48 dp targets, scalable text, reduced motion); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (contrast/theme/text-scale verification); ADR-001 §3 item 2 (this Design spec supersedes `KERYX_UI_Design_Specification_v1.0.md` §1/§3.1/§4/§5/§6/§8, while §8's *substance* — ≥4.5:1 contrast, 48 dp targets, TalkBack, haptic/sound-only operability — carries forward unchanged). FROZEN territory reopened for this task only: `lib/core/theme/**`.
+**Owned_Paths:** lib/core/theme/**, test/core/theme/**, dossiers/TASK-047.md
+**Depends_On:** —
+**Description:** Replace the hardware-faceplate token set with the successor design system, so every Wave 4 screen has a single source of visual truth on day one. Implement Design §3.2's token table verbatim as named tokens (`surface/base`, `surface/card`, `surface/raised`, `text/primary`, `text/secondary`, `border/default`, `action/primary`, `state/tx`, `state/rx`, `state/warning`, `state/emergency`) with both the dark and light column values, plus the §3.3 type scale and 8 dp spacing/margin constants, exposed as a Flutter theme extension in whatever shape matches this repo's existing `lib/core/theme/**` conventions — additive where the old faceplate tokens are still referenced by the legacy face, since that face stays alive until TASK-061 and this task must not break it. Dark is the default; the light theme is complete, not a stub (§3.1). **Contrast is a tested property, not a claim**: compute and assert the actual ratios for every foreground/background token pair the system sanctions, against the WCAG AA floor carried forward by ADR-001 §3 item 2 and PRD §6 — if a supplied hex value fails, report it as a finding with the measured ratio and a minimal corrected value rather than silently shipping it or silently substituting one. Colour is a redundant cue only: the token API must make it natural for a caller to attach text/icon alongside (§3.2, UX-FR-022). Motion durations from §3.4 are tokens too, and a reduced-motion path must exist that removes decorative animation while preserving critical state changes. No Zello or third-party artwork, icon set or copyrighted asset enters the repo (UX-FR-065, Design §0). This task ships the system and its own tests only — it does not build screens and does not touch any `lib/features/**` path.
+**Acceptance_Criteria:**
+- [ ] All eleven Design §3.2 tokens exist by name with both dark and light values; no screen-facing literal colour constants are introduced (Design §3.2)
+- [ ] Dark is default and a complete light theme exists (every token defined in both), asserted by a test that enumerates the token set in both themes (Design §3.1)
+- [ ] Contrast ratios for every sanctioned foreground/background pairing are computed in a test and meet WCAG AA (≥4.5:1 for body text, ≥3:1 for large text/graphical objects); any supplied value that fails is reported with its measured ratio, not silently shipped (PRD §6; ADR-001 §3 item 2)
+- [ ] Type scale implements Design §3.3's five steps (24/30 semibold, 18/24 semibold, 16/24, 14/20, 12/16) using the existing Inter asset, and supports system text scaling to 2.0 without a fixed full-screen height allocation (Design §3.3; Verification §6)
+- [ ] Spacing tokens implement the 8 dp base grid, 16 dp page margins, 12–16 dp card spacing, 8–12 dp control gaps, and a 48×48 dp minimum-target constant (Design §3.3)
+- [ ] Motion tokens implement 120–200 ms state and 200–300 ms page/sheet durations, with a reduced-motion path that drops decorative animation and retains critical state changes (Design §3.4)
+- [ ] The existing legacy face still builds and its tests still pass — this task is additive to `lib/core/theme/**`, breaking no current consumer
+- [ ] No third-party/Zello artwork, icon set or proprietary asset is added (UX-FR-065; Design §0)
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-048
+**Title:** Mobile app shell — persistent host mounting, Channels/Settings navigation, route registration
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** critical
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §1 (information architecture tree; "Use two persistent primary destinations: Channels and Settings… Talk is a dedicated route or nested channel destination, but its presentation lifecycle must not own the radio session"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §2 (`MobileAppShell` beneath the persistent host, single ProviderScope), §4 (lifecycle invariants), §9 ("A separate integration task owns shared route registration, app.dart, shared providers and final wiring"), §1 (Entry shell row — "Replace navigation composition; retain a single ProviderScope"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-001, UX-FR-005, UX-FR-007, UX-D01, UX-D02 (no empty Contacts tab in R1), UX-FR-008; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-001, VT-004; ADR-001 §3 item 1 (this supersedes PTS P1's "no bottom nav" clause and §6.1's single-screen mandate), ADR-001 §6. FROZEN territories reopened for this task only: `lib/app.dart`, `lib/main.dart`.
+**Owned_Paths:** lib/app_shell/**, lib/app.dart, lib/main.dart, test/app_shell/**, dossiers/TASK-048.md
+**Depends_On:** TASK-045, TASK-046, TASK-047
+**Description:** The convergence task of Wave 1 and the gate for all seven screen tasks. Mount TASK-045's host **above** the navigator so it is constructed once at application scope and survives every route and destination change (Technical §2/§4), then build the two-destination shell — Channels (default landing, UX-D01) and Settings — with Talk as a route beneath Channels per Design §1's tree. Route registration, shared providers and the final wiring all live here and nowhere else (Technical §9), which is why this is a single-owner integration task rather than something each screen task does for itself. Register placeholder-free route entries for the screens Wave 4 will fill in: this task may land thin stand-in destinations so the shell is testable and the app boots, but it must not ship fake data, fake presence, fake unread counts or a destination for an unimplemented product surface (UX-FR-008, PRD §2.2's "Do not populate future tabs with fake contacts, messages, unread counts, histories or presence", UX-D02's "No empty Contacts tab in R1"). Retain exactly one `ProviderScope` (Technical §1). The state-management/routing choice is deliberately left to the builder per Technical §2's "The design does not mandate a new state-management dependency or routing package" — prefer this repo's existing conventions; adding a routing package requires a `SPEC_AMBIGUITY` block, not a unilateral pubspec change (pubspec is frozen and outside this territory). The legacy face stays reachable during the migration via a **development-only, unshipped** compat route (Technical §10: "Keep a temporary legacy route or compatibility harness… this is not a requirement to ship two interfaces") — TASK-061 deletes it. Navigation must never start, dispose, retune, power off or apply settings (Technical §4), and navigating away from Talk must not suppress incoming audio or notification actions.
+**Acceptance_Criteria:**
+- [ ] The host from TASK-045 is constructed once above the navigator and survives destination and route changes; exactly one `ProviderScope` remains (Technical §2, §1)
+- [ ] VT-001 evidence at shell level: Channels → Talk → Stations → Settings → Talk, repeatedly, yields exactly one live session, floor engine, SFX pipeline and service controller, with zero navigation-caused `start`/`retune`/`dispose` calls (Verification VT-001; Technical §4)
+- [ ] Two persistent primary destinations exist — Channels (default landing) and Settings — and no third destination for an unimplemented surface (Design §1; UX-D01; UX-D02)
+- [ ] Current channel is preserved across every navigation and remains identifiable when a sheet/keyboard/secondary page is displayed; navigation alone never retunes (UX-FR-005; UX-FR-007)
+- [ ] No fake contacts, messages, unread counts, history or presence appears anywhere in the shell (UX-FR-008; PRD §2.2)
+- [ ] Navigating away from Talk leaves incoming audio and notification actions intact, verified with fakes (Technical §4; VT-004)
+- [ ] The legacy face remains reachable only through a development-only route that is not present in a normal user navigation path, and its removal is delegated to TASK-061 (Technical §10)
+- [ ] No new routing or state-management dependency added; `pubspec.yaml` untouched (Technical §2; pubspec is frozen and out of territory)
+- [ ] `flutter analyze` clean; full suite green with no regression; `flutter build apk --debug` succeeds; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-049
+**Title:** Channels landing screen — current channel card, recent recall, connection indicator
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.1 (Channels — landing: exact content order, current-channel card contents, recent list, empty state, "Do not show a fake online count", "no new background subscriptions to all 99 channels are authorized"), §1 (Channels owns Current channel / Recent channels / Select / Talk); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D01, UX-D05 (six-entry recall is not message history), UX-FR-002, UX-FR-004, UX-FR-005, UX-FR-008, UX-FR-010; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §1 traceability rows for UX-FR-002/008/045/046 and UX-FR-003/004/009/010, VT-020 (recall order/deduplication); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §6 ("Existing channel-memory writes remain serialized and deduplicated. No schema expansion is required for R1"); ADR-001 §6 (new widgets, reused data sources).
+**Owned_Paths:** lib/features/channels/**, test/features/channels/**, dossiers/TASK-049.md
+**Depends_On:** TASK-048
+**Description:** Build the default landing screen fresh against Design §2.1's mockup and content order — brand/title with current connection indicator, current-channel card, a primary Open Talk action, the recent-channel list, a Select channel action, and the persistent navigation — reading exclusively from TASK-046's projection and dispatching TASK-046's typed intents. Per ADR-001 §7 item 2 this is new widget code, not a re-theme of anything TASK-043 shipped. The current-channel card shows the formatted two-digit channel/code, the **configured** mode and a concise **actual** status, never conflating the two (UX-FR-002). Recent entries are the existing six-entry memory rendered truthfully with their real channel/code values, each selectable and routed through the authoritative tune operation (UX-FR-004) — this is recall, not history (UX-D05), and no schema change is authorized (Technical §6). Empty memory gets the neutral explanatory message plus a direct-tune entry point (Design §2.1). Two hard prohibitions from §2.1 that are easy to violate by accident: no fake online/member count anywhere on a channel row, and **no new background subscriptions across the 99-channel space** to populate presence — presence appears on a row only where it is genuinely verified for that channel. A current-channel shortcut must be reachable in one tap. The channel-selection sheet/flow itself belongs to TASK-050; this screen only launches it.
+**Acceptance_Criteria:**
+- [ ] Content order matches Design §2.1 exactly: connection indicator, current-channel card, primary Open Talk action, recent list, Select channel action, persistent nav
+- [ ] Current-channel card shows formatted two-digit channel and code, configured mode and actual status as separate, non-conflated fields (Design §2.1; UX-FR-002)
+- [ ] Recent list renders the existing six-entry memory with real values, in correct order and deduplicated; selecting an entry invokes the authoritative tune intent and nothing else (UX-FR-004; VT-020)
+- [ ] Empty memory renders the neutral explanatory message and a direct-tune action (Design §2.1)
+- [ ] No online/member count, unread count, contact or message-history affordance appears anywhere on this screen (Design §2.1; UX-FR-008; UX-D05)
+- [ ] No subscription is opened for channels other than the current one — asserted against the fake data source's call log (Design §2.1)
+- [ ] The current channel is reachable in one tap and is preserved when returning from any secondary screen; navigation alone does not retune (UX-FR-005)
+- [ ] All state/colour cues carry a text or icon equivalent and use TASK-047's tokens; no literal colour values (Design §3.2; UX-FR-022)
+- [ ] Widget tests use fake host/projection — no real sockets or native plugins (Verification §2)
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-050
+**Title:** Channel selector + direct-tune workflow with serialized retune and recovery policy
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.3 (Channel selector — searchable/selectable list or direct numeric entry, 1–99 and 0–38, two-digit labels, separate recent section, Apply disabled for invalid values, Cancel leaves current channel untouched, pending retune shows progress and prevents competing tune actions, "The currently active channel remains authoritative until the selected operation succeeds"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §6 (tuning and channel operations — "The current implementation dispatches TuneTo and launches asynchronous retune without waiting. ORCH must inspect and resolve the associated race/failure behavior as a dedicated migration task… latest requested target wins… Do not invent rollback support if the underlying operation has already torn down the previous chain; implement an explicit recovery policy and test it"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-003, UX-FR-004, UX-FR-009, UX-FR-010, UX-FR-030; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-020 (input validation), VT-021 (retune serialization); ADR-001 §5 (session retune contracts preserved — the fix is serialization at the coordinator, not new session semantics).
+**Owned_Paths:** lib/features/channel_selector/**, test/features/channel_selector/**, dossiers/TASK-050.md
+**Depends_On:** TASK-048
+**Description:** The selector screen plus the tune coordinator that Technical §6 explicitly calls out as a **dedicated migration task**: today the app dispatches `TuneTo` and fires an asynchronous retune without awaiting it, so competing tune requests race. Build the Design §2.3 UI (numbered list and/or direct numeric entry, channels 1–99, codes 0–38, always displayed two-digit, existing six-entry recall as a separate section, Apply disabled while the entry is invalid, Cancel a true no-op on the current channel) and, behind it, a coordinator over TASK-045's single tune entry point implementing the deterministic policy §6 mandates: **latest requested target wins**, intermediate pending operations are cancelled or completed safely, the requested target is kept visibly separate from the authoritative current channel while tuning, and the visible state always represents the actual active chain. Failure gets retry/recovery and must never leave the UI claiming an unverified channel (UX-FR-009). §6 is explicit that rollback must not be invented where the previous chain is already torn down — document and test whatever recovery policy is chosen instead. Cosmetic labels must never redefine room identity (UX-FR-010). A tune requested during TX is serialized safely and ordinary navigation never interrupts TX (UX-FR-030).
+**Acceptance_Criteria:**
+- [ ] Direct entry accepts channels 1–99 and codes 0–38, rejects 0/100/-1/39/non-numeric/empty without dispatching a tune, and always renders values two-digit (Design §2.3; UX-FR-003; VT-020)
+- [ ] Apply is disabled for invalid input; Cancel leaves the current channel and code untouched — asserted against the host's call log (Design §2.3; VT-020)
+- [ ] The existing six-entry recall appears as a separate section with correct order and deduplication (Design §2.3; UX-FR-004; VT-020)
+- [ ] VT-021 evidence: rapid A→B→C requests with deferred fakes completing in different orders yield one deterministic final target (latest requested wins), no stale state adoption, no overlapping incompatible transport resources and no false success (Technical §6; VT-021)
+- [ ] While tuning, the requested target and the authoritative current channel are displayed as distinct values; the UI never optimistically claims connection to the new channel (Technical §6; UX-FR-009)
+- [ ] A pending retune blocks competing tune actions and shows progress (Design §2.3)
+- [ ] Retune failure after teardown follows a documented, tested recovery policy with retry — no invented rollback (Technical §6; UX-FR-009)
+- [ ] A tune requested during TX is serialized per the documented policy; ordinary navigation does not interrupt TX (UX-FR-030)
+- [ ] Cosmetic labels/favourites cannot redefine room identity — the existing channel/code namespace is authoritative (UX-FR-010)
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-051
+**Title:** Talk screen + new PTT presentation (hold, latch, cancellation safety)
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** critical
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 (Talk — content order, "Use responsive constraints rather than a fixed 320 dp disc or viewport-height percentages… minimum 96 dp primary dimension and a 48 dp minimum hit target", active-speaker copy rules, "A disconnected screen must not show 'Ready.'", "The primary PTT must expose an accessible hold action and a non-drag alternative", "Ordinary PTT and Emergency are separate controls"), §4 (state catalogue), §5 (copy and accessibility); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.1 (authoritative command path), §5.2 ("The existing `PttButton` has pointer suppression and double-tap latch behavior. A new component must preserve or explicitly replace those semantics, with tests for cancellation, disposal, duplicate events, latch release and disabled transitions"), §4 (latch owned by the persistent host, survives ordinary navigation); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-020 through UX-FR-030, UX-D03; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-010, VT-011, VT-012, VT-013, VT-014, VT-015; ADR-001 §6 ("the underlying gesture/latch/TOT SEMANTICS in `ptt_state.dart` and `tuning_physics.dart` are reused as logic, but the widget tree is new"), ADR-001 §7 item 2 (rebuild fresh, do not wrap TASK-043's `PttButton`).
+**Owned_Paths:** lib/features/talk/**, test/features/talk/**, dossiers/TASK-051.md
+**Depends_On:** TASK-048, TASK-046
+**Description:** The primary communication screen and the single most safety-critical screen in the wave. Built fresh per Design §2.2's mockup (compact back/channel header, connection and presence line, active speaker/ready status, primary PTT, secondary action row, safe-area footer — no conversation transcript), driven entirely by TASK-046's composite view-state and typed intents. The intake deliberately merges "new PTT presentation" into this task rather than splitting it, so that two builders never contend for `lib/features/talk/**`. Sizing is **responsive**, explicitly not TASK-043's fixed 320 dp disc and not viewport-height percentages: a large rounded circular or pill surface with a ≥96 dp primary dimension, every secondary action ≥48 dp, validated on a small phone before the size is frozen (Design §2.2, Verification §6's 320-logical-pixel floor). Gesture safety is where this task earns its priority: pointer-down may show *requesting* but must never indicate granted TX or publish audio (UX-FR-021); pointer cancellation, lost gesture and route disposal release an ordinary hold safely with **no accidental latch** (UX-FR-024, VT-012); a deliberate latch is owned by the host and survives ordinary navigation until explicit release, TOT or authoritative termination (Technical §4, UX-FR-025); duplicate pointer-up/cancel and a late grant cannot cause duplicate or stuck transmission (VT-011). The existing `PttButton`'s pointer suppression and double-tap latch semantics are either preserved or **explicitly** replaced with a documented rationale and the full test set Technical §5.2 lists. Emergency is a separate control and must never hide behind the ordinary PTT label (Design §2.2); the emergency *screen* is TASK-054's, this screen only reflects the emergency overlay. Copy follows Design §5 exactly ("Channel clear. Hold to talk.", "Requesting channel…", "Channel busy", "Connection lost"), a disconnected screen never shows "Ready", the active speaker shows a known callsign else a neutral fallback or "Someone is speaking" and never presents a peer ID as a verified human name (UX-FR-026), and a screen-reader/switch-accessible non-drag PTT alternative exists (Design §2.2/§5). **FR-025's emergency-preemption double-grant stays PARKED** (ADR-001 §5) — do not attempt to fix floor arbitration from this screen.
+**Acceptance_Criteria:**
+- [ ] Content order matches Design §2.2; the PTT area is visible in portrait without scrolling at 320 logical-pixel width (Design §2.2; UX-FR-020; Verification §6)
+- [ ] PTT surface uses responsive constraints — no fixed 320 dp disc and no viewport-height percentage — with ≥96 dp primary dimension and ≥48 dp on every secondary action (Design §2.2)
+- [ ] VT-011 evidence: pointer-down creates exactly one request; before grant there is no red TX and no published live audio; grant changes the UI; release sends exactly one release intent; duplicate pointer-up/cancel and a late grant cause no duplicate or stuck transmission (UX-FR-021; VT-011)
+- [ ] VT-012 evidence: pointer cancellation, route unmount during hold, app backgrounding, permission loss and engine replacement each release ordinary hold intent safely and create no latch — asserted against authoritative engine state, not widget colour (UX-FR-024; VT-012)
+- [ ] A deliberate latch is explicitly indicated, survives ordinary navigation, and is reliably releasable; navigation neither creates nor releases it (UX-FR-025; Technical §4; UX-D03)
+- [ ] `PttButton`'s pointer-suppression and double-tap-latch semantics are preserved or explicitly replaced with documented rationale, and tests exist for cancellation, disposal, duplicate events, latch release and disabled transitions (Technical §5.2)
+- [ ] Every state in Design §4 reachable from this screen renders label, icon, colour, enabled action and accessibility value; a pending request never renders as granted TX; a disconnected screen never shows "Ready" (Design §2.2/§4; UX-FR-022; VT-010)
+- [ ] Busy lockout, TOT and emergency indication route through the existing engine with no false TX indicator; FR-025 is not touched (UX-FR-023; VT-013; ADR-001 §5)
+- [ ] Active speaker uses real roster mapping where available, otherwise a neutral fallback; a peer ID is never presented as a verified human name (UX-FR-026; Design §2.2)
+- [ ] A non-drag, screen-reader/switch-accessible PTT alternative exists and is tested; TalkBack announces meaningful floor transitions without per-frame chatter (Design §2.2/§5; Verification §6)
+- [ ] Any ring/level animation is decorative-only and is not labelled or announced as measured amplitude (UX-FR-027; Technical §5.3; VT-015)
+- [ ] The UI exposes no live transmit action while booting, permission-denied, powered off or lacking a usable floor engine (UX-FR-029)
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-053
+**Title:** Stations screen — live roster with honest presence and quality
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.4 (Stations — "full-screen list or sheet with known callsigns and actual presence… must update while open without relying on a parent-screen rebuild… Include an empty state, current-channel context and existing Event QR actions… Quality information is omitted or marked unavailable unless a real metric exists. If LINKED roster support is incomplete, explicitly state that a complete member list is unavailable rather than displaying zero as a verified count"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-040, UX-FR-026, UX-FR-045, UX-FR-046, UX-FR-008; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §1 (Roster row — "Reuse live state; distinguish unavailable LINKED roster and unmeasured quality"), §1.1 ("The existing station stream is LOCAL signaling-backed; LINKED mode does not provide a complete roster… `StationInfo.signalQuality` defaults to a placeholder maximum value"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-024; ADR-001 §6 ("subscribing to the same RadioHost station stream `RosterScreen` used — the live-data SOURCE is unchanged, the widget is"), ADR-001 §7 item 2.
+**Owned_Paths:** lib/features/stations/**, test/features/stations/**, dossiers/TASK-053.md
+**Depends_On:** TASK-048
+**Description:** A new full-screen station list built against Design §2.4, subscribing to the same host station stream TASK-043's `RosterScreen` used — the data source is untouched, the widget tree is new (ADR-001 §6/§7). The list updates live while open, driven by its own subscription rather than a parent-screen rebuild (Design §2.4) — this is the same live join/depart guarantee TASK-037 established and TASK-043 ported, and it must be re-proven here, not assumed. Rows show known callsigns and actual presence, with a neutral fallback for unknown identities and never a peer ID presented as a verified human name (UX-FR-026). **The honesty requirements are the substance of this task, not decoration:** the existing `StationInfo.signalQuality` placeholder maximum is omitted or explicitly marked unavailable — never rendered as measured bars (Technical §1.1, UX-FR-045, VT-024) — and where the LINKED roster is incomplete the screen states plainly that a complete member list is unavailable rather than showing zero as a verified count (Design §2.4, UX-FR-046). Local station count and any LINKED member count are visibly distinct (UX-FR-046). Include the empty state ("No other stations are currently visible", Design §5), current-channel context, and entry points to the existing Event QR actions — the QR screens themselves are TASK-056's. This is local presence, not a contacts directory (Design §2.4, UX-D09).
+**Acceptance_Criteria:**
+- [ ] Full-screen station list renders known callsigns and actual presence from the host's existing station stream — no new data source is introduced (Design §2.4; Technical §1)
+- [ ] Live join/depart updates are reflected while the screen is open, without a parent-screen rebuild — asserted by a test that emits stream events with the screen mounted (Design §2.4; UX-FR-040; VT-024)
+- [ ] Unknown identity uses a neutral fallback; no peer ID is presented as a verified human name (UX-FR-026)
+- [ ] Placeholder `signalQuality` is omitted or marked unavailable and is never rendered as measured full bars — asserted by test (Technical §1.1; UX-FR-045; VT-024)
+- [ ] An incomplete LINKED roster renders an explicit "complete member list unavailable" statement, never a zero count presented as verified (Design §2.4; UX-FR-046; VT-024)
+- [ ] Local station count is visually and semantically distinct from any LINKED member count (UX-FR-046)
+- [ ] Empty state renders the Design §5 copy plus current-channel context (Design §2.4/§5)
+- [ ] Existing Event QR actions are reachable from this screen; no contacts-directory affordance, favourite, message or unread count appears (Design §2.4; UX-FR-008; UX-D09)
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-054
+**Title:** Radio controls screen incl. guarded emergency control
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.5 (Radio controls — "labeled rows or controls for available Monitor, Scan, Latch, Replay/VOX where implemented, and Emergency. Monitor retains hold-to-open semantics… Scan shows authoritative active state and eligibility. Locked/unsupported actions must explain their status rather than pretend to work… Emergency requires a separate orange/priority treatment, a clear activation affordance and an explicit clear action. Preserve the existing emergency hold duration and floor behavior unless a separate ADR changes them. No automatic location transmission is introduced"), §4 (Emergency row: orange priority banner, explicit clear); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-041, UX-FR-042, UX-FR-043, UX-FR-044, UX-D06; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-013 ("The known parked emergency-preemption issue must be reviewed and resolved or explicitly accepted through a separate release decision"), §8 ("Emergency controls must not make unsupported emergency-service or location claims"); ADR-001 §5 (FR-025 emergency-preemption double-grant stays PARKED — this task must not chase it), specs/KERYX_Product_Technical_Spec_v1.1.md §8.2/§8.6 (floor arbitration and emergency semantics preserved).
+**Owned_Paths:** lib/features/radio_controls/**, test/features/radio_controls/**, dossiers/TASK-054.md
+**Depends_On:** TASK-048
+**Description:** Move the secondary radio functions off the main surface into a clearly labelled controls screen built fresh per Design §2.5, replacing the legacy four-key rail's role without reusing its widgets (ADR-001 §7 item 2). Each row's **actual** semantics are preserved: Monitor keeps hold-to-open behaviour (a toggle may only be offered if a separately approved latch behaviour exists — none does today, so hold-to-open it is), Scan shows authoritative active state and eligibility, Latch and Replay/VOX appear only where genuinely implemented. Anything locked, unentitled or unimplemented **explains its status** rather than appearing enabled (UX-FR-044, Design §2.5) — this is the same honesty rule as the roster's quality display, applied to entitlements. Indicators for monitor, scan, VOX, replay and emergency light only when authoritative state says they are active (UX-FR-043), never from local widget state. Emergency gets its own separate orange/priority treatment with a guarded activation affordance and an explicit clear action, preserving the **existing** hold duration and floor semantics exactly (Design §2.5, UX-FR-042, UX-D06, PTS §8.6) — a redesign of emergency arbitration would require its own ADR and is out of scope. No automatic location transmission and no unsupported emergency-service claim is introduced (Design §2.5, Verification §8). **FR-025's emergency-preemption double-grant remains PARKED by standing owner decision (2026-08-21T17:05Z, ADR-001 §5)**: this is a floor-engine defect, not a presentation one; the risk register for this wave flags precisely this task as the one most likely to drift into it. If emergency behaviour looks wrong at the engine level, record it as a finding — do not fix it here.
+**Acceptance_Criteria:**
+- [ ] Labelled controls exist for Monitor, Scan, Latch and Replay/VOX **only where implemented**, plus Emergency; unimplemented entries are absent, not faked (Design §2.5; UX-FR-041)
+- [ ] Monitor retains hold-to-open semantics; no toggle variant is introduced absent an approved latch behaviour (Design §2.5; UX-FR-041)
+- [ ] Locked/unsupported/unentitled actions explain their status and cannot appear silently enabled (UX-FR-044; Design §2.5)
+- [ ] Monitor/scan/VOX/replay/emergency indicators are driven only by authoritative state — asserted by a test that drives state directly and by a test that confirms local interaction alone does not light an indicator (UX-FR-043)
+- [ ] Emergency uses a distinct orange/priority treatment with a guarded activation affordance and an explicit clear action; accidental initiation is prevented (Design §2.5/§4; UX-FR-042)
+- [ ] The existing emergency hold duration and floor behaviour are unchanged — verified against the current implementation's values, not re-chosen (Design §2.5; UX-D06; PTS §8.6)
+- [ ] Emergency activation/clear is tested through the authoritative engine, and emergency renders as an overlay that does not conceal the actual floor phase (Design §4; VT-013)
+- [ ] No automatic location transmission and no emergency-service claim is introduced (Design §2.5; Verification §8)
+- [ ] FR-025 emergency-preemption is not modified, worked around, or re-tested as fixed; any observation is recorded as a finding only (ADR-001 §5)
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-055
+**Title:** Settings redesign — Radio/Audio/Connectivity/Identity/Appearance/About sections
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.6 (Settings — "ordinary mobile settings with sections and readable descriptions. Retain every existing setting and its validation… Connectivity shows the configured mode, effective route and LOCAL-only privacy toggle… A setting that rebuilds the communication session must not look like a harmless appearance-only toggle. Show an explanatory confirmation when applying it could interrupt transmission or change network connectivity. Non-session settings must not needlessly reconnect"), §1 (Settings subtree); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-060, UX-FR-061, UX-FR-062, UX-FR-064, UX-FR-066, UX-D07, UX-D08; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("Retain `KeryxSettings`, SettingsRepository storage key, defaults and migration behavior. New appearance preferences may be added additively with safe defaults. Do not overwrite existing stored data with a reduced settings object… A session-affecting settings change while transmitting must be deferred or safely serialized… No hot-mic window is permitted"), §1.1 (settings captured at construction; changes need host-managed reconstruction), §10 (legacy settings survive upgrade); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-003, VT-005, VT-022; ADR-001 §5 (settings persistence NOT superseded — model/repository reused, widget tree new), ADR-001 §6.
+**Owned_Paths:** lib/features/settings/**, test/features/settings/**, dossiers/TASK-055.md
+**Depends_On:** TASK-047, TASK-048
+**Description:** Reorganize the existing `BackPanelScreen`/settings-panel content into conventional mobile settings with the six Design §2.6 sections, as new widgets over the **unchanged** `KeryxSettings` model and `SettingsRepository` (ADR-001 §6: only the model/repository layer is reused, not the old widget tree). Every existing setting, its validation and its stored defaults survive verbatim; nothing is dropped, renamed in storage, or written back as a reduced object (Technical §7, UX-FR-061). New appearance preferences (theme, optional night dimming) are added **additively with safe defaults** so an old stored fixture still loads without loss (Technical §7/§10, VT-005). Connectivity shows configured mode, **effective** route and the LOCAL-only privacy toggle as three distinct things (Design §2.6, UX-FR-062, Technical §7's "A configured AUTO value does not establish that the app is currently connected to both LAN and WAN"), and no WAN operation may be initiated contrary to force-LOCAL. The dangerous-toggle rule is a hard acceptance item: a session-rebuilding setting must not present as a harmless appearance toggle, must show an explanatory confirmation when applying it could interrupt transmission or change connectivity, and must be applied through the host with a documented defer-or-serialize policy that opens no hot-mic window (Design §2.6, Technical §7, VT-003). Presentation-only preferences must cause **no** session reconstruction (VT-003). Identity keeps callsign editing; Audio keeps existing sound preferences and routing options with no substitution of radio SFX for generic messaging sounds (UX-FR-066); About carries version and sanitized diagnostics only (Design §5: no raw exceptions or internal service names). The token-URL fix is TASK-063's territory and this task must not touch `lib/core/settings/**`.
+**Acceptance_Criteria:**
+- [ ] Six sections exist — Radio, Audio, Connectivity, Identity, Appearance, About — with readable descriptions (Design §2.6; UX-FR-060)
+- [ ] Every setting present in the legacy settings panel is present here with its validation intact; an inventory mapping old→new is recorded in the dossier (UX-FR-061)
+- [ ] VT-005 evidence: a legacy-version settings fixture loads with callsign/identity, region, channel memory, LOCAL-only preference, URLs, sound settings and latch retained; saving a new appearance preference does not drop old fields (Technical §7/§10; VT-005)
+- [ ] VT-003 evidence: presentation-only preference changes cause zero session reconstruction; each session-affecting field causes exactly one serialized reconstruction with the correct new settings, no stale listener and proper old-resource cleanup (Technical §7; VT-003)
+- [ ] A session-rebuilding setting is visually distinguished from an appearance toggle and shows an explanatory confirmation before applying when transmission or connectivity could be interrupted (Design §2.6)
+- [ ] A session-affecting change while transmitting is deferred or serialized per a documented policy with no hot-mic window — asserted against authoritative engine state (Technical §7; PTS §8.5)
+- [ ] Connectivity displays configured mode, effective route and LOCAL-only privacy as separate values; force-LOCAL prevents any WAN-initiating action (UX-FR-062; UX-D07; Technical §7; VT-022)
+- [ ] Audio retains existing sound preferences and routing options with no substitution of generic messaging sounds for radio SFX (UX-FR-066)
+- [ ] About shows version and sanitized diagnostics only — no raw exception text or internal service names surfaced to ordinary users (Design §5)
+- [ ] `lib/core/settings/**` is not modified by this task (TASK-063 owns it); all styling uses TASK-047's tokens
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-056
+**Title:** Event QR re-theme — scan/export framing with explicit route-transition workflow
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** medium
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.7 (Event QR — "Preserve existing scan and export components, with modern framing and appropriate camera/permission states. The scan result must not silently fail in LOCAL mode when a LINKED session is required. Provide a clear explanation and explicit route transition, or keep the operation unavailable with a reason. Do not invent keyed-channel UI behavior that the current session implementation cannot execute"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §8 (Event QR and deep links — "Add a host-level join coordinator that checks effective route and LOCAL-only policy before invoking the existing LINKED-only join. A required route change is user-approved, cancellable and safely serialized. Do not initiate WAN traffic when force-LOCAL is enabled… Keyed export, persistence and server-side expiration behavior must be verified independently before being represented as complete. No unreviewed secret or passphrase may be logged"), §1.1 (QR join currently requires an active LINKED session; a LOCAL scan currently just errors); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-063, §4.4 (Join an event journey — "A failure must not leave a falsely selected channel or an apparently connected session. Export retains the existing expiry choices and does not expose private passphrases unnecessarily"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-023; ADR-001 §6 ("NEW framing on the existing scan/export LOGIC — `EventLinkPayload`/deep-link handling reused, screens rebuilt").
+**Owned_Paths:** lib/features/event_qr_ui/**, test/features/event_qr_ui/**, dossiers/TASK-056.md
+**Depends_On:** TASK-047, TASK-048
+**Description:** New screens in a new directory over the **existing, unmodified** `lib/features/event_qr/**` payload/validation/scanner/export logic — the old directory is consumed as a dependency and is only deleted later, by TASK-061, so this task never edits it in place (ADR-001 §6, intake decomposition). Deliver Design §2.7's modern framing with proper camera-permission states, and close the real behavioural gap Technical §1.1 names: today a scan in LOCAL, where the join needs a LINKED session, surfaces as an error. The successor flow explains the required connectivity change, offers an **explicit, user-approved, cancellable** route transition before any network-affecting action, and otherwise keeps the operation unavailable with a stated reason (Design §2.7, PRD §4.4, Technical §8). Force-LOCAL is absolute: no WAN traffic may be initiated when it is enabled (Technical §8, UX-FR-062). Failure must leave either a known-good active session/selection or a clearly unavailable state with recovery — never a falsely selected channel or an apparently connected session (PRD §4.4, VT-023). Payload schema, expiry validation and token-service contracts are retained exactly (Technical §8). Numeric export keeps its existing expiry choices; **keyed export must not be represented as complete** — Technical §1.1/§8 flag it as requiring additional wiring and independent verification, so it is either surfaced as unavailable or scoped as its own future task, not faked here. No passphrase or secret is logged, shown unnecessarily, or placed in diagnostics (Technical §8, PRD §4.4).
+**Acceptance_Criteria:**
+- [ ] New QR screens live in `lib/features/event_qr_ui/**` and reuse the existing payload/validation/scan/export logic without modifying `lib/features/event_qr/**` (ADR-001 §6)
+- [ ] Camera permission states (granted, denied, permanently denied, unavailable) each render an actionable state, not a blank or raw error (Design §2.7)
+- [ ] VT-023 evidence: valid, invalid, expired, numbered and supported keyed payloads each produce the correct outcome; scan-while-LOCAL, LINKED-unavailable, force-LOCAL-enabled, user-cancellation and join-failure are all covered (VT-023)
+- [ ] A scan requiring LINKED while in LOCAL produces an explanation plus an explicit, cancellable, user-approved route transition — never a silent failure or an automatic switch (Design §2.7; Technical §8)
+- [ ] With force-LOCAL enabled, no WAN call is initiated by any QR path — asserted against the fake transport's call log (Technical §8; UX-FR-062; VT-023)
+- [ ] A failed join leaves either the previous known-good session/selection or an explicit unavailable state with recovery — never a falsely selected channel or apparently connected session (PRD §4.4; VT-023)
+- [ ] Payload schema, expiry validation and token-service contracts are unchanged (Technical §8; UX-FR-063)
+- [ ] Numeric export retains existing expiry choices; keyed export is either surfaced as unavailable with a reason or explicitly deferred — it is not presented as working (Technical §1.1/§8)
+- [ ] No passphrase, token or secret is logged, unnecessarily displayed, or included in diagnostics (Technical §8; PRD §4.4)
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-057
+**Title:** Accessibility and responsive polish across all successor screens
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (visual and accessibility verification — "Test at a minimum 320 logical-pixel width, a normal phone, a larger phone, landscape, system text scale 1.0 and 2.0, and large display insets. No essential control or state label may be clipped or require horizontal scrolling… Check minimum 48 dp touch targets, primary PTT size and one-hand access, WCAG AA text contrast, focus order, TalkBack labels, state announcements, keyboard/switch access and reduced-motion behavior"); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §5 (copy and accessibility — plain-language copy, semantic label and state on every action, "Keyboard and screen-reader users must be able to tune, cancel, open Stations, navigate Settings and release a latched TX. Do not require color, sound or haptics alone to understand a state"), §3.3 (text scaling, 48×48 dp), §3.4 (reduced motion); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md §6 (48 dp targets, WCAG AA, TalkBack, scalable text, reduced motion, small phones, landscape, safe-area insets); ADR-001 §3 item 2 (DS §8's accessibility substance carries forward unchanged into the new design).
+**Owned_Paths:** lib/features/channels/**, lib/features/channel_selector/**, lib/features/talk/**, lib/features/stations/**, lib/features/radio_controls/**, lib/features/settings/**, lib/features/event_qr_ui/**, test/features/channels/**, test/features/channel_selector/**, test/features/talk/**, test/features/stations/**, test/features/radio_controls/**, test/features/settings/**, test/features/event_qr_ui/**, dossiers/TASK-057.md
+**Depends_On:** TASK-049, TASK-050, TASK-051, TASK-053, TASK-054, TASK-055, TASK-056
+**Description:** A single-owner cross-screen gate, deliberately serialized after all seven Wave 4 screens so that exactly one task ever holds the whole successor feature territory at once (that is why its Owned_Paths is the union of theirs, and why nothing may run concurrently with it). Sweep every successor screen against Verification §6's full matrix — 320 logical-pixel width, normal phone, larger phone, landscape, text scale 1.0 and 2.0, large display insets — and fix clipping, horizontal scrolling and lost state labels rather than merely reporting them. Verify and correct 48 dp minimum touch targets, primary PTT size and one-hand reachability, WCAG AA text contrast against TASK-047's tokens as actually rendered (Verification §6: "Design review must approve actual renderings, not just token names"), focus order, TalkBack labels and state announcements, keyboard/switch access, and reduced-motion behaviour. Design §5's concrete capability list is the functional floor: keyboard and screen-reader users must be able to tune, cancel, open Stations, navigate Settings **and release a latched TX** — that last one is a safety property, not a nicety. No state may be understandable by colour, sound or haptics alone (Design §5, ADR-001 §3 item 2). Changes here are narrow touch-ups; a defect requiring a screen's behavioural redesign is reported as a finding for a successor task rather than absorbed silently.
+**Acceptance_Criteria:**
+- [ ] Every successor screen renders without clipping or horizontal scrolling at 320 logical-pixel width, a normal phone, a larger phone, landscape, and text scale 1.0 and 2.0, with large display insets — covered by tests, not by inspection alone (Verification §6)
+- [ ] Every primary touch target measures ≥48×48 dp; the primary PTT meets its Design §2.2 dimension and is one-hand reachable (PRD §6; Design §2.2/§3.3)
+- [ ] Rendered foreground/background pairings on each screen meet WCAG AA, measured on actual renderings rather than token names (Verification §6)
+- [ ] Every action exposes a semantic label and state; TalkBack announces meaningful floor transitions without per-frame repetition (Design §5)
+- [ ] Keyboard/switch users can tune, cancel, open Stations, navigate Settings and release a latched TX — each covered by a test (Design §5)
+- [ ] No state is conveyed by colour, sound or haptics alone; each has a text or icon equivalent (Design §5; UX-FR-022)
+- [ ] Reduced-motion removes decorative animation while retaining critical state changes and permitted audio/haptic feedback (Design §3.4)
+- [ ] Safe-area insets are respected on every screen (PRD §6)
+- [ ] Any defect requiring behavioural redesign is recorded as a finding rather than fixed out of scope
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-058
+**Title:** Full regression pass — successor goldens, integration suite, G4 evidence
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** critical
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §0 ("Do not delete or weaken a historical test merely because the old UI is retired"), §2 (baseline and test environment — exact commands, versions, counts), §3 (VT-001–VT-005), §4 (VT-010–VT-015), §5 (VT-020–VT-024), §6 (golden fixtures for every significant state, dark and light), §9 gate G4 ("Complete regression suite, analyzer and Android builds passing or documented approved pre-existing exceptions") and G3; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §10 (a development-only compat harness may exist for side-by-side validation), §1 (Tests row — "Preserve historical tests; add successor tests rather than simply deleting failures"); ADR-001 §5 (the 40 PARKED FR-025 soak skips remain skipped and named — not reopened, not silently removed).
+**Owned_Paths:** test/regression/**, ops/REGRESSION_UX_R1.md, dossiers/TASK-058.md
+**Depends_On:** TASK-057
+**Description:** The G3/G4 evidence gate before any hardware testing. Assemble the cross-cutting integration and golden coverage that no single screen task owns: end-to-end navigation integration tests exercising the real composition (Verification §9: "A scoped mock test is not sufficient evidence for a production wiring change; include a test that exercises the actual composition when the defect concerns wiring"), the full VT-001–VT-005 host/navigation set against the assembled shell, and golden fixtures for every significant Talk state plus Channels empty/populated, selector, Stations empty/populated, Settings, controls, QR and error states, in **both** dark and light themes (Verification §6). Written into `test/regression/**` and a report at `ops/REGRESSION_UX_R1.md` — deliberately no production directory is in this territory, so this task cannot "fix" a screen; a failure becomes a finding routed back to the owning task, which is the whole point of placing this gate here. Historical tests are preserved: the legacy face's tests still pass at this point (its deletion is TASK-061's) and no historical test may be deleted or weakened to make the successor suite green (Verification §0, Technical §1). The 40 named PARKED FR-025 soak skips stay skipped with their reason strings intact (ADR-001 §5). Record the exact baseline commit, toolchain versions, commands, results and any pre-existing failures verbatim per Verification §2 — the 8 pre-existing TASK-035 analyzer warnings are the known documented exception and must be reported as such, not silently absorbed.
+**Acceptance_Criteria:**
+- [ ] VT-001 through VT-005 are implemented against the assembled shell (not per-screen fakes in isolation) and pass (Verification §3)
+- [ ] VT-010 through VT-015 and VT-020 through VT-024 are each covered, with the covering test named in the report (Verification §4/§5)
+- [ ] Golden fixtures exist for every significant Talk state, Channels empty/populated, selector, Stations empty/populated, Settings, controls, QR and error states, in both dark and light themes (Verification §6)
+- [ ] At least one integration test exercises the actual production composition rather than only mocks (Verification §9)
+- [ ] No historical test is deleted or weakened; the legacy face's tests still pass at this commit (Verification §0; Technical §1)
+- [ ] The 40 named PARKED FR-025 soak skips remain skipped with their reason strings unchanged (ADR-001 §5)
+- [ ] `ops/REGRESSION_UX_R1.md` records exact commit, Flutter/Dart and Android tooling versions, every command run, pass/fail/skip counts and every pre-existing exception (the 8 TASK-035 analyzer warnings named explicitly) (Verification §2)
+- [ ] G4 evidence complete: full `flutter test` suite, `flutter analyze`, `flutter build apk --debug` and `flutter build apk --release` all pass or have a documented approved exception (Verification §9 G4)
+- [ ] Any failure found is reported as a finding against the owning task; this task modifies no production code (its territory contains none)
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-059
+**Title:** Physical-device LOCAL acceptance — discovery, bidirectional voice, contention, routing, background
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** critical
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §7 (real-device release matrix — LOCAL discovery, LOCAL voice A→B and B→A, busy and contention, channel change, network failure, audio routing, background, long running, upgrade; "The current baseline's WebRTC routing fix must receive explicit physical-device confirmation. Review remote-track handling if voice remains absent. Do not claim a release candidate is audio-verified based only on emulator, fake adapter or compile success"), §9 gate G5, §0 ("A passing mocked UI test does not establish that real audio, discovery, routing or relay communication works"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §0 and §12 (unverified real-device audio correction and remote-track gap — "Confirm bidirectional audio before declaring backend preservation successful"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md §7 (product acceptance — "bidirectional voice on two real devices"); ADR-001 §5 (TASK-044's Android audio-session/routing fix is carried forward unchanged and is what this test finally confirms or refutes).
+**Owned_Paths:** ops/FIELD_TEST_LOCAL.md, dossiers/TASK-059.md
+**Depends_On:** TASK-058
+**Description:** The first hardware gate, and it carries double duty: it validates the successor shell **and** finally confirms or refutes TASK-044's Android audio-session/routing fix, which has never been verified on a phone (ADR-001 §5, Technical §0/§12, and this project's own 2026-08-23 field-test handover where PTT responded but no voice flowed). Two physical Android devices at or above the supported minimum SDK, at least one on a current Android version, different manufacturers where available; record device model, OS, app commit, network configuration and result for every row (Verification §7). Execute the LOCAL rows of the §7 matrix: discovery on a LAN with no internet, audible intelligible A→B and B→A voice through the intended output route with correct grant/release and no stuck microphone, busy/contention arbitration with a single floor owner, channel change on both devices with the old channel no longer active, network-failure fallback matching documented policy, audio routing across speakerphone/wired/available Bluetooth with no silent earpiece-only regression, background behaviour across lock screen/notification action/app switch/return, and the long-running TOT/battery/foreground-service checks against the established plan. Results — pass or fail — are written to `ops/FIELD_TEST_LOCAL.md` as evidence; a failed row is reported with evidence and **never** converted to a pass by assumption (Verification §9). If voice is still absent, the documented next step is to review remote-track handling (TASK-065's territory) before blaming the new UI — the intake risk register names this explicitly. This task changes no production code; a defect it finds becomes a scoped successor task.
+**Acceptance_Criteria:**
+- [ ] Two physical Android devices used, with model, OS version, app commit, network configuration and per-row result recorded (Verification §7)
+- [ ] LOCAL discovery succeeds on a LAN without internet access (Verification §7)
+- [ ] Audible, intelligible bidirectional voice A→B and B→A through the intended output route, with correct grant/release and no stuck microphone (Verification §7; PRD §7)
+- [ ] Busy/contention: only one station owns the floor and simultaneous requests obey arbitration (Verification §7)
+- [ ] Channel change: both devices tune to matching channel/code and communicate; the old channel is no longer incorrectly active (Verification §7)
+- [ ] Network failure produces the documented reconnect/fallback/no-link behaviour (Verification §7)
+- [ ] Audio routing verified across speakerphone, wired and any available Bluetooth route with no silent earpiece-only regression — this is the explicit confirmation of TASK-044's fix (Verification §7; ADR-001 §5)
+- [ ] Background: lock screen, notification action, app switch and return preserve expected session and audio behaviour (Verification §7)
+- [ ] Long-running TOT, battery and foreground-service checks executed against the established plan (Verification §7)
+- [ ] `ops/FIELD_TEST_LOCAL.md` records every row with real evidence; failures are recorded as failures with a recommended successor task, never assumed to pass (Verification §9)
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-060
+**Title:** Physical-device LINKED acceptance — relay join, bidirectional voice, fallback, QR transition
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §7 (LINKED row — "Supported relay join and bidirectional voice succeed using the existing backend"; network failure, audio routing, background and upgrade rows), §9 gate G5, VT-022 (mode matrix incl. force-LOCAL override), VT-023 (QR transition); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 (configured preference vs effective route; existing AUTO policy; "Any change to mode policy requires a separate ADR"), §8 (QR join coordinator, force-LOCAL prohibition on WAN traffic), §12 (verify LINKED presence, telemetry, keyed channels and entitlements individually); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D07, UX-FR-046, UX-FR-062, §7 (product acceptance — "supported LINKED operation"); ADR-001 §5 (LiveKit/`LinkedController`/`TokenClient` contracts NOT superseded).
+**Owned_Paths:** ops/FIELD_TEST_LINKED.md, dossiers/TASK-060.md
+**Depends_On:** TASK-058
+**Description:** The relay-side hardware gate, run against the self-hosted LiveKit/Redis/Caddy/coturn stack and the FastAPI token service, on the same two physical devices. Validate the §7 LINKED row end to end — relay join and bidirectional voice using the **existing** backend, nothing new introduced — plus the mode matrix of VT-022 (LOCAL, LINKED and AUTO with and without a configured relay, force-LOCAL overriding every WAN-capable choice, configured and effective mode displayed separately, existing fallback on relay failure, and no assertion of unimplemented dual-homing) and the VT-023 QR transition cases on real hardware. Roster honesty is checked here too: an incomplete LINKED roster must present as unavailable, never as a verified zero count (UX-FR-046). **Dependency note recorded deliberately:** the `/token/token` double-append defect forces the current runbook's "TOKEN URL = bare origin" workaround; TASK-063 fixes it and is dispatched in Wave 1 precisely so this test can run against real default settings — if TASK-063 has landed, test the defaults path and say so, otherwise record the workaround as still required (intake risk 5). Results go to `ops/FIELD_TEST_LINKED.md`; failures are recorded as failures with a recommended successor task. This task changes no production code, and it is deliberately territory-disjoint from TASK-059 so both hardware gates can run concurrently.
+**Acceptance_Criteria:**
+- [ ] Supported relay join succeeds and bidirectional voice works on two physical devices using the existing backend (Verification §7; PRD §7)
+- [ ] VT-022 matrix executed on hardware: LOCAL, LINKED and AUTO, with and without a configured relay; force-LOCAL overrides every WAN-capable choice (VT-022; UX-D07)
+- [ ] Configured mode and effective route are displayed separately and correctly at each step; no dual-homing claim is made (Technical §7; UX-FR-002)
+- [ ] Existing fallback behaviour on relay failure is observed and matches documented policy (Verification §7; VT-022)
+- [ ] VT-023 QR cases exercised on hardware, including scan-while-LOCAL, force-LOCAL enabled and user cancellation; no unauthorized WAN call occurs (Technical §8; VT-023)
+- [ ] An incomplete LINKED roster presents as unavailable, never as a verified zero member count (UX-FR-046; VT-024)
+- [ ] Token-service path recorded explicitly: whether defaults were used (TASK-063 landed) or the bare-origin workaround was still required (intake risk 5)
+- [ ] Device models, OS versions, app commit, relay configuration and per-row results recorded in `ops/FIELD_TEST_LINKED.md` (Verification §7)
+- [ ] Failures recorded as failures with a recommended successor task, never converted to a pass by assumption (Verification §9)
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-061
+**Title:** Legacy retirement — delete the hardware-radio face, PTT, display and settings-panel widget trees
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** ADR-001 §3 item 4 and §7 item 1 (owner decision — "the legacy hardware-radio face… is deleted outright once the new shell passes its own tests and real-device acceptance — no dormant 'classic theme' flag is being built"), ADR-001 §6 (retirement list: `lib/features/face/face_view.dart`, `roster_screen.dart`, `lib/features/ptt/**`, `lib/features/display/**`, `lib/features/settings_panel/**` — widget layer only); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §10 ("Retire the old route, assets and tests only through an explicit cleanup task after successor golden tests and real-device acceptance pass"), §9 ("Do not delete the old face and its tests until the new host and new presentation are independently verified and the owner approves retirement"), §1 (Face row — "Retire the hardware presentation after successor tests pass"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §0 ("Retired visual goldens may be replaced only after the corresponding successor screen/state tests and owner approval are in place"), §6 ("Existing hardware-face goldens are retained until explicit retirement"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D04, §2.3 ("R1 does not require a legacy hardware-face toggle").
+**Owned_Paths:** lib/features/face/**, lib/features/ptt/**, lib/features/display/**, lib/features/settings_panel/**, lib/features/event_qr/**, test/features/face/**, test/features/ptt/**, test/features/display/**, test/features/settings_panel/**, test/features/event_qr/**, dossiers/TASK-061.md
+**Depends_On:** TASK-059, TASK-060
+**Description:** The explicit cleanup task Technical §10 requires, gated behind both hardware acceptance runs exactly as ADR-001 §7 item 1 and Technical §9 demand — it may not start before TASK-059 and TASK-060 are `done`. Delete the legacy hardware presentation outright: the face widget tree (including `face_view.dart`, `roster_screen.dart`, `housing.dart`, `status_strip.dart` and whatever remains of `face_screen.dart` after TASK-045 hollowed it — TASK-045 owned that one file earlier in the wave and is long since merged by the time this runs, so there is no concurrency between them), `lib/features/ptt/**`, `lib/features/display/**`, `lib/features/settings_panel/**`, the superseded `lib/features/event_qr/**` screens, TASK-048's development-only compat route, and every hardware-face golden and test that exists solely to assert the retired presentation. **No dormant classic-theme flag is left behind** (ADR-001 §7 item 1, PRD §2.3) — if a classic theme is ever wanted it is a fresh task against this ADR's git history. The discipline that makes this safe rather than destructive: any **behavioural** logic still consumed by the successor screens (gesture/latch/TOT semantics, tuning validation, QR payload/validation/scan/export logic) must have been migrated or re-homed before its file is deleted, and the dossier must list, file by file, what was deleted, what was migrated and where it went. A historical test that asserted real behaviour rather than the retired look gets an equivalent successor test, not a silent deletion (Verification §0, Technical §1's Tests row). If any successor screen still imports a retired path when this task starts, that is a finding for the owning task, not a licence to widen this territory.
+**Acceptance_Criteria:**
+- [ ] TASK-059 and TASK-060 are both `done` before any deletion commit (ADR-001 §7 item 1; Technical §9/§10)
+- [ ] `lib/features/face/**`, `lib/features/ptt/**`, `lib/features/display/**`, `lib/features/settings_panel/**` and the superseded `lib/features/event_qr/**` screens are deleted, and no successor code imports any of them — verified repo-wide by grep (ADR-001 §6)
+- [ ] TASK-048's development-only compat route is removed; no legacy face is reachable by any path, and no classic-theme flag, dormant or otherwise, remains (ADR-001 §7 item 1; PRD §2.3)
+- [ ] Every piece of still-consumed behavioural logic (gesture/latch/TOT semantics, tuning validation, QR payload/validation/export) was migrated before its file was deleted; the dossier lists file-by-file what was deleted, what was migrated and where (Technical §9)
+- [ ] Every deleted historical test that asserted real behaviour has an equivalent successor test named in the dossier; only tests asserting the retired presentation are deleted outright (Verification §0; Technical §1)
+- [ ] Retired hardware-face goldens are removed only now, with successor goldens (TASK-058) already in place as the new baseline (Verification §0/§6)
+- [ ] `flutter analyze` clean repo-wide; full suite green with no unexplained count regression — the dossier reconciles the before/after test counts explicitly
+- [ ] `flutter build apk --debug` succeeds after the deletions
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-062
+**Title:** R1 release acceptance — final regression, release APK, G6 evidence
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §9 gates G4/G5/G6 ("Owner acceptance of final UI and explicit release decision"), §2 ("release build evidence is also required before release"), §8 (non-functional and safety regression — original performance budgets, battery bench, "Verify microphone is muted before publish and after release, floor exclusivity, no recording persistence, LOCAL-only traffic isolation, privacy-code semantics, secret handling, and no unexpected network calls from the new UI"; "No new analytics, contacts permissions, address-book upload or message storage is introduced in R1"), §7 (upgrade row — "Install old release, save settings, upgrade, and verify no data loss or mandatory account introduction"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md §7 (product acceptance list, all nine gates), §2.3 (out-of-scope list); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §10 (legacy compatibility — identity, callsign, settings, channel memory and network configuration survive the update); specs/KERYX_Product_Technical_Spec_v1.1.md NFR-11 (app size ≤ 60 MB installed — the target TASK-064 addresses and this gate verifies).
+**Owned_Paths:** pubspec.yaml, ops/RELEASE_ACCEPTANCE_R1.md, dossiers/TASK-062.md
+**Depends_On:** TASK-061, TASK-064
+**Description:** The final gate. Bump the app version in `pubspec.yaml` (Flutter's version source — deliberately chosen over `android/**` so this task never contends with TASK-064's gradle territory), build the release APK, and assemble the G6 evidence package in `ops/RELEASE_ACCEPTANCE_R1.md`. Re-run the complete regression suite, analyzer and both debug and release Android builds on the retired-legacy tree (Verification §9 G4) — the count must reconcile against TASK-058's report and TASK-061's deletion accounting, with every difference explained. Run the Verification §8 non-functional and safety sweep against baseline rather than invented targets: mic muted before publish and after release, floor exclusivity, no recording persistence, LOCAL-only traffic isolation, privacy-code semantics, secret handling, and **no unexpected network calls from the new UI** — the last is a real risk in a screen rewrite and deserves an explicit check, not an assumption. Confirm R1 introduced no analytics, contacts permission, address-book upload or message storage (Verification §8, PRD §2.3). Execute the §7 upgrade row on hardware: install the previous release, save settings, upgrade, verify no data loss and no mandatory account (Technical §10, VT-005 on a real device this time). Verify NFR-11 app size against the split-per-ABI artifact TASK-064 produced — hence the dependency on it — and report the actual figure rather than a target. Finish by walking PRD §7's nine acceptance items one by one with the evidence for each, and hand the owner an explicit release decision to make; the decision itself is the owner's, not this task's.
+**Acceptance_Criteria:**
+- [ ] App version bumped in `pubspec.yaml`; release APK built and its exact byte size and sha256 recorded (Verification §2)
+- [ ] Full `flutter test` suite, `flutter analyze`, `flutter build apk --debug` and `flutter build apk --release` all pass, with counts reconciled against TASK-058's report and TASK-061's deletions and every difference explained (Verification §9 G4)
+- [ ] Verification §8 safety sweep evidenced: mic muted before publish and after release, floor exclusivity, no recording persistence, LOCAL-only traffic isolation, privacy-code semantics and secret handling all verified against baseline (Verification §8)
+- [ ] No unexpected network call originates from any successor screen — verified explicitly, not assumed (Verification §8)
+- [ ] No analytics, contacts permission, address-book upload or message storage was introduced in R1 (Verification §8; PRD §2.3)
+- [ ] Upgrade row executed on a real device: previous release installed, settings saved, upgraded — no data loss, no mandatory account, identity/callsign/channel memory/network configuration intact (Verification §7; Technical §10)
+- [ ] NFR-11 app size measured against TASK-064's split-per-ABI artifact and reported as an actual figure against the ≤60 MB target (PTS NFR-11)
+- [ ] Each of PRD §7's nine product-acceptance items is walked with its evidence recorded (PRD §7)
+- [ ] `ops/RELEASE_ACCEPTANCE_R1.md` presents the owner an explicit release decision with evidence; the decision is left to the owner (Verification §9 G6)
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-063
+**Title:** Fix token URL double-append (`/token/token` 404 on the default LINKED path)
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** high
+**Spec_References:** ADR-001 §5 (pre-existing ORCH-owed debt, explicitly carried into this wave as a narrowly scoped task rather than absorbed into a rewrite — "Token URL double-append (`/token/token` 404 on default LINKED path) — `lib/core/settings/settings_model.dart` + `lib/services/linked/token_client.dart`"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §0 ("Any confirmed transport defect is a separate, narrowly scoped corrective task"), §8 (token-service contracts retained); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-062 (actual route state), §4.5; PLAN.md orchestrator_notes 2026-08-23T05:55Z (the original defect record: `resolvedTokenServiceUrl` at `settings_model.dart:147-153` already ends in `/token`, `TokenClient._resolveTokenUri` at `token_client.dart:121-124` appends `token` again, wired together at `radio_session_controller.dart:299-300`); `ops/TWO_PHONE_TEST.md` §6 (the bare-origin workaround this fix retires). FROZEN territories reopened for this task only: `lib/core/settings/settings_model.dart`, `lib/services/linked/token_client.dart`.
+**Owned_Paths:** lib/core/settings/settings_model.dart, lib/services/linked/token_client.dart, test/core/settings/**, test/services/linked/token_client_test.dart, dossiers/TASK-063.md
+**Depends_On:** —
+**Description:** Pure debt paydown, independent of the redesign, dispatched in Wave 1 specifically so that TASK-060's LINKED hardware test can run against real default settings instead of the runbook's mandatory workaround (intake risk 5). The defect is a one-line-either-side path concatenation: `resolvedTokenServiceUrl` already yields a URL ending in `/token`, and `TokenClient._resolveTokenUri` appends `token` again, producing `/token/token` → 404 → `NO LINK` on the default LINKED path. Fix it on exactly one side — the builder chooses which, and states the reasoning in the dossier — such that the resolved URI is `/token` exactly for the default configuration, while a user-configured URL that already carries a path prefix keeps that prefix (the prefix-preservation behaviour TASK-024's rework established must not regress). The regression test is the point of the task: assert the **resolved URI string** for the default settings and for a path-prefixed custom URL, so a future refactor on either side of the seam cannot silently reintroduce the double-append. `radio_session_controller.dart` wires the two together but is **not** in this territory and must not be edited — if the fix appears to require touching it, block with `OWNERSHIP_CONFLICT` rather than widening scope. Note in the dossier that `ops/TWO_PHONE_TEST.md` §6's bare-origin workaround becomes unnecessary once this merges; updating that runbook is not in this territory (TASK-060 records the operational change).
+**Acceptance_Criteria:**
+- [ ] For default settings, the URI actually resolved by `TokenClient` ends in exactly one `/token` segment — asserted on the resolved URI string, not on either input alone (ADR-001 §5)
+- [ ] A user-configured token-service URL carrying a path prefix retains that prefix in the resolved URI (no regression of TASK-024's prefix-preservation fix)
+- [ ] The fix is applied on exactly one side of the seam, with the choice and reasoning recorded in the dossier
+- [ ] `lib/services/session/radio_session_controller.dart` is not modified; a need to do so is escalated as `OWNERSHIP_CONFLICT`
+- [ ] Token-service request/response contracts are otherwise unchanged (Technical §8)
+- [ ] The new regression test is revert-mutation-checked: reintroducing the double-append makes exactly that test fail
+- [ ] `flutter analyze` clean; full suite green with no regression
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-064
+**Title:** NFR-11 app size — split-per-ABI release output and correct the inert abiFilters line
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** medium
+**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md NFR-11 ("App size ≤ 60 MB installed") — currently red at a ~114 MB three-ABI fat release APK; ADR-001 §5 (pre-existing ORCH-owed debt carried into this wave as a narrowly scoped task — "NFR-11 app size (114 MB vs ≤60 MB target) + the inert `abiFilters` line in `android/app/build.gradle.kts`"); PLAN.md orchestrator_notes 2026-08-23T05:55Z (TASK-039 review finding: the APK's `lib/` was inspected and found to be a consistent three-ABI fat APK — arm64 39 MB / v7a 29 MB / x86_64 46 MB of `.so` alone — which makes GB's `ndk.abiFilters` line inert and its accompanying comment false); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §8 ("Retain the original performance budgets… Compare against baseline measurements rather than inventing replacement targets"), §2 (release build evidence required). FROZEN territory reopened for this task only: `android/app/build.gradle.kts`.
+**Owned_Paths:** android/app/build.gradle.kts, dossiers/TASK-064.md
+**Depends_On:** —
+**Description:** Pure debt paydown, independent of the redesign. Two related defects in one file. First, the release output is a three-ABI fat APK, so every install carries native libraries for architectures the device cannot use — `--split-per-abi` (or the equivalent gradle `splits` configuration) produces per-ABI artifacts and is the direct route to NFR-11's ≤60 MB target; measure and report the **actual** resulting per-ABI sizes rather than asserting the target is met (Verification §8's "Compare against baseline measurements rather than inventing replacement targets"). Second, the existing `ndk.abiFilters` line is inert — TASK-039's review proved by inspecting the built APK's `lib/` directory that all three ABIs still ship — and its comment claims otherwise; either make it actually take effect or delete it, and in both cases correct the false comment. A lying comment about a size control is worse than no comment, which is why this is scoped as an acceptance criterion rather than a nicety. Nothing else in `android/**` is in this territory: no manifest, permission, service, signing or proguard change is authorized here, and the foreground service, notification actions, audio routing and permissions must all continue to work exactly as TASK-038/044 left them. Verify by building and confirming, from the artifact itself, which ABIs are actually present — the same evidence standard TASK-039's review used.
+**Acceptance_Criteria:**
+- [ ] Release build produces per-ABI artifacts (split-per-ABI or equivalent gradle `splits` configuration), with each artifact's exact byte size recorded (PTS NFR-11)
+- [ ] The per-ABI size figures are measured from real built artifacts and reported against the ≤60 MB target; if a split still exceeds it, that is reported as a fact with a recommendation, not papered over (Verification §8)
+- [ ] The built artifact's `lib/` directory is inspected and the ABIs actually present are listed as evidence — the same standard that exposed the inert line (PLAN.md 2026-08-23 finding)
+- [ ] The inert `ndk.abiFilters` line either takes real effect or is removed, and its false comment is corrected in either case (ADR-001 §5)
+- [ ] No manifest, permission, service, signing or proguard change is made; foreground service, notification actions, audio routing and permissions behave exactly as before
+- [ ] `flutter build apk --release --split-per-abi` succeeds; `flutter analyze` clean; full suite green with no regression
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
+
+
+### TASK-065
+**Title:** RX remote-track handling + real quality/amplitude telemetry source in RtcAdapter
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** medium
+**Spec_References:** ADR-001 §5 ("TASK-044's own disclosed gap (no `onTrack`/remote-stream handling in `RtcAdapter`, no real RX metering source) — matches the new Technical spec §5.3's own instruction… Folded in as its own task, not conflated with the shell/navigation work"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.3 ("Remove the simulated amplitude meter's measurement semantics or use a verified real audio tap in a separately scoped telemetry task"), §0 and §12 ("The baseline commit records a still-unverified real-device audio routing correction and remote-track handling gap… Review remote-track handling if voice remains absent"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-015 ("An actual amplitude meter requires a verified audio sample source"), §7 ("Review remote-track handling if voice remains absent"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-027, UX-FR-045; specs/KERYX_Product_Technical_Spec_v1.1.md §8.1/§8.5 (voice path); TASK-044's own Description (the gap as originally disclosed). FROZEN territory reopened for this task only: `lib/services/mesh/rtc_adapter.dart`, `lib/services/mesh/rtc_adapter_flutter_webrtc.dart`.
+**Owned_Paths:** lib/services/mesh/rtc_adapter.dart, lib/services/mesh/rtc_adapter_flutter_webrtc.dart, test/services/mesh/rtc_adapter_test.dart, dossiers/TASK-065.md
+**Depends_On:** —
+**Description:** Pure debt paydown of the gap TASK-044 disclosed rather than hid: the `RtcAdapter` abstraction has no `onTrack`/remote-stream handling anywhere, so the app has no visibility into or control over the incoming peer's audio track at all — no RX volume or mute control, and no source from which a genuine RX level could ever be measured. Remote audio is believed to auto-play at the native layer regardless (standard WebRTC behaviour for audio-only), so this is a completeness gap rather than the suspected cause of the 2026-08-23 silent-audio field report — but Verification §7 and Technical §12 both name it as the **next thing to review if voice is still absent after the LOCAL hardware test**, which makes landing it before TASK-059 genuinely useful. Add remote-track handling to the adapter interface and its `flutter_webrtc` implementation: surface incoming remote audio tracks through the abstraction so a consumer can observe them, and expose whatever real level/quality signal the platform genuinely provides. **The honesty rule is the acceptance bar, not the feature**: only expose a metric that is actually measured; if the platform gives nothing usable, expose *unavailable* and say so plainly in the dossier rather than shipping a proxy under a measurement name (Technical §5.3, UX-FR-027/045, VT-015). This task provides the `measured` source TASK-046's projection models but does not depend on it and must not reach into it — the seam is one-directional and consumers are wired later. Do not change TASK-044's audio-session/routing configuration, and do not alter the TX path, floor gating or SDP negotiation.
+**Acceptance_Criteria:**
+- [ ] `RtcAdapter` exposes remote-track/remote-stream handling, and the `flutter_webrtc` implementation wires the real platform callback to it (ADR-001 §5; Technical §12)
+- [ ] A consumer can observe incoming remote audio tracks through the abstraction — proven with a fake adapter test and an implementation-level test of the callback wiring
+- [ ] Any exposed level/quality value is genuinely measured; where the platform provides nothing usable, the API returns unavailable and the dossier says so plainly — no proxy is shipped under a measurement name (Technical §5.3; UX-FR-027/045; VT-015)
+- [ ] TASK-044's audio-session/routing configuration is unchanged, and the TX path, floor gating and SDP negotiation are untouched (ADR-001 §5)
+- [ ] No consumer wiring is added outside this territory; the seam is left for TASK-046/TASK-051 to consume later
+- [ ] Every new regression test is revert-mutation-checked
+- [ ] `flutter analyze` clean; full suite green with no regression; `flutter build apk --debug` succeeds
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-07T18:05:00Z
