@@ -135,6 +135,60 @@ TASK-061 later deletes.
   side effect, not something either task's diff should carry.
   → Status: needs_review.
 
+- [2026-09-07T22:05:00Z] [S5] **Rework round 1 fix.** Read ORCH's review
+  findings fresh from PLAN.md. Fixed blocking finding (1): `lib/app.dart`'s
+  `MaterialApp.theme` now calls TASK-047's `keryxUxThemeData()` instead of
+  the placeholder `ThemeData.dark(useMaterial3: true)`. Confirmed the legacy
+  `FaceScreen` route paints entirely from its own hard-coded `KeryxTheme`
+  statics (`lib/features/face/{face_view,housing,roster_screen,status_strip}
+  .dart` — grepped, zero `Theme.of(context)` reads), so the app-level theme
+  swap cannot regress it; its 27-test suite wasn't touched by this change
+  (not independently re-run in isolation, but nothing in its render path
+  reads the changed theme, and the full-suite run below covers it either
+  way). Added two tests:
+  - `test/app_shell/app_theme_test.dart` (new file, source-provenance —
+    same pattern as `legacy_compat_test.dart`, disclosed there and reused
+    here: `_KeryxMaterialShell` is private/unexported and `KeryxApp` cannot
+    be pumped directly in a widget test because its internal `ProviderScope`
+    has no override seam and its default providers boot real platform I/O).
+    Reads `lib/app.dart`'s source, asserts the `ux_tokens.dart` import
+    exists, the `theme:` line is exactly `theme: keryxUxThemeData(),`, and
+    the placeholder `ThemeData.dark(` literal is gone.
+  - `mobile_app_shell_test.dart`'s new "KeryxUxTokens resolves non-null
+    under the shell's real theme wiring" case — pumps `MobileAppShell`
+    wrapped in `MaterialApp(theme: keryxUxThemeData())` (the same fake-host
+    override seam every other case in that file already uses, since
+    `KeryxApp` itself can't be pumped) and asserts
+    `Theme.of(context).extension<KeryxUxTokens>()` is non-null with
+    `brightness == Brightness.dark` and the dark palette's `surfaceBase`
+    (equality by field, not instance — `KeryxUxTokens`/`KeryxUxPalette`
+    don't override `==`).
+  Also fixed non-blocking finding (2): added a branch-state-preservation
+  case to `mobile_app_shell_test.dart` — push Talk under Channels, switch to
+  Settings, switch back, assert Talk is still on the Channels branch stack.
+  Revert-mutation-checked both new load-bearing assertions from within this
+  task's own `Owned_Paths` (finding (1)'s theme-wiring keryxUxThemeData()
+  itself lives in TASK-047's `lib/core/theme/ux_tokens.dart`, out of
+  territory, so that assertion was mutation-checked via `app_theme_test
+  .dart`'s own subject, `lib/app.dart`, instead — see Test_Evidence for
+  both):
+  1. Replaced `mobile_app_shell.dart`'s `IndexedStack` with a bare
+     `[...][_index]` child (the exact regression finding (2) warns about) —
+     flipped exactly the new branch-preservation case red, nothing else;
+     reverted, confirmed clean `git diff`.
+  2. Reverted `lib/app.dart`'s `theme:` line back to the placeholder
+     `ThemeData.dark(useMaterial3: true)` — flipped exactly
+     `app_theme_test.dart`'s case red; reverted, confirmed clean `git diff`.
+  `flutter analyze` (repo-wide): 8 pre-existing TASK-035 warnings only, zero
+  in any touched file (also reverted the standing local-toolchain
+  `analysis_options.yaml` auto-edit before committing, same as last
+  session). `flutter test` (full suite): **1112 passed, 0 failed, 40
+  skipped** — 1109 (prior baseline) + 3 new cases (`app_theme_test.dart` × 1,
+  `mobile_app_shell_test.dart` × 2) = 1112, parked FR-025 seeds unchanged.
+  `flutter build apk --debug`: succeeded (also reverted the standing
+  `android/gradle.properties` auto-edit before committing). Committed
+  `4d528c8` on `task/TASK-048-s5`. → Status: needs_review.
+
 ## Non-blocking notes for ORCH / future tasks
 
 - The seven Wave 4 screen tasks (TASK-049/050/051/053/054/055/056) replace
