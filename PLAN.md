@@ -2956,7 +2956,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-049
 **Title:** Channels landing screen — current channel card, recent recall, connection indicator
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.1 (Channels — landing: exact content order, current-channel card contents, recent list, empty state, "Do not show a fake online count", "no new background subscriptions to all 99 channels are authorized"), §1 (Channels owns Current channel / Recent channels / Select / Talk); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D01, UX-D05 (six-entry recall is not message history), UX-FR-002, UX-FR-004, UX-FR-005, UX-FR-008, UX-FR-010; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §1 traceability rows for UX-FR-002/008/045/046 and UX-FR-003/004/009/010, VT-020 (recall order/deduplication); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §6 ("Existing channel-memory writes remain serialized and deduplicated. No schema expansion is required for R1"); ADR-001 §6 (new widgets, reused data sources).
@@ -2964,16 +2964,16 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 **Depends_On:** TASK-048
 **Description:** Build the default landing screen fresh against Design §2.1's mockup and content order — brand/title with current connection indicator, current-channel card, a primary Open Talk action, the recent-channel list, a Select channel action, and the persistent navigation — reading exclusively from TASK-046's projection and dispatching TASK-046's typed intents. Per ADR-001 §7 item 2 this is new widget code, not a re-theme of anything TASK-043 shipped. The current-channel card shows the formatted two-digit channel/code, the **configured** mode and a concise **actual** status, never conflating the two (UX-FR-002). Recent entries are the existing six-entry memory rendered truthfully with their real channel/code values, each selectable and routed through the authoritative tune operation (UX-FR-004) — this is recall, not history (UX-D05), and no schema change is authorized (Technical §6). Empty memory gets the neutral explanatory message plus a direct-tune entry point (Design §2.1). Two hard prohibitions from §2.1 that are easy to violate by accident: no fake online/member count anywhere on a channel row, and **no new background subscriptions across the 99-channel space** to populate presence — presence appears on a row only where it is genuinely verified for that channel. A current-channel shortcut must be reachable in one tap. The channel-selection sheet/flow itself belongs to TASK-050; this screen only launches it.
 **Acceptance_Criteria:**
-- [ ] Content order matches Design §2.1 exactly: connection indicator, current-channel card, primary Open Talk action, recent list, Select channel action, persistent nav
-- [ ] Current-channel card shows formatted two-digit channel and code, configured mode and actual status as separate, non-conflated fields (Design §2.1; UX-FR-002)
-- [ ] Recent list renders the existing six-entry memory with real values, in correct order and deduplicated; selecting an entry invokes the authoritative tune intent and nothing else (UX-FR-004; VT-020)
-- [ ] Empty memory renders the neutral explanatory message and a direct-tune action (Design §2.1)
-- [ ] No online/member count, unread count, contact or message-history affordance appears anywhere on this screen (Design §2.1; UX-FR-008; UX-D05)
-- [ ] No subscription is opened for channels other than the current one — asserted against the fake data source's call log (Design §2.1)
-- [ ] The current channel is reachable in one tap and is preserved when returning from any secondary screen; navigation alone does not retune (UX-FR-005)
-- [ ] All state/colour cues carry a text or icon equivalent and use TASK-047's tokens; no literal colour values (Design §3.2; UX-FR-022)
-- [ ] Widget tests use fake host/projection — no real sockets or native plugins (Verification §2)
-- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+- [x] Content order matches Design §2.1 exactly: connection indicator, current-channel card, primary Open Talk action, recent list, Select channel action, persistent nav
+- [x] Current-channel card shows formatted two-digit channel and code, configured mode and actual status as separate, non-conflated fields (Design §2.1; UX-FR-002)
+- [x] Recent list renders the existing six-entry memory with real values, in correct order and deduplicated; selecting an entry invokes the authoritative tune intent and nothing else (UX-FR-004; VT-020)
+- [x] Empty memory renders the neutral explanatory message and a direct-tune action (Design §2.1)
+- [x] No online/member count, unread count, contact or message-history affordance appears anywhere on this screen (Design §2.1; UX-FR-008; UX-D05)
+- [x] No subscription is opened for channels other than the current one — asserted against the fake data source's call log (Design §2.1)
+- [x] The current channel is reachable in one tap and is preserved when returning from any secondary screen; navigation alone does not retune (UX-FR-005)
+- [x] All state/colour cues carry a text or icon equivalent and use TASK-047's tokens; no literal colour values (Design §3.2; UX-FR-022)
+- [x] Widget tests use fake host/projection — no real sockets or native plugins (Verification §2)
+- [x] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
 **Branch:** task/TASK-049-gb
 **Started_At:** 2026-09-07T20:45:00Z
 **Progress_Notes:**
@@ -2986,12 +2986,28 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
     FILE   dossiers/TASK-049.md  -> exists, 29 line(s), 1332 bytes
   [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
   Territory matches expectation: new `lib/features/channels/**` + `test/features/channels/**`, dossier already present. Implementing a fresh Channels landing (ADR-001 §7 item 2) that reads TASK-046's projection and dispatches TASK-046 intents; Select-channel is a launch callback (TASK-050 owns the flow). `lib/app_shell/channels_screen.dart` is frozen TASK-048 territory and will not be edited.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-07T20:58:00Z] [GB] Channels landing landed as `2389477` on `task/TASK-049-gb`. Fresh widgets in `lib/features/channels/**` (ADR-001 §7 item 2): two-digit CH/code, Configured vs Effective as separate fields, Open Talk / Select channel as launch callbacks (Talk=TASK-051, selector=TASK-050), recent recall tune-only, empty-state copy, no 99-channel presence sweep, no online/member/unread/contact/history affordances, TASK-047 tokens only. `lib/app_shell/channels_screen.dart` not edited (TASK-048 frozen) — a later wiring pass should compose `ChannelsLanding` into that destination. → needs_review.
+**Artifacts:**
+- lib/features/channels/channels.dart
+- lib/features/channels/channels_landing.dart
+- lib/features/channels/channel_format.dart
+- lib/features/channels/channel_memory.dart
+- lib/features/channels/presentation_icons.dart
+- lib/features/channels/README.md
+- test/features/channels/channels_landing_test.dart
+- test/features/channels/channel_format_test.dart
+- test/features/channels/channel_memory_test.dart
+- test/features/channels/fake_radio_host.dart
+- dossiers/TASK-049.md
+**Test_Evidence:**
+- [2026-09-07T20:58:00Z] [GB] `flutter test test/features/channels/` — 18/18 pass.
+- [2026-09-07T20:58:00Z] [GB] `flutter test` — **1163 passed / 0 failed / 40 skipped** (40 PARKED FR-025 skips unchanged; +18 new).
+- [2026-09-07T20:58:00Z] [GB] `flutter analyze lib/features/channels test/features/channels` — No issues found. Repo-wide `flutter analyze` — 8 issues, all pre-existing TASK-035 in `test/services/session/radio_session_controller_test.dart`.
+- [2026-09-07T20:58:00Z] [GB] Revert-mutation: (1) `for (int channel = 1; channel <= 99; channel++) widget.watchChannel?.call(channel)` in `initState` fails "watchChannel is never invoked"; restored. (2) `_tuneRecent` also calling `onOpenTalk()` fails "tap tunes and does nothing else" (openTalkCalls Expected 0, Actual 1); restored. (3) swapping Configured/Effective mode labels fails "Configured AUTO" (Found 0); restored. `git diff` on the landing file empty of mutation residue after restore (new file; source matches the committed tree).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-07T20:47:00Z
+**Updated_At:** 2026-09-07T20:58:00Z
 
 
 ### TASK-050
