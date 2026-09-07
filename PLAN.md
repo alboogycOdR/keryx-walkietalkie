@@ -3344,7 +3344,7 @@ Re-submit as `needs_review` once (1) is fixed with the full suite, `flutter anal
 ### TASK-063
 **Title:** Fix token URL double-append (`/token/token` 404 on the default LINKED path)
 **Status:** pending
-**Assigned_To:** S5
+**Assigned_To:** GB
 **Priority:** high
 **Spec_References:** ADR-001 §5 (pre-existing ORCH-owed debt, explicitly carried into this wave as a narrowly scoped task rather than absorbed into a rewrite — "Token URL double-append (`/token/token` 404 on default LINKED path) — `lib/core/settings/settings_model.dart` + `lib/services/linked/token_client.dart`"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §0 ("Any confirmed transport defect is a separate, narrowly scoped corrective task"), §8 (token-service contracts retained); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-062 (actual route state), §4.5; PLAN.md orchestrator_notes 2026-08-23T05:55Z (the original defect record: `resolvedTokenServiceUrl` at `settings_model.dart:147-153` already ends in `/token`, `TokenClient._resolveTokenUri` at `token_client.dart:121-124` appends `token` again, wired together at `radio_session_controller.dart:299-300`); `ops/TWO_PHONE_TEST.md` §6 (the bare-origin workaround this fix retires). FROZEN territories reopened for this task only: `lib/core/settings/settings_model.dart`, `lib/services/linked/token_client.dart`.
 **Owned_Paths:** lib/core/settings/settings_model.dart, lib/services/linked/token_client.dart, test/core/settings/**, test/services/linked/token_client_test.dart, dossiers/TASK-063.md
