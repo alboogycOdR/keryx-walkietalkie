@@ -3345,7 +3345,7 @@ Re-submit as `needs_review` once (1) is fixed with the full suite, `flutter anal
 
 ### TASK-063
 **Title:** Fix token URL double-append (`/token/token` 404 on the default LINKED path)
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** ADR-001 §5 (pre-existing ORCH-owed debt, explicitly carried into this wave as a narrowly scoped task rather than absorbed into a rewrite — "Token URL double-append (`/token/token` 404 on default LINKED path) — `lib/core/settings/settings_model.dart` + `lib/services/linked/token_client.dart`"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §0 ("Any confirmed transport defect is a separate, narrowly scoped corrective task"), §8 (token-service contracts retained); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-062 (actual route state), §4.5; PLAN.md orchestrator_notes 2026-08-23T05:55Z (the original defect record: `resolvedTokenServiceUrl` at `settings_model.dart:147-153` already ends in `/token`, `TokenClient._resolveTokenUri` at `token_client.dart:121-124` appends `token` again, wired together at `radio_session_controller.dart:299-300`); `ops/TWO_PHONE_TEST.md` §6 (the bare-origin workaround this fix retires). FROZEN territories reopened for this task only: `lib/core/settings/settings_model.dart`, `lib/services/linked/token_client.dart`.
@@ -3353,13 +3353,13 @@ Re-submit as `needs_review` once (1) is fixed with the full suite, `flutter anal
 **Depends_On:** —
 **Description:** Pure debt paydown, independent of the redesign, dispatched in Wave 1 specifically so that TASK-060's LINKED hardware test can run against real default settings instead of the runbook's mandatory workaround (intake risk 5). The defect is a one-line-either-side path concatenation: `resolvedTokenServiceUrl` already yields a URL ending in `/token`, and `TokenClient._resolveTokenUri` appends `token` again, producing `/token/token` → 404 → `NO LINK` on the default LINKED path. Fix it on exactly one side — the builder chooses which, and states the reasoning in the dossier — such that the resolved URI is `/token` exactly for the default configuration, while a user-configured URL that already carries a path prefix keeps that prefix (the prefix-preservation behaviour TASK-024's rework established must not regress). The regression test is the point of the task: assert the **resolved URI string** for the default settings and for a path-prefixed custom URL, so a future refactor on either side of the seam cannot silently reintroduce the double-append. `radio_session_controller.dart` wires the two together but is **not** in this territory and must not be edited — if the fix appears to require touching it, block with `OWNERSHIP_CONFLICT` rather than widening scope. Note in the dossier that `ops/TWO_PHONE_TEST.md` §6's bare-origin workaround becomes unnecessary once this merges; updating that runbook is not in this territory (TASK-060 records the operational change).
 **Acceptance_Criteria:**
-- [ ] For default settings, the URI actually resolved by `TokenClient` ends in exactly one `/token` segment — asserted on the resolved URI string, not on either input alone (ADR-001 §5)
-- [ ] A user-configured token-service URL carrying a path prefix retains that prefix in the resolved URI (no regression of TASK-024's prefix-preservation fix)
-- [ ] The fix is applied on exactly one side of the seam, with the choice and reasoning recorded in the dossier
-- [ ] `lib/services/session/radio_session_controller.dart` is not modified; a need to do so is escalated as `OWNERSHIP_CONFLICT`
-- [ ] Token-service request/response contracts are otherwise unchanged (Technical §8)
-- [ ] The new regression test is revert-mutation-checked: reintroducing the double-append makes exactly that test fail
-- [ ] `flutter analyze` clean; full suite green with no regression
+- [x] For default settings, the URI actually resolved by `TokenClient` ends in exactly one `/token` segment — asserted on the resolved URI string, not on either input alone (ADR-001 §5)
+- [x] A user-configured token-service URL carrying a path prefix retains that prefix in the resolved URI (no regression of TASK-024's prefix-preservation fix)
+- [x] The fix is applied on exactly one side of the seam, with the choice and reasoning recorded in the dossier
+- [x] `lib/services/session/radio_session_controller.dart` is not modified; a need to do so is escalated as `OWNERSHIP_CONFLICT`
+- [x] Token-service request/response contracts are otherwise unchanged (Technical §8)
+- [x] The new regression test is revert-mutation-checked: reintroducing the double-append makes exactly that test fail
+- [x] `flutter analyze` clean; full suite green with no regression
 **Branch:** task/TASK-063-gb
 **Started_At:** 2026-09-07T20:14:20Z
 **Progress_Notes:**
@@ -3376,12 +3376,22 @@ Re-submit as `needs_review` once (1) is fixed with the full suite, `flutter anal
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Territory matches expectation. Fixing TokenClient (not settings): `resolvedTokenServiceUrl` already names the Caddy `/token` route; `_resolveTokenUri` must not append a second `token` when the last path segment is already `token`. Prefix preservation (TASK-024) stays for any other last segment.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-07T20:19:29Z] [GB] Fix on TokenClient only (`49849d6`). `resolveTokenUri()` skips append when last path segment is already `token`; otherwise TASK-024 `resolve('token')`. `settings_model.dart` and `radio_session_controller.dart` untouched. Composition tests assert the resolved URI string for default derivation (`https://relay.example/token`), prefix (`/api` → `/api/token`), typed `/token`, and origin-only workaround. Revert-mutation: always-append → Expected `…/token` Actual `…/token/token` on the default-settings test (5 sibling double-append tests also red; prefix tests stayed green). → needs_review.
+**Artifacts:**
+- lib/services/linked/token_client.dart
+- test/services/linked/token_client_test.dart
+- test/core/settings/resolved_token_uri_test.dart
+- dossiers/TASK-063.md
+**Test_Evidence:**
+- [2026-09-07T20:19:29Z] [GB] `flutter test test/services/linked/token_client_test.dart test/core/settings/resolved_token_uri_test.dart` — 19/19 pass (7 pre-existing TokenClient + 7 new resolveTokenUri + 5 composition).
+- [2026-09-07T20:19:29Z] [GB] Revert-mutation (always-append restored, then undone): 6 red, all double-append assertions (`…/token` vs `…/token/token` or path `/token/token`). Prefix-preservation and origin-only tests stayed green.
+- [2026-09-07T20:19:29Z] [GB] `flutter test` — **1129 passed / 0 failed / 40 skipped** (parked FR-025 soak seeds unchanged). Baseline 1117 (TASK-065) + 12 new = 1129.
+- [2026-09-07T20:19:29Z] [GB] `flutter analyze` owned paths — No issues found. Repo-wide — 8 issues, all pre-existing TASK-035 in `test/services/session/radio_session_controller_test.dart`. Analyzer auto-upgrade of `analysis_options.yaml` reverted, not committed.
+- [2026-09-07T20:19:29Z] [GB] `git diff master...HEAD` — 4 files, all inside Owned_Paths; `settings_model.dart` and `radio_session_controller.dart` empty diffs.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-07T20:14:20Z
+**Updated_At:** 2026-09-07T20:19:29Z
 
 
 ### TASK-064
