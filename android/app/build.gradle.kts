@@ -41,14 +41,13 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        // Fat APK (all ABIs) kills the Gradle daemon while flutter_soloud
-        // cmake-builds x86 / armeabi-v7a (same failure class as TASK-033's
-        // debug fat APK). Field phones for this wave are arm64 (HONOR 90
-        // Lite / two-phone script). `flutter build apk --release` then
-        // produces a single-ABI artifact without extra flags.
-        ndk {
-            abiFilters += listOf("arm64-v8a")
-        }
+        // TASK-064 / NFR-11: do not set ndk.abiFilters.
+        // FlutterPlugin.configureAbiWithoutSplits clears defaultConfig.ndk.abiFilters
+        // and replaces them with PLATFORM_ABI_LIST unless `--split-per-abi` is
+        // passed, so a local filter (TASK-039's arm64-v8a) is inert — the fat
+        // release APK still shipped arm64-v8a + armeabi-v7a + x86_64. The same
+        // leftover filter conflicts with AGP ABI splits when the flag is on.
+        // Per-ABI APKs: `flutter build apk --release --split-per-abi`.
     }
 
     signingConfigs {
