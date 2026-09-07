@@ -2837,7 +2837,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-047
 **Title:** New design system — tokens, typography, spacing, dark-first + full light theme
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §3.1 (direction — "Original, calm, modern and functional… dark-first interface with a complete light theme… no simulated screws, molded textures, seven-segment glass or faux hardware housing"), §3.2 (the eleven proposed tokens and their dark/light values; "do not scatter literal color values across widgets"; "Use color only as a redundant state cue"), §3.3 (typography scale 24/30, 18/24, 16/24, 14/20, 12/16; Inter retained; 8 dp grid; 16 dp page margins; 48×48 dp minimum target; "Avoid a fixed full-screen height allocation"), §3.4 (icon family, 120–200 ms state motion, 200–300 ms page/sheet motion, reduced-motion behavior); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D08, UX-FR-065 (KERYX branding retained; no Zello assets), §6 (WCAG AA contrast, 48 dp targets, scalable text, reduced motion); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (contrast/theme/text-scale verification); ADR-001 §3 item 2 (this Design spec supersedes `KERYX_UI_Design_Specification_v1.0.md` §1/§3.1/§4/§5/§6/§8, while §8's *substance* — ≥4.5:1 contrast, 48 dp targets, TalkBack, haptic/sound-only operability — carries forward unchanged). FROZEN territory reopened for this task only: `lib/core/theme/**`.
@@ -2856,13 +2856,23 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
 **Branch:** task/TASK-047-gb
 **Started_At:** 2026-09-07T18:19:00Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-09-07T18:23:12Z] [GB] Preflight complete:
+  [preflight] TASK-047 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+  [preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+    GLOB   lib/core/theme/**  -> 1 file(s):
+             lib/core/theme/theme.dart
+    GLOB   test/core/theme/**  -> 1 file(s):
+             test/core/theme/theme_test.dart
+    FILE   dossiers/TASK-047.md  -> exists, 30 line(s), 1520 bytes
+  [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+  Territory matches expectation (existing faceplate theme.dart + theme_test.dart + dossier). Implementing an additive ThemeExtension; not replacing KeryxFacePlate.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-07T18:19:00Z
+**Updated_At:** 2026-09-07T18:23:12Z
 
 
 ### TASK-048
