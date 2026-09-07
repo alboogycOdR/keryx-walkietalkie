@@ -3356,7 +3356,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-064
 **Title:** NFR-11 app size — split-per-ABI release output and correct the inert abiFilters line
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md NFR-11 ("App size ≤ 60 MB installed") — currently red at a ~114 MB three-ABI fat release APK; ADR-001 §5 (pre-existing ORCH-owed debt carried into this wave as a narrowly scoped task — "NFR-11 app size (114 MB vs ≤60 MB target) + the inert `abiFilters` line in `android/app/build.gradle.kts`"); PLAN.md orchestrator_notes 2026-08-23T05:55Z (TASK-039 review finding: the APK's `lib/` was inspected and found to be a consistent three-ABI fat APK — arm64 39 MB / v7a 29 MB / x86_64 46 MB of `.so` alone — which makes GB's `ndk.abiFilters` line inert and its accompanying comment false); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §8 ("Retain the original performance budgets… Compare against baseline measurements rather than inventing replacement targets"), §2 (release build evidence required). FROZEN territory reopened for this task only: `android/app/build.gradle.kts`.
@@ -3382,12 +3382,13 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Territory matches expectation (existing gradle.kts + dossier). Removing the inert `ndk.abiFilters` (TASK-039 proved Flutter still packs all three ABIs) and configuring split-per-ABI so each architecture is its own artifact.
+- [2026-09-07T19:11:39Z] [GB] Root cause: FlutterPlugin.configureAbiWithoutSplits does `abiFilters.clear(); addAll(PLATFORM_ABI_LIST)` unless `-Psplit-per-abi` is set, so TASK-039's arm64-only filter was wiped before packaging and would also conflict with `--split-per-abi`. Deleting the ndk.abiFilters block (not trying to make it take effect — a working single-ABI filter would block per-ABI artifacts). No always-on gradle `splits {}` (fights unflagged `flutter build apk` used by CI / TWO_PHONE_TEST.md, both out of territory). Next: split-per-abi release build + lib/ inspect + full suite.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-07T19:06:44Z
+**Updated_At:** 2026-09-07T19:11:39Z
 
 
 ### TASK-065
