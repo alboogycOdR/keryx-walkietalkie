@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:keryx/core/theme/ux_tokens.dart' show keryxUxThemeData;
 import 'package:keryx/features/face/face.dart' show FaceScreen;
 import 'package:keryx/features/settings_panel/back_panel_screen.dart';
 
@@ -34,9 +35,17 @@ class _KeryxMaterialShell extends StatelessWidget {
     return MaterialApp(
       title: 'Keryx',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(useMaterial3: true).copyWith(
-        scaffoldBackgroundColor: Colors.black,
-      ),
+      // TASK-047's successor design tokens (Design §3.1: dark is the
+      // default theme; §3 sets the light column too). This is the "final
+      // wiring" site named in Technical §9 — Wave 4 screens read
+      // `KeryxUxTokens.of(context)` / `Theme.of(context).extension` and
+      // must never see a null extension under the real composition (only
+      // `MaterialApp.theme` is wired; `darkTheme`/`themeMode` are left at
+      // the builder's discretion and are not required by the spec text
+      // above). The legacy `FaceScreen` below paints entirely from its own
+      // hard-coded `KeryxTheme` statics, not `Theme.of(context)`, so this
+      // swap does not touch its rendering.
+      theme: keryxUxThemeData(),
       home: const MobileAppShell(),
       // Route registration lives here and nowhere else (Technical §9).
       // `backPanelRouteName` stays registered because the dev-only legacy
