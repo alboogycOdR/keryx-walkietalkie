@@ -2957,7 +2957,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 ### TASK-049
 **Title:** Channels landing screen — current channel card, recent recall, connection indicator
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.1 (Channels — landing: exact content order, current-channel card contents, recent list, empty state, "Do not show a fake online count", "no new background subscriptions to all 99 channels are authorized"), §1 (Channels owns Current channel / Recent channels / Select / Talk); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D01, UX-D05 (six-entry recall is not message history), UX-FR-002, UX-FR-004, UX-FR-005, UX-FR-008, UX-FR-010; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §1 traceability rows for UX-FR-002/008/045/046 and UX-FR-003/004/009/010, VT-020 (recall order/deduplication); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §6 ("Existing channel-memory writes remain serialized and deduplicated. No schema expansion is required for R1"); ADR-001 §6 (new widgets, reused data sources).
 **Owned_Paths:** lib/features/channels/**, test/features/channels/**, dossiers/TASK-049.md
@@ -2988,7 +2988,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 ### TASK-050
 **Title:** Channel selector + direct-tune workflow with serialized retune and recovery policy
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.3 (Channel selector — searchable/selectable list or direct numeric entry, 1–99 and 0–38, two-digit labels, separate recent section, Apply disabled for invalid values, Cancel leaves current channel untouched, pending retune shows progress and prevents competing tune actions, "The currently active channel remains authoritative until the selected operation succeeds"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §6 (tuning and channel operations — "The current implementation dispatches TuneTo and launches asynchronous retune without waiting. ORCH must inspect and resolve the associated race/failure behavior as a dedicated migration task… latest requested target wins… Do not invent rollback support if the underlying operation has already torn down the previous chain; implement an explicit recovery policy and test it"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-003, UX-FR-004, UX-FR-009, UX-FR-010, UX-FR-030; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-020 (input validation), VT-021 (retune serialization); ADR-001 §5 (session retune contracts preserved — the fix is serialization at the coordinator, not new session semantics).
 **Owned_Paths:** lib/features/channel_selector/**, test/features/channel_selector/**, dossiers/TASK-050.md
@@ -3019,7 +3019,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 ### TASK-051
 **Title:** Talk screen + new PTT presentation (hold, latch, cancellation safety)
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 (Talk — content order, "Use responsive constraints rather than a fixed 320 dp disc or viewport-height percentages… minimum 96 dp primary dimension and a 48 dp minimum hit target", active-speaker copy rules, "A disconnected screen must not show 'Ready.'", "The primary PTT must expose an accessible hold action and a non-drag alternative", "Ordinary PTT and Emergency are separate controls"), §4 (state catalogue), §5 (copy and accessibility); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.1 (authoritative command path), §5.2 ("The existing `PttButton` has pointer suppression and double-tap latch behavior. A new component must preserve or explicitly replace those semantics, with tests for cancellation, disposal, duplicate events, latch release and disabled transitions"), §4 (latch owned by the persistent host, survives ordinary navigation); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-020 through UX-FR-030, UX-D03; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-010, VT-011, VT-012, VT-013, VT-014, VT-015; ADR-001 §6 ("the underlying gesture/latch/TOT SEMANTICS in `ptt_state.dart` and `tuning_physics.dart` are reused as logic, but the widget tree is new"), ADR-001 §7 item 2 (rebuild fresh, do not wrap TASK-043's `PttButton`).
 **Owned_Paths:** lib/features/talk/**, test/features/talk/**, dossiers/TASK-051.md
@@ -3053,7 +3053,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 ### TASK-053
 **Title:** Stations screen — live roster with honest presence and quality
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.4 (Stations — "full-screen list or sheet with known callsigns and actual presence… must update while open without relying on a parent-screen rebuild… Include an empty state, current-channel context and existing Event QR actions… Quality information is omitted or marked unavailable unless a real metric exists. If LINKED roster support is incomplete, explicitly state that a complete member list is unavailable rather than displaying zero as a verified count"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-040, UX-FR-026, UX-FR-045, UX-FR-046, UX-FR-008; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §1 (Roster row — "Reuse live state; distinguish unavailable LINKED roster and unmeasured quality"), §1.1 ("The existing station stream is LOCAL signaling-backed; LINKED mode does not provide a complete roster… `StationInfo.signalQuality` defaults to a placeholder maximum value"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-024; ADR-001 §6 ("subscribing to the same RadioHost station stream `RosterScreen` used — the live-data SOURCE is unchanged, the widget is"), ADR-001 §7 item 2.
 **Owned_Paths:** lib/features/stations/**, test/features/stations/**, dossiers/TASK-053.md
@@ -3083,7 +3083,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 ### TASK-054
 **Title:** Radio controls screen incl. guarded emergency control
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.5 (Radio controls — "labeled rows or controls for available Monitor, Scan, Latch, Replay/VOX where implemented, and Emergency. Monitor retains hold-to-open semantics… Scan shows authoritative active state and eligibility. Locked/unsupported actions must explain their status rather than pretend to work… Emergency requires a separate orange/priority treatment, a clear activation affordance and an explicit clear action. Preserve the existing emergency hold duration and floor behavior unless a separate ADR changes them. No automatic location transmission is introduced"), §4 (Emergency row: orange priority banner, explicit clear); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-041, UX-FR-042, UX-FR-043, UX-FR-044, UX-D06; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-013 ("The known parked emergency-preemption issue must be reviewed and resolved or explicitly accepted through a separate release decision"), §8 ("Emergency controls must not make unsupported emergency-service or location claims"); ADR-001 §5 (FR-025 emergency-preemption double-grant stays PARKED — this task must not chase it), specs/KERYX_Product_Technical_Spec_v1.1.md §8.2/§8.6 (floor arbitration and emergency semantics preserved).
 **Owned_Paths:** lib/features/radio_controls/**, test/features/radio_controls/**, dossiers/TASK-054.md
@@ -3114,7 +3114,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 ### TASK-055
 **Title:** Settings redesign — Radio/Audio/Connectivity/Identity/Appearance/About sections
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.6 (Settings — "ordinary mobile settings with sections and readable descriptions. Retain every existing setting and its validation… Connectivity shows the configured mode, effective route and LOCAL-only privacy toggle… A setting that rebuilds the communication session must not look like a harmless appearance-only toggle. Show an explanatory confirmation when applying it could interrupt transmission or change network connectivity. Non-session settings must not needlessly reconnect"), §1 (Settings subtree); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-060, UX-FR-061, UX-FR-062, UX-FR-064, UX-FR-066, UX-D07, UX-D08; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("Retain `KeryxSettings`, SettingsRepository storage key, defaults and migration behavior. New appearance preferences may be added additively with safe defaults. Do not overwrite existing stored data with a reduced settings object… A session-affecting settings change while transmitting must be deferred or safely serialized… No hot-mic window is permitted"), §1.1 (settings captured at construction; changes need host-managed reconstruction), §10 (legacy settings survive upgrade); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-003, VT-005, VT-022; ADR-001 §5 (settings persistence NOT superseded — model/repository reused, widget tree new), ADR-001 §6.
 **Owned_Paths:** lib/features/settings/**, test/features/settings/**, dossiers/TASK-055.md
@@ -3146,7 +3146,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 ### TASK-056
 **Title:** Event QR re-theme — scan/export framing with explicit route-transition workflow
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.7 (Event QR — "Preserve existing scan and export components, with modern framing and appropriate camera/permission states. The scan result must not silently fail in LOCAL mode when a LINKED session is required. Provide a clear explanation and explicit route transition, or keep the operation unavailable with a reason. Do not invent keyed-channel UI behavior that the current session implementation cannot execute"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §8 (Event QR and deep links — "Add a host-level join coordinator that checks effective route and LOCAL-only policy before invoking the existing LINKED-only join. A required route change is user-approved, cancellable and safely serialized. Do not initiate WAN traffic when force-LOCAL is enabled… Keyed export, persistence and server-side expiration behavior must be verified independently before being represented as complete. No unreviewed secret or passphrase may be logged"), §1.1 (QR join currently requires an active LINKED session; a LOCAL scan currently just errors); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-063, §4.4 (Join an event journey — "A failure must not leave a falsely selected channel or an apparently connected session. Export retains the existing expiry choices and does not expose private passphrases unnecessarily"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-023; ADR-001 §6 ("NEW framing on the existing scan/export LOGIC — `EventLinkPayload`/deep-link handling reused, screens rebuilt").
 **Owned_Paths:** lib/features/event_qr_ui/**, test/features/event_qr_ui/**, dossiers/TASK-056.md
