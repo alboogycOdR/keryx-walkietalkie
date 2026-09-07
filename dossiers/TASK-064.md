@@ -28,3 +28,31 @@ way correct the false comment. No manifest, permission, service, signing or
 proguard change is authorized here.
 
 ## Work Log
+
+### [2026-09-07T19:10:00Z] [GB]
+
+Claimed on `task/TASK-064-gb` (claim fields landed on master via the concurrent
+ORCH `1491804` PLAN.md write; blackboard state is `claimed` with this branch).
+Preflight (c8b9872) matched expectation: existing `android/app/build.gradle.kts`
++ this dossier.
+
+Root cause of the inert filter, from Flutter 3.47.2
+`packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt`:
+`configureAbiWithoutSplits` does `abiFilters.clear(); addAll(PLATFORM_ABI_LIST)`
+whenever `-Psplit-per-abi` is not set. That runs after the app `defaultConfig`
+block, so TASK-039's `ndk { abiFilters += listOf("arm64-v8a") }` was wiped
+before packaging. The plugin comment claiming user filters "take precedence"
+does not match that `clear()`. The same leftover filter is the configuration
+the plugin itself says conflicts with `--split-per-abi`.
+
+Decision: **delete** the `ndk.abiFilters` line (do not try to make it take
+effect). A working arm64-only filter would prevent per-ABI artifacts for
+v7a/x86_64, which this task requires. Per-ABI packaging is Flutter's
+`--split-per-abi` path (`configureAbis` enables AGP `splits.abi` with
+`isUniversalApk = false`). No always-on `splits {}` block in this file:
+it would fight `configureAbiWithoutSplits` on unflagged `flutter build apk`
+(CI debug + `ops/TWO_PHONE_TEST.md` still use the unflagged command) and
+those files are out of territory.
+
+Next: gradle.kts edit, then `flutter build apk --release --split-per-abi`,
+inspect each APK `lib/`, record byte sizes vs ≤60 MB, full suite + analyze.
