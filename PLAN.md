@@ -2766,7 +2766,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-045
 **Title:** Persistent RadioHost extraction — hoist session/floor/audio/service lifecycle out of FaceScreen
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §1.1 ("The current `FaceScreen` owns identity/bootstrap, permission gates, SFX engine, session factory, floor effect subscriptions, foreground service, station notifier and tuning callbacks… A persistent host must be introduced first"), §2 (target architecture — persistent `RadioHost` under a single ProviderScope), §3 (host contract — illustrative `RadioHost` interface; "preserve the existing `SessionHost` seam and injected fakes where practical"), §4 (lifecycle invariants, all ten), §9 (module list: `lib/core/radio_host/`); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-001, UX-FR-005, UX-FR-028, UX-FR-029, UX-FR-030; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-001, VT-002, VT-003, VT-004; ADR-001 §6 (migration shape — "this is exactly the block currently inside `_FaceScreenState`, hoisted out, unchanged in substance… nothing in this box is rebuilt"), ADR-001 §5 (engine/session/audio contracts NOT superseded); specs/KERYX_Product_Technical_Spec_v1.1.md §8.2–§8.4 (single state source, floor arbitration, session composition/retune contracts — preserved verbatim, not reimplemented). FROZEN territory reopened for this task only: `lib/features/face/face_screen.dart`.
@@ -2784,15 +2784,16 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 - [ ] `face_screen.dart` still renders the current face and the app still boots identically on device-equivalent fakes; `lib/app.dart`/`lib/main.dart` are untouched by this task
 - [ ] `flutter analyze` clean on touched files and repo-wide (only the 8 pre-existing TASK-035 warnings); `flutter test` full suite green with no regression from the 1037/40/0 baseline; `flutter build apk --debug` succeeds
 - [ ] Every new regression test is revert-mutation-checked (break the production change, confirm the intended test — and only it — fails), per this project's standing rule
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-045-s5
+**Started_At:** 2026-09-07T18:15:00Z
+**Progress_Notes:**
+- [2026-09-07T18:15:00Z] [S5] Claimed TASK-045. Beginning with preflight_paths.py before touching any file.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-07T18:15:00Z
 
 
 ### TASK-046
