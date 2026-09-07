@@ -3402,7 +3402,7 @@ Territory matches expectation (existing gradle.kts + dossier). Removing the iner
 
 ### TASK-065
 **Title:** RX remote-track handling + real quality/amplitude telemetry source in RtcAdapter
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** ADR-001 §5 ("TASK-044's own disclosed gap (no `onTrack`/remote-stream handling in `RtcAdapter`, no real RX metering source) — matches the new Technical spec §5.3's own instruction… Folded in as its own task, not conflated with the shell/navigation work"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.3 ("Remove the simulated amplitude meter's measurement semantics or use a verified real audio tap in a separately scoped telemetry task"), §0 and §12 ("The baseline commit records a still-unverified real-device audio routing correction and remote-track handling gap… Review remote-track handling if voice remains absent"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-015 ("An actual amplitude meter requires a verified audio sample source"), §7 ("Review remote-track handling if voice remains absent"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-027, UX-FR-045; specs/KERYX_Product_Technical_Spec_v1.1.md §8.1/§8.5 (voice path); TASK-044's own Description (the gap as originally disclosed). FROZEN territory reopened for this task only: `lib/services/mesh/rtc_adapter.dart`, `lib/services/mesh/rtc_adapter_flutter_webrtc.dart`.
@@ -3410,13 +3410,13 @@ Territory matches expectation (existing gradle.kts + dossier). Removing the iner
 **Depends_On:** —
 **Description:** Pure debt paydown of the gap TASK-044 disclosed rather than hid: the `RtcAdapter` abstraction has no `onTrack`/remote-stream handling anywhere, so the app has no visibility into or control over the incoming peer's audio track at all — no RX volume or mute control, and no source from which a genuine RX level could ever be measured. Remote audio is believed to auto-play at the native layer regardless (standard WebRTC behaviour for audio-only), so this is a completeness gap rather than the suspected cause of the 2026-08-23 silent-audio field report — but Verification §7 and Technical §12 both name it as the **next thing to review if voice is still absent after the LOCAL hardware test**, which makes landing it before TASK-059 genuinely useful. Add remote-track handling to the adapter interface and its `flutter_webrtc` implementation: surface incoming remote audio tracks through the abstraction so a consumer can observe them, and expose whatever real level/quality signal the platform genuinely provides. **The honesty rule is the acceptance bar, not the feature**: only expose a metric that is actually measured; if the platform gives nothing usable, expose *unavailable* and say so plainly in the dossier rather than shipping a proxy under a measurement name (Technical §5.3, UX-FR-027/045, VT-015). This task provides the `measured` source TASK-046's projection models but does not depend on it and must not reach into it — the seam is one-directional and consumers are wired later. Do not change TASK-044's audio-session/routing configuration, and do not alter the TX path, floor gating or SDP negotiation.
 **Acceptance_Criteria:**
-- [ ] `RtcAdapter` exposes remote-track/remote-stream handling, and the `flutter_webrtc` implementation wires the real platform callback to it (ADR-001 §5; Technical §12)
-- [ ] A consumer can observe incoming remote audio tracks through the abstraction — proven with a fake adapter test and an implementation-level test of the callback wiring
-- [ ] Any exposed level/quality value is genuinely measured; where the platform provides nothing usable, the API returns unavailable and the dossier says so plainly — no proxy is shipped under a measurement name (Technical §5.3; UX-FR-027/045; VT-015)
-- [ ] TASK-044's audio-session/routing configuration is unchanged, and the TX path, floor gating and SDP negotiation are untouched (ADR-001 §5)
-- [ ] No consumer wiring is added outside this territory; the seam is left for TASK-046/TASK-051 to consume later
-- [ ] Every new regression test is revert-mutation-checked
-- [ ] `flutter analyze` clean; full suite green with no regression; `flutter build apk --debug` succeeds
+- [x] `RtcAdapter` exposes remote-track/remote-stream handling, and the `flutter_webrtc` implementation wires the real platform callback to it (ADR-001 §5; Technical §12)
+- [x] A consumer can observe incoming remote audio tracks through the abstraction — proven with a fake adapter test and an implementation-level test of the callback wiring
+- [x] Any exposed level/quality value is genuinely measured; where the platform provides nothing usable, the API returns unavailable and the dossier says so plainly — no proxy is shipped under a measurement name (Technical §5.3; UX-FR-027/045; VT-015)
+- [x] TASK-044's audio-session/routing configuration is unchanged, and the TX path, floor gating and SDP negotiation are untouched (ADR-001 §5)
+- [x] No consumer wiring is added outside this territory; the seam is left for TASK-046/TASK-051 to consume later
+- [x] Every new regression test is revert-mutation-checked
+- [x] `flutter analyze` clean; full suite green with no regression; `flutter build apk --debug` succeeds
 **Branch:** task/TASK-065-gb
 **Started_At:** 2026-09-07T19:45:16Z
 **Progress_Notes:**
@@ -3431,9 +3431,20 @@ Territory matches expectation (existing gradle.kts + dossier). Removing the iner
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerConnection (out of territory); new PC members would break it. Remote-track surface will be an extension + Expando so the Fake keeps compiling. Honesty: inbound-rtp `audioLevel` only; no proxy from energy/jitter/loss.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-07T20:01:18Z] [GB] Remote-track seam landed as `b435795`. Extension+Expando so FakePeerConnection keeps compiling. Production `_pc.onTrack` → `handleFlutterWebrtcTrackEvent` → `deliverRemoteAudioTrack`. Measured level = inbound-rtp `audioLevel` 0–1 only; energy/jitter/loss/media-source/outbound/other-track/out-of-range all unavailable. `signalQuality` always unavailable. TASK-044 block + TX/SDP/floor untouched. No TASK-046 import. → needs_review.
+**Artifacts:**
+- lib/services/mesh/rtc_adapter.dart
+- lib/services/mesh/rtc_adapter_flutter_webrtc.dart
+- test/services/mesh/rtc_adapter_test.dart
+- dossiers/TASK-065.md
+**Test_Evidence:**
+- [2026-09-07T20:01:18Z] [GB] `flutter test test/services/mesh/rtc_adapter_test.dart` — 21/21 pass.
+- [2026-09-07T20:01:18Z] [GB] `flutter test test/services/mesh/` — 53/53 pass (existing FakeRtcAdapter suite still compiles).
+- [2026-09-07T20:01:18Z] [GB] `flutter test` — **1117 passed / 0 failed / 40 skipped** (40 PARKED FR-025 skips unchanged).
+- [2026-09-07T20:01:18Z] [GB] `flutter analyze` owned paths — No issues found. Repo-wide — 8 issues, all pre-existing TASK-035 in `test/services/session/radio_session_controller_test.dart`. Analyzer auto-upgrade of `analysis_options.yaml` and Flutter migrator edit of `android/gradle.properties` reverted, not committed.
+- [2026-09-07T20:01:18Z] [GB] `flutter build apk --debug` — exit 0, `build/app/outputs/flutter-apk/app-debug.apk` 232,148,027 bytes.
+- [2026-09-07T20:01:18Z] [GB] Revert-mutation (restored after each): (1) `if (false && kind != 'audio')` fails "video onTrack is ignored" (Expected empty, Actual `[RtcRemoteAudioTrack]`). (2) missing `audioLevel` → `RtcMeasuredAudioLevel(1.0)` fails "missing audioLevel" and "totalAudioEnergy without audioLevel". (3) treating `media-source` as inbound-rtp fails "media-source audioLevel is local TX" (Expected unavailable, Actual measured 0.9).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-07T19:45:16Z
+**Updated_At:** 2026-09-07T20:01:18Z
