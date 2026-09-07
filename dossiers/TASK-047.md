@@ -28,3 +28,12 @@ its measured ratio and a minimal correction, never silently shipped or silently
 substituted. Ships the system and its tests only — no `lib/features/**`.
 
 ## Work Log
+
+- [2026-09-07T18:23:12Z] [GB] Claimed TASK-047 (`d4576ad`) on `task/TASK-047-gb`. Preflight (verbatim in PLAN.md): existing `theme.dart` + `theme_test.dart` + this dossier. Additive ThemeExtension; not replacing `KeryxFacePlate`.
+- [2026-09-07T18:30:00Z] [GB] Contrast audit of Design §3.2 verbatim hexes (Flutter `computeLuminance` / WCAG 2). **Shipped unchanged.** Sanctioned body text (`text/primary` + `text/secondary` × three surfaces, both themes) all ≥4.5:1. Sanctioned graphical (action/state × surfaces) all ≥3:1. Four spec pairs miss 4.5:1 as 16 px body text on `surface/raised` and are **not** sanctioned as body text (colour remains a redundant cue via `KeryxUxStateCue` label+icon):
+  - dark `action/primary` on `surface/raised` **4.40:1** — minimal correction `#5090FF` (~4.54), not applied
+  - dark `state/tx` on `surface/raised` **3.94:1** — minimal correction `#F0665E` (~4.54), not applied
+  - light `action/primary` on `surface/raised` **4.45:1** — minimal correction `#2366D8` (~4.51), not applied
+  - light `state/rx` on `surface/raised` **4.35:1** — minimal correction `#137A55` (~4.53), not applied
+  `border/default` vs surfaces is 1.18–1.69:1 and is not sanctioned as a 3:1 graphical object (hairline separator; grouping is by surface fill). On-fill labels use `contrastingOn` (palette token or black/white), never a rewritten fill hex. Icon family is Flutter Material Icons (`uses-material-design: true` already); no Zello/third-party asset added.
+- [2026-09-07T18:36:00Z] [GB] Implementation: `KeryxUxTokens` ThemeExtension + `keryxUxThemeData()` (dark default, complete light). `theme.dart` re-exports; `KeryxTheme`/`KeryxFacePlate` untouched. Tests 17 new. Revert-mutation: (1) dark `text/primary` → `#000000` fails "dark column matches Design §3.2 verbatim"; restored. (2) skip reduced-motion zeroing (`if (false && reducedMotion)`) fails "reduced motion drops decorative/page" (Expected 0, Actual 160ms); restored. `flutter test test/core/theme/` 28/28. Full suite **1054 passed / 0 failed / 40 skipped**. `flutter analyze lib/core/theme test/core/theme` no issues; repo-wide 8 pre-existing TASK-035 warnings in `radio_session_controller_test.dart` only. Flutter CLI auto-upgrades `analysis_options.yaml`; reverted every time (not in territory). → needs_review.
