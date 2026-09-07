@@ -1,6 +1,6 @@
 # ADR-001: Mobile UX Redesign — Successor Scope & Reconciliation
 
-**Status:** Proposed — awaiting owner decision (see §7 "Owner decisions required" — this ADR is not yet in force)
+**Status:** ACCEPTED (owner decisions recorded 2026-09-07 — see §7)
 **Date:** 2026-09-07
 **Author:** ORCH
 **Supersedes (conditionally, pending acceptance):** the hardware-radio-face mandate in `KERYX_Product_Technical_Spec_v1.1.md` P1/§6.1 and `KERYX_UI_Design_Specification_v1.0.md` §1/§4/§5/§8, for the main-screen navigation and presentation layer only.
@@ -107,23 +107,26 @@ navigation and presentation layer only:**
    ≥4.5:1, 48dp targets, TalkBack, haptic/sound-only operability — carries
    forward unchanged into the new design, per the new Verification spec's
    own §6).
-3. TASK-041/042/043's already-merged hero-PTT disc, amplitude ring,
-   `RosterScreen`, and emergency band are retroactively recognized as the
-   **first increment** of this same successor direction, not a separate or
-   superseded design. They are reused, not redone (see §6 work package
-   ordering).
-4. Everything in §5 below is explicitly NOT superseded.
+3. **Owner decision (2026-09-07, see §7): TASK-041/042/043's hero-PTT disc,
+   amplitude ring, `RosterScreen`, and emergency band are superseded, not
+   reused.** They were a real, working first increment, but the new pack's
+   own screens (Design spec §2) are built fresh against its own mockups
+   instead of wrapping those widgets. §6 below is revised accordingly — this
+   is a larger presentation-layer replacement than ORCH's original
+   recommendation, sized into the task decomposition as such.
+4. **Owner decision (2026-09-07, see §7): the legacy hardware-radio face
+   (pre-TASK-041 knob/grille concept, and now also TASK-043's hero-PTT
+   single-screen presentation per point 3) is deleted outright** once the
+   new shell passes its own tests and real-device acceptance — no dormant
+   "classic theme" flag is being built. If a classic theme is ever wanted,
+   it is a fresh future task against this ADR's git history, not a live
+   code path carried forward now.
+5. Everything in §5 below is explicitly NOT superseded.
 
-## 4. UX-D01–D09 (PRD §3) — ratification recommendation
+## 4. UX-D01–D09 (PRD §3) — RATIFIED
 
-The new PRD lists nine decisions requiring owner ratification. ORCH's
-read, cross-checked against both the existing specs and the current
-implementation, is that all nine are internally consistent with each other,
-with the engine-preservation rule, and with what TASK-043 already shipped.
-**Recommendation: ratify all nine as written**, with one clarifying note on
-UX-D04 (folded into the owner-decision list in §7, since UX-D04 is the one
-that directly triggers this ADR and deserves an explicit yes/no rather than
-a bundled ratification).
+**All nine ratified as written, 2026-09-07 (owner decision, see §7).** They
+are cited as normative Spec_References in the task decomposition.
 
 ## 5. Explicitly NOT superseded (verbatim carry-forward from the takeover brief and confirmed against the new pack, which agrees on every point)
 
@@ -177,7 +180,11 @@ kill the radio session on every navigation — exactly the failure mode both
 the new pack and this audit identify.
 
 Adopted migration shape (illustrative naming per the Technical spec, not a
-mandate to use these exact class names):
+mandate to use these exact class names). **Revised per the owner's
+"rebuild fresh" decision (§7): the presentation widgets below are new code
+built against the new Design spec's own mockups, not wraps of TASK-043's
+widgets — the ENGINE layer is still 100% reused, only the widget tree is
+new:**
 
 ```
 KeryxApp (ProviderScope, unchanged)
@@ -187,53 +194,58 @@ KeryxApp (ProviderScope, unchanged)
        │   SfxEngine/SfxProjection/AudioSink, RadioServiceController
        │   (Android foreground service), RadioState projection
        │   — this is exactly the block currently inside _FaceScreenState,
-       │   hoisted out, unchanged in substance
+       │   hoisted out, unchanged in substance. This is the ONLY part of
+       │   the current lib/features/face/** and lib/services/session/**
+       │   territory that survives; nothing in this box is rebuilt.
        └─ MobileAppShell (NEW)
-            ├─ Channels  (NEW screen)
-            ├─ Talk      (REUSES: PttButton/edge_glow/emg_key from
-            │             lib/features/ptt/**, KeryxLcdDisplay strip from
-            │             lib/features/display/**, tuning steppers/keypad
-            │             from lib/features/tuning/**)
-            ├─ Stations  (REUSES: RosterScreen, already live-roster-driven,
-            │             from lib/features/face/roster_screen.dart —
-            │             wrap, don't rebuild)
-            ├─ Radio controls (REUSES: key_row.dart secondary keys +
-            │             emergency band from FaceView)
-            ├─ Settings  (REUSES: BackPanelScreen content, re-themed to the
-            │             new visual system per Design §2.6 — same
-            │             SettingsRepository/model underneath)
-            └─ Event QR  (REUSES: EventQrScanScreen/EventQrExportScreen
-                          as-is, new framing only)
+            ├─ Channels  (NEW screen, NEW widgets)
+            ├─ Talk      (NEW widgets built per Design §2.2, driven by
+            │             RadioHost's RadioViewState + typed intents —
+            │             the underlying gesture/latch/TOT SEMANTICS in
+            │             ptt_state.dart and tuning_physics.dart are
+            │             reused as logic, but the widget tree is new)
+            ├─ Stations  (NEW screen per Design §2.4, subscribing to the
+            │             same RadioHost station stream RosterScreen used —
+            │             the live-data SOURCE is unchanged, the widget is)
+            ├─ Radio controls (NEW screen per Design §2.5)
+            ├─ Settings  (NEW widgets per Design §2.6, same
+            │             SettingsRepository/model underneath — only the
+            │             model/repository layer is reused, not
+            │             BackPanelScreen's widget tree)
+            └─ Event QR  (NEW framing on the existing scan/export LOGIC —
+                          EventLinkPayload/deep-link handling reused,
+                          screens rebuilt)
+       Legacy retirement: lib/features/face/face_view.dart,
+       roster_screen.dart, lib/features/ptt/**, lib/features/display/**,
+       lib/features/settings_panel/** (widget layer only — see the
+       retirement task) are deleted once the new shell passes real-device
+       acceptance, per the owner's "delete outright" decision on UX-D04.
 ```
 
-No new FloorEngine, no new session/audio/state-machine stack — every "REUSES"
-line above is an existing, already-tested, already-frozen module being
-wrapped or re-themed, not rebuilt. This directly satisfies the takeover
-brief's "critical engine-preservation rule."
+No new FloorEngine, no new session/audio/state-machine stack, no new
+tuning-validation or PTT-gesture logic — the state machines and data sources
+these widgets read from are 100% reused. Only the widget/presentation layer
+is being rebuilt, which is precisely what the owner asked to change. This
+still satisfies the takeover brief's "critical engine-preservation rule" —
+UI-owned transport logic is never introduced — but is a materially larger
+task list than a wrap-and-reuse migration would have been, since every
+screen's widget tree is new code, not a re-theme.
 
-## 7. Owner decisions required (genuine ambiguity — not resolved by ORCH)
+## 7. Owner decisions (recorded 2026-09-07)
 
-1. **UX-D04 exact scope.** The PRD says "retire the full-screen console as
-   the mandatory home; an optional classic theme is a future initiative."
-   Confirm: (a) the *old* `FaceView`/knob-era rendering path may be deleted
-   outright once the new shell's tests pass real-device acceptance (matching
-   Technical spec §9/§10's retirement gate), with no commitment to ever
-   ship a "classic theme" toggle — or (b) you want the old rendering path
-   kept dormant/reachable as a real, shippable option later. This changes
-   whether the final task in the decomposition below is a deletion or a
-   feature-flag.
-2. **Relationship to TASK-041/042/043.** Confirm ORCH's read in §3.3/§6 above
-   — that the merged hero-PTT disc, amplitude ring, roster screen and
-   emergency band are the reusable *first increment* of this same redesign
-   (wrapped into the new `Talk`/`Stations`/`Radio controls` screens), not
-   thrown away and rebuilt to match the new pack's own illustrative mockups
-   more literally. If you want the new pack's screens built fresh instead of
-   wrapping TASK-043's work, task sizing in §8 changes substantially (larger).
-3. **UX-D01–D09 bulk ratification** (§4 above) — confirm ORCH's
-   recommendation to ratify all nine as written, or flag any you want
-   changed before they're cited as Spec_References in PLAN.md tasks.
+1. **UX-D04 exact scope → Delete outright.** The old hardware-radio
+   presentation (both the pre-TASK-041 knob/grille concept and TASK-043's
+   hero-PTT single-screen presentation) is deleted once the new shell passes
+   its own tests and real-device acceptance (Technical spec §9/§10's
+   retirement gate). No dormant "classic theme" flag is built in this wave.
+2. **Relationship to TASK-041/042/043 → Rebuild fresh.** The new pack's
+   screens are built against its own Design spec mockups, not by wrapping
+   TASK-043's `PttButton`/`RosterScreen`/emergency-band widgets. Only the
+   underlying engine, state machines, and data sources are reused — see the
+   revised §6 migration shape. This is a materially larger task list than
+   a wrap-and-reuse migration.
+3. **UX-D01–D09 → Ratified as written**, all nine, no changes requested.
 
-Everything else in this ADR (§2, §3.1–3.3, §5, §6) is ORCH's considered
-judgment from direct spec/code reading, not a coin-flip — presented as a
-decision, not a further question, per the takeover brief's own instruction
-to only escalate genuine ambiguity.
+This decision set is now binding on the task decomposition in the
+companion planning pass (`docs/handovers/2026-09-07-ux-redesign-intake.md`
+and the forthcoming PLAN.md tasks).
