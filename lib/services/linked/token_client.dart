@@ -43,7 +43,7 @@ class TokenClient {
     required String callsign,
     String? eventToken,
   }) async {
-    final uri = _resolveTokenUri();
+    final uri = resolveTokenUri();
     final body = utf8.encode(
       jsonEncode({
         'room_id': roomId,
@@ -118,7 +118,16 @@ class TokenClient {
   /// Resolves the `/token` endpoint against [_baseUrl] without discarding
   /// any path prefix the base URL carries (e.g. `https://host/api` must
   /// resolve to `https://host/api/token`, not `https://host/token`).
-  Uri _resolveTokenUri() {
+  ///
+  /// If the last non-empty path segment is already `token` — the Caddy
+  /// route, which `KeryxSettings.resolvedTokenServiceUrl` already yields
+  /// for a derived default — the URI is returned as-is so the client does
+  /// not POST `/token/token`.
+  Uri resolveTokenUri() {
+    final segments = _baseUrl.pathSegments.where((s) => s.isNotEmpty);
+    if (segments.isNotEmpty && segments.last == 'token') {
+      return _baseUrl;
+    }
     final base = _baseUrl.path.endsWith('/') ? _baseUrl : _baseUrl.replace(path: '${_baseUrl.path}/');
     return base.resolve('token');
   }
