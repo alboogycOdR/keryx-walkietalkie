@@ -410,6 +410,74 @@ void main() {
       expect(find.text('Hold to talk'), findsNothing);
     });
 
+    testWidgets('emergency renders as an independent overlay, never hidden '
+        'behind or by the ordinary floor phase (Design §4)', (tester) async {
+      await pumpReady(tester);
+      container.read(radioStateProvider.notifier)
+        ..dispatch(const PowerOn())
+        ..dispatch(const BootCompleted())
+        ..dispatch(const EmergencyPinned());
+      await tester.pumpAndSettle();
+      expect(find.text('Emergency active'), findsOneWidget);
+      // Ordinary PTT is still its own, separate control underneath.
+      expect(find.byKey(const Key('keryx-talk-ptt-disc')), findsOneWidget);
+    });
+
+    testWidgets('a denied/busy flash never overrides a currently granted '
+        'TX (Design §4)', (tester) async {
+      await pumpReady(tester);
+      container.read(radioStateProvider.notifier)
+        ..dispatch(const PowerOn())
+        ..dispatch(const BootCompleted())
+        ..dispatch(const RequestTransmit())
+        ..dispatch(const TransmitGranted())
+        ..dispatch(const TransmitDeniedIndicated());
+      await tester.pumpAndSettle();
+      // Both are independently true and both are rendered — the granted
+      // TX is not concealed by the transient deny overlay.
+      expect(find.text('Channel busy'), findsOneWidget);
+      expect(find.text('Transmitting'), findsWidgets);
+    });
+
+    testWidgets('the radio-off state disables the PTT surface', (
+      tester,
+    ) async {
+      final engine = _newEngine();
+      host.emit(RadioHostSnapshot(floorEngine: engine));
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      engine.dispose();
+      // No PowerOn dispatched — phase stays RadioPhase.off.
+      expect(find.text('Radio off'), findsWidgets);
+      final button = tester.widget<OutlinedButton>(
+        find.descendant(
+          of: find.byKey(const Key('keryx-talk-ptt-toggle-alt')),
+          matching: find.byType(OutlinedButton),
+        ),
+      );
+      expect(button.onPressed, isNull);
+    });
+
+    testWidgets(
+      'lacking a usable floor engine disables the PTT surface (UX-FR-029)',
+      (tester) async {
+        host.emit(const RadioHostSnapshot());
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+        container.read(radioStateProvider.notifier)
+          ..dispatch(const PowerOn())
+          ..dispatch(const BootCompleted());
+        await tester.pumpAndSettle();
+        final button = tester.widget<OutlinedButton>(
+          find.descendant(
+            of: find.byKey(const Key('keryx-talk-ptt-toggle-alt')),
+            matching: find.byType(OutlinedButton),
+          ),
+        );
+        expect(button.onPressed, isNull);
+      },
+    );
+
     testWidgets('permission-denied disables the PTT surface and shows the '
         'persistent overlay message', (tester) async {
       host.emit(

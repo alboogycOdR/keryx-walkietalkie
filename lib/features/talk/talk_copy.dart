@@ -16,6 +16,7 @@ abstract final class TalkCopy {
       'No other stations are currently visible';
   static const String someoneIsSpeaking = 'Someone is speaking';
   static const String transmissionLocked = 'Transmission locked';
+  static const String transmitting = 'Transmitting';
   static const String lockTransmission = 'Lock transmission';
   static const String releaseTransmission = 'Release transmission';
   static const String startTransmitting = 'Start transmitting';

@@ -268,7 +268,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     return switch (treatment) {
       _DiscTreatment.tx => viewState.latched
           ? TalkCopy.transmissionLocked
-          : TalkCopy.holdToTalk,
+          : TalkCopy.transmitting,
       _DiscTreatment.rx =>
         viewState.receivingLabel ?? TalkCopy.someoneIsSpeaking,
       _DiscTreatment.requesting => TalkCopy.requestingChannel,
