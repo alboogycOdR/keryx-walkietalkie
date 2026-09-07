@@ -2898,7 +2898,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 
 ### TASK-048
 **Title:** Mobile app shell — persistent host mounting, Channels/Settings navigation, route registration
-**Status:** pending
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §1 (information architecture tree; "Use two persistent primary destinations: Channels and Settings… Talk is a dedicated route or nested channel destination, but its presentation lifecycle must not own the radio session"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §2 (`MobileAppShell` beneath the persistent host, single ProviderScope), §4 (lifecycle invariants), §9 ("A separate integration task owns shared route registration, app.dart, shared providers and final wiring"), §1 (Entry shell row — "Replace navigation composition; retain a single ProviderScope"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-001, UX-FR-005, UX-FR-007, UX-D01, UX-D02 (no empty Contacts tab in R1), UX-FR-008; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-001, VT-004; ADR-001 §3 item 1 (this supersedes PTS P1's "no bottom nav" clause and §6.1's single-screen mandate), ADR-001 §6. FROZEN territories reopened for this task only: `lib/app.dart`, `lib/main.dart`.
@@ -2915,15 +2915,16 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 - [ ] The legacy face remains reachable only through a development-only route that is not present in a normal user navigation path, and its removal is delegated to TASK-061 (Technical §10)
 - [ ] No new routing or state-management dependency added; `pubspec.yaml` untouched (Technical §2; pubspec is frozen and out of territory)
 - [ ] `flutter analyze` clean; full suite green with no regression; `flutter build apk --debug` succeeds; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-048-s5
+**Started_At:** 2026-09-07T19:40:00Z
+**Progress_Notes:**
+- [2026-09-07T19:40:00Z] [S5] Claimed TASK-048 (mobile app shell). Dependencies TASK-045/046/047 confirmed done. Starting on branch task/TASK-048-s5. Plan: `radioHostProvider` (single app-scoped `RadioHost`, mirroring `FaceScreen`'s pre-hoist callback bridge) mounted above a two-branch persistent-nav shell (`lib/app_shell/**`) with independent per-branch `Navigator`s (Channels default landing incl. real channel-recall list + Talk push; Settings embeds existing `BackPanelScreen` unchanged); legacy `FaceScreen` reachable only via a `kDebugMode`-gated, unlinked named route (`legacyFaceRouteName`) that TASK-061 deletes later.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-07T19:40:00Z
 
 
 ### TASK-049
