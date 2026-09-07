@@ -3018,7 +3018,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-051
 **Title:** Talk screen + new PTT presentation (hold, latch, cancellation safety)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 (Talk — content order, "Use responsive constraints rather than a fixed 320 dp disc or viewport-height percentages… minimum 96 dp primary dimension and a 48 dp minimum hit target", active-speaker copy rules, "A disconnected screen must not show 'Ready.'", "The primary PTT must expose an accessible hold action and a non-drag alternative", "Ordinary PTT and Emergency are separate controls"), §4 (state catalogue), §5 (copy and accessibility); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.1 (authoritative command path), §5.2 ("The existing `PttButton` has pointer suppression and double-tap latch behavior. A new component must preserve or explicitly replace those semantics, with tests for cancellation, disposal, duplicate events, latch release and disabled transitions"), §4 (latch owned by the persistent host, survives ordinary navigation); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-020 through UX-FR-030, UX-D03; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-010, VT-011, VT-012, VT-013, VT-014, VT-015; ADR-001 §6 ("the underlying gesture/latch/TOT SEMANTICS in `ptt_state.dart` and `tuning_physics.dart` are reused as logic, but the widget tree is new"), ADR-001 §7 item 2 (rebuild fresh, do not wrap TASK-043's `PttButton`).
@@ -3039,15 +3039,16 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 - [ ] Any ring/level animation is decorative-only and is not labelled or announced as measured amplitude (UX-FR-027; Technical §5.3; VT-015)
 - [ ] The UI exposes no live transmit action while booting, permission-denied, powered off or lacking a usable floor engine (UX-FR-029)
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-051-s5
+**Started_At:** 2026-09-07T22:30:00Z
+**Progress_Notes:**
+- [2026-09-07T22:30:00Z] [S5] Claimed TASK-051 (Talk screen + new PTT presentation). Dependencies TASK-048/046 confirmed done. Starting on branch task/TASK-051-s5.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-07T22:30:00Z
 
 
 ### TASK-053
