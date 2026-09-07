@@ -1,7 +1,10 @@
-/// KERYX's single import surface for face design tokens.
+/// KERYX's single import surface for face design tokens and the successor
+/// UX token system (TASK-047).
 library;
 
 import 'package:flutter/material.dart';
+
+export 'ux_tokens.dart';
 
 /// A faceplate: KERYX's runtime-swappable set of colour/material tokens.
 ///
