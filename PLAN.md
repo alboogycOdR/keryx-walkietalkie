@@ -2788,6 +2788,14 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 **Started_At:** 2026-09-07T18:15:00Z
 **Progress_Notes:**
 - [2026-09-07T18:15:00Z] [S5] Claimed TASK-045. Beginning with preflight_paths.py before touching any file.
+- [2026-09-07T18:20:00Z] [S5] Preflight (c8b9872 filesystem check):
+  [preflight] TASK-045 Owned_Paths inspected in E:/DELL-PROJECTS/wt-s5-WALKIETALKIE
+  [preflight] 4 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+    GLOB   lib/core/radio_host/**  -> matches nothing yet (new territory)
+    FILE   lib/features/face/face_screen.dart  -> exists, 981 line(s), 42942 bytes
+    GLOB   test/core/radio_host/**  -> matches nothing yet (new territory)
+    FILE   dossiers/TASK-045.md  -> exists, 41 line(s), 2322 bytes
+  Dossier already contains a written Brief/Spec pointers/Approach section (no prior Work Log entries) — read in full before starting; proceeding per its approach. Switched to branch task/TASK-045-s5 in worktree.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
