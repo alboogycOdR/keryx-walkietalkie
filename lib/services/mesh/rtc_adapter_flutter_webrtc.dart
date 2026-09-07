@@ -4,6 +4,65 @@ import 'mesh_config.dart';
 import 'opus_sdp.dart';
 import 'rtc_adapter.dart';
 
+/// Production unified-plan `onTrack` handler. Assigned onto every
+/// [FlutterWebrtcAdapter] peer connection. Public so unit tests can
+/// exercise the mapping without a platform channel.
+///
+/// Non-audio tracks are ignored. Audio tracks are wrapped as
+/// [RtcRemoteAudioTrack] with RX mute/volume and an honest
+/// inbound-rtp `audioLevel` reader.
+void handleFlutterWebrtcTrackEvent(
+  webrtc.RTCTrackEvent event, {
+  required void Function(RtcRemoteAudioTrack track) emit,
+}) {
+  final webrtc.MediaStreamTrack platformTrack = event.track;
+  if (platformTrack.kind != 'audio') return;
+  final webrtc.RTCRtpReceiver? receiver = event.receiver;
+  final String? trackId = platformTrack.id;
+  emit(
+    RtcRemoteAudioTrack(
+      id: trackId ?? '',
+      enabled: platformTrack.enabled,
+      muted: platformTrack.muted ?? false,
+      onEnabledChanged: (bool value) {
+        platformTrack.enabled = value;
+      },
+      setVolume: (double volume) {
+        return webrtc.Helper.setVolume(volume, platformTrack);
+      },
+      readAudioLevel: () =>
+          _readRemoteAudioLevel(receiver: receiver, trackId: trackId),
+    ),
+  );
+}
+
+Future<RtcAudioLevel> _readRemoteAudioLevel({
+  required webrtc.RTCRtpReceiver? receiver,
+  required String? trackId,
+}) async {
+  if (receiver == null) return const RtcUnavailableAudioLevel();
+  try {
+    final List<webrtc.StatsReport> reports = await receiver.getStats();
+    return audioLevelFromInboundRtpStats(
+      reports.map(_toAdapterStats),
+      trackId: trackId,
+    );
+  } catch (_) {
+    // Platform channel failure is "could not measure", not silence.
+    return const RtcUnavailableAudioLevel();
+  }
+}
+
+RtcStatsReport _toAdapterStats(webrtc.StatsReport report) {
+  return RtcStatsReport(
+    type: report.type,
+    values: <String, Object?>{
+      for (final MapEntry<dynamic, dynamic> entry in report.values.entries)
+        entry.key.toString(): entry.value,
+    },
+  );
+}
+
 /// Production [RtcAdapter]: a thin pass-through to `package:flutter_webrtc`.
 /// Exercised on-device / by integration testing, not by this package's unit
 /// suite (no platform channel under `flutter test`) — see
@@ -110,6 +169,12 @@ class _FlutterWebrtcPeerConnection implements RtcPeerConnection {
     };
     _pc.onConnectionState = (webrtc.RTCPeerConnectionState state) {
       onConnectionState?.call(_mapState(state));
+    };
+    // Unified-plan remote audio (TASK-065). Plan-b `onAddStream` is not
+    // wired: this adapter already sets `sdpSemantics: unified-plan`, and
+    // binding both would double-deliver on some stacks.
+    _pc.onTrack = (webrtc.RTCTrackEvent event) {
+      handleFlutterWebrtcTrackEvent(event, emit: deliverRemoteAudioTrack);
     };
   }
 
