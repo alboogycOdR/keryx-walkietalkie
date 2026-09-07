@@ -2816,7 +2816,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 ### TASK-046
 **Title:** RadioViewState presentation projection + telemetry honesty
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.1 (authoritative command path — "The UI must not dispatch `TransmitGranted`, `EndTransmit` or remote floor events to simulate a result"), §5.2 (composite presentation state — "Model phase, emergency, latch, denied flash, connection condition and service/permission faults independently. Do not use a single priority switch"), §5.3 (telemetry honesty), §3 ("Never duplicate the reducer state into an independently mutable UI state machine"), §1.1 (placeholder `StationInfo.signalQuality`; the mislabelled amplitude meter "must not migrate"), §9 (`lib/core/presentation/`); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 (state presentation catalogue, all 13 rows, and "Emergency is an overlay, not a replacement for floor phase… Implement a documented composite presentation model with independent fields and deliberate priorities"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-002, UX-FR-022, UX-FR-026, UX-FR-027, UX-FR-045, UX-FR-046; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-010, VT-015, VT-024; ADR-001 §6 (state machines and data sources 100% reused; only the projection is new), §5 (`RadioReducer`/`FloorEngine` semantics NOT superseded).
 **Owned_Paths:** lib/core/presentation/**, test/core/presentation/**, dossiers/TASK-046.md
@@ -2841,7 +2841,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_At:** 2026-09-07T19:19:00Z
 
 
 ### TASK-047
@@ -3369,15 +3369,24 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 - [ ] The inert `ndk.abiFilters` line either takes real effect or is removed, and its false comment is corrected in either case (ADR-001 §5)
 - [ ] No manifest, permission, service, signing or proguard change is made; foreground service, notification actions, audio routing and permissions behave exactly as before
 - [ ] `flutter build apk --release --split-per-abi` succeeds; `flutter analyze` clean; full suite green with no regression
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-064-gb
+**Started_At:** 2026-09-07T19:06:44Z
+**Progress_Notes:**
+- [2026-09-07T19:06:44Z] [GB] Claimed TASK-064. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-064 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  FILE   android/app/build.gradle.kts  -> exists, 91 line(s), 3413 bytes
+  FILE   dossiers/TASK-064.md  -> exists, 30 line(s), 1452 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches expectation (existing gradle.kts + dossier). Removing the inert `ndk.abiFilters` (TASK-039 proved Flutter still packs all three ABIs) and configuring split-per-ABI so each architecture is its own artifact.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-07T19:06:44Z
 
 
 ### TASK-065
