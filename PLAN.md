@@ -2899,7 +2899,7 @@ Existing territory: delete knob+grille wholesale; rework display into compact LC
 ### TASK-048
 **Title:** Mobile app shell — persistent host mounting, Channels/Settings navigation, route registration
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §1 (information architecture tree; "Use two persistent primary destinations: Channels and Settings… Talk is a dedicated route or nested channel destination, but its presentation lifecycle must not own the radio session"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §2 (`MobileAppShell` beneath the persistent host, single ProviderScope), §4 (lifecycle invariants), §9 ("A separate integration task owns shared route registration, app.dart, shared providers and final wiring"), §1 (Entry shell row — "Replace navigation composition; retain a single ProviderScope"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-001, UX-FR-005, UX-FR-007, UX-D01, UX-D02 (no empty Contacts tab in R1), UX-FR-008; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-001, VT-004; ADR-001 §3 item 1 (this supersedes PTS P1's "no bottom nav" clause and §6.1's single-screen mandate), ADR-001 §6. FROZEN territories reopened for this task only: `lib/app.dart`, `lib/main.dart`.
 **Owned_Paths:** lib/app_shell/**, lib/app.dart, lib/main.dart, test/app_shell/**, dossiers/TASK-048.md
