@@ -1,16 +1,24 @@
+import 'package:keryx/core/presentation/telemetry.dart';
+import 'package:keryx/core/state/radio_state.dart' show RadioMode;
+
 /// User-facing copy for the Stations screen (Design §2.4 / §5).
 abstract final class StationsCopy {
   static const String title = 'Stations';
 
-  /// Design §5 empty-state copy. Used when the local station stream is
-  /// empty; never as a verified LINKED member total (UX-FR-046).
+  /// Design §5 empty-state copy. Used only when [RosterCount] is a
+  /// verified [KnownRosterCount] of zero — never on an unknown roster
+  /// (UX-FR-046; VT-024).
   static const String empty = 'No other stations are currently visible';
 
-  /// Design §2.4 / UX-FR-046 — LINKED roster is incomplete through this
+  /// Design §2.4 / UX-FR-046 — roster is incomplete through this
   /// interface (Technical §1.1). Never paired with a numeric member count.
   static const String linkedUnavailable = 'Complete member list unavailable';
 
-  /// UX-FR-045 / VT-024 — placeholder `signalQuality` is not measured.
+  /// Host station-stream fault — stated unavailable, not a stale snapshot
+  /// and not Design §5's verified-empty copy.
+  static const String streamUnavailable = 'Station list unavailable';
+
+  /// UX-FR-045 / VT-024 — no real quality metric on the projection.
   static const String qualityUnavailable = 'Quality unavailable';
 
   /// Presence label for a station currently on the live stream.
@@ -22,14 +30,36 @@ abstract final class StationsCopy {
   static const String scanEventQr = 'Scan event QR';
   static const String exportEventQr = 'Export event QR';
 
-  /// Semantic label for the local (signaling-backed) count, distinct
-  /// from any LINKED member count (UX-FR-046).
+  /// Semantic label for a verified local (signaling-backed) count.
   static const String localCountLabel = 'Local stations';
 
   /// Semantic label for the LINKED member-count field.
   static const String linkedCountLabel = 'LINKED members';
 
+  /// Semantic label for an AUTO-route incomplete roster. Must not reuse
+  /// [linkedCountLabel] — an AUTO session is not LINKED (review finding 3).
+  static const String autoCountLabel = 'AUTO members';
+
   static String localCount(int count) => '$localCountLabel: $count';
+
+  /// Incomplete-roster field label follows [RadioMode] effective route,
+  /// never a hardcoded LINKED string.
+  static String membersLabel(RadioMode route) => switch (route) {
+    RadioMode.local => localCountLabel,
+    RadioMode.auto => autoCountLabel,
+    RadioMode.linked => linkedCountLabel,
+  };
+
+  static String incompleteRoster(RadioMode route) =>
+      '${membersLabel(route)}: $linkedUnavailable';
+
+  /// Real S-meter text (1–9). Never a bar widget (UX-FR-045).
+  static String qualityMeasured(int sMeter) => 'Quality: S$sMeter';
+
+  static String qualityLabel(SignalQuality quality) => switch (quality) {
+    UnavailableSignalQuality() => qualityUnavailable,
+    MeasuredSignalQuality(:final int sMeter) => qualityMeasured(sMeter),
+  };
 
   static String channelContext(int channel, int privacyCode) {
     final String ch = channel.toString().padLeft(2, '0');

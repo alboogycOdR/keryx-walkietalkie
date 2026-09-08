@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/app_shell/radio_host_provider.dart';
+import 'package:keryx/core/presentation/presentation.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
@@ -34,8 +35,67 @@ class StationsHarness {
   int exportCalls = 0;
 }
 
+RadioViewState makeView({
+  List<StationInfo> stations = const <StationInfo>[],
+  RosterCount? rosterCount,
+  SignalQuality signalQuality = const UnavailableSignalQuality(),
+  RadioMode effectiveRoute = RadioMode.local,
+  RadioMode configuredMode = RadioMode.local,
+  int channel = 1,
+  int privacyCode = 0,
+}) {
+  return RadioViewState(
+    phase: RadioPhase.idle,
+    emergency: false,
+    latched: false,
+    deniedFlash: false,
+    connection: ConnectionCondition(
+      configuredMode: configuredMode,
+      effectiveRoute: effectiveRoute,
+      degraded: false,
+    ),
+    permissionDenied: false,
+    serviceFaultMessage: null,
+    channel: channel,
+    privacyCode: privacyCode,
+    pendingTuningTarget: null,
+    activeSpeakerPeerId: null,
+    activeSpeakerCallsign: null,
+    stations: stations,
+    rosterCount: rosterCount ?? KnownRosterCount(stations.length),
+    signalQuality: signalQuality,
+    meterLevel: MeterLevel.decorative,
+    isPro: false,
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  Future<void> pumpView(
+    WidgetTester tester,
+    RadioViewState view, {
+    Size surface = const Size(320, 720),
+    bool streamFault = false,
+  }) async {
+    tester.view.physicalSize = surface;
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: keryxUxThemeData(),
+        home: StationsView(
+          view: view,
+          streamFault: streamFault,
+          onScan: () {},
+          onExport: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
 
   Future<StationsHarness> pumpStations(
     WidgetTester tester, {
@@ -93,6 +153,12 @@ void main() {
     expect(find.textContaining('History'), findsNothing);
     expect(find.textContaining('Message'), findsNothing);
     expect(find.textContaining('Inbox'), findsNothing);
+  }
+
+  void expectNoQualityBars() {
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(find.byIcon(Icons.signal_cellular_4_bar), findsNothing);
+    expect(find.byIcon(Icons.signal_cellular_alt), findsNothing);
   }
 
   testWidgets(
@@ -176,8 +242,9 @@ void main() {
   });
 
   testWidgets(
-    'placeholder signalQuality is marked unavailable and never rendered '
-    'as measured full bars (Technical §1.1; UX-FR-045; VT-024)',
+    'placeholder StationInfo.signalQuality is not rendered as measured '
+    'full bars when the projection says unavailable '
+    '(Technical §1.1; UX-FR-045; VT-024)',
     (WidgetTester tester) async {
       await pumpStations(
         tester,
@@ -194,9 +261,8 @@ void main() {
 
       expect(find.text(StationsCopy.qualityUnavailable), findsOneWidget);
       expect(find.byKey(StationsScreenKeys.quality), findsOneWidget);
-      expect(find.byType(LinearProgressIndicator), findsNothing);
-      expect(find.byIcon(Icons.signal_cellular_4_bar), findsNothing);
-      expect(find.byIcon(Icons.signal_cellular_alt), findsNothing);
+      expect(find.text(StationsCopy.qualityMeasured(9)), findsNothing);
+      expectNoQualityBars();
       expect(find.text('9'), findsNothing);
       expect(find.textContaining('S9'), findsNothing);
       expect(find.textContaining('S-9'), findsNothing);
@@ -206,7 +272,7 @@ void main() {
 
   testWidgets(
     'incomplete LINKED roster states member list unavailable, never a '
-    'verified zero (Design §2.4; UX-FR-046; VT-024)',
+    'verified zero or Design §5 empty copy (Design §2.4; UX-FR-046; VT-024)',
     (WidgetTester tester) async {
       await pumpStations(
         tester,
@@ -215,11 +281,13 @@ void main() {
       );
 
       expect(
-        find.textContaining(StationsCopy.linkedUnavailable),
+        find.text(StationsCopy.incompleteRoster(RadioMode.linked)),
         findsOneWidget,
       );
       expect(find.byKey(StationsScreenKeys.linkedCount), findsOneWidget);
-      expect(find.text(StationsCopy.localCount(0)), findsOneWidget);
+      expect(find.text(StationsCopy.localCount(0)), findsNothing);
+      expect(find.byKey(StationsScreenKeys.empty), findsNothing);
+      expect(find.text(StationsCopy.empty), findsNothing);
       expect(find.text('0 members'), findsNothing);
       expect(find.text('Members: 0'), findsNothing);
       expect(find.text('0 stations'), findsNothing);
@@ -227,30 +295,52 @@ void main() {
     },
   );
 
-  testWidgets('local station count and LINKED member count are distinct fields '
-      '(UX-FR-046)', (WidgetTester tester) async {
+  testWidgets('AUTO incomplete roster is labelled AUTO, not LINKED '
+      '(UX-FR-046; review finding 3)', (WidgetTester tester) async {
     await pumpStations(
       tester,
-      radio: const RadioState(phase: RadioPhase.idle, mode: RadioMode.linked),
-      settings: const KeryxSettings(mode: RadioMode.linked),
-      snapshot: const RadioHostSnapshot(
-        stations: <StationInfo>[
-          StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
-          StationInfo(peerId: 'peer-bbb', callsign: 'BRAVO-2'),
-        ],
-      ),
+      radio: const RadioState(phase: RadioPhase.idle, mode: RadioMode.auto),
+      settings: const KeryxSettings(mode: RadioMode.auto),
     );
 
-    expect(find.text(StationsCopy.localCount(2)), findsOneWidget);
-    expect(find.textContaining(StationsCopy.linkedUnavailable), findsOneWidget);
     expect(
-      tester.getTopLeft(find.byKey(StationsScreenKeys.localCount)).dy,
-      lessThan(
-        tester.getTopLeft(find.byKey(StationsScreenKeys.linkedCount)).dy,
-      ),
+      find.text(StationsCopy.incompleteRoster(RadioMode.auto)),
+      findsOneWidget,
     );
-    // LOCAL-only screen must not show the LINKED field.
+    expect(find.textContaining(StationsCopy.linkedCountLabel), findsNothing);
+    expect(find.textContaining('LINKED'), findsNothing);
+    expect(find.text(StationsCopy.localCount(0)), findsNothing);
+    expect(find.byKey(StationsScreenKeys.empty), findsNothing);
   });
+
+  testWidgets(
+    'LINKED with locally-visible stations lists them but does not present '
+    'stations.length as a verified total (UX-FR-046)',
+    (WidgetTester tester) async {
+      await pumpStations(
+        tester,
+        radio: const RadioState(phase: RadioPhase.idle, mode: RadioMode.linked),
+        settings: const KeryxSettings(mode: RadioMode.linked),
+        snapshot: const RadioHostSnapshot(
+          stations: <StationInfo>[
+            StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
+            StationInfo(peerId: 'peer-bbb', callsign: 'BRAVO-2'),
+          ],
+        ),
+      );
+
+      expect(find.text('ALPHA-1'), findsOneWidget);
+      expect(find.text('BRAVO-2'), findsOneWidget);
+      expect(
+        find.text(StationsCopy.incompleteRoster(RadioMode.linked)),
+        findsOneWidget,
+      );
+      expect(find.byKey(StationsScreenKeys.linkedCount), findsOneWidget);
+      expect(find.byKey(StationsScreenKeys.localCount), findsNothing);
+      expect(find.text(StationsCopy.localCount(2)), findsNothing);
+      expect(find.byKey(StationsScreenKeys.empty), findsNothing);
+    },
+  );
 
   testWidgets('LOCAL roster does not render a LINKED member-count field '
       '(UX-FR-046)', (WidgetTester tester) async {
@@ -284,6 +374,7 @@ void main() {
     expect(find.byKey(StationsScreenKeys.empty), findsOneWidget);
     expect(find.text('CH 07 · 03'), findsOneWidget);
     expect(find.byKey(StationsScreenKeys.channelContext), findsOneWidget);
+    expect(find.text(StationsCopy.localCount(0)), findsOneWidget);
   });
 
   testWidgets(
@@ -335,27 +426,111 @@ void main() {
     );
   });
 
-  test('source never reads StationInfo.signalQuality or paints S-meter bars '
-      '(UX-FR-045; VT-024)', () {
-    final String src = File(
-      'lib/features/stations/stations_screen.dart',
-    ).readAsStringSync();
-    expect(src.contains('signalQuality'), isFalse);
-    expect(src.contains('placeholderSignalQuality'), isFalse);
-    expect(RegExp(r'generate\s*\(\s*9').hasMatch(src), isFalse);
-    expect(src.contains('LinearProgressIndicator'), isFalse);
-    expect(src.contains('signal_cellular_4_bar'), isFalse);
-    expect(src.contains('signal_cellular_alt'), isFalse);
+  testWidgets('count text comes from KnownRosterCount, not stations.length '
+      '(UX-FR-046; review finding 2)', (WidgetTester tester) async {
+    await pumpView(
+      tester,
+      makeView(
+        stations: const <StationInfo>[
+          StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
+        ],
+        rosterCount: const KnownRosterCount(5),
+      ),
+    );
+
+    expect(find.text(StationsCopy.localCount(5)), findsOneWidget);
+    expect(find.text(StationsCopy.localCount(1)), findsNothing);
+    expect(find.text('ALPHA-1'), findsOneWidget);
   });
 
-  test('source never renders a numeric LINKED member count (UX-FR-046)', () {
-    final String src = File(
-      'lib/features/stations/stations_screen.dart',
-    ).readAsStringSync();
-    expect(src.contains('KnownRosterCount'), isFalse);
-    expect(src.contains('rosterCount.count'), isFalse);
-    expect(src.contains('Members:'), isFalse);
+  testWidgets('UnavailableRosterCount with empty stations is unknown, not a '
+      'verified empty room (VT-024; review finding 1)', (
+    WidgetTester tester,
+  ) async {
+    await pumpView(
+      tester,
+      makeView(
+        stations: const <StationInfo>[],
+        rosterCount: const UnavailableRosterCount(),
+        effectiveRoute: RadioMode.linked,
+      ),
+    );
+
+    expect(
+      find.text(StationsCopy.incompleteRoster(RadioMode.linked)),
+      findsOneWidget,
+    );
+    expect(find.text(StationsCopy.localCount(0)), findsNothing);
+    expect(find.byKey(StationsScreenKeys.empty), findsNothing);
+    expect(find.text(StationsCopy.empty), findsNothing);
   });
+
+  testWidgets('MeasuredSignalQuality renders the S-meter reading and ignores '
+      'StationInfo.placeholderSignalQuality (UX-FR-045; review finding 4)', (
+    WidgetTester tester,
+  ) async {
+    await pumpView(
+      tester,
+      makeView(
+        stations: const <StationInfo>[
+          StationInfo(
+            peerId: 'peer-aaa',
+            callsign: 'ALPHA-1',
+            signalQuality: StationInfo.placeholderSignalQuality,
+          ),
+        ],
+        rosterCount: const KnownRosterCount(1),
+        signalQuality: const MeasuredSignalQuality(3),
+      ),
+    );
+
+    expect(find.text(StationsCopy.qualityMeasured(3)), findsOneWidget);
+    expect(find.text(StationsCopy.qualityUnavailable), findsNothing);
+    expect(find.text(StationsCopy.qualityMeasured(9)), findsNothing);
+    expect(find.textContaining('S9'), findsNothing);
+    expectNoQualityBars();
+    expect(find.byIcon(Icons.network_check), findsOneWidget);
+    expect(find.byIcon(Icons.signal_cellular_null), findsNothing);
+  });
+
+  testWidgets(
+    'host stream error leaves a stated-unavailable screen, not a stale '
+    'snapshot (review finding 6)',
+    (WidgetTester tester) async {
+      final StationsHarness harness = await pumpStations(
+        tester,
+        snapshot: const RadioHostSnapshot(
+          stations: <StationInfo>[
+            StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
+          ],
+        ),
+      );
+      expect(find.text('ALPHA-1'), findsOneWidget);
+
+      harness.host.emitError();
+      await tester.pumpAndSettle();
+
+      expect(find.text('ALPHA-1'), findsNothing);
+      expect(find.text(StationsCopy.streamUnavailable), findsOneWidget);
+      expect(find.byKey(StationsScreenKeys.empty), findsNothing);
+      expect(find.text(StationsCopy.empty), findsNothing);
+      expect(find.text(StationsCopy.localCount(0)), findsNothing);
+      expect(find.byKey(StationsScreenKeys.list), findsNothing);
+
+      harness.host.emit(
+        const RadioHostSnapshot(
+          stations: <StationInfo>[
+            StationInfo(peerId: 'peer-bbb', callsign: 'BRAVO-2'),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('BRAVO-2'), findsOneWidget);
+      expect(find.text(StationsCopy.streamUnavailable), findsNothing);
+      expect(find.text(StationsCopy.localCount(1)), findsOneWidget);
+    },
+  );
 
   test('no literal colour values in the stations feature (Design §3.2)', () {
     const List<String> paths = <String>[

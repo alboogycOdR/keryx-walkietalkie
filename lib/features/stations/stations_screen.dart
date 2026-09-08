@@ -6,6 +6,7 @@ import 'package:keryx/app_shell/radio_host_provider.dart';
 import 'package:keryx/core/presentation/presentation.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
+import 'package:keryx/core/state/radio_state.dart' show RadioMode;
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/services/session/session.dart' show StationInfo;
@@ -24,6 +25,7 @@ abstract final class StationsScreenKeys {
   static const Key quality = Key('stations.quality');
   static const Key scan = Key('stations.scan');
   static const Key export = Key('stations.export');
+  static const Key streamFault = Key('stations.stream-fault');
 
   static Key row(String peerId) => Key('stations.row.$peerId');
 }
@@ -51,6 +53,7 @@ class StationsScreen extends ConsumerStatefulWidget {
 class _StationsScreenState extends ConsumerState<StationsScreen> {
   StreamSubscription<RadioHostSnapshot>? _hostSub;
   RadioHostSnapshot _snapshot = const RadioHostSnapshot();
+  bool _streamFault = false;
 
   @override
   void initState() {
@@ -59,12 +62,27 @@ class _StationsScreenState extends ConsumerState<StationsScreen> {
     _snapshot = host.current;
     // Own subscription — live join/depart while open, without a
     // parent-screen rebuild (Design §2.4; UX-FR-040; VT-024).
-    _hostSub = host.changes.listen((RadioHostSnapshot snapshot) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _snapshot = snapshot);
-    });
+    _hostSub = host.changes.listen(
+      (RadioHostSnapshot snapshot) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _snapshot = snapshot;
+          _streamFault = false;
+        });
+      },
+      onError: (Object _, StackTrace _) {
+        if (!mounted) {
+          return;
+        }
+        // Stated-unavailable, not a stale last-good snapshot.
+        setState(() {
+          _snapshot = const RadioHostSnapshot();
+          _streamFault = true;
+        });
+      },
+    );
   }
 
   @override
@@ -75,7 +93,6 @@ class _StationsScreenState extends ConsumerState<StationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final KeryxUxTokens tokens = KeryxUxTokens.of(context);
     final settings =
         ref.watch(settingsProvider).valueOrNull ?? const KeryxSettings();
     final RadioViewState view = RadioViewState.project(
@@ -83,8 +100,39 @@ class _StationsScreenState extends ConsumerState<StationsScreen> {
       hostSnapshot: _snapshot,
       settings: settings,
     );
-    final List<StationInfo> stations = view.stations;
-    final bool linkedIncomplete = view.rosterCount is UnavailableRosterCount;
+    return StationsView(
+      view: view,
+      streamFault: _streamFault,
+      onScan: widget.onScan,
+      onExport: widget.onExport,
+    );
+  }
+}
+
+/// Pure presentation of a [RadioViewState].
+///
+/// [StationsScreen] owns the host subscription and projection; this
+/// widget switches on the sealed honesty types so a measured quality
+/// reading or a known roster count actually appears on screen
+/// (UX-FR-045/046). Tests construct a [RadioViewState] directly when
+/// the production projection cannot yet produce that variant.
+class StationsView extends StatelessWidget {
+  const StationsView({
+    super.key,
+    required this.view,
+    this.streamFault = false,
+    this.onScan,
+    this.onExport,
+  });
+
+  final RadioViewState view;
+  final bool streamFault;
+  final VoidCallback? onScan;
+  final VoidCallback? onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    final KeryxUxTokens tokens = KeryxUxTokens.of(context);
     final String channelLabel = StationsCopy.channelContext(
       view.channel,
       view.privacyCode,
@@ -121,14 +169,14 @@ class _StationsScreenState extends ConsumerState<StationsScreen> {
             icon: Icons.qr_code_scanner,
             label: StationsCopy.scanEventQr,
             tokens: tokens,
-            onPressed: widget.onScan,
+            onPressed: onScan,
           ),
           _QrAction(
             key: StationsScreenKeys.export,
             icon: Icons.qr_code,
             label: StationsCopy.exportEventQr,
             tokens: tokens,
-            onPressed: widget.onExport,
+            onPressed: onExport,
           ),
         ],
       ),
@@ -141,95 +189,120 @@ class _StationsScreenState extends ConsumerState<StationsScreen> {
             KeryxUxSpacing.pageMargin,
           ),
           children: <Widget>[
-            _CountRow(
-              localCount: stations.length,
-              linkedIncomplete: linkedIncomplete,
-              tokens: tokens,
-            ),
-            const SizedBox(height: KeryxUxSpacing.controlGap),
-            _QualityUnavailable(tokens: tokens),
-            const SizedBox(height: KeryxUxSpacing.cardSpacing),
-            if (stations.isEmpty)
-              _EmptyState(tokens: tokens)
+            if (streamFault)
+              _StreamFault(tokens: tokens)
             else
-              _StationList(stations: stations, tokens: tokens),
+              _CountRow(
+                rosterCount: view.rosterCount,
+                effectiveRoute: view.connection.effectiveRoute,
+                tokens: tokens,
+              ),
+            const SizedBox(height: KeryxUxSpacing.controlGap),
+            _QualityReading(quality: view.signalQuality, tokens: tokens),
+            const SizedBox(height: KeryxUxSpacing.cardSpacing),
+            if (!streamFault) ..._rosterBody(tokens),
           ],
         ),
       ),
     );
   }
+
+  List<Widget> _rosterBody(KeryxUxTokens tokens) {
+    final bool showVerifiedEmpty = switch (view.rosterCount) {
+      KnownRosterCount() => view.stations.isEmpty,
+      UnavailableRosterCount() => false,
+    };
+    if (showVerifiedEmpty) {
+      return <Widget>[_EmptyState(tokens: tokens)];
+    }
+    if (view.stations.isEmpty) {
+      return const <Widget>[];
+    }
+    return <Widget>[_StationList(stations: view.stations, tokens: tokens)];
+  }
 }
 
 class _CountRow extends StatelessWidget {
   const _CountRow({
-    required this.localCount,
-    required this.linkedIncomplete,
+    required this.rosterCount,
+    required this.effectiveRoute,
     required this.tokens,
   });
 
-  final int localCount;
-  final bool linkedIncomplete;
+  final RosterCount rosterCount;
+  final RadioMode effectiveRoute;
   final KeryxUxTokens tokens;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Semantics(
-          label: '${StationsCopy.localCountLabel}: $localCount',
-          child: Text(
-            StationsCopy.localCount(localCount),
-            key: StationsScreenKeys.localCount,
-            style: KeryxUxTypography.body.copyWith(color: tokens.textPrimary),
-          ),
+    return switch (rosterCount) {
+      KnownRosterCount(:final int count) => Semantics(
+        label: '${StationsCopy.localCountLabel}: $count',
+        child: Text(
+          StationsCopy.localCount(count),
+          key: StationsScreenKeys.localCount,
+          style: KeryxUxTypography.body.copyWith(color: tokens.textPrimary),
         ),
-        if (linkedIncomplete) ...<Widget>[
-          const SizedBox(height: KeryxUxSpacing.controlGap),
-          Semantics(
-            label:
-                '${StationsCopy.linkedCountLabel}: ${StationsCopy.linkedUnavailable}',
-            child: Text(
-              '${StationsCopy.linkedCountLabel}: ${StationsCopy.linkedUnavailable}',
-              key: StationsScreenKeys.linkedCount,
-              style: KeryxUxTypography.body.copyWith(
-                color: tokens.stateWarning,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
+      ),
+      UnavailableRosterCount() => Semantics(
+        label: StationsCopy.incompleteRoster(effectiveRoute),
+        child: Text(
+          StationsCopy.incompleteRoster(effectiveRoute),
+          key: StationsScreenKeys.linkedCount,
+          style: KeryxUxTypography.body.copyWith(color: tokens.stateWarning),
+        ),
+      ),
+    };
   }
 }
 
-class _QualityUnavailable extends StatelessWidget {
-  const _QualityUnavailable({required this.tokens});
+class _QualityReading extends StatelessWidget {
+  const _QualityReading({required this.quality, required this.tokens});
 
+  final SignalQuality quality;
   final KeryxUxTokens tokens;
 
   @override
   Widget build(BuildContext context) {
+    final String label = StationsCopy.qualityLabel(quality);
+    final IconData icon = switch (quality) {
+      UnavailableSignalQuality() => Icons.signal_cellular_null,
+      MeasuredSignalQuality() => Icons.network_check,
+    };
     return Semantics(
-      label: StationsCopy.qualityUnavailable,
+      label: label,
       child: Row(
         key: StationsScreenKeys.quality,
         children: <Widget>[
-          Icon(
-            Icons.signal_cellular_null,
-            color: tokens.textSecondary,
-            size: 20,
-          ),
+          Icon(icon, color: tokens.textSecondary, size: 20),
           const SizedBox(width: KeryxUxSpacing.controlGap),
           Expanded(
             child: Text(
-              StationsCopy.qualityUnavailable,
+              label,
               style: KeryxUxTypography.secondary.copyWith(
                 color: tokens.textSecondary,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StreamFault extends StatelessWidget {
+  const _StreamFault({required this.tokens});
+
+  final KeryxUxTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: StationsCopy.streamUnavailable,
+      child: Text(
+        StationsCopy.streamUnavailable,
+        key: StationsScreenKeys.streamFault,
+        style: KeryxUxTypography.body.copyWith(color: tokens.stateWarning),
       ),
     );
   }

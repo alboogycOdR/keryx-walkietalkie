@@ -34,6 +34,12 @@ class FakeRadioHost implements RadioHost {
     _changes.add(snapshot);
   }
 
+  /// Drives [RadioHost.changes] into an error so the screen's onError
+  /// path can be asserted (review finding 6).
+  void emitError([Object error = 'host-stream-fault']) {
+    _changes.addError(error);
+  }
+
   @override
   Future<void> start() async {
     methodLog.add('start');
