@@ -3101,7 +3101,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-052
 **Title:** Wire Wave 4 screens into the mobile app shell (replace TASK-048's placeholders)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** docs/adr/ADR-001-mobile-ux-redesign-reconciliation.md §6 (app-shell migration shape — the shell mounts real screens, owns no screen content itself); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §2-§4 (persistent host survives navigation; navigation-shaped operations must not retune/dispose); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D01/UX-D02 (Channels default landing, Channels+Settings required destinations).
@@ -3119,12 +3119,27 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 **Started_At:** 2026-09-08T12:19:36Z
 **Progress_Notes:**
 - [2026-09-08T12:19:36Z] [GB] Claimed TASK-052. Resume check: no GB in_progress/claimed task. All seven Depends_On (049/050/051/053/054/055/056) are done. Branch task/TASK-052-gb from master. Preflight next; will swap TASK-048 placeholders for the real Wave-4 screens inside lib/app_shell/** only.
+- [2026-09-08T12:22:00Z] [GB] Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-052 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/app_shell/**  -> 6 file(s):
+           lib/app_shell/app_shell.dart
+           lib/app_shell/channels_screen.dart
+           lib/app_shell/legacy_compat.dart
+           lib/app_shell/mobile_app_shell.dart
+           lib/app_shell/radio_host_provider.dart
+           lib/app_shell/talk_screen.dart
+  FILE   dossiers/TASK-052.md  -> exists, 41 line(s), 2208 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches expectation (TASK-048 shell, not new files). `test/app_shell/**` is NOT in Owned_Paths — TASK-048's tests assert placeholder copy and will go red when placeholders are swapped; new widget-tree tests also belong there. Implementing the in-territory wiring now; will block OWNERSHIP_CONFLICT for `test/app_shell/**` if the existing suite cannot stay green without editing those tests.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-08T12:19:36Z
+**Updated_At:** 2026-09-08T12:22:00Z
 
 
 ### TASK-053
