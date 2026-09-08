@@ -3832,7 +3832,7 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 
 ### TASK-068
 **Title:** Replace Talk header overlay hack with real callback wiring; give Radio Controls a proper header slot
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** TASK-052's Review_Findings (the finding this task closes, verbatim: "the overlays are coupled to Talk's layout by hardcoded geometry and nothing guards that coupling... a future padding change in lib/features/talk/** would silently kill the picker in production. Real fix: add onOpenPicker/onOpenStations callbacks to TASK-051's TalkScreen and delete the overlays"); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 (Talk screen layout, header affordances).
@@ -3845,15 +3845,16 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 - [ ] A test proves the picker/stations/radio-controls buttons keep working after Talk's own internal layout changes (e.g. wrap the header in extra padding in a test double and confirm the callback still fires) — this is the actual regression guard the fragility needs, not just "the button still renders"
 - [ ] Radio Controls gets a real header slot consistent with Design §2.2, not a shell-owned `IconButton` bolted onto the PTT area
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-068-s5
+**Started_At:** 2026-09-08T17:00:00Z
+**Progress_Notes:**
+- [2026-09-08T17:00:00Z] [S5] Claimed TASK-068 (Replace Talk header overlay hack with real callback wiring; give Radio Controls a proper header slot). Dependency TASK-057 confirmed done (merged c8aab3e). Starting on branch task/TASK-068-s5.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-08T13:10:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-08T17:00:00Z
 
 
 ### TASK-069
