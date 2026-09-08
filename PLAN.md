@@ -3861,7 +3861,7 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 
 ### TASK-069
 **Title:** Keyboard/switch access for Radio Controls' Monitor and Emergency hold targets
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §5 ("Keyboard and screen-reader users must be able to tune, cancel, open Stations, navigate Settings and release a latched TX"); TASK-057's Review_Findings (the accepted, explicitly-not-fixed finding this task closes — "Radio Controls' Monitor and Emergency arm hold-targets remain pointer-only... needs its own design decision rather than a copy of Talk's toggle").
@@ -3869,10 +3869,10 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 **Depends_On:** TASK-057
 **Description:** **ORCH-created 2026-09-08, an accepted-not-fixed finding from TASK-057's review.** Monitor's hold-to-open semantics (TASK-054, preserved deliberately — no toggle variant) and Emergency's 600ms hold-to-arm (also preserved verbatim from the legacy `EmgKey`) are both pointer-only gestures with no keyboard/switch equivalent. Design §5's functional floor names TX-latch release explicitly as a safety property but is silent on Monitor/Emergency specifically — this task makes an explicit, documented decision (not a silent copy of Talk's latch-release button pattern, since Emergency's accidental-activation guard is exactly what a keyboard "hold" analog must not undermine) for how a keyboard/switch user activates a hold-gated control safely, and implements it. **Sequenced after TASK-057** (shares `lib/features/radio_controls/**` territory, never concurrent).
 **Acceptance_Criteria:**
-- [ ] A documented decision exists for keyboard/switch activation of a hold-gated control (e.g. explicit press-and-hold-substitute action, or a confirm-then-arm two-step) that does not weaken Emergency's accidental-activation guard (UX-FR-042) — the decision itself, and why it doesn't undermine the guard, is written in this task's dossier/Description before implementation, not invented ad hoc mid-build
-- [ ] A keyboard/switch user can activate Monitor and arm/clear Emergency — covered by a test, not inspection alone
-- [ ] Emergency's existing 600ms hold-duration/accidental-activation semantics for POINTER input are unchanged (regression test against TASK-054's existing pointer-based tests)
-- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+- [x] A documented decision exists for keyboard/switch activation of a hold-gated control (e.g. explicit press-and-hold-substitute action, or a confirm-then-arm two-step) that does not weaken Emergency's accidental-activation guard (UX-FR-042) — the decision itself, and why it doesn't undermine the guard, is written in this task's dossier/Description before implementation, not invented ad hoc mid-build
+- [x] A keyboard/switch user can activate Monitor and arm/clear Emergency — covered by a test, not inspection alone
+- [x] Emergency's existing 600ms hold-duration/accidental-activation semantics for POINTER input are unchanged (regression test against TASK-054's existing pointer-based tests)
+- [x] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
 **Branch:** task/TASK-069-gb
 **Started_At:** 2026-09-08T15:00:37Z
 **Progress_Notes:**
@@ -3891,9 +3891,19 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Territory matches expectation (existing TASK-054/057 screen, not new files). Decision committed on the task branch as `14e9ef5` *before* any production edit: Monitor = keyboard/switch latch (pointer hold unchanged); Emergency = confirm-then-arm two-step with the same 600ms budget as pointer (Talk's single-press toggle rejected). Implementing against that decision now.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-08T15:16:00Z] [GB] Implementation landed as `f19b685` on `task/TASK-069-gb`. Decision commit `14e9ef5` precedes any production hunk. Monitor: keyboard/switch Activate latches via `MonitorChanged`; pointer remains hold-to-open. Emergency: confirm-then-arm two-step, same 600ms `emergencyHoldDuration` as pointer; Talk's single-press toggle not used. Clear is the existing Material `FilledButton` (switch/TalkBack tap tested). Pointer 600ms/early-release tests untouched and still green. → needs_review.
+**Artifacts:**
+- lib/features/radio_controls/radio_controls_screen.dart
+- lib/features/radio_controls/radio_controls_copy.dart
+- test/features/radio_controls/radio_controls_screen_test.dart
+- dossiers/TASK-069.md
+**Test_Evidence:**
+- [2026-09-08T15:16:00Z] [GB] `flutter test test/features/radio_controls/` — 26/26 pass (19 pre-existing including all TASK-054 pointer Emergency tests + 7 new TASK-069).
+- [2026-09-08T15:16:00Z] [GB] Revert-mutation (restored after each): (1) first Activate calls `_activateEmergency()` immediately → "single Activate does not pin" Expected false Actual true; (2) skip 600ms ready-gate (`if (false && !_emergencyKeyboardConfirmReady)`) → exactly "second Activate before 600ms" red, other 6 TASK-069 tests green; (3) `_monitorKeyboardActivate` no-op → exactly the two Monitor latch tests red, Emergency tests green.
+- [2026-09-08T15:16:00Z] [GB] `flutter analyze lib/features/radio_controls test/features/radio_controls` — No issues found. Repo-wide — 8 issues, all pre-existing TASK-035 in `test/services/session/radio_session_controller_test.dart`. Analyzer auto-upgrade of `analysis_options.yaml` reverted, not committed.
+- [2026-09-08T15:16:00Z] [GB] `flutter test` — **1367 passed / 0 failed / 40 skipped** (parked FR-025 soak seeds unchanged).
+- [2026-09-08T15:16:00Z] [GB] `git diff master...HEAD --name-only` — 4 files, all inside Owned_Paths.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-08T15:02:30Z
+**Updated_At:** 2026-09-08T15:16:00Z
