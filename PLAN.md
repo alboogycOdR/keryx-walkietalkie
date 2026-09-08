@@ -3595,3 +3595,28 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-07T20:31:00Z
+
+
+### TASK-066
+**Title:** Project TOT (time-out-tension) warning into RadioViewState
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** medium
+**Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-023 (TOT: max TX duration, warning chirp at T-5s, hard cut at 0); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 ("TX time-out warning" catalogue row, carried into the successor state model); TASK-051's Review_Findings round 2 (the carve-out that created this task — `RadioState.isTotWarning` exists in the reducer with no `RadioViewState` projection, and Talk's own presentation-boundary rule forbids reading `RadioState` directly).
+**Owned_Paths:** lib/core/presentation/**, test/core/presentation/**, dossiers/TASK-066.md
+**Depends_On:** —
+**Description:** **ORCH-created 2026-09-08**, a narrow carve-out surfaced during TASK-051's round-2 review: TASK-051 needed to surface the TOT warning state on the Talk screen, but `RadioViewState` (TASK-046, frozen on merge) has no field for it, and Talk correctly refused to reach past its own presentation boundary to read `RadioState.isTotWarning` directly — the same discipline TASK-046 itself established. This task reopens `lib/core/presentation/**` alone to add that one field, following TASK-046's existing pattern exactly (an independent boolean/enum field on `RadioViewState`, sourced from the host snapshot, with a text/icon cue per the Design §4 catalogue row — not merely a colour change). Do not touch `lib/features/talk/**` — wiring the new field into the Talk screen's rendering is that task's own follow-up once this lands, not part of this task.
+**Acceptance_Criteria:**
+- [ ] `RadioViewState` carries a TOT-warning field independent of `phase`/`emergency`/`latched` (Design §4; matches TASK-046's established independent-fields pattern) — proven by a test showing TOT-warning-during-TX projects both `phase == tx` and the warning simultaneously
+- [ ] The field is sourced from the host's real `RadioState.isTotWarning` (or equivalent snapshot data), never fabricated client-side — traced to the same `RadioHostSnapshot` seam TASK-046 already uses for every other field
+- [ ] The `RadioState` equality/reducer semantics are unchanged by this task (`git diff master -- lib/core/state/` empty)
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-08T09:50:00Z
