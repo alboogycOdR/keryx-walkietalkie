@@ -3998,7 +3998,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-071
 **Title:** Clean up the 8 pre-existing TASK-035 analyzer findings
-**Status:** pending
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** low
 **Spec_References:** No spec citation — pure lint/dead-code cleanup, carried as documented debt since TASK-035 and repeatedly disclosed-not-fixed by every review since (most recently TASK-070's).
@@ -4010,12 +4010,13 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 - [ ] No test coverage is lost — if a flagged variable/import was actually load-bearing for a test's meaning (not just its compilation), the test is fixed to use it correctly rather than the variable silently deleted
 - [ ] `flutter analyze` repo-wide reports zero issues (previously 8, now 0) — the first review in this entire project able to say that cleanly
 - [ ] Full suite green with no regression in test count
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-071-s5
+**Started_At:** 2026-09-09T05:00:00Z
+**Progress_Notes:**
+- [2026-09-09T05:00:00Z] [S5] Claimed TASK-071. Resume check: no S5 in_progress/claimed task found (TASK-058 already `done`/merged as `4f79a3a` — the session-start hint pointing at it was stale). Worktree was in a detached-HEAD state left over from TASK-058's last commit (`8675a9e`); reconciled by discarding the stray local `PLAN.md` working-copy diff (worktree copy is not the edit target — canonical PLAN.md is `E:\DELL-PROJECTS\WALKIETALKIE\PLAN.md` per protocol) and leaving the pre-existing local-only `analysis_options.yaml`/`android/gradle.properties` edits untouched exactly as TASK-058's own review characterized them (harmless, present in the main repo too, masks nothing). Branch `task/TASK-071-s5` created from current `master` (`b9e10de`). Preflight (`python scripts/preflight_paths.py TASK-071`): `FILE test/services/session/radio_session_controller_test.dart -> exists, 384 line(s), 11821 bytes`. No Owned_Paths surprise. Next: read the file, confirm each of the 8 flagged items is genuinely dead per the task's own caution, fix minimally, run `flutter analyze` (file then repo-wide) and full suite.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
+**Updated_By:** S5
 **Updated_At:** 2026-09-09T03:20:00Z
