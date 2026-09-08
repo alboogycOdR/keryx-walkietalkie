@@ -3998,7 +3998,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-071
 **Title:** Clean up the 8 pre-existing TASK-035 analyzer findings
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** low
 **Spec_References:** No spec citation — pure lint/dead-code cleanup, carried as documented debt since TASK-035 and repeatedly disclosed-not-fixed by every review since (most recently TASK-070's).
@@ -4014,9 +4014,16 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 **Started_At:** 2026-09-09T05:00:00Z
 **Progress_Notes:**
 - [2026-09-09T05:00:00Z] [S5] Claimed TASK-071. Resume check: no S5 in_progress/claimed task found (TASK-058 already `done`/merged as `4f79a3a` — the session-start hint pointing at it was stale). Worktree was in a detached-HEAD state left over from TASK-058's last commit (`8675a9e`); reconciled by discarding the stray local `PLAN.md` working-copy diff (worktree copy is not the edit target — canonical PLAN.md is `E:\DELL-PROJECTS\WALKIETALKIE\PLAN.md` per protocol) and leaving the pre-existing local-only `analysis_options.yaml`/`android/gradle.properties` edits untouched exactly as TASK-058's own review characterized them (harmless, present in the main repo too, masks nothing). Branch `task/TASK-071-s5` created from current `master` (`b9e10de`). Preflight (`python scripts/preflight_paths.py TASK-071`): `FILE test/services/session/radio_session_controller_test.dart -> exists, 384 line(s), 11821 bytes`. No Owned_Paths surprise. Next: read the file, confirm each of the 8 flagged items is genuinely dead per the task's own caution, fix minimally, run `flutter analyze` (file then repo-wide) and full suite.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-09T05:35:00Z] [S5] Completed. Verified all 8 flagged items were genuinely dead (not closure-captured, not depended on by another file) before removing: `linked.dart`/`mesh.dart` imports unreferenced (the properties that sound related — `controller.debugMeshTransport`/`debugLinkedController` — come from `radio_session_controller.dart`'s own export, not these); `_characterDspLight`/`_dimModeAuto` had zero references, every `KeryxSettings(...)` already inlined the enum literal; `settingsAuto`/`settingsLinked` were assigned in `setUp()` but never read by any test (the mode-matrix group builds its own inline `KeryxSettings` via the helper) — not load-bearing for any test's meaning, removed clean. One item, `engine1`, was genuinely meaning-adjacent: `retune rebuilds engine` captured the pre-retune engine but asserted nothing about it, so per this task's own instruction the fix was to use it correctly rather than delete it — added `expect(engine1, isNotNull)`/`isA<FloorEngine>()` before retune, mirroring the existing hedge already used for `engine2` (no invented identity-equality claim). `_testMode` renamed to `testMode` (5 call sites) for the naming lint. `flutter analyze` on the file and repo-wide: **zero issues** (was 8). `flutter test` on the file: **14/14 pass**, same test count as before — no coverage lost. `flutter test` full suite: **1422 passed / 0 failed / 40 skipped**, exit 0; the 40 skips are the unchanged ADR-001 §5 PARKED FR-025 soak seeds, reason string verified verbatim in the run output. `git diff master...HEAD --stat` — single file changed (`test/services/session/radio_session_controller_test.dart`), inside `Owned_Paths`; zero production files touched. **Note for ORCH, non-blocking:** `dossiers/TASK-071.md` is not listed in this task's `Owned_Paths` (every other recent task, e.g. TASK-068, explicitly includes its own dossier) — the territory-firewall hook correctly blocked an Edit-tool write to it, so per protocol ("never write outside Owned_Paths, not one line") no dossier work-log entry was committed to the branch; this Progress_Note carries the full record instead. Flagging in case it was an oversight when this task was created, not treating it as a blocker since the actual deliverable is complete and verified. → Status: needs_review.
+**Artifacts:**
+- test/services/session/radio_session_controller_test.dart
+**Test_Evidence:**
+- [2026-09-09T05:35:00Z] [S5] `flutter analyze test/services/session/radio_session_controller_test.dart` -> **No issues found.**
+- [2026-09-09T05:35:00Z] [S5] `flutter analyze` (repo-wide) -> **No issues found.** (was 8, now 0.)
+- [2026-09-09T05:35:00Z] [S5] `flutter test test/services/session/radio_session_controller_test.dart` -> **14/14 pass** (unchanged test count).
+- [2026-09-09T05:35:00Z] [S5] `flutter test` (full suite) -> **1422 passed / 0 failed / 40 skipped**, exit 0.
+- [2026-09-09T05:35:00Z] [S5] `git diff master...HEAD --stat` -> 1 file changed, `test/services/session/radio_session_controller_test.dart` only, inside `Owned_Paths`; zero `lib/**` files touched.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-09-09T03:20:00Z
+**Updated_At:** 2026-09-09T05:35:00Z
