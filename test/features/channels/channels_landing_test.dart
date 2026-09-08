@@ -343,6 +343,82 @@ void main() {
     expect(src.contains('watchChannel!('), isFalse);
   });
 
+  testWidgets(
+    'recall failure is visibly represented and offers a real retry '
+    'path — not a silently discarded TuneResult (TASK-067; UX-FR-009)',
+    (WidgetTester tester) async {
+      final LandingHarness harness = await pumpLanding(tester);
+      harness.host.autoResult = const TuneResult.transportFailure(
+        'radio unreachable',
+      );
+      harness.host.emit(
+        const RadioHostSnapshot(
+          channelMemory: <TunedChannel>[
+            TunedChannel(channel: 7, privacyCode: 3),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(ChannelsLandingKeys.recentEntry(7, 3)));
+      await tester.pumpAndSettle();
+
+      expect(harness.host.tuneCalls, <(int, int)>[(7, 3)]);
+      expect(find.byKey(ChannelsLandingKeys.recallFeedback), findsOneWidget);
+      expect(
+        find.text(
+          'Could not complete the retune. The active channel may be unchanged.',
+        ),
+        findsOneWidget,
+      );
+      final Finder retry = find.byKey(ChannelsLandingKeys.recallRetry);
+      expect(retry, findsOneWidget);
+
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+
+      // Retry re-submits the exact same target — never a different one,
+      // never a rollback (Technical §6, the same policy TASK-050 built).
+      expect(harness.host.tuneCalls, <(int, int)>[(7, 3), (7, 3)]);
+    },
+  );
+
+  testWidgets(
+    'a pending recall retune shows progress and blocks a competing '
+    'recall tap (TASK-067; matches TASK-050 Design §2.3)',
+    (WidgetTester tester) async {
+      final LandingHarness harness = await pumpLanding(tester);
+      harness.host.holdTunes = true;
+      harness.host.emit(
+        const RadioHostSnapshot(
+          channelMemory: <TunedChannel>[
+            TunedChannel(channel: 7, privacyCode: 3),
+            TunedChannel(channel: 12, privacyCode: 1),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(ChannelsLandingKeys.recentEntry(7, 3)));
+      await tester.pump();
+
+      expect(find.byKey(ChannelsLandingKeys.recallProgress), findsOneWidget);
+
+      // A competing tap on another recent entry while busy must not
+      // dispatch a second tune.
+      await tester.tap(find.byKey(ChannelsLandingKeys.recentEntry(12, 1)));
+      await tester.pump();
+      expect(harness.host.tuneCalls, <(int, int)>[(7, 3)]);
+
+      harness.host.completeTune(0, const TuneResult.success());
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(ChannelsLandingKeys.recallProgress), findsNothing);
+      expect(find.byKey(ChannelsLandingKeys.recallFeedback), findsOneWidget);
+      expect(find.text('Tuned to CH 07 · 03.'), findsOneWidget);
+    },
+  );
+
   test('no literal colour values in the landing (Design §3.2)', () {
     const List<String> paths = <String>[
       'lib/features/channels/channels_landing.dart',
