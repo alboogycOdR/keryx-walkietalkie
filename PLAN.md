@@ -3983,9 +3983,10 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
   FILE   dossiers/TASK-070.md  -> exists, 32 line(s), 1506 bytes
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
+- [2026-09-08T19:34:47Z] [CX9] Added nine individually named VT-020 regressions, preserving every existing test. Baseline validation file: 14 passed. All nine new tests independently fail under corresponding temporary mutations (four channel limits, three code limits, negative-text acceptance, digit-gate removal); production bytes restored. No production defect found. Full suite and analyze running. Corrected the brief premise in dossier: grouped boundary assertions already existed at base bc91c79.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX9
-**Updated_At:** 2026-09-08T19:31:50Z
+**Updated_At:** 2026-09-08T19:34:47Z
