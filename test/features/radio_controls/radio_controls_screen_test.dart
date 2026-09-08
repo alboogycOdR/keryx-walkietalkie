@@ -3,6 +3,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/floor/floor.dart';
@@ -458,4 +459,201 @@ void main() {
       handle.dispose();
     });
   });
+
+  group('TASK-069 — keyboard/switch access', () {
+    testWidgets(
+      'keyboard Activate latches Monitor open; a second Activate closes it',
+      (tester) async {
+        final engine = await pumpReady(tester);
+        expect(container.read(radioStateProvider).isMonitorOpen, isFalse);
+
+        await _activateViaKeyboard(
+          tester,
+          RadioControlsKeys.monitorHoldTarget,
+        );
+        expect(container.read(radioStateProvider).isMonitorOpen, isTrue);
+
+        await _activateViaKeyboard(
+          tester,
+          RadioControlsKeys.monitorHoldTarget,
+        );
+        expect(container.read(radioStateProvider).isMonitorOpen, isFalse);
+        engine.dispose();
+      },
+    );
+
+    testWidgets(
+      'switch/TalkBack tap latches Monitor open and closed — not a '
+      'pointer hold',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final engine = await pumpReady(tester);
+        expect(container.read(radioStateProvider).isMonitorOpen, isFalse);
+
+        await _activateViaSwitch(
+          tester,
+          RadioControlsKeys.monitorHoldTarget,
+        );
+        expect(container.read(radioStateProvider).isMonitorOpen, isTrue);
+
+        await _activateViaSwitch(
+          tester,
+          RadioControlsKeys.monitorHoldTarget,
+        );
+        expect(container.read(radioStateProvider).isMonitorOpen, isFalse);
+        engine.dispose();
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'a single keyboard/switch Activate does not pin Emergency',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final engine = await pumpReady(tester);
+
+        await _activateViaSwitch(
+          tester,
+          RadioControlsKeys.emergencyHoldTarget,
+        );
+
+        expect(engine.isEmergencyPinned, isFalse);
+        expect(
+          find.byKey(RadioControlsKeys.emergencyKeyboardConfirm),
+          findsOneWidget,
+        );
+        expect(find.byKey(RadioControlsKeys.emergencyArming), findsNothing);
+        engine.dispose();
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'a second Activate before 600ms does not pin Emergency (same '
+      'accidental-initiation budget as pointer hold)',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final engine = await pumpReady(tester);
+
+        await _activateViaSwitch(
+          tester,
+          RadioControlsKeys.emergencyHoldTarget,
+        );
+        await tester.pump(const Duration(milliseconds: 200));
+        await _activateViaSwitch(
+          tester,
+          RadioControlsKeys.emergencyHoldTarget,
+        );
+        await tester.pump(const Duration(milliseconds: 500));
+
+        expect(engine.isEmergencyPinned, isFalse);
+        expect(find.byKey(RadioControlsKeys.emergencyBanner), findsNothing);
+        expect(
+          find.byKey(RadioControlsKeys.emergencyKeyboardConfirm),
+          findsOneWidget,
+        );
+        engine.dispose();
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'a second Activate after 600ms pins Emergency through the '
+      'authoritative engine',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final engine = await pumpReady(tester);
+
+        await _activateViaSwitch(
+          tester,
+          RadioControlsKeys.emergencyHoldTarget,
+        );
+        expect(engine.isEmergencyPinned, isFalse);
+
+        await tester.pump(const Duration(milliseconds: 650));
+        await _activateViaSwitch(
+          tester,
+          RadioControlsKeys.emergencyHoldTarget,
+        );
+
+        expect(engine.isEmergencyPinned, isTrue);
+        expect(find.byKey(RadioControlsKeys.emergencyBanner), findsOneWidget);
+        engine.dispose();
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'switch/TalkBack tap on Clear unpins an owner-raised emergency',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final engine = await pumpReady(tester);
+
+        await _activateViaSwitch(
+          tester,
+          RadioControlsKeys.emergencyHoldTarget,
+        );
+        await tester.pump(const Duration(milliseconds: 650));
+        await _activateViaSwitch(
+          tester,
+          RadioControlsKeys.emergencyHoldTarget,
+        );
+        expect(engine.isEmergencyPinned, isTrue);
+
+        await _activateViaSwitch(tester, RadioControlsKeys.emergencyClear);
+        expect(engine.isEmergencyPinned, isFalse);
+        expect(find.byKey(RadioControlsKeys.emergencyBanner), findsNothing);
+        engine.dispose();
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'Escape cancels emergency keyboard confirm without arming',
+      (tester) async {
+        final engine = await pumpReady(tester);
+
+        await _activateViaKeyboard(
+          tester,
+          RadioControlsKeys.emergencyHoldTarget,
+        );
+        expect(
+          find.byKey(RadioControlsKeys.emergencyKeyboardConfirm),
+          findsOneWidget,
+        );
+        expect(engine.isEmergencyPinned, isFalse);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+
+        expect(
+          find.byKey(RadioControlsKeys.emergencyKeyboardConfirm),
+          findsNothing,
+        );
+        expect(engine.isEmergencyPinned, isFalse);
+        engine.dispose();
+      },
+    );
+  });
+}
+
+Future<void> _activateViaKeyboard(WidgetTester tester, Key key) async {
+  final BuildContext context = tester.element(find.byKey(key));
+  final FocusNode? focus = Focus.maybeOf(context);
+  expect(focus, isNotNull, reason: '$key must sit in a Focus subtree');
+  focus!.requestFocus();
+  await tester.pump();
+  await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+  await tester.pump();
+}
+
+Future<void> _activateViaSwitch(WidgetTester tester, Key key) async {
+  final SemanticsNode node = tester.semantics.find(find.byKey(key));
+  expect(
+    node.getSemanticsData().hasAction(SemanticsAction.tap),
+    isTrue,
+    reason: '$key must expose SemanticsAction.tap for switch/TalkBack',
+  );
+  node.owner!.performAction(node.id, SemanticsAction.tap);
+  await tester.pump();
 }

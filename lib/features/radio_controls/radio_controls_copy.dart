@@ -15,7 +15,8 @@ abstract final class RadioControlsCopy {
   static const String monitorOpenState = 'Open';
   static const String monitorClosedState = 'Closed';
   static const String monitorHoldTargetHint =
-      'Press and hold to open the squelch; release to close it.';
+      'Press and hold to open the squelch; release to close it. '
+      'Activate to latch open or closed.';
 
   static const String scanLabel = 'Scan';
   static const String scanDescription = 'Scan the channel for activity.';
@@ -26,7 +27,17 @@ abstract final class RadioControlsCopy {
 
   static const String emergencyLabel = 'Emergency';
   static const String emergencyHoldTargetHint =
-      'Press and hold to arm; release early to cancel.';
+      'Press and hold to arm; release early to cancel. '
+      'Activate once to begin confirming, then activate again after a '
+      'pause to arm.';
+
+  /// Shown on the hold target while the keyboard/switch confirm-then-arm
+  /// two-step is waiting for the second Activate (TASK-069). Distinct from
+  /// [emergencyArmingHint], which is the pointer-hold "keep holding" copy.
+  static const String emergencyKeyboardConfirmLabel =
+      'Press again to arm emergency';
+  static const String emergencyKeyboardConfirmHint =
+      'Activate again to arm, or press Escape to cancel.';
 
   /// Verification §8: no automatic location transmission, no
   /// emergency-service claim.
