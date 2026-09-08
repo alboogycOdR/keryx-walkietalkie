@@ -3860,7 +3860,7 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 
 ### TASK-069
 **Title:** Keyboard/switch access for Radio Controls' Monitor and Emergency hold targets
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §5 ("Keyboard and screen-reader users must be able to tune, cancel, open Stations, navigate Settings and release a latched TX"); TASK-057's Review_Findings (the accepted, explicitly-not-fixed finding this task closes — "Radio Controls' Monitor and Emergency arm hold-targets remain pointer-only... needs its own design decision rather than a copy of Talk's toggle").
@@ -3876,9 +3876,23 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 **Started_At:** 2026-09-08T15:00:37Z
 **Progress_Notes:**
 - [2026-09-08T15:00:37Z] [GB] Claimed TASK-069. Resume check: no GB in_progress/claimed task. TASK-057 done; this is the only pending GB assignment and Depends_On is satisfied. Branch task/TASK-069-gb from master. Preflight next, then document the keyboard/switch hold-gated decision in the dossier *before* any code (criterion 1). Will not copy Talk's single-press latch-release onto Emergency.
+- [2026-09-08T15:02:30Z] [GB] Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-069 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/radio_controls/**  -> 2 file(s):
+           lib/features/radio_controls/radio_controls_copy.dart
+           lib/features/radio_controls/radio_controls_screen.dart
+  GLOB   test/features/radio_controls/**  -> 2 file(s):
+           test/features/radio_controls/fake_radio_host.dart
+           test/features/radio_controls/radio_controls_screen_test.dart
+  FILE   dossiers/TASK-069.md  -> exists, 33 line(s), 1525 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches expectation (existing TASK-054/057 screen, not new files). Decision committed on the task branch as `14e9ef5` *before* any production edit: Monitor = keyboard/switch latch (pointer hold unchanged); Emergency = confirm-then-arm two-step with the same 600ms budget as pointer (Talk's single-press toggle rejected). Implementing against that decision now.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-08T15:00:37Z
+**Updated_At:** 2026-09-08T15:02:30Z
