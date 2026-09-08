@@ -374,4 +374,37 @@ void main() {
       const AppearancePreference(theme: AppearanceTheme.light),
     );
   });
+
+  group('TASK-057 — accessibility polish', () {
+    testWidgets(
+      'the callsign text field carries an explicit accessible label, not '
+      'just a visually-adjacent one',
+      (tester) async {
+        await pumpSettings(tester);
+        final Semantics semantics = tester.widget<Semantics>(
+          find.descendant(
+            of: find.byKey(SettingsKeys.callsign),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(semantics.properties.label, contains('Callsign'));
+      },
+    );
+
+    testWidgets(
+      'the squelch stepper value announces which setting it belongs to',
+      (tester) async {
+        await pumpSettings(tester);
+        final Semantics semantics = tester.widget<Semantics>(
+          find.descendant(
+            of: find.byKey(SettingsKeys.squelch),
+            matching: find.byWidgetPredicate(
+              (w) => w is Semantics && (w.properties.label ?? '').contains('Squelch,'),
+            ),
+          ),
+        );
+        expect(semantics.properties.label, contains('Squelch,'));
+      },
+    );
+  });
 }

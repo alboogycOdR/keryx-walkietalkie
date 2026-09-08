@@ -190,10 +190,20 @@ class SettingsStepperRow extends StatelessWidget {
           ),
           ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 36),
-            child: Text(
-              display,
-              textAlign: TextAlign.center,
-              style: KeryxUxTypography.body.copyWith(color: tokens.textPrimary),
+            // The bare value text between the two step buttons otherwise
+            // announces with no context of which setting it belongs to —
+            // give it an explicit label rather than relying on a screen
+            // reader's proximity/reading-order guess (TASK-057; Design §5).
+            child: Semantics(
+              label: '$label, $display',
+              excludeSemantics: true,
+              child: Text(
+                display,
+                textAlign: TextAlign.center,
+                style: KeryxUxTypography.body.copyWith(
+                  color: tokens.textPrimary,
+                ),
+              ),
             ),
           ),
           _StepButton(
@@ -429,24 +439,35 @@ class _SettingsTextRowState extends State<SettingsTextRow> {
             error: widget.error,
           ),
           const SizedBox(height: 8),
-          TextField(
-            controller: _controller,
-            focusNode: _focus,
-            enabled: widget.enabled,
-            style: KeryxUxTypography.body.copyWith(color: tokens.textPrimary),
-            decoration: InputDecoration(
-              isDense: true,
-              filled: true,
-              fillColor: tokens.surfaceRaised,
-              border: OutlineInputBorder(
-                borderSide: BorderSide(color: tokens.borderDefault),
+          // The visible label lives in `SettingsRowHeader` above (not
+          // `InputDecoration.labelText`, which would float a second,
+          // visually duplicate label) — so a screen reader needs an
+          // explicit association between that text and this field rather
+          // than relying on proximity alone (TASK-057; Design §5).
+          Semantics(
+            label: widget.label,
+            textField: true,
+            child: TextField(
+              controller: _controller,
+              focusNode: _focus,
+              enabled: widget.enabled,
+              style: KeryxUxTypography.body.copyWith(
+                color: tokens.textPrimary,
               ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: tokens.borderDefault),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: tokens.surfaceRaised,
+                border: OutlineInputBorder(
+                  borderSide: BorderSide(color: tokens.borderDefault),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: tokens.borderDefault),
+                ),
               ),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _commit(),
             ),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _commit(),
           ),
         ],
       ),
