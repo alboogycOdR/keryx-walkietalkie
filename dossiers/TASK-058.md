@@ -76,3 +76,62 @@ explicitly as the known documented exception rather than absorbing them into a
 
   Next: Channels/selector/Stations/Settings/Radio Controls/Event QR goldens,
   VT-010/022 spot-checks, `ops/REGRESSION_UX_R1.md`, full G4 evidence run.
+
+- 2026-09-08T19:30:00Z [S5] Completed. Added goldens for Channels (empty/
+  populated), selector, Stations (empty/populated), Settings, Radio Controls,
+  Event QR export + scan(granted/denied) — dark+light throughout — bringing
+  the golden total to 36 across 7 files, one per §6-named screen category.
+  Two non-determinism bugs found and fixed while confirming reproducibility
+  (both in test files, not production code): Event QR export golden used
+  wall-clock `DateTime.now()` for its expiry countdown (fixed: inject a
+  constant `now`); Settings golden seeded an *empty* identity store, so
+  `IdentityRepository` minted a random UUID/callsign every run (fixed: seed a
+  fixed UUID/callsign). Re-ran `flutter test test/regression/goldens/` twice
+  clean with no `--update-goldens`: 36/36 both times.
+
+  Spot-checked VT-010 and VT-022 line-by-line per the coverage map's own
+  "partial" flags rather than taking the sub-agent's summary at face value:
+  VT-010 is actually **fully covered** — `talk_screen_test.dart`'s "Design §4
+  state catalogue" group has a dedicated icon/colour(+label) assertion for
+  all 13 of the 14 named rows (off/boot/idle/tuning/requesting/granted/
+  receiving/degraded/denied-busy/latched/emergency/permission-denied/
+  service-fault) — upgraded from "partial" to "covered" in the report, this
+  being the more accurate finding, not a weaker one. VT-022 remains
+  genuinely partial: only one named test exercises the mode matrix (Auto
+  configured / Local effective / force-LOCAL blocks Linked); the full
+  LOCAL/LINKED/AUTO x relay-configured x relay-failure combination set isn't
+  each individually named — recorded as a documentation-gap finding, not a
+  code defect, since the safety-relevant clause (force-LOCAL blocks WAN) is
+  solidly covered.
+
+  Wrote `ops/REGRESSION_UX_R1.md` — full VT-001..024 + §6 coverage table,
+  baseline (`3dc6129`, Flutter 3.47.2 / Dart 3.13.2), commands, findings
+  routed to owning tasks (VT-022 matrix gap, VT-021 retune-after-teardown
+  documentation gap, TASK-069's already-disclosed androidTapTargetGuideline
+  non-container-Semantics gap repeated for visibility, missing focus-order
+  test, golden responsive-matrix breadth).
+
+  G4 evidence, all run in this worktree on `task/TASK-058-s5`:
+  - `flutter test` (full suite) -> **1412 passed / 0 failed / 40 skipped**
+    (exactly the ADR-001 §5 owner-parked FR-025 soak seeds, reason strings
+    unchanged). Includes this task's own 41 new tests (5 real-composition +
+    36 goldens).
+  - `flutter analyze` (full repo) -> **8 issues**, all pre-existing TASK-035
+    warnings confined to `test/services/session/radio_session_controller_test.dart`
+    (outside this task's `Owned_Paths`), **zero new**.
+  - `flutter build apk --debug` -> **SUCCESS**, `app-debug.apk` 232,368,319
+    bytes. (A Kotlin incremental-cache `IllegalArgumentException` from
+    `livekit_client`'s Gradle module logged as a suppressed warning mid-build
+    — non-fatal, exit code 0, APK produced — pre-existing toolchain noise
+    unrelated to this task's changes.)
+  - `flutter build apk --release` -> **SUCCESS**, `app-release.apk`
+    121,935,768 bytes (116.3MB). Same benign suppressed Kotlin-cache warning
+    from `shared_preferences_android`'s Gradle module, same non-fatal outcome.
+
+  `git diff master...HEAD --stat` -> 46 files changed, all inside
+  `Owned_Paths` (`test/regression/**`, `ops/REGRESSION_UX_R1.md`,
+  `dossiers/TASK-058.md`); zero production files touched, confirming this
+  task's own "modifies no production code" acceptance criterion by
+  construction, not just by intent.
+
+  All acceptance criteria met. -> Status: needs_review.

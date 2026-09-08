@@ -228,10 +228,16 @@ checked.
 
 - `flutter test` (full suite): **1412 passed / 0 failed / 40 skipped (parked)**.
 - `flutter analyze` (full repo): **8 issues, all pre-existing TASK-035, 0 new**.
-- `flutter build apk --debug`: **SUCCESS** — see Test_Evidence in PLAN.md for
-  exact output/APK size, captured at report time.
-- `flutter build apk --release`: **SUCCESS** — see Test_Evidence in PLAN.md
-  for exact output/APK size, captured at report time.
+- `flutter build apk --debug`: **SUCCESS** — `build/app/outputs/flutter-apk/
+  app-debug.apk`, 232,368,319 bytes. A suppressed Kotlin incremental-cache
+  `IllegalArgumentException` from `livekit_client`'s Gradle module was logged
+  mid-build (a cross-drive relative-path issue in Kotlin's own incremental
+  compiler cache, pre-existing toolchain noise unrelated to this task) —
+  non-fatal, exit code 0, APK produced.
+- `flutter build apk --release`: **SUCCESS** — `build/app/outputs/flutter-apk/
+  app-release.apk`, 121,935,768 bytes (116.3MB). Same benign suppressed
+  Kotlin-cache warning, this time from `shared_preferences_android`'s Gradle
+  module; same non-fatal outcome.
 
 G4 is met: complete regression suite, analyzer and both Android build
 variants pass, with every pre-existing exception (8 TASK-035 analyzer
