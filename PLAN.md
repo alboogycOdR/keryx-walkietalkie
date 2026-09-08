@@ -3647,7 +3647,7 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 
 ### TASK-067
 **Title:** Route Channels recall-tap through TASK-050's result-handling
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-009 (pending/connected/failed/unavailable, real retry/cancel path); TASK-049's Review_Findings (flagged the discard); TASK-050's Review_Findings (built the exact pattern this task must reuse, but had no territory to apply it to Channels).
@@ -3659,12 +3659,13 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 - [ ] Uses TASK-050's existing `TuneCoordinator`/outcome types rather than a second, independent implementation of the same four-state UX-FR-009 model
 - [ ] A real retry path exists from the Channels entry point on failure — matches the standard TASK-050 already set
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-067-s5
+**Started_At:** 2026-09-08T15:20:00Z
+**Progress_Notes:**
+- [2026-09-08T15:20:00Z] [S5] Claimed TASK-067 (Route Channels recall-tap through TASK-050's result-handling). Dependency TASK-050 confirmed done (merged 0114a7d). Starting on branch task/TASK-067-s5.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-08T10:10:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-08T15:20:00Z
