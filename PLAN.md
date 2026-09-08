@@ -3954,7 +3954,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-070
 **Title:** Lock in channel/privacy-code boundary validation with explicit tests
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** CX9
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-020 ("Input validation"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-003 (channel 1-99, code 0-38 validation); TASK-058's round-2 Review_Findings §9.9 (the routed finding this task closes — "no privacy-code boundary (0/38/-1/39) and no channel-99 upper bound tested anywhere, only tune(0,0)").
@@ -3967,12 +3967,12 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 - [ ] Existing non-numeric/empty/malformed-input tests (if any) are preserved, not replaced
 - [ ] If a real boundary defect is found, it is fixed narrowly in `channel_validation.dart` only, with the defect and fix documented in the dossier
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-070-cx9
+**Started_At:** 2026-09-08T19:31:10Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-09T03:00:00Z
+**Updated_By:** CX9
+**Updated_At:** 2026-09-08T19:31:10Z
