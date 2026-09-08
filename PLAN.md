@@ -3455,7 +3455,7 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 
 ### TASK-058
 **Title:** Full regression pass — successor goldens, integration suite, G4 evidence
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §0 ("Do not delete or weaken a historical test merely because the old UI is retired"), §2 (baseline and test environment — exact commands, versions, counts), §3 (VT-001–VT-005), §4 (VT-010–VT-015), §5 (VT-020–VT-024), §6 (golden fixtures for every significant state, dark and light), §9 gate G4 ("Complete regression suite, analyzer and Android builds passing or documented approved pre-existing exceptions") and G3; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §10 (a development-only compat harness may exist for side-by-side validation), §1 (Tests row — "Preserve historical tests; add successor tests rather than simply deleting failures"); ADR-001 §5 (the 40 PARKED FR-025 soak skips remain skipped and named — not reopened, not silently removed).
@@ -3472,15 +3472,16 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 - [ ] `ops/REGRESSION_UX_R1.md` records exact commit, Flutter/Dart and Android tooling versions, every command run, pass/fail/skip counts and every pre-existing exception (the 8 TASK-035 analyzer warnings named explicitly) (Verification §2)
 - [ ] G4 evidence complete: full `flutter test` suite, `flutter analyze`, `flutter build apk --debug` and `flutter build apk --release` all pass or have a documented approved exception (Verification §9 G4)
 - [ ] Any failure found is reported as a finding against the owning task; this task modifies no production code (its territory contains none)
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-058-gb
+**Started_At:** 2026-09-08T15:33:10Z
+**Progress_Notes:**
+- [2026-09-08T15:33:10Z] [GB] Claimed TASK-058. Resume check: no GB in_progress/claimed task. Depends_On TASK-057/068/069 all done. Branch task/TASK-058-gb from master. Preflight next, then assemble VT-001–005 against the real shell, map VT-010–024 coverage, and add successor goldens in test/regression/**. No production code.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-08T15:33:10Z
 
 
 ### TASK-059
