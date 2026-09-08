@@ -154,3 +154,85 @@ silently here. Note the known trap recorded in this plan: M3 pads
      the other six screens are all ListView/SafeArea-based (inherently
      scroll-safe) and were spot-checked by reading, not by a new
      per-screen landscape test for each.
+
+## Round 2 (rework) -- 2026-09-09
+
+REWORK round 1 findings addressed. Summary per finding:
+
+1. **AC1, blocking -- responsive matrix was 1/7, not 7/7.** Added
+   `test/features/talk/a11y_matrix_support.dart`: a shared
+   `ResponsiveCase`/`kResponsiveMatrix` (320 lp width, larger phone
+   411x891, landscape 640x320, 320 lp + text scale 2.0) and an
+   `expectResponsiveMatrix(tester, pump)` driver that iterates the matrix
+   and asserts `tester.takeException()` is null at each case. Each of the
+   seven screens got its own new "TASK-057 round 2" test group wiring its
+   own pump/build closure through the shared driver (provider setup
+   differs per screen, so the matrix and assertion are shared, the pump
+   closure is not) -- Talk, Channels, Channel Selector, Radio Controls,
+   Settings, Stations, Event QR UI scan and export screens all now
+   exercise the full matrix, not just Talk. This caught two real,
+   previously-undetected overflow bugs (see 5/6 below), not just
+   confirmed the six screens were already safe.
+2. **AC3, blocking -- rendered contrast was asserted by source-grep, not
+   by rendering.** Added `expectRenderedContrast`/`expectTapTargets` to
+   the same support file, both backed by Flutter's own
+   `meetsGuideline(textContrastGuideline)` /
+   `meetsGuideline(androidTapTargetGuideline)` against the actual rendered
+   frame (via `tester.ensureSemantics()`), not token names. Every one of
+   the seven screens now has a dark-theme and light-theme test asserting
+   both guidelines pass on the real render. All pass cleanly except one
+   pre-existing, out-of-territory exception (see 7 below).
+3. **Non-blocking -- AC7 (reduced motion) left unchecked despite being
+   swept.** Re-verified: within this task's seven territories the only
+   animation is `talk_ptt_disc.dart`'s 160ms `AnimatedContainer`, which is
+   a critical state change (matches `KeryxUxMotion`'s "critical" floor
+   that stays on even under reduced motion by design) -- there is no
+   decorative animation anywhere in scope to suppress. Ticked on the plan
+   with this stated, rather than left as a false gap.
+4. **Non-blocking -- Channels current-card Semantics missing
+   `excludeSemantics: true`.** Fixed in `channels_landing.dart`: without
+   it, the card's own child text (channel label, configured/effective
+   mode, status) was still individually announced after the composite
+   button label -- a duplicated announcement, same pattern as the
+   Settings stepper fix already carried. The existing descendant-Semantics
+   test still passes (it inspects the widget tree, not the merged
+   semantics tree, so `excludeSemantics` doesn't affect it).
+5. **Real bug found by the new matrix (Settings): reconnect badge
+   overflowed 8px at 320 lp width.** `ReconnectsRadioBadge`'s
+   `Row(mainAxisSize: MainAxisSize.min, ...)` inside `SettingsRowHeader`'s
+   `Wrap` had an un-flexed `Text` that didn't fit the narrow slot next to
+   the row label at 320dp. Fixed with `Flexible` + `TextOverflow.ellipsis`
+   around the badge text. Mutation-checked: reverting to a plain `Text`
+   reproduces the exact overflow and reddens the new matrix test; restored
+   clean.
+6. **Real bug found by the new matrix (Event QR UI export): the frozen
+   `EventQrExportScreen` (`lib/features/event_qr/**`, out of this task's
+   territory -- ADR-001 section 6, "consumed as a dependency, never
+   edited") overflows 176px at a small landscape height (640x320).**
+   Cannot edit the frozen widget itself. Fixed at the wrapper layer
+   instead -- `EventQrUiExportScreen` (in territory) now wraps
+   `_body(...)` in a `SingleChildScrollView`, letting the embedded frozen
+   screen scroll rather than clip when it doesn't fit, without touching
+   its internals. Mutation-checked: removing the `SingleChildScrollView`
+   reproduces the exact overflow; restored clean.
+7. **Known, accepted exception -- Event QR UI export screen's tap-target
+   sweep.** The frozen `EventQrExportScreen` renders a `SelectableText`
+   (key `event_qr_link_text`, the join-link display, long-press-to-copy)
+   at ~20dp height -- a genuine sub-48dp Android tap-target guideline
+   miss, but the widget is frozen out-of-territory code (same file as
+   finding 6) and a read-only long-press-to-select text row is a
+   different interaction class than a button in the first place. The
+   export screen's tap-target test explicitly asserts this is the *only*
+   guideline failure present (by counting distinct failure messages and
+   matching the known link text), so any other tap-target regression on
+   that screen would still fail the test -- this is a scoped, checked
+   exception, not a silent skip. Recorded here rather than absorbed
+   silently; a permanent fix belongs to whatever task eventually revisits
+   `lib/features/event_qr/**` (TASK-061 territory).
+
+Full-repo verification after round 2: `flutter analyze` 8 pre-existing
+TASK-035 warnings only (zero new); `flutter test` 1360 total / 0 failed /
+40 skipped (was 1336; +24 new tests: 3 per screen x 8 screen-test-files);
+`flutter build apk --debug` succeeded. Toolchain auto-edits to
+`analysis_options.yaml` and `android/gradle.properties` reverted before
+every commit, as in round 1.
