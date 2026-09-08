@@ -23,3 +23,7 @@ android/local.properties
 # Per-launch builder runner scripts, prompts and transcripts (dispatch.ps1 detached-window mode).
 # Transient: one set per builder session, safe to delete once the window has closed.
 .devteam/launch/
+
+# Secrets -- never commit. .env carries the Telegram bot token for
+# scripts/release_remote.py (see docs/gofile-telegram-delivery.md).
+.env
