@@ -345,6 +345,12 @@ class _CurrentChannelCard extends StatelessWidget {
         child: Semantics(
           button: true,
           label: 'Current channel $channelLabel, open Talk',
+          // TASK-057 round 2 (non-blocking finding 4): without this the
+          // card's own child text (channel label, configured/effective
+          // mode, status) is still individually announced after the
+          // composite label above — a duplicated announcement. Matches the
+          // pattern already used on Settings' stepper-value fix.
+          excludeSemantics: true,
           child: ConstrainedBox(
             constraints: const BoxConstraints(
               minHeight: KeryxUxSpacing.minTarget,
