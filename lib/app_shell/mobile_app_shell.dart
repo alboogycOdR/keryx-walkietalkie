@@ -2,15 +2,21 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:keryx/features/settings_panel/back_panel_screen.dart';
+import 'package:keryx/features/settings/settings_screen.dart';
 
 import 'channels_screen.dart';
 import 'radio_host_provider.dart';
+import 'shell_keys.dart';
 
 /// Technical §2's `MobileAppShell` — the two persistent primary
 /// destinations (Design §1: "Use two persistent primary destinations:
 /// Channels and Settings") mounted beneath the single, app-scoped
 /// [RadioHost] this task hoists above the navigator (Technical §9).
+///
+/// TASK-052 swapped TASK-048's placeholder bodies for the real Wave-4
+/// screens: Channels → [ChannelsLanding], Settings → [SettingsScreen],
+/// with Talk / selector / Stations / Radio Controls / Event QR pushed
+/// from this composition root.
 ///
 /// The host is read — and, on that first read, constructed and started —
 /// exactly once here, at application scope. Every destination below only
@@ -70,7 +76,7 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
           ),
           _BranchNavigator(
             navigatorKey: _branchKeys[1],
-            builder: (_) => const BackPanelScreen(),
+            builder: (_) => const SettingsScreen(key: ShellKeys.settings),
           ),
         ],
       ),

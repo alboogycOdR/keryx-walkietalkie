@@ -1,137 +1,92 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:keryx/core/presentation/presentation.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
-import 'package:keryx/core/settings/settings_repository.dart';
-import 'package:keryx/core/state/radio_state_controller.dart';
+import 'package:keryx/core/theme/ux_tokens.dart';
+import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 
 import 'radio_host_provider.dart';
+import 'shell_keys.dart';
+import 'shell_routes.dart';
 
-/// TASK-048's thin stand-in Talk destination (Design §1: "Talk is a
-/// dedicated route or nested channel destination, but its presentation
-/// lifecycle must not own the radio session").
+/// Shell-composed Talk destination — mounts TASK-051's real [talkui.TalkScreen]
+/// and supplies the navigation the screen's header buttons do not.
 ///
-/// This screen owns nothing: it reads the single app-scoped [RadioHost]
-/// via [radioHostProvider] and the presentation projection TASK-046 built
-/// on top of it, and forwards every gesture through [RadioViewIntents] —
-/// it never constructs a session, floor engine, audio pipeline or service
-/// controller of its own, and pushing/popping this route never calls a
-/// host lifecycle method (VT-001). The full skeuomorphic Talk UI is Wave
-/// 4's job (TASK-050/051); this is deliberately minimal so the shell is
-/// testable without duplicating that work or shipping fake data.
-class TalkScreen extends ConsumerStatefulWidget {
-  const TalkScreen({super.key});
+/// TASK-051's picker (`keryx-talk-picker`) and stations (`keryx-talk-stations`)
+/// `IconButton`s ship with empty `onPressed` bodies and no callback
+/// parameters; Design §1 still places Channel selector, Stations and Radio
+/// controls under Talk. This wrapper intercepts those two header hits with
+/// invisible 48×48 overlays aligned to Talk's own header geometry
+/// (`SafeArea` + 16/12 padding + 48 dp buttons) and adds a visible Radio
+/// Controls affordance (Talk has no third header button to overlay).
+///
+/// Optional [host] keeps `const TalkScreen()` constructing (the TASK-048
+/// stand-in signature); production always passes the app-scoped host.
+class TalkScreen extends ConsumerWidget {
+  const TalkScreen({super.key, this.host});
+
+  final RadioHost? host;
 
   @override
-  ConsumerState<TalkScreen> createState() => _TalkScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final RadioHost resolved = host ?? ref.watch(radioHostProvider);
+    final Color iconColor = KeryxUxTokens.of(context).textPrimary;
+
+    return Stack(
+      children: <Widget>[
+        talkui.TalkScreen(key: ShellKeys.talk, host: resolved),
+        Positioned(
+          top: MediaQuery.paddingOf(context).top + 12,
+          left: 16,
+          right: 16,
+          height: 48,
+          child: Row(
+            children: <Widget>[
+              const SizedBox(width: 48),
+              const Expanded(child: SizedBox.shrink()),
+              _HeaderHitTarget(
+                key: ShellKeys.talkPickerHit,
+                onTap: () => ShellRoutes.openSelector(context, resolved),
+              ),
+              _HeaderHitTarget(
+                key: ShellKeys.talkStationsHit,
+                onTap: () => ShellRoutes.openStations(context, resolved),
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          left: 4,
+          bottom: 4,
+          child: Material(
+            type: MaterialType.transparency,
+            child: IconButton(
+              key: ShellKeys.talkRadioControls,
+              tooltip: 'Radio controls',
+              onPressed: () =>
+                  ShellRoutes.openRadioControls(context, resolved),
+              icon: Icon(Icons.tune, color: iconColor),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _TalkScreenState extends ConsumerState<TalkScreen> {
-  // Latch is UI-owned (Technical §4) — TASK-048/050 are explicitly on the
-  // hook (TASK-046's Review_Findings) for actually tracking it, since
-  // `RadioViewState.project` takes it as a caller-supplied argument rather
-  // than sourcing it from the host.
-  bool _latched = false;
+/// Opaque 48×48 hit target matching Talk's header IconButton size
+/// (Design §2.2 48 dp minimum). Sits above the real button so the
+/// shell, not the empty `onPressed`, receives the tap.
+class _HeaderHitTarget extends StatelessWidget {
+  const _HeaderHitTarget({super.key, required this.onTap});
 
-  StreamSubscription<RadioHostSnapshot>? _hostSub;
-  RadioHostSnapshot _snapshot = const RadioHostSnapshot();
-
-  @override
-  void initState() {
-    super.initState();
-    final host = ref.read(radioHostProvider);
-    _snapshot = host.current;
-    // Mirrors the host's own side state (mic/service condition, stations,
-    // channel memory) into this route's rebuild — never a second source of
-    // truth for `RadioState` itself, which stays on `radioStateProvider`
-    // via `ref.watch` in `build` (Technical §3).
-    _hostSub = host.changes.listen((snapshot) {
-      if (!mounted) return;
-      setState(() => _snapshot = snapshot);
-    });
-  }
-
-  @override
-  void dispose() {
-    unawaited(_hostSub?.cancel());
-    super.dispose();
-  }
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final host = ref.watch(radioHostProvider);
-    final intents = RadioViewIntents(host);
-    final radioState = ref.watch(radioStateProvider);
-    final settingsAsync = ref.watch(settingsProvider);
-    final settings = settingsAsync.valueOrNull;
-
-    if (settings == null) {
-      // Settings still loading/erroring — nothing fake to show yet.
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    final viewState = RadioViewState.project(
-      radioState: radioState,
-      hostSnapshot: _snapshot,
-      settings: settings,
-      latched: _latched,
-    );
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Talk')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text('CH ${viewState.channel} · Code ${viewState.privacyCode}'),
-            const SizedBox(height: 8),
-            Text(viewState.phase.cue.label),
-            for (final cue in viewState.activeOverlayCues) Text(cue.label),
-            const Spacer(),
-            Center(
-              child: GestureDetector(
-                onTapDown: (_) => intents.press(),
-                onTapUp: (_) {
-                  if (_latched) return;
-                  intents.release();
-                },
-                onTapCancel: () {
-                  if (_latched) return;
-                  intents.release();
-                },
-                child: Container(
-                  width: 96,
-                  height: 96,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.redAccent,
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'PTT',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: TextButton(
-                onPressed: () {
-                  final next = !_latched;
-                  setState(() => _latched = next);
-                  if (!next) intents.releaseLatch();
-                },
-                child: Text(_latched ? 'Unlatch' : 'Latch'),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: const SizedBox(width: 48, height: 48),
     );
   }
 }
