@@ -3116,7 +3116,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-053
 **Title:** Stations screen — live roster with honest presence and quality
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.4 (Stations — "full-screen list or sheet with known callsigns and actual presence… must update while open without relying on a parent-screen rebuild… Include an empty state, current-channel context and existing Event QR actions… Quality information is omitted or marked unavailable unless a real metric exists. If LINKED roster support is incomplete, explicitly state that a complete member list is unavailable rather than displaying zero as a verified count"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-040, UX-FR-026, UX-FR-045, UX-FR-046, UX-FR-008; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §1 (Roster row — "Reuse live state; distinguish unavailable LINKED roster and unmeasured quality"), §1.1 ("The existing station stream is LOCAL signaling-backed; LINKED mode does not provide a complete roster… `StationInfo.signalQuality` defaults to a placeholder maximum value"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-024; ADR-001 §6 ("subscribing to the same RadioHost station stream `RosterScreen` used — the live-data SOURCE is unchanged, the widget is"), ADR-001 §7 item 2.
@@ -3133,15 +3133,24 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 - [ ] Empty state renders the Design §5 copy plus current-channel context (Design §2.4/§5)
 - [ ] Existing Event QR actions are reachable from this screen; no contacts-directory affordance, favourite, message or unread count appears (Design §2.4; UX-FR-008; UX-D09)
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-053-gb
+**Started_At:** 2026-09-08T09:19:16Z
+**Progress_Notes:**
+- [2026-09-08T09:19:16Z] [GB] Claimed TASK-053 (Stations screen). Dependencies TASK-048 confirmed done. Starting on branch task/TASK-053-gb.
+- [2026-09-08T09:19:16Z] [GB] Preflight complete:
+  [preflight] TASK-053 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+  [preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+    GLOB   lib/features/stations/**  -> matches nothing yet (new territory)
+    GLOB   test/features/stations/**  -> matches nothing yet (new territory)
+    FILE   dossiers/TASK-053.md  -> exists, 28 line(s), 1243 bytes
+  [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+  Territory matches expectation: new `lib/features/stations/**` + `test/features/stations/**`, dossier already present. Fresh widgets (ADR-001 §7 item 2) over RadioHost.changes / RadioViewState.stations — same host station stream RosterScreen used, no new data source. Will not edit `lib/app_shell/**` or `lib/features/face/**`.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-08T09:19:16Z
 
 
 ### TASK-054
