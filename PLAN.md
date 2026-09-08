@@ -3116,7 +3116,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-053
 **Title:** Stations screen — live roster with honest presence and quality
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.4 (Stations — "full-screen list or sheet with known callsigns and actual presence… must update while open without relying on a parent-screen rebuild… Include an empty state, current-channel context and existing Event QR actions… Quality information is omitted or marked unavailable unless a real metric exists. If LINKED roster support is incomplete, explicitly state that a complete member list is unavailable rather than displaying zero as a verified count"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-040, UX-FR-026, UX-FR-045, UX-FR-046, UX-FR-008; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §1 (Roster row — "Reuse live state; distinguish unavailable LINKED roster and unmeasured quality"), §1.1 ("The existing station stream is LOCAL signaling-backed; LINKED mode does not provide a complete roster… `StationInfo.signalQuality` defaults to a placeholder maximum value"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-024; ADR-001 §6 ("subscribing to the same RadioHost station stream `RosterScreen` used — the live-data SOURCE is unchanged, the widget is"), ADR-001 §7 item 2.
@@ -3145,12 +3145,13 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
     FILE   dossiers/TASK-053.md  -> exists, 28 line(s), 1243 bytes
   [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
   Territory matches expectation: new `lib/features/stations/**` + `test/features/stations/**`, dossier already present. Fresh widgets (ADR-001 §7 item 2) over RadioHost.changes / RadioViewState.stations — same host station stream RosterScreen used, no new data source. Will not edit `lib/app_shell/**` or `lib/features/face/**`.
+- [2026-09-08T09:21:00Z] [GB] Status → in_progress. Building StationsScreen over RadioHost.changes (live join/depart without parent rebuild), RadioViewState.rosterCount for LINKED honesty, omitted placeholder signalQuality, QR launch callbacks (TASK-056 owns the screens).
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-08T09:19:16Z
+**Updated_At:** 2026-09-08T09:21:00Z
 
 
 ### TASK-054
