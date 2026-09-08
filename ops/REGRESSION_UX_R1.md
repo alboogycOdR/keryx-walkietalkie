@@ -36,7 +36,12 @@ same-task fix.
 
 ## 2. Full regression suite (`flutter test`)
 
-**Result: 1412 passed, 0 failed, 40 skipped.**
+**Result: 1413 passed, 0 failed, 40 skipped.**
+
+(ORCH round-2 correction: this figure read 1412 in the round-1 draft and was
+not re-incremented when the round-1 fix added the Monitor/Emergency 48 dp
+size-assertion test. ORCH independently re-ran the full suite on the merged
+branch: 1413 passed / 0 failed / 40 skipped.)
 
 The 40 skips are exactly the ADR-001 §5 owner-parked FR-025
 emergency-preemption soak seeds (`test/simulation/soak_test.dart`), each
@@ -45,8 +50,8 @@ reason string, unchanged and unweakened (Verification §0; ADR-001 §5). No
 other test anywhere in the repo is skipped.
 
 This total already includes every new test this task added
-(`test/regression/**`, 41 tests: 5 real-composition + 36 goldens across 7
-golden-test files) — see §4/§6 below for their own breakdown.
+(`test/regression/**`, 42 tests: 5 real-composition + 36 goldens + 1
+Monitor/Emergency size assertion, across 7 golden-test files) — see §4/§6 below for their own breakdown.
 
 Historical-preservation check (Verification §0 / Technical §1): the legacy
 `test/features/face/**` suite (7 files, the pre-redesign hardware-face screen
@@ -194,7 +199,7 @@ covered.
 `test/features/face/**` (7 files: `amplitude_source_test.dart`,
 `face_screen_test.dart`, `face_view_test.dart`, `permission_gate_test.dart`,
 `roster_screen_test.dart`, `roster_test.dart`, `status_strip_test.dart`) is
-present, unmodified, and passing at this commit (all counted in the 1412
+present, unmodified, and passing at this commit (all counted in the 1413
 total in §2). `lib/app.dart` still registers the debug-only
 `legacyFaceRouteName` route per Technical §10. TASK-061 owns the eventual
 deletion; not touched here.
@@ -304,7 +309,7 @@ recorded explicitly here rather than left as an undisclosed divergence.
 
 ## 10. G4 evidence — build status
 
-- `flutter test` (full suite): **1412 passed / 0 failed / 40 skipped (parked)**.
+- `flutter test` (full suite): **1413 passed / 0 failed / 40 skipped (parked)** (ORCH-corrected from a stale 1412).
 - `flutter analyze` (full repo): **8 issues, all pre-existing TASK-035, 0 new**.
 - `flutter build apk --debug`: **SUCCESS** — `build/app/outputs/flutter-apk/
   app-debug.apk`, 232,368,319 bytes. A suppressed Kotlin incremental-cache
