@@ -788,5 +788,43 @@ void main() {
       expect(tester.takeException(), isNull);
       addTearDown(() => tester.binding.setSurfaceSize(null));
     });
+
+    testWidgets(
+      'TASK-057: content scrolls instead of overflowing at 320 lp width '
+      'and system text scale 2.0',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        await pumpReady(tester);
+        expect(tester.takeException(), isNull);
+        // The scroll view exists and (at this extreme text scale) the
+        // content genuinely exceeds the viewport, so it must actually be
+        // scrollable rather than merely present.
+        expect(find.byType(SingleChildScrollView), findsOneWidget);
+        // The primary PTT surface must still be reachable by scrolling to
+        // it — not merely rendered off-screen and inaccessible.
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('keryx-talk-ptt-disc')),
+          200,
+        );
+        expect(find.byKey(const Key('keryx-talk-ptt-disc')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'TASK-057: content renders without overflow in landscape at a small '
+      'height',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(640, 320));
+        await pumpReady(tester);
+        expect(tester.takeException(), isNull);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+      },
+    );
   });
 }

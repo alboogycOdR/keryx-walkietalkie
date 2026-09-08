@@ -130,24 +130,35 @@ class _TalkPttDiscState extends State<TalkPttDisc> {
                     width: 2,
                   ),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    Icon(widget.icon, color: widget.onColor, size: 40),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        widget.label,
-                        key: const Key('keryx-talk-ptt-label'),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: widget.onColor,
-                          fontWeight: FontWeight.w600,
+                // FittedBox rather than a fixed font size: at a large
+                // system text scale (Verification §6: up to 2.0) the label
+                // must shrink to stay inside the disc's own fixed diameter
+                // rather than overflow it — the label text still reflects
+                // the full user text-scale preference everywhere else on
+                // the screen; only this one fixed-size circular surface
+                // needs to protect its own bounds.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Icon(widget.icon, color: widget.onColor, size: 40),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          widget.label,
+                          key: const Key('keryx-talk-ptt-label'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: widget.onColor,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

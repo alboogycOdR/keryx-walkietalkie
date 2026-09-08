@@ -190,65 +190,113 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     };
     final String statusLine = _statusLineFor(viewState, treatment);
 
+    // Design §2.2 wants the primary content (header/status) pinned to the
+    // top and the PTT controls pinned toward the bottom with the remaining
+    // space distributed between them — the original single `Column` used a
+    // `Spacer()` for that, which only works while every non-flexible child
+    // fits within the viewport. At small widths combined with a large
+    // system text scale (Verification §6: 320 lp width, text scale 2.0)
+    // the fixed children alone can exceed the available height, and a
+    // `Spacer()` cannot shrink below zero — the excess would silently
+    // overflow rather than scroll. `LayoutBuilder` + `SingleChildScrollView`
+    // + a `ConstrainedBox(minHeight:)` around a two-group `Column` with
+    // `mainAxisAlignment: spaceBetween` reproduces the same "flexible gap
+    // between a top and a bottom group" visual when everything fits, and
+    // falls back to scrolling instead of clipping when it does not.
+    const EdgeInsets pagePadding = EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 12,
+    );
     return Scaffold(
       backgroundColor: tokens.surfaceBase,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _Header(
-                channel: viewState.channel,
-                privacyCode: viewState.privacyCode,
-                tokens: tokens,
-              ),
-              const SizedBox(height: 12),
-              _ConnectionLine(viewState: viewState, tokens: tokens),
-              const SizedBox(height: 8),
-              for (final cue in viewState.activeOverlayCues)
-                _OverlayCueChip(cue: cue, tokens: tokens),
-              const SizedBox(height: 16),
-              Text(
-                statusLine,
-                key: const Key('keryx-talk-status-line'),
-                textAlign: TextAlign.center,
-                style: KeryxUxTypography.sectionTitle.copyWith(
-                  color: tokens.textPrimary,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final double minContentHeight =
+                (constraints.maxHeight - pagePadding.vertical).clamp(
+                  0.0,
+                  double.infinity,
+                );
+            return SingleChildScrollView(
+              padding: pagePadding,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: minContentHeight),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        _Header(
+                          channel: viewState.channel,
+                          privacyCode: viewState.privacyCode,
+                          tokens: tokens,
+                        ),
+                        const SizedBox(height: 12),
+                        _ConnectionLine(viewState: viewState, tokens: tokens),
+                        const SizedBox(height: 8),
+                        for (final cue in viewState.activeOverlayCues)
+                          _OverlayCueChip(cue: cue, tokens: tokens),
+                        const SizedBox(height: 16),
+                        Text(
+                          statusLine,
+                          key: const Key('keryx-talk-status-line'),
+                          textAlign: TextAlign.center,
+                          style: KeryxUxTypography.sectionTitle.copyWith(
+                            color: tokens.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        const SizedBox(height: 16),
+                        Center(
+                          child: TalkPttDisc(
+                            enabled: ptteEnabled,
+                            showsTx: treatment == _DiscTreatment.tx,
+                            label: statusLine,
+                            icon: _iconFor(treatment, viewState.phase),
+                            color: discColor,
+                            onColor: tokens.palette.contrastingOn(discColor),
+                            onHoldStart: () => _handleHoldStart(intents),
+                            onHoldEnd: () => _handleHoldEnd(intents),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Center(
+                          child: TalkPttToggleAlternative(
+                            enabled: ptteEnabled,
+                            active: _holding,
+                            onHoldStart: () => _handleHoldStart(intents),
+                            onHoldEnd: () => _handleHoldEnd(intents),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _SecondaryActionRow(
+                          latched: _latched,
+                          canLatch:
+                              _holding &&
+                              !_latched &&
+                              viewState.phase == RadioPhase.tx,
+                          onLatch: _engageLatch,
+                          onUnlatch: () => _releaseLatch(intents),
+                          stationCountLabel: _rosterLabel(
+                            viewState.rosterCount,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
-              Center(
-                child: TalkPttDisc(
-                  enabled: ptteEnabled,
-                  showsTx: treatment == _DiscTreatment.tx,
-                  label: statusLine,
-                  icon: _iconFor(treatment, viewState.phase),
-                  color: discColor,
-                  onColor: tokens.palette.contrastingOn(discColor),
-                  onHoldStart: () => _handleHoldStart(intents),
-                  onHoldEnd: () => _handleHoldEnd(intents),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: TalkPttToggleAlternative(
-                  enabled: ptteEnabled,
-                  active: _holding,
-                  onHoldStart: () => _handleHoldStart(intents),
-                  onHoldEnd: () => _handleHoldEnd(intents),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _SecondaryActionRow(
-                latched: _latched,
-                canLatch: _holding && !_latched && viewState.phase == RadioPhase.tx,
-                onLatch: _engageLatch,
-                onUnlatch: () => _releaseLatch(intents),
-                stationCountLabel: _rosterLabel(viewState.rosterCount),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
