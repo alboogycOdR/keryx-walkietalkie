@@ -3685,7 +3685,7 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 
 ### TASK-066
 **Title:** Project TOT (time-out-tension) warning into RadioViewState
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-023 (TOT: max TX duration, warning chirp at T-5s, hard cut at 0); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 ("TX time-out warning" catalogue row, carried into the successor state model); TASK-051's Review_Findings round 2 (the carve-out that created this task — `RadioState.isTotWarning` exists in the reducer with no `RadioViewState` projection, and Talk's own presentation-boundary rule forbids reading `RadioState` directly).
@@ -3693,10 +3693,10 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 **Depends_On:** —
 **Description:** **ORCH-created 2026-09-08**, a narrow carve-out surfaced during TASK-051's round-2 review: TASK-051 needed to surface the TOT warning state on the Talk screen, but `RadioViewState` (TASK-046, frozen on merge) has no field for it, and Talk correctly refused to reach past its own presentation boundary to read `RadioState.isTotWarning` directly — the same discipline TASK-046 itself established. This task reopens `lib/core/presentation/**` alone to add that one field, following TASK-046's existing pattern exactly (an independent boolean/enum field on `RadioViewState`, sourced from the host snapshot, with a text/icon cue per the Design §4 catalogue row — not merely a colour change). Do not touch `lib/features/talk/**` — wiring the new field into the Talk screen's rendering is that task's own follow-up once this lands, not part of this task.
 **Acceptance_Criteria:**
-- [ ] `RadioViewState` carries a TOT-warning field independent of `phase`/`emergency`/`latched` (Design §4; matches TASK-046's established independent-fields pattern) — proven by a test showing TOT-warning-during-TX projects both `phase == tx` and the warning simultaneously
-- [ ] The field is sourced from the host's real `RadioState.isTotWarning` (or equivalent snapshot data), never fabricated client-side — traced to the same `RadioHostSnapshot` seam TASK-046 already uses for every other field
-- [ ] The `RadioState` equality/reducer semantics are unchanged by this task (`git diff master -- lib/core/state/` empty)
-- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+- [x] `RadioViewState` carries a TOT-warning field independent of `phase`/`emergency`/`latched` (Design §4; matches TASK-046's established independent-fields pattern) — proven by a test showing TOT-warning-during-TX projects both `phase == tx` and the warning simultaneously
+- [x] The field is sourced from the host's real `RadioState.isTotWarning` (or equivalent snapshot data), never fabricated client-side — traced to the same `RadioHostSnapshot` seam TASK-046 already uses for every other field
+- [x] The `RadioState` equality/reducer semantics are unchanged by this task (`git diff master -- lib/core/state/` empty)
+- [x] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
 **Branch:** task/TASK-066-gb
 **Started_At:** 2026-09-08T11:15:00Z
 **Progress_Notes:**
@@ -3721,12 +3721,22 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Territory matches expectation (existing TASK-046 projection, not new files). Design §4's 13-row table has no "TX time-out warning" row (that name is DS §6 / FR-023); TX granted says "Red + timer if authoritative". Pinning cue copy as an implementation decision: label `Transmission ending soon`, iconId `timer` — text+icon, not colour-only, distinct from the 13 Design §4 labels. Field `totWarning` defaults false so out-of-territory direct `RadioViewState(...)` constructors keep compiling; `project()` always sources `radioState.isTotWarning`. Implementing now.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-08T11:22:21Z] [GB] `RadioViewState.totWarning` landed on `task/TASK-066-gb` (`76a861c`). Sourced from `radioState.isTotWarning` in `project()` (same seam as emergency). Overlay cue `Transmission ending soon` / `timer` — Design §4 has no TOT row, copy pinned. Constructor default false so out-of-territory call sites keep compiling. `lib/core/state/**` and `lib/features/talk/**` untouched. Three mutations bit their own tests then restored. → needs_review.
+**Artifacts:**
+- lib/core/presentation/radio_view_state.dart
+- lib/core/presentation/radio_phase_presentation.dart
+- test/core/presentation/radio_view_state_test.dart
+- dossiers/TASK-066.md
+**Test_Evidence:**
+- [2026-09-08T11:22:21Z] [GB] `flutter test test/core/presentation/` — 29/29 pass (26 pre-existing + 3 new).
+- [2026-09-08T11:22:21Z] [GB] Revert-mutation (restored after each): (1) `totWarning: false` → TOT-during-TX Expected true Actual false; (2) `totWarning: true` → sourced-from-RadioState Expected false Actual true; (3) omit overlay cue → Expected contains PresentationCue(Transmission ending soon, icon: timer) Actual [].
+- [2026-09-08T11:22:21Z] [GB] `flutter analyze lib/core/presentation test/core/presentation` — No issues found. Repo-wide — 8 issues, all pre-existing TASK-035 in `test/services/session/radio_session_controller_test.dart`. Analyzer auto-upgrade of `analysis_options.yaml` reverted, not committed.
+- [2026-09-08T11:22:21Z] [GB] `flutter test` — **1290 passed / 0 failed / 40 skipped** (parked FR-025 soak seeds unchanged).
+- [2026-09-08T11:22:21Z] [GB] `git diff master...HEAD --name-only` — 4 files, all inside Owned_Paths. `git diff -- lib/core/state/` empty.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-08T11:16:30Z
+**Updated_At:** 2026-09-08T11:22:21Z
 
 
 ### TASK-067
