@@ -3203,7 +3203,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-054
 **Title:** Radio controls screen incl. guarded emergency control
-**Status:** pending
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.5 (Radio controls — "labeled rows or controls for available Monitor, Scan, Latch, Replay/VOX where implemented, and Emergency. Monitor retains hold-to-open semantics… Scan shows authoritative active state and eligibility. Locked/unsupported actions must explain their status rather than pretend to work… Emergency requires a separate orange/priority treatment, a clear activation affordance and an explicit clear action. Preserve the existing emergency hold duration and floor behavior unless a separate ADR changes them. No automatic location transmission is introduced"), §4 (Emergency row: orange priority banner, explicit clear); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-041, UX-FR-042, UX-FR-043, UX-FR-044, UX-D06; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-013 ("The known parked emergency-preemption issue must be reviewed and resolved or explicitly accepted through a separate release decision"), §8 ("Emergency controls must not make unsupported emergency-service or location claims"); ADR-001 §5 (FR-025 emergency-preemption double-grant stays PARKED — this task must not chase it), specs/KERYX_Product_Technical_Spec_v1.1.md §8.2/§8.6 (floor arbitration and emergency semantics preserved).
@@ -3225,12 +3225,13 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 **Started_At:** 2026-09-08T17:00:00Z
 **Progress_Notes:**
 - [2026-09-08T17:00:00Z] [S5] Claimed TASK-054 (Radio controls screen incl. guarded emergency control). Dependency TASK-048 confirmed done. Preflight (python scripts/preflight_paths.py TASK-054): lib/features/radio_controls/** -> new territory; test/features/radio_controls/** -> new territory; dossiers/TASK-054.md -> exists, 30 lines. Starting on branch task/TASK-054-s5.
+- [2026-09-08T17:05:00Z] [S5] Correcting a claim-commit slip: Status field was left at `pending` in the previous commit (only Branch/Started_At/Progress_Notes were set) -- fixing to `in_progress` now that implementation is starting. Research complete: confirmed via direct read of lib/core/radio_host/radio_host_contract.dart, lib/core/presentation/radio_view_intents.dart, lib/core/state/radio_state_controller.dart and lib/core/state/radio_state_bridge.dart that neither RadioHost nor RadioViewIntents expose Monitor/Scan/VOX/Replay entry points -- the only existing production precedent for driving MonitorChanged/ScanChanged is the legacy lib/features/face/face_screen.dart, which dispatches directly via `ref.read(radioStateProvider.notifier).dispatch(event)`; test/features/talk/talk_screen_test.dart's own setup uses the identical direct-dispatch pattern. radioStateProvider is the single app-scoped state instance RadioHost's own composition root (lib/app_shell/radio_host_provider.dart) wires its internal dispatch closure to -- not a second/competing state source. MonitorChanged/ScanChanged/VoxChanged/ReplayChanged are pure reducer transitions with no side effects (confirmed in lib/core/state/radio_state.dart's reducer switch). Plan: radio_controls_screen.dart dispatches Monitor/Scan the same way face_screen.dart does (consistent with existing precedent, not inventing a second pattern); Emergency uses `RadioHostSnapshot.floorEngine` directly for `requestTransmit(emergency:true)`/`clearEmergency()`, exactly mirroring face_screen._onEmergencyToggled's existing hold/grant/clear logic and the 600ms arm threshold EmgKey already uses today (preserved verbatim per Design §2.5/UX-D06). Latch is PTT-hold-scoped (lib/features/talk/talk_screen.dart's TalkLatchState) and VOX/Replay have zero production trigger path anywhere in the repo (RadioStateBridge's updateVox/updateReplay are telemetry-ingress only) -- per acceptance criterion 1 ("unimplemented entries are absent, not faked"), Radio Controls will show only Monitor, Scan and Emergency rows; this scoping decision is recorded in the dossier. No lib/core/** or lib/app_shell/** file is modified -- only imported/called, same as every existing Wave-4 screen already does for radioStateProvider/RadioHost.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-09-08T17:00:00Z
+**Updated_At:** 2026-09-08T17:05:00Z
 
 
 ### TASK-055
