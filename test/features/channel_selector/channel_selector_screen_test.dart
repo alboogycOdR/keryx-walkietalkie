@@ -10,6 +10,7 @@ import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/channel_selector/channel_selector_screen.dart';
 
+import '../talk/a11y_matrix_support.dart';
 import 'fake_radio_host.dart';
 
 void main() {
@@ -26,7 +27,7 @@ void main() {
     );
   }
 
-  Widget build() {
+  Widget build({Brightness brightness = Brightness.dark}) {
     container = ProviderContainer(
       overrides: <Override>[settingsStoreProvider.overrideWithValue(store)],
     );
@@ -34,7 +35,7 @@ void main() {
     return UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        theme: keryxUxThemeData(),
+        theme: keryxUxThemeData(brightness: brightness),
         home: ChannelSelectorScreen(
           host: host,
           onCancel: () => cancelled = true,
@@ -401,5 +402,41 @@ void main() {
         expect(semantics.properties.liveRegion, isTrue);
       },
     );
+  });
+
+  group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
+    testWidgets(
+      'renders without exception across the full responsive matrix '
+      '(320 lp, larger phone, landscape, text scale 2.0)',
+      (tester) async {
+        await expectResponsiveMatrix(tester, (t, size) async {
+          t.view.physicalSize = size;
+          t.view.devicePixelRatio = 1.0;
+          await t.pumpWidget(const SizedBox.shrink());
+          await t.pumpWidget(build());
+          await t.pumpAndSettle();
+        });
+      },
+    );
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(dark)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(build(brightness: Brightness.dark));
+      await tester.pumpAndSettle();
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(light)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(build(brightness: Brightness.light));
+      await tester.pumpAndSettle();
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
   });
 }
