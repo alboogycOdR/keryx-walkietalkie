@@ -3684,7 +3684,7 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 
 ### TASK-066
 **Title:** Project TOT (time-out-tension) warning into RadioViewState
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-023 (TOT: max TX duration, warning chirp at T-5s, hard cut at 0); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 ("TX time-out warning" catalogue row, carried into the successor state model); TASK-051's Review_Findings round 2 (the carve-out that created this task — `RadioState.isTotWarning` exists in the reducer with no `RadioViewState` projection, and Talk's own presentation-boundary rule forbids reading `RadioState` directly).
@@ -3696,15 +3696,16 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 - [ ] The field is sourced from the host's real `RadioState.isTotWarning` (or equivalent snapshot data), never fabricated client-side — traced to the same `RadioHostSnapshot` seam TASK-046 already uses for every other field
 - [ ] The `RadioState` equality/reducer semantics are unchanged by this task (`git diff master -- lib/core/state/` empty)
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-066-gb
+**Started_At:** 2026-09-08T11:15:00Z
+**Progress_Notes:**
+- [2026-09-08T11:15:00Z] [GB] Claimed TASK-066. Zero in_progress/claimed GB tasks at session start; this is the only pending GB assignment and Depends_On is empty. Branch task/TASK-066-gb from master. Preflight next, then project RadioState.isTotWarning onto RadioViewState as an independent overlay field. Will not touch lib/features/talk/** or lib/core/state/**.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-08T09:50:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-08T11:15:00Z
 
 
 ### TASK-067
