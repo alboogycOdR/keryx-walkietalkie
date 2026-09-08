@@ -31,3 +31,31 @@ reimplement UX-FR-009's four states a second way.
    anything platform-adjacent (it shouldn't).
 
 ## Work Log
+
+- [2026-09-08T15:55:00Z] [S5] Implemented: `_ChannelsLandingState` owns a
+  `TuneCoordinator(intents: RadioViewIntents(host))` (TASK-050's class,
+  imported directly, not reimplemented), subscribes to `outcomes`, and calls
+  `onPhaseChanged` every build so TX-deferral behaves the same as the
+  selector sheet. `_tuneRecent` now goes through `_coordinator.request(...)`
+  instead of the flagged `unawaited(RadioViewIntents(host).tune(...))`. A
+  pending retune shows a progress row and blocks a competing recall tap
+  (both `_tuneRecent`'s busy guard and the `_RecentTile`'s disabled
+  onTap/enabled — defense in depth, independently mutation-checked). A
+  terminal outcome renders through a new `_RecallFeedback` widget reusing
+  `ChannelSelectorCopy`'s exact wording; Retry calls
+  `_coordinator.retry(outcome.target, ...)`, resubmitting the identical
+  target per Technical §6's no-rollback policy. Extended
+  `test/features/channels/fake_radio_host.dart` with
+  `autoResult`/`holdTunes`/`pendingTunes`/`completeTune` (same convention as
+  the channel_selector fake) and added two widget tests covering the
+  failure+retry path and the pending/busy path. `flutter analyze` clean in
+  territory (8 pre-existing TASK-035 warnings elsewhere, unrelated).
+  `flutter test` full suite: 1250 passed / 0 failed / 40 skipped (unchanged
+  parked FR-025 seeds). `flutter test test/features/channels/` in isolation:
+  20 passed (18 pre-existing + 2 new). Revert-mutation-checked: (a) removing
+  both busy guards together flips exactly the pending/busy test red; (b)
+  disabling `_retryRecall` flips exactly the failure/retry test red; (c)
+  removing the outcome-stream subscription flips both new tests red. All
+  three reverted, `git diff` clean afterward. Did not touch
+  `lib/features/channel_selector/**` — consumed its public API only.
+  Committed to task/TASK-067-s5 @ a1b4146. -> Status: needs_review.
