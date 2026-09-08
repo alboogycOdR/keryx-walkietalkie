@@ -45,7 +45,14 @@ void main() {
   late FakeRadioHost host;
   late ProviderContainer container;
 
-  Widget build({FakeRadioHost? withHost, Brightness brightness = Brightness.dark}) {
+  Widget build({
+    FakeRadioHost? withHost,
+    Brightness brightness = Brightness.dark,
+    VoidCallback? onOpenPicker,
+    VoidCallback? onOpenStations,
+    VoidCallback? onOpenRadioControls,
+    Widget Function(Widget talkScreen)? wrapHome,
+  }) {
     host = withHost ?? host;
     container = ProviderContainer(
       overrides: <Override>[
@@ -53,11 +60,17 @@ void main() {
       ],
     );
     addTearDown(container.dispose);
+    final Widget talkScreen = TalkScreen(
+      host: host,
+      onOpenPicker: onOpenPicker,
+      onOpenStations: onOpenStations,
+      onOpenRadioControls: onOpenRadioControls,
+    );
     return UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
         theme: keryxUxThemeData(brightness: brightness),
-        home: TalkScreen(host: host),
+        home: wrapHome == null ? talkScreen : wrapHome(talkScreen),
       ),
     );
   }
@@ -862,6 +875,99 @@ void main() {
       await expectRenderedContrast(tester);
       await expectTapTargets(tester);
       handle.dispose();
+    });
+  });
+
+  group('TASK-068 — real header callbacks, not shell-owned geometry', () {
+    // The defect this task closes: the app-shell composition root used to
+    // intercept these header taps with invisible overlays positioned by
+    // hardcoded geometry matching this screen's own layout (TASK-052's
+    // Review_Findings — proven fragile by a +100dp overlay shift leaving
+    // every overlay-based test green while a real-centre-tap probe failed).
+    // The actual regression guard for that fragility is proving the
+    // callback fires via a real tap on the real button *after* this
+    // screen's own internal layout has shifted — not merely that the
+    // button renders.
+    Widget wrapWithExtraHeaderPadding(Widget talkScreen) => Padding(
+      padding: const EdgeInsets.only(top: 137),
+      child: talkScreen,
+    );
+
+    testWidgets(
+      'onOpenPicker fires from a real tap even after the header is wrapped '
+      'in extra padding (simulated future layout drift)',
+      (tester) async {
+        var pickerTaps = 0;
+        await tester.pumpWidget(
+          build(
+            onOpenPicker: () => pickerTaps++,
+            wrapHome: wrapWithExtraHeaderPadding,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('keryx-talk-picker')));
+        await tester.pump();
+        expect(pickerTaps, 1);
+      },
+    );
+
+    testWidgets(
+      'onOpenStations fires from a real tap even after the header is '
+      'wrapped in extra padding (simulated future layout drift)',
+      (tester) async {
+        var stationsTaps = 0;
+        await tester.pumpWidget(
+          build(
+            onOpenStations: () => stationsTaps++,
+            wrapHome: wrapWithExtraHeaderPadding,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('keryx-talk-stations')));
+        await tester.pump();
+        expect(stationsTaps, 1);
+      },
+    );
+
+    testWidgets(
+      'onOpenRadioControls fires from a real tap even after the header is '
+      'wrapped in extra padding (simulated future layout drift) — TASK-068 '
+      "gives Radio Controls a real header slot, not a bottom-left overlay",
+      (tester) async {
+        var radioControlsTaps = 0;
+        await tester.pumpWidget(
+          build(
+            onOpenRadioControls: () => radioControlsTaps++,
+            wrapHome: wrapWithExtraHeaderPadding,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('keryx-talk-radio-controls')));
+        await tester.pump();
+        expect(radioControlsTaps, 1);
+      },
+    );
+
+    testWidgets('a null callback renders the button disabled rather than '
+        'throwing on tap', (tester) async {
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+
+      final IconButton picker = tester.widget<IconButton>(
+        find.byKey(const Key('keryx-talk-picker')),
+      );
+      final IconButton stations = tester.widget<IconButton>(
+        find.byKey(const Key('keryx-talk-stations')),
+      );
+      final IconButton radioControls = tester.widget<IconButton>(
+        find.byKey(const Key('keryx-talk-radio-controls')),
+      );
+      expect(picker.onPressed, isNull);
+      expect(stations.onPressed, isNull);
+      expect(radioControls.onPressed, isNull);
     });
   });
 }
