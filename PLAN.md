@@ -3455,7 +3455,7 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 
 ### TASK-058
 **Title:** Full regression pass — successor goldens, integration suite, G4 evidence
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §0 ("Do not delete or weaken a historical test merely because the old UI is retired"), §2 (baseline and test environment — exact commands, versions, counts), §3 (VT-001–VT-005), §4 (VT-010–VT-015), §5 (VT-020–VT-024), §6 (golden fixtures for every significant state, dark and light), §9 gate G4 ("Complete regression suite, analyzer and Android builds passing or documented approved pre-existing exceptions") and G3; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §10 (a development-only compat harness may exist for side-by-side validation), §1 (Tests row — "Preserve historical tests; add successor tests rather than simply deleting failures"); ADR-001 §5 (the 40 PARKED FR-025 soak skips remain skipped and named — not reopened, not silently removed).
@@ -3472,8 +3472,8 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 - [ ] `ops/REGRESSION_UX_R1.md` records exact commit, Flutter/Dart and Android tooling versions, every command run, pass/fail/skip counts and every pre-existing exception (the 8 TASK-035 analyzer warnings named explicitly) (Verification §2)
 - [ ] G4 evidence complete: full `flutter test` suite, `flutter analyze`, `flutter build apk --debug` and `flutter build apk --release` all pass or have a documented approved exception (Verification §9 G4)
 - [ ] Any failure found is reported as a finding against the owning task; this task modifies no production code (its territory contains none)
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-058-s5
+**Started_At:** 2026-09-08T18:00:00Z
 **Progress_Notes:**
 - [2026-09-08T15:33:10Z] [GB] Claimed TASK-058. Resume check: no GB in_progress/claimed task. Depends_On TASK-057/068/069 all done. Branch task/TASK-058-gb from master. Preflight next, then assemble VT-001–005 against the real shell, map VT-010–024 coverage, and add successor goldens in test/regression/**. No production code.
 - [2026-09-08T15:48:00Z] [GB] Preflight (c8b9872 filesystem check) output:
@@ -3487,12 +3487,13 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 ```
 Territory matches expectation: new `test/regression/**` + new report file; dossier exists. No production directory in Owned_Paths — failures will be findings, not fixes. Implementing VT-001–005 against MobileAppShell, VT-010–024 coverage (assembled re-checks + named covering tests), successor goldens dark+light, G4 evidence. → Status: in_progress.
 - [2026-09-08T16:35:00Z] [ORCH] **Reassigned GB → S5.** GB's dispatched session (`GB-20260908-153145`) hit a real external blocker — `flutter run` transcript shows `API error (status 402 Payment Required): Grok Build usage balance exhausted` after ~12.1M tokens / 69 model calls — and the process exited. No code was committed on `task/TASK-058-gb` beyond the claim (Artifacts/Test_Evidence both still `—`), so this is a clean reassignment, not a resume: `Status` reset to `pending`, `Branch`/`Started_At` cleared, `Assigned_To: S5`. GB's exhausted branch is abandoned (no salvageable work on it). Flagged to the project owner as a real blocker needing their attention (billing/usage), matching this project's own historical pattern for a builder going down mid-wave (see the CX reassignment precedent in the pre-redesign wave history).
+- [2026-09-08T18:00:00Z] [S5] Claimed TASK-058. Resume check: no S5 in_progress/claimed task in PLAN.md. Depends_On TASK-057/068/069 all done (TASK-069 merged c576a78, unblocking this task per its own Review_Findings note). Branch task/TASK-058-s5 created from master (GB's task/TASK-058-gb branch had no commits beyond claim per the reassignment note, so nothing to resume/salvage). Preflight next, then assemble VT-001–005 against the real shell, VT-010–024 coverage, successor goldens dark+light, G4 evidence. Also noting TASK-069's routed finding to fold in: assert Monitor/Emergency accessibility hold-target sizes explicitly in the regression matrix (androidTapTargetGuideline cannot see them due to non-container Semantics merging into an ancestor node).
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-08T16:35:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-08T18:00:00Z
 
 
 ### TASK-059
