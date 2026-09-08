@@ -2,6 +2,38 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/features/channel_selector/channel_validation.dart';
 
 void main() {
+  group('VT-020 explicit boundaries', () {
+    for (final (text, expected) in <(String, int?)>[
+      ('1', 1),
+      ('99', 99),
+      ('0', null),
+      ('100', null),
+    ]) {
+      test('channel "$text" returns $expected', () {
+        expect(ChannelInputValidation.parseChannel(text), expected);
+      });
+    }
+
+    for (final (text, expected) in <(String, int?)>[
+      ('0', 0),
+      ('38', 38),
+      ('-1', null),
+      ('39', null),
+    ]) {
+      test('privacy code "$text" returns $expected', () {
+        expect(ChannelInputValidation.parseCode(text), expected);
+      });
+    }
+
+    test('privacy code rejects signed text even within the numeric range', () {
+      // -1 alone cannot distinguish the digit gate from the lower-bound
+      // guard. int.tryParse accepts -0 and +1, both numerically in range;
+      // rejecting them proves the plain-digit input contract as well.
+      expect(ChannelInputValidation.parseCode('-0'), isNull);
+      expect(ChannelInputValidation.parseCode('+1'), isNull);
+    });
+  });
+
   group('ChannelInputValidation.parseChannel', () {
     test('accepts the full valid range', () {
       expect(ChannelInputValidation.parseChannel('1'), 1);
