@@ -3234,7 +3234,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-055
 **Title:** Settings redesign — Radio/Audio/Connectivity/Identity/Appearance/About sections
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.6 (Settings — "ordinary mobile settings with sections and readable descriptions. Retain every existing setting and its validation… Connectivity shows the configured mode, effective route and LOCAL-only privacy toggle… A setting that rebuilds the communication session must not look like a harmless appearance-only toggle. Show an explanatory confirmation when applying it could interrupt transmission or change network connectivity. Non-session settings must not needlessly reconnect"), §1 (Settings subtree); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-060, UX-FR-061, UX-FR-062, UX-FR-064, UX-FR-066, UX-D07, UX-D08; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("Retain `KeryxSettings`, SettingsRepository storage key, defaults and migration behavior. New appearance preferences may be added additively with safe defaults. Do not overwrite existing stored data with a reduced settings object… A session-affecting settings change while transmitting must be deferred or safely serialized… No hot-mic window is permitted"), §1.1 (settings captured at construction; changes need host-managed reconstruction), §10 (legacy settings survive upgrade); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-003, VT-005, VT-022; ADR-001 §5 (settings persistence NOT superseded — model/repository reused, widget tree new), ADR-001 §6.
@@ -3253,15 +3253,24 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 - [ ] About shows version and sanitized diagnostics only — no raw exception text or internal service names surfaced to ordinary users (Design §5)
 - [ ] `lib/core/settings/**` is not modified by this task (TASK-063 owns it); all styling uses TASK-047's tokens
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-055-gb
+**Started_At:** 2026-09-08T10:23:29Z
+**Progress_Notes:**
+- [2026-09-08T10:23:29Z] [GB] Claimed TASK-055 (Settings redesign). Dependencies TASK-047 and TASK-048 confirmed done. Starting on branch task/TASK-055-gb.
+- [2026-09-08T10:23:29Z] [GB] Preflight complete:
+  [preflight] TASK-055 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+  [preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+    GLOB   lib/features/settings/**  -> matches nothing yet (new territory)
+    GLOB   test/features/settings/**  -> matches nothing yet (new territory)
+    FILE   dossiers/TASK-055.md  -> exists, 30 line(s), 1500 bytes
+  [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+  Territory matches expectation: new `lib/features/settings/**` + `test/features/settings/**`, dossier already present. Fresh widgets (ADR-001 §6/§7) over unchanged `KeryxSettings`/`SettingsRepository`. Will not edit `lib/core/settings/**`, `lib/app_shell/**`, or `lib/features/settings_panel/**`.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-08T10:23:29Z
 
 
 ### TASK-056
