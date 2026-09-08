@@ -6,15 +6,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
+import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/event_qr/event_qr.dart';
 import 'package:keryx/features/event_qr_ui/event_qr_ui_copy.dart';
 import 'package:keryx/features/event_qr_ui/event_qr_ui_export_screen.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../talk/a11y_matrix_support.dart';
+
 void main() {
   late ProviderContainer container;
 
-  Future<Widget> build({KeryxSettings? settings}) async {
+  Future<Widget> build({
+    KeryxSettings? settings,
+    Brightness brightness = Brightness.dark,
+  }) async {
     final store = InMemorySettingsStore();
     if (settings != null) {
       await SettingsRepository(store).save(settings);
@@ -25,7 +31,10 @@ void main() {
     addTearDown(container.dispose);
     return UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: EventQrUiExportScreen()),
+      child: MaterialApp(
+        theme: keryxUxThemeData(brightness: brightness),
+        home: const EventQrUiExportScreen(),
+      ),
     );
   }
 
@@ -116,6 +125,84 @@ void main() {
         expect(semantics.properties.liveRegion, isTrue);
       },
     );
+  });
+
+  group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
+    Future<void> pumpReady(WidgetTester tester, {Brightness brightness = Brightness.dark}) async {
+      await tester.pumpWidget(
+        await build(
+          settings: const KeryxSettings(region: 'za-cpt'),
+          brightness: brightness,
+        ),
+      );
+      await tester.pumpAndSettle();
+      container.read(radioStateProvider.notifier)
+        ..dispatch(const PowerOn())
+        ..dispatch(const BootCompleted());
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'renders without exception across the full responsive matrix '
+      '(320 lp, larger phone, landscape, text scale 2.0)',
+      (tester) async {
+        await expectResponsiveMatrix(tester, (t, size) async {
+          t.view.physicalSize = size;
+          t.view.devicePixelRatio = 1.0;
+          await t.pumpWidget(const SizedBox.shrink());
+          await pumpReady(t);
+        });
+      },
+    );
+
+    // The rendered screen embeds `lib/features/event_qr/qr_export_screen.dart`
+    // (`SelectableText` showing the join link, key `event_qr_link_text`) —
+    // that file is frozen legacy territory this task must not edit (TASK-056
+    // review: "consumed as a dependency, never edited"; ADR-001 §6; deletion
+    // is TASK-061's). Its read-only, long-press-to-copy text row is a real
+    // sub-48dp tap target by Android's guideline, but fixing it means editing
+    // out-of-territory code — recorded as a finding, not silently excluded
+    // from the sweep, and every *other* node on the screen is still held to
+    // the guideline with no exception.
+    Future<void> expectTapTargetsExceptFrozenLinkText(WidgetTester tester) async {
+      final Evaluation evaluation = await androidTapTargetGuideline.evaluate(
+        tester,
+      );
+      if (evaluation.passed) {
+        return;
+      }
+      final String? reason = evaluation.reason;
+      expect(reason, isNotNull);
+      final int failureCount =
+          RegExp('expected tap target size').allMatches(reason!).length;
+      final bool onlyKnownException =
+          failureCount == 1 && reason.contains('keryx://join');
+      expect(
+        onlyKnownException,
+        isTrue,
+        reason:
+            'Unexpected tap-target guideline failure(s) beyond the known '
+            'frozen event_qr link-text exception:\n$reason',
+      );
+    }
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(dark)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpReady(tester, brightness: Brightness.dark);
+      await expectRenderedContrast(tester);
+      await expectTapTargetsExceptFrozenLinkText(tester);
+      handle.dispose();
+    });
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(light)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpReady(tester, brightness: Brightness.light);
+      await expectRenderedContrast(tester);
+      await expectTapTargetsExceptFrozenLinkText(tester);
+      handle.dispose();
+    });
   });
 }
 

@@ -43,7 +43,15 @@ class EventQrUiExportScreen extends ConsumerWidget {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(KeryxUxSpacing.pageMargin),
-          child: _body(settings, radioState, tokens),
+          // TASK-057 round 2: the embedded `EventQrExportScreen` (frozen
+          // legacy territory, `lib/features/event_qr/**` — not edited here,
+          // ADR-001 §6) has a fixed-height Column that genuinely overflows
+          // at a small landscape height (reproduced by the responsive-
+          // matrix test). Scrolling at this wrapper layer fixes the
+          // clipping without touching the frozen widget's own layout.
+          child: SingleChildScrollView(
+            child: _body(settings, radioState, tokens),
+          ),
         ),
       ),
     );
