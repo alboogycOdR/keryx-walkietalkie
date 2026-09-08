@@ -107,3 +107,16 @@ TalkBack / switch tap reaches the same handler. Pointer continues to use
 - [2026-09-08T15:02:00Z] [GB] Decision recorded above *before* any
   production edit. Next: preflight is already run; implement the two
   paths against this decision, leave TASK-054 pointer tests untouched.
+- [2026-09-08T15:18:00Z] [GB] Implemented. Monitor Activate latches
+  open/closed via the same `MonitorChanged` events as pointer hold.
+  Emergency is confirm-then-arm: first Activate never pins; second
+  before 600 ms is a no-op; second after 600 ms calls the existing
+  `_activateEmergency()`. Pointer 600 ms hold / early-release tests
+  untouched and still green. `FocusableActionDetector` +
+  `Semantics.onTap` share one handler; pointer stays on `Listener`.
+  Territory tests 26/26. Revert-mutations (restored after each):
+  (1) first Activate arms immediately → "single Activate does not pin"
+  Expected false Actual true; (2) skip 600 ms ready-gate → exactly
+  "second Activate before 600ms" red, 6/7 other TASK-069 tests green;
+  (3) Monitor keyboard no-op → exactly the two Monitor latch tests
+  red, Emergency tests green.

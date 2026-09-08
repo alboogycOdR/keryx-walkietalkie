@@ -42,6 +42,13 @@ abstract final class RadioControlsKeys {
   static const Key emergencyClearedByOther = Key(
     'radio-controls.emergency.cleared-by-other',
   );
+
+  /// Visible while the keyboard/switch confirm-then-arm two-step is
+  /// waiting for the second Activate (TASK-069). Independent of
+  /// [emergencyArming], which is pointer-hold only.
+  static const Key emergencyKeyboardConfirm = Key(
+    'radio-controls.emergency.keyboard-confirm',
+  );
 }
 
 /// Design §2.5 — the successor home for the legacy four-key rail's actual
@@ -80,6 +87,13 @@ abstract final class RadioControlsKeys {
 /// **FR-025's emergency-preemption double-grant stays PARKED** (ADR-001
 /// §5) — this screen never touches floor arbitration; anything observed
 /// wrong at the engine level is a finding, not a fix, here.
+///
+/// **Keyboard/switch hold-substitutes (TASK-069)** are documented in
+/// `dossiers/TASK-069.md` *before* this wiring: Monitor Activate latches
+/// open/closed (pointer stays hold-to-open); Emergency is a
+/// confirm-then-arm two-step that cannot pin faster than
+/// [emergencyHoldDuration] — Talk's single-press PTT toggle is not
+/// reused, because that would weaken UX-FR-042.
 class RadioControlsScreen extends ConsumerStatefulWidget {
   const RadioControlsScreen({super.key, required this.host});
 
@@ -93,14 +107,26 @@ class RadioControlsScreen extends ConsumerStatefulWidget {
 class _RadioControlsScreenState extends ConsumerState<RadioControlsScreen> {
   /// Preserved verbatim from `lib/features/ptt/emg_key.dart`'s
   /// `armThreshold` default — Design §2.5/UX-D06 requires the *existing*
-  /// hold duration, not a re-chosen one.
+  /// hold duration, not a re-chosen one. The keyboard/switch
+  /// confirm-then-arm ready-gate uses this same constant so Emergency
+  /// cannot pin faster from a key/switch than from a pointer hold.
   static const Duration emergencyHoldDuration = Duration(milliseconds: 600);
+
+  /// How long an unconfirmed keyboard/switch Emergency confirm may sit
+  /// before it is abandoned. Long enough for a switch user to issue the
+  /// second Activate after the 600 ms ready-gate; short enough that an
+  /// abandoned confirm does not linger as a live arm-able control.
+  static const Duration emergencyKeyboardConfirmTimeout = Duration(seconds: 5);
 
   StreamSubscription<RadioHostSnapshot>? _hostSub;
   StreamSubscription<FloorEffect>? _floorSub;
   late RadioHostSnapshot _snapshot;
   Timer? _emergencyArmTimer;
   bool _emergencyArming = false;
+  Timer? _emergencyKeyboardReadyTimer;
+  Timer? _emergencyKeyboardConfirmTimer;
+  bool _emergencyKeyboardConfirming = false;
+  bool _emergencyKeyboardConfirmReady = false;
 
   @override
   void initState() {
@@ -113,6 +139,8 @@ class _RadioControlsScreenState extends ConsumerState<RadioControlsScreen> {
   @override
   void dispose() {
     _emergencyArmTimer?.cancel();
+    _emergencyKeyboardReadyTimer?.cancel();
+    _emergencyKeyboardConfirmTimer?.cancel();
     unawaited(_hostSub?.cancel());
     unawaited(_floorSub?.cancel());
     super.dispose();
@@ -140,6 +168,14 @@ class _RadioControlsScreenState extends ConsumerState<RadioControlsScreen> {
 
   void _onFloorEffect(FloorEffect effect) {
     if (!mounted) return;
+    if (effect is EmgPinned) {
+      _emergencyKeyboardReadyTimer?.cancel();
+      _emergencyKeyboardConfirmTimer?.cancel();
+      _emergencyKeyboardReadyTimer = null;
+      _emergencyKeyboardConfirmTimer = null;
+      _emergencyKeyboardConfirming = false;
+      _emergencyKeyboardConfirmReady = false;
+    }
     if (effect is EmgPinned || effect is EmgCleared) setState(() {});
   }
 
@@ -179,6 +215,13 @@ class _RadioControlsScreenState extends ConsumerState<RadioControlsScreen> {
     _dispatch(const MonitorChanged(false));
   }
 
+  /// Keyboard/switch hold-substitute for Monitor: Activate latches open
+  /// or closed. Pointer remains hold-to-open (see dossiers/TASK-069.md).
+  void _monitorKeyboardActivate(RadioState state) {
+    if (!_eligible(state)) return;
+    _dispatch(MonitorChanged(!state.isMonitorOpen));
+  }
+
   void _toggleScan(RadioState state) {
     if (!_eligible(state)) return;
     _dispatch(ScanChanged(!state.isScanning));
@@ -186,6 +229,7 @@ class _RadioControlsScreenState extends ConsumerState<RadioControlsScreen> {
 
   void _startEmergencyArm() {
     if (_emergencyArming || _snapshot.floorEngine == null) return;
+    _cancelEmergencyKeyboardConfirm();
     setState(() => _emergencyArming = true);
     _emergencyArmTimer = Timer(emergencyHoldDuration, _activateEmergency);
   }
@@ -194,6 +238,59 @@ class _RadioControlsScreenState extends ConsumerState<RadioControlsScreen> {
     _emergencyArmTimer?.cancel();
     _emergencyArmTimer = null;
     if (_emergencyArming) setState(() => _emergencyArming = false);
+  }
+
+  void _startEmergencyKeyboardConfirm() {
+    _emergencyKeyboardReadyTimer?.cancel();
+    _emergencyKeyboardConfirmTimer?.cancel();
+    setState(() {
+      _emergencyKeyboardConfirming = true;
+      _emergencyKeyboardConfirmReady = false;
+    });
+    _emergencyKeyboardReadyTimer = Timer(emergencyHoldDuration, () {
+      if (!mounted) return;
+      setState(() => _emergencyKeyboardConfirmReady = true);
+    });
+    _emergencyKeyboardConfirmTimer = Timer(
+      emergencyKeyboardConfirmTimeout,
+      _cancelEmergencyKeyboardConfirm,
+    );
+  }
+
+  void _cancelEmergencyKeyboardConfirm() {
+    _emergencyKeyboardReadyTimer?.cancel();
+    _emergencyKeyboardConfirmTimer?.cancel();
+    _emergencyKeyboardReadyTimer = null;
+    _emergencyKeyboardConfirmTimer = null;
+    if (_emergencyKeyboardConfirming || _emergencyKeyboardConfirmReady) {
+      setState(() {
+        _emergencyKeyboardConfirming = false;
+        _emergencyKeyboardConfirmReady = false;
+      });
+    }
+  }
+
+  /// Keyboard/switch confirm-then-arm for Emergency. First Activate
+  /// never pins; a second Activate before [emergencyHoldDuration] is a
+  /// no-op; after that duration the same `_activateEmergency` path the
+  /// pointer timer uses runs. See dossiers/TASK-069.md.
+  void _emergencyKeyboardActivate() {
+    if (_snapshot.floorEngine == null) return;
+    if (_emergencyArming) return;
+    if (!_emergencyKeyboardConfirming) {
+      _startEmergencyKeyboardConfirm();
+      return;
+    }
+    if (!_emergencyKeyboardConfirmReady) return;
+    _emergencyKeyboardReadyTimer?.cancel();
+    _emergencyKeyboardConfirmTimer?.cancel();
+    _emergencyKeyboardReadyTimer = null;
+    _emergencyKeyboardConfirmTimer = null;
+    setState(() {
+      _emergencyKeyboardConfirming = false;
+      _emergencyKeyboardConfirmReady = false;
+    });
+    _activateEmergency();
   }
 
   /// Identical branch to `face_screen.dart._onEmergencyToggled`'s existing
@@ -254,6 +351,7 @@ class _RadioControlsScreenState extends ConsumerState<RadioControlsScreen> {
             eligible: _eligible(radioState),
             onHoldStart: () => _monitorHoldStart(radioState),
             onHoldEnd: () => _monitorHoldEnd(radioState),
+            onKeyboardActivate: () => _monitorKeyboardActivate(radioState),
           ),
           const SizedBox(height: KeryxUxSpacing.cardSpacing),
           _ScanRow(
@@ -268,9 +366,12 @@ class _RadioControlsScreenState extends ConsumerState<RadioControlsScreen> {
             pinned: emergencyPinned,
             ownedByLocal: emergencyOwnedByLocal,
             arming: _emergencyArming,
+            keyboardConfirming: _emergencyKeyboardConfirming,
             engineAvailable: engine != null,
             onArmStart: _startEmergencyArm,
             onArmCancel: _cancelEmergencyArm,
+            onKeyboardActivate: _emergencyKeyboardActivate,
+            onKeyboardDismiss: _cancelEmergencyKeyboardConfirm,
             onClear: _clearEmergency,
           ),
         ],
@@ -339,6 +440,7 @@ class _MonitorRow extends StatelessWidget {
     required this.eligible,
     required this.onHoldStart,
     required this.onHoldEnd,
+    required this.onKeyboardActivate,
   });
 
   final KeryxUxTokens tokens;
@@ -346,6 +448,7 @@ class _MonitorRow extends StatelessWidget {
   final bool eligible;
   final VoidCallback onHoldStart;
   final VoidCallback onHoldEnd;
+  final VoidCallback onKeyboardActivate;
 
   @override
   Widget build(BuildContext context) {
@@ -391,38 +494,36 @@ class _MonitorRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: KeryxUxSpacing.controlGap),
-              Semantics(
-                button: true,
+              _AccessibleHoldTarget(
+                holdKey: RadioControlsKeys.monitorHoldTarget,
                 enabled: eligible,
                 toggled: active,
                 label: RadioControlsCopy.monitorLabel,
                 hint: RadioControlsCopy.monitorHoldTargetHint,
-                child: Listener(
-                  key: RadioControlsKeys.monitorHoldTarget,
-                  onPointerDown: eligible ? (_) => onHoldStart() : null,
-                  onPointerUp: eligible ? (_) => onHoldEnd() : null,
-                  onPointerCancel: eligible ? (_) => onHoldEnd() : null,
-                  child: Container(
-                    width: KeryxUxSpacing.minTarget,
-                    height: KeryxUxSpacing.minTarget,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: active ? tokens.stateRx : tokens.surfaceRaised,
-                      border: Border.all(
-                        color: eligible
-                            ? tokens.borderDefault
-                            : tokens.borderDefault.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.radio_button_on,
+                onPointerDown: onHoldStart,
+                onPointerUp: onHoldEnd,
+                onPointerCancel: onHoldEnd,
+                onKeyboardActivate: onKeyboardActivate,
+                child: Container(
+                  width: KeryxUxSpacing.minTarget,
+                  height: KeryxUxSpacing.minTarget,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: active ? tokens.stateRx : tokens.surfaceRaised,
+                    border: Border.all(
                       color: eligible
-                          ? tokens.palette.contrastingOn(
-                              active ? tokens.stateRx : tokens.surfaceRaised,
-                            )
-                          : tokens.textSecondary.withValues(alpha: 0.5),
+                          ? tokens.borderDefault
+                          : tokens.borderDefault.withValues(alpha: 0.4),
                     ),
+                  ),
+                  child: Icon(
+                    Icons.radio_button_on,
+                    color: eligible
+                        ? tokens.palette.contrastingOn(
+                            active ? tokens.stateRx : tokens.surfaceRaised,
+                          )
+                        : tokens.textSecondary.withValues(alpha: 0.5),
                   ),
                 ),
               ),
@@ -530,9 +631,12 @@ class _EmergencyRow extends StatelessWidget {
     required this.pinned,
     required this.ownedByLocal,
     required this.arming,
+    required this.keyboardConfirming,
     required this.engineAvailable,
     required this.onArmStart,
     required this.onArmCancel,
+    required this.onKeyboardActivate,
+    required this.onKeyboardDismiss,
     required this.onClear,
   });
 
@@ -540,9 +644,12 @@ class _EmergencyRow extends StatelessWidget {
   final bool pinned;
   final bool ownedByLocal;
   final bool arming;
+  final bool keyboardConfirming;
   final bool engineAvailable;
   final VoidCallback onArmStart;
   final VoidCallback onArmCancel;
+  final VoidCallback onKeyboardActivate;
+  final VoidCallback onKeyboardDismiss;
   final VoidCallback onClear;
 
   @override
@@ -625,48 +732,136 @@ class _EmergencyRow extends StatelessWidget {
               ],
             )
           else
-            Semantics(
-              button: true,
+            _AccessibleHoldTarget(
+              holdKey: RadioControlsKeys.emergencyHoldTarget,
               enabled: true,
-              toggled: arming,
-              label: RadioControlsCopy.emergencyLabel,
-              hint: RadioControlsCopy.emergencyHoldTargetHint,
-              child: Listener(
-                key: RadioControlsKeys.emergencyHoldTarget,
-                onPointerDown: (_) => onArmStart(),
-                onPointerUp: (_) => onArmCancel(),
-                onPointerCancel: (_) => onArmCancel(),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: KeryxUxSpacing.cardSpacing,
-                    vertical: KeryxUxSpacing.controlGap,
+              toggled: arming || keyboardConfirming,
+              label: keyboardConfirming
+                  ? RadioControlsCopy.emergencyKeyboardConfirmLabel
+                  : RadioControlsCopy.emergencyLabel,
+              hint: keyboardConfirming
+                  ? RadioControlsCopy.emergencyKeyboardConfirmHint
+                  : RadioControlsCopy.emergencyHoldTargetHint,
+              onPointerDown: onArmStart,
+              onPointerUp: onArmCancel,
+              onPointerCancel: onArmCancel,
+              onKeyboardActivate: onKeyboardActivate,
+              onKeyboardDismiss: onKeyboardDismiss,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: KeryxUxSpacing.cardSpacing,
+                  vertical: KeryxUxSpacing.controlGap,
+                ),
+                decoration: BoxDecoration(
+                  color: arming
+                      ? emergencyColor
+                      : keyboardConfirming
+                          ? emergencyColor.withValues(alpha: 0.15)
+                          : tokens.surfaceRaised,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: emergencyColor,
+                    width: arming || keyboardConfirming ? 2 : 1,
                   ),
-                  decoration: BoxDecoration(
-                    color: arming ? emergencyColor : tokens.surfaceRaised,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: emergencyColor),
-                  ),
-                  constraints: const BoxConstraints(
-                    minHeight: KeryxUxSpacing.minTarget,
-                    minWidth: KeryxUxSpacing.minTarget,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    arming
-                        ? RadioControlsCopy.emergencyArmingHint
-                        : RadioControlsCopy.emergencyLabel,
-                    key: arming ? RadioControlsKeys.emergencyArming : null,
-                    style: KeryxUxTypography.body.copyWith(
-                      color: arming
-                          ? tokens.palette.contrastingOn(emergencyColor)
-                          : emergencyColor,
-                      fontWeight: FontWeight.w600,
-                    ),
+                ),
+                constraints: const BoxConstraints(
+                  minHeight: KeryxUxSpacing.minTarget,
+                  minWidth: KeryxUxSpacing.minTarget,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  arming
+                      ? RadioControlsCopy.emergencyArmingHint
+                      : keyboardConfirming
+                          ? RadioControlsCopy.emergencyKeyboardConfirmLabel
+                          : RadioControlsCopy.emergencyLabel,
+                  key: arming
+                      ? RadioControlsKeys.emergencyArming
+                      : keyboardConfirming
+                          ? RadioControlsKeys.emergencyKeyboardConfirm
+                          : null,
+                  style: KeryxUxTypography.body.copyWith(
+                    color: arming
+                        ? tokens.palette.contrastingOn(emergencyColor)
+                        : emergencyColor,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shared pointer-hold + keyboard/switch Activate surface.
+///
+/// Pointer events stay on [Listener] (TASK-054 hold semantics). Keyboard
+/// Enter/Space and TalkBack/switch tap both reach [onKeyboardActivate]
+/// (`ActivateIntent` / `Semantics.onTap`). `Semantics.onTap` is an
+/// accessibility action, not a competing gesture recognizer, so a pointer
+/// tap does not also fire the keyboard path.
+class _AccessibleHoldTarget extends StatelessWidget {
+  const _AccessibleHoldTarget({
+    required this.holdKey,
+    required this.enabled,
+    required this.toggled,
+    required this.label,
+    required this.hint,
+    required this.onPointerDown,
+    required this.onPointerUp,
+    required this.onPointerCancel,
+    required this.onKeyboardActivate,
+    this.onKeyboardDismiss,
+    required this.child,
+  });
+
+  final Key holdKey;
+  final bool enabled;
+  final bool toggled;
+  final String label;
+  final String hint;
+  final VoidCallback onPointerDown;
+  final VoidCallback onPointerUp;
+  final VoidCallback onPointerCancel;
+  final VoidCallback onKeyboardActivate;
+  final VoidCallback? onKeyboardDismiss;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusableActionDetector(
+      enabled: enabled,
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            if (enabled) onKeyboardActivate();
+            return null;
+          },
+        ),
+        if (onKeyboardDismiss != null)
+          DismissIntent: CallbackAction<DismissIntent>(
+            onInvoke: (_) {
+              onKeyboardDismiss!();
+              return null;
+            },
+          ),
+      },
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        toggled: toggled,
+        label: label,
+        hint: hint,
+        onTap: enabled ? onKeyboardActivate : null,
+        child: Listener(
+          key: holdKey,
+          onPointerDown: enabled ? (_) => onPointerDown() : null,
+          onPointerUp: enabled ? (_) => onPointerUp() : null,
+          onPointerCancel: enabled ? (_) => onPointerCancel() : null,
+          child: child,
+        ),
       ),
     );
   }
