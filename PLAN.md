@@ -1,5 +1,5 @@
 ---
-plan_version: 14.0
+plan_version: 14.1
 last_updated: 2026-09-08T19:56:05Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
@@ -3998,7 +3998,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-071
 **Title:** Clean up the 8 pre-existing TASK-035 analyzer findings
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** low
 **Spec_References:** No spec citation — pure lint/dead-code cleanup, carried as documented debt since TASK-035 and repeatedly disclosed-not-fixed by every review since (most recently TASK-070's).
@@ -4006,10 +4006,10 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 **Depends_On:** —
 **Description:** **ORCH-created 2026-09-09.** Eight `flutter analyze` findings have been carried as "known, pre-existing, unrelated" in every review's Test_Evidence since TASK-035 first introduced them, with no task ever created to actually close them. All eight are in one file, all mechanical: 2 unused imports (`linked.dart`, `mesh.dart`), 2 unreferenced private declarations (`_characterDspLight`, `_dimModeAuto`), 3 unused local variables (`settingsAuto`, `settingsLinked`, `engine1`), 1 leading-underscore local-variable naming lint (`_testMode`). Reopens `test/services/session/radio_session_controller_test.dart` alone — this is TASK-035's frozen test file, not its production code; no `lib/**` path is touched. **Before deleting anything, confirm each flagged item is genuinely dead** (not, say, a variable that looks unused but is actually referenced through a closure the analyzer can't see, or a declaration some other test file depends on being present) — the fix should be as small as the finding, nothing more.
 **Acceptance_Criteria:**
-- [ ] All 8 findings resolved: `flutter analyze` on this file reports zero issues
-- [ ] No test coverage is lost — if a flagged variable/import was actually load-bearing for a test's meaning (not just its compilation), the test is fixed to use it correctly rather than the variable silently deleted
-- [ ] `flutter analyze` repo-wide reports zero issues (previously 8, now 0) — the first review in this entire project able to say that cleanly
-- [ ] Full suite green with no regression in test count
+- [x] All 8 findings resolved: `flutter analyze` on this file reports zero issues
+- [x] No test coverage is lost — if a flagged variable/import was actually load-bearing for a test's meaning (not just its compilation), the test is fixed to use it correctly rather than the variable silently deleted
+- [x] `flutter analyze` repo-wide reports zero issues (previously 8, now 0) — the first review in this entire project able to say that cleanly
+- [x] Full suite green with no regression in test count
 **Branch:** task/TASK-071-s5
 **Started_At:** 2026-09-09T05:00:00Z
 **Progress_Notes:**
@@ -4023,7 +4023,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 - [2026-09-09T05:35:00Z] [S5] `flutter test test/services/session/radio_session_controller_test.dart` -> **14/14 pass** (unchanged test count).
 - [2026-09-09T05:35:00Z] [S5] `flutter test` (full suite) -> **1422 passed / 0 failed / 40 skipped**, exit 0.
 - [2026-09-09T05:35:00Z] [S5] `git diff master...HEAD --stat` -> 1 file changed, `test/services/session/radio_session_controller_test.dart` only, inside `Owned_Paths`; zero `lib/**` files touched.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-08T20:23:48Z] [ORCH] **APPROVED first-pass**, merged `42f3fde`. Territory clean: `git diff master...task/TASK-071-s5 --stat` = 1 file (`test/services/session/radio_session_controller_test.dart`), +10/-41, inside `Owned_Paths`; zero `lib/**` touched; zero PLAN.md commits on the branch. Baseline verified independently by restoring master's version of the file and re-analyzing: exactly the 8 documented findings, no more, no fewer; branch version: `No issues found!`. **No-meaning-lost check (the real risk here) passed item by item:** the removed `linked.dart`/`mesh.dart` imports contributed no symbol the file still names (analyzer resolves clean without them); `_characterDspLight`/`_dimModeAuto` were consts with zero references and every `KeryxSettings(...)` already inlines the enum literal; `settingsAuto`/`settingsLinked` were `late` fields assigned in `setUp()` and read by no test — the mode-matrix group builds its own inline settings through the helper — so their removal deletes scaffolding, not intent; `_testMode`→`testMode` is a pure rename across its 5 call sites. `engine1` was the one genuinely meaning-adjacent item and the builder made the judgment call the task asked for: rather than delete it, it added `expect(engine1, isNotNull)` / `isA<FloorEngine>()` before the retune, mirroring the hedge already applied to `engine2` and inventing no identity-equality claim the original test never made. The diff removes no `test(` or `group(` — no test was deleted alongside its scaffolding. **Repo-wide analyze independently confirmed genuinely zero**, and confirmed not an artifact of the local uncommitted `analysis_options.yaml` edit: that edit is flutter's own auto-upgrade (`exclude: build/**, android/**`, re-emitted by the tool itself when reverted) and touches neither `lib/**` nor `test/**` — analyze is `No issues found!` with the file pristine and with it applied, in the worktree and on merged master. Full suite re-run by ORCH in the worktree: **1422 passed / 0 failed / 40 skipped**, exit 0 — identical to the pre-change count, the 40 skips being the unchanged PARKED FR-025 soak seeds (reason string verified verbatim). Builder's non-blocking flag about `dossiers/TASK-071.md` being absent from `Owned_Paths` is correct and was ORCH's oversight at task-creation time; S5 handled it exactly right by refusing to write outside territory and carrying the record in Progress_Notes instead. No dead code, no error-handling or logging concerns in a test-only lint diff.
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-09T05:35:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-08T20:23:48Z
