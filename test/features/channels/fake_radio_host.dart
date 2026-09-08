@@ -24,6 +24,18 @@ class FakeRadioHost implements RadioHost {
   final List<KeryxSettings> applySettingsCalls = <KeryxSettings>[];
   final List<EventLinkPayload> joinEventCalls = <EventLinkPayload>[];
 
+  /// Result [tune] resolves with when [holdTunes] is false. Defaults to
+  /// success. TASK-067: lets tests drive the recall-tap's failure/retry
+  /// path through [TuneCoordinator] without any real transport.
+  TuneResult autoResult = const TuneResult.success();
+
+  /// While true, [tune] returns a [Completer]-backed future instead of
+  /// resolving immediately — appended to [pendingTunes] in submission
+  /// order so a test can complete them on demand (same convention as
+  /// `test/features/channel_selector/fake_radio_host.dart`).
+  bool holdTunes = false;
+  final List<Completer<TuneResult>> pendingTunes = <Completer<TuneResult>>[];
+
   @override
   RadioHostSnapshot get current => _snapshot;
 
@@ -48,10 +60,18 @@ class FakeRadioHost implements RadioHost {
   }
 
   @override
-  Future<TuneResult> tune(int channel, int code) async {
+  Future<TuneResult> tune(int channel, int code) {
     methodLog.add('tune');
     tuneCalls.add((channel, code));
-    return const TuneResult.success();
+    if (!holdTunes) return Future<TuneResult>.value(autoResult);
+    final Completer<TuneResult> completer = Completer<TuneResult>();
+    pendingTunes.add(completer);
+    return completer.future;
+  }
+
+  /// Completes the tune call at [index] (submission order) with [result].
+  void completeTune(int index, TuneResult result) {
+    pendingTunes[index].complete(result);
   }
 
   @override

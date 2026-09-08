@@ -6,8 +6,11 @@ import 'package:keryx/app_shell/radio_host_provider.dart';
 import 'package:keryx/core/presentation/presentation.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
+import 'package:keryx/core/state/radio_state.dart' show RadioPhase;
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
+import 'package:keryx/features/channel_selector/channel_selector_copy.dart';
+import 'package:keryx/features/channel_selector/tune_coordinator.dart';
 
 import 'channel_format.dart';
 import 'channel_memory.dart';
@@ -25,6 +28,9 @@ abstract final class ChannelsLandingKeys {
   static const Key recentSection = Key('channels.recent-section');
   static const Key emptyMemory = Key('channels.empty-memory');
   static const Key selectChannel = Key('channels.select-channel');
+  static const Key recallProgress = Key('channels.recall-progress');
+  static const Key recallFeedback = Key('channels.recall-feedback');
+  static const Key recallRetry = Key('channels.recall-retry');
 
   static Key recentEntry(int channel, int privacyCode) =>
       Key('channels.recent.$channel.$privacyCode');
@@ -79,6 +85,16 @@ class _ChannelsLandingState extends ConsumerState<ChannelsLanding> {
   /// Design §2.1 prohibition the landing tests mutation-check.
   void Function(int channel)? _presenceSweep;
 
+  /// TASK-067: routes the recall-tap through the same
+  /// pending/success/failure/retry result-handling TASK-050 built for its
+  /// own sheet, rather than discarding the `TuneResult` (TASK-049's
+  /// review finding). Reuses [TuneCoordinator] directly — no second,
+  /// independent implementation of UX-FR-009's four-state model.
+  late final TuneCoordinator _coordinator;
+  StreamSubscription<TuneOutcome>? _outcomeSub;
+  RadioPhase _lastPhase = RadioPhase.off;
+  TuneOutcome? _lastOutcome;
+
   @override
   void initState() {
     super.initState();
@@ -95,18 +111,44 @@ class _ChannelsLandingState extends ConsumerState<ChannelsLanding> {
       }
       setState(() => _snapshot = snapshot);
     });
+
+    _coordinator = TuneCoordinator(intents: RadioViewIntents(host));
+    _outcomeSub = _coordinator.outcomes.listen((TuneOutcome outcome) {
+      if (!mounted) return;
+      setState(() => _lastOutcome = outcome);
+    });
   }
 
   @override
   void dispose() {
     _presenceSweep = null;
     unawaited(_hostSub?.cancel());
+    unawaited(_outcomeSub?.cancel());
+    _coordinator.dispose();
     super.dispose();
   }
 
+  void _onPhaseMaybeChanged(RadioPhase phase) {
+    if (phase == _lastPhase) return;
+    _lastPhase = phase;
+    _coordinator.onPhaseChanged(phase);
+  }
+
   void _tuneRecent(TunedChannel entry) {
-    final RadioHost host = ref.read(radioHostProvider);
-    unawaited(RadioViewIntents(host).tune(entry.channel, entry.privacyCode));
+    if (_coordinator.isBusy) return;
+    setState(() => _lastOutcome = null);
+    _coordinator.request(
+      channel: entry.channel,
+      code: entry.privacyCode,
+      currentPhase: _lastPhase,
+    );
+  }
+
+  void _retryRecall() {
+    final TuneOutcome? outcome = _lastOutcome;
+    if (outcome == null) return;
+    setState(() => _lastOutcome = null);
+    _coordinator.retry(outcome.target, currentPhase: _lastPhase);
   }
 
   @override
@@ -115,14 +157,20 @@ class _ChannelsLandingState extends ConsumerState<ChannelsLanding> {
     final KeryxUxTokens tokens = KeryxUxTokens.of(context);
     final settings =
         ref.watch(settingsProvider).valueOrNull ?? const KeryxSettings();
+    final radioState = ref.watch(radioStateProvider);
+    _onPhaseMaybeChanged(radioState.phase);
     final view = RadioViewState.project(
-      radioState: ref.watch(radioStateProvider),
+      radioState: radioState,
       hostSnapshot: _snapshot,
       settings: settings,
     );
     final List<TunedChannel> memory = visibleChannelMemory(
       _snapshot.channelMemory,
     );
+    final bool deferredForTx =
+        _coordinator.pendingTarget != null &&
+        (radioState.phase == RadioPhase.tx ||
+            radioState.phase == RadioPhase.txRequest);
 
     return Scaffold(
       backgroundColor: tokens.surfaceBase,
@@ -163,9 +211,39 @@ class _ChannelsLandingState extends ConsumerState<ChannelsLanding> {
             onPressed: widget.onOpenTalk,
           ),
           const SizedBox(height: KeryxUxSpacing.cardSpacing),
+          if (_coordinator.isBusy)
+            Padding(
+              key: ChannelsLandingKeys.recallProgress,
+              padding: const EdgeInsets.only(
+                bottom: KeryxUxSpacing.controlGap,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    deferredForTx
+                        ? ChannelSelectorCopy.tuneQueuedDuringTx
+                        : ChannelSelectorCopy.tuningInProgress,
+                    style: KeryxUxTypography.secondary.copyWith(
+                      color: tokens.stateWarning,
+                    ),
+                  ),
+                  const SizedBox(height: KeryxUxSpacing.controlGap),
+                  LinearProgressIndicator(color: tokens.actionPrimary),
+                ],
+              ),
+            )
+          else if (_lastOutcome != null)
+            _RecallFeedback(
+              key: ChannelsLandingKeys.recallFeedback,
+              outcome: _lastOutcome!,
+              tokens: tokens,
+              onRetry: _retryRecall,
+            ),
           _RecentSection(
             memory: memory,
             tokens: tokens,
+            busy: _coordinator.isBusy,
             onTune: _tuneRecent,
           ),
           const SizedBox(height: KeryxUxSpacing.cardSpacing),
@@ -327,11 +405,17 @@ class _RecentSection extends StatelessWidget {
     required this.memory,
     required this.tokens,
     required this.onTune,
+    this.busy = false,
   });
 
   final List<TunedChannel> memory;
   final KeryxUxTokens tokens;
   final ValueChanged<TunedChannel> onTune;
+
+  /// TASK-067: a pending recall retune blocks a competing tap (matches the
+  /// standard TASK-050's own sheet set — Design §2.3's "prevents competing
+  /// tune actions").
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -354,7 +438,12 @@ class _RecentSection extends StatelessWidget {
           )
         else
           for (final TunedChannel entry in memory)
-            _RecentTile(entry: entry, tokens: tokens, onTune: onTune),
+            _RecentTile(
+              entry: entry,
+              tokens: tokens,
+              onTune: onTune,
+              busy: busy,
+            ),
       ],
     );
   }
@@ -365,11 +454,13 @@ class _RecentTile extends StatelessWidget {
     required this.entry,
     required this.tokens,
     required this.onTune,
+    this.busy = false,
   });
 
   final TunedChannel entry;
   final KeryxUxTokens tokens;
   final ValueChanged<TunedChannel> onTune;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -379,12 +470,67 @@ class _RecentTile extends StatelessWidget {
       child: ListTile(
         key: ChannelsLandingKeys.recentEntry(entry.channel, entry.privacyCode),
         contentPadding: EdgeInsets.zero,
+        enabled: !busy,
         leading: Icon(Icons.history, color: tokens.textSecondary),
         title: Text(
           label,
           style: KeryxUxTypography.body.copyWith(color: tokens.textPrimary),
         ),
-        onTap: () => onTune(entry),
+        onTap: busy ? null : () => onTune(entry),
+      ),
+    );
+  }
+}
+
+/// TASK-067: renders the recall tap's terminal [TuneOutcome] — a
+/// failed/unavailable outcome is visibly represented, with a real Retry
+/// path, instead of the `unawaited(...)` discard TASK-049's review flagged.
+/// Mirrors `ChannelSelectorScreen._buildFeedback` (TASK-050) so the same
+/// four-state model reads identically from either entry point.
+class _RecallFeedback extends StatelessWidget {
+  const _RecallFeedback({
+    super.key,
+    required this.outcome,
+    required this.tokens,
+    required this.onRetry,
+  });
+
+  final TuneOutcome outcome;
+  final KeryxUxTokens tokens;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final String message = switch (outcome.kind) {
+      TuneOutcomeKind.success =>
+        'Tuned to '
+            '${formatChannelCode(outcome.target.channel, outcome.target.privacyCode)}.',
+      TuneOutcomeKind.invalid => ChannelSelectorCopy.tuneInvalid,
+      TuneOutcomeKind.cancelled => ChannelSelectorCopy.tuneCancelled,
+      TuneOutcomeKind.retryableFailure => ChannelSelectorCopy.tuneFailed,
+    };
+    final Color color = outcome.kind == TuneOutcomeKind.success
+        ? tokens.stateRx
+        : outcome.kind == TuneOutcomeKind.retryableFailure
+        ? tokens.stateEmergency
+        : tokens.stateWarning;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: KeryxUxSpacing.controlGap),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              message,
+              style: KeryxUxTypography.secondary.copyWith(color: color),
+            ),
+          ),
+          if (outcome.kind == TuneOutcomeKind.retryableFailure)
+            TextButton(
+              key: ChannelsLandingKeys.recallRetry,
+              onPressed: onRetry,
+              child: const Text(ChannelSelectorCopy.retry),
+            ),
+        ],
       ),
     );
   }
