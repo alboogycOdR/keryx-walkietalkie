@@ -3221,15 +3221,16 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 - [ ] No automatic location transmission and no emergency-service claim is introduced (Design §2.5; Verification §8)
 - [ ] FR-025 emergency-preemption is not modified, worked around, or re-tested as fixed; any observation is recorded as a finding only (ADR-001 §5)
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-054-s5
+**Started_At:** 2026-09-08T17:00:00Z
+**Progress_Notes:**
+- [2026-09-08T17:00:00Z] [S5] Claimed TASK-054 (Radio controls screen incl. guarded emergency control). Dependency TASK-048 confirmed done. Preflight (python scripts/preflight_paths.py TASK-054): lib/features/radio_controls/** -> new territory; test/features/radio_controls/** -> new territory; dossiers/TASK-054.md -> exists, 30 lines. Starting on branch task/TASK-054-s5.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-08T17:00:00Z
 
 
 ### TASK-055
