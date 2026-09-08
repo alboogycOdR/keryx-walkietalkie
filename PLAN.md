@@ -1,6 +1,6 @@
 ---
-plan_version: 12.3
-last_updated: 2026-09-07T18:05:00Z
+plan_version: 12.4
+last_updated: 2026-09-08T11:42:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -3685,7 +3685,7 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 
 ### TASK-066
 **Title:** Project TOT (time-out-tension) warning into RadioViewState
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-023 (TOT: max TX duration, warning chirp at T-5s, hard cut at 0); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 ("TX time-out warning" catalogue row, carried into the successor state model); TASK-051's Review_Findings round 2 (the carve-out that created this task — `RadioState.isTotWarning` exists in the reducer with no `RadioViewState` projection, and Talk's own presentation-boundary rule forbids reading `RadioState` directly).
@@ -3733,10 +3733,10 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 - [2026-09-08T11:22:21Z] [GB] `flutter analyze lib/core/presentation test/core/presentation` — No issues found. Repo-wide — 8 issues, all pre-existing TASK-035 in `test/services/session/radio_session_controller_test.dart`. Analyzer auto-upgrade of `analysis_options.yaml` reverted, not committed.
 - [2026-09-08T11:22:21Z] [GB] `flutter test` — **1290 passed / 0 failed / 40 skipped** (parked FR-025 soak seeds unchanged).
 - [2026-09-08T11:22:21Z] [GB] `git diff master...HEAD --name-only` — 4 files, all inside Owned_Paths. `git diff -- lib/core/state/` empty.
-**Review_Findings:** —
+**Review_Findings:** **APPROVED — MERGED as `594602f`; first-pass. Reviewed on claude-opus-5.** Territory clean: 4 files, 140 insertions / 12 deletions, every path inside `Owned_Paths`; one commit on the branch (`76a861c`, correctly `[TASK-066]`-suffixed), zero PLAN.md commits on it, no protected path touched. **The two hard constraints hold by construction:** `git diff master...task/TASK-066-gb -- lib/core/state/` is **empty** (reducer/equality untouched) and `-- lib/features/talk/` is **empty** (Talk wiring correctly left as the follow-up). **Independent-fields pattern matched, not approximated:** `totWarning` is its own `final bool` on `RadioViewState`, never folded into `phase`/`emergency`/`latched`; `activeOverlayCues` gains one `if (totWarning)` entry alongside the existing five, so multiple overlays still render simultaneously (Technical §5.2). `RadioViewState` has no `operator ==`/`hashCode`/`copyWith` at all, so there is no equality surface left stale by the new field — only `toString`, which was updated. **Sourcing verified at the reducer, not from the comment:** `project()` does `totWarning: radioState.isTotWarning`, the same seam as `emergency: radioState.isEmergency`; ORCH traced `isTotWarning` into `lib/core/state/radio_state.dart` and confirmed it is genuinely driven by the reducer (`TotWarningRaised` → `copyWith(isTotWarning: true)` at :450, cleared at :399/:414/:452), not a constant. **ORCH hand-mutation (both directions, restored byte-clean afterwards):** (1) replacing the sourcing line with `totWarning: radioState.phase == RadioPhase.tx` — the exact fabrication the criterion forbids — reddened **precisely one** test, "totWarning is sourced from RadioState.isTotWarning, never fabricated from phase==tx alone", and nothing else (27 of 28 stayed green); (2) deleting the `if (totWarning) OverlayCues.totWarning` cue entry reddened **precisely** the independent-fields test. Both restored, `git status` clean. So the two load-bearing tests each fail for their own reason and neither is a shape assertion. **Numbers re-run by ORCH:** branch full suite **1290 passed / 0 failed / 40 skipped**; master baseline at the same fork **1287 / 0 / 40** — delta exactly **+3**, the three new tests, zero cross-package regression. `flutter analyze` repo-wide **8 issues**, all pre-existing TASK-035 warnings in `radio_session_controller_test.dart`, none in this territory. No `flutter build apk` — pure Dart projection layer, no platform or entry-point surface. Baseline reconciled at merge-base `22c363a`: master's only gain since is four coordination/PLAN.md commits (TASK-054 review row, TASK-056 claim, TASK-066 transitions) with **zero code drift** — merge applied cleanly. **Honest spec-citation finding disclosed by the builder and confirmed by ORCH, non-blocking:** Design §4's live 13-row table has **no** "TX time-out warning" row (the Spec_References line named one); that state is FR-023 / DS §6, and TX granted's §4 treatment is "Red + timer if authoritative". GB did not block — field semantics were fully specified — and instead pinned the cue copy as a documented implementation decision (`Transmission ending soon` / iconId `timer`), text+icon rather than colour-only per Design §5, with a test asserting the label and icon are distinct from all 13 existing Design §4 cues. That reading is correct; the citation, not the work, was imprecise. **One follow-up recorded for the Talk-side task, not reworked here:** Talk already iterates `activeOverlayCues`, so the chip will surface without a Talk edit, but Talk's `_iconForCueId` has no `timer` mapping and will fall through to `Icons.circle` until the follow-up adds it — GB disclosed this accurately in the dossier. The `totWarning = false` constructor default is deliberate so out-of-territory direct `RadioViewState(...)` call sites keep compiling; `project()` never relies on it. TASK-051's round-2 carve-out is now closed on the projection side.
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-08T11:22:21Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-08T11:42:00Z
 
 
 ### TASK-067
