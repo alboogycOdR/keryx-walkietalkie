@@ -3101,7 +3101,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-052
 **Title:** Wire Wave 4 screens into the mobile app shell (replace TASK-048's placeholders)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** docs/adr/ADR-001-mobile-ux-redesign-reconciliation.md §6 (app-shell migration shape — the shell mounts real screens, owns no screen content itself); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §2-§4 (persistent host survives navigation; navigation-shaped operations must not retune/dispose); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D01/UX-D02 (Channels default landing, Channels+Settings required destinations).
@@ -3109,12 +3109,12 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 **Depends_On:** TASK-049, TASK-050, TASK-051, TASK-053, TASK-054, TASK-055, TASK-056
 **Description:** **ORCH-created 2026-09-07, filling a real planning gap surfaced by TASK-049's review**: TASK-048 built the persistent shell (host mounting, Channels/Settings navigation, theme wiring) with placeholder screen bodies, and froze `lib/app_shell/**` on merge. None of the seven Wave 4 screen tasks (TASK-049/050/051/053/054/055/056) may touch that territory — each was correctly scoped to its own `lib/features/<name>/**` directory only, so each lands built, tested and reviewed but **not reachable from the running app**. This single-owner task is the convergence point: swap each of TASK-048's placeholder screen widgets for the real implementation the corresponding Wave 4 task shipped, wire the Channel selector's presentation into wherever TASK-050 exposes it from Channels/Talk, confirm the persistent host still survives every destination switch and every screen push/pop (TASK-048's existing branch-preservation test is the pattern to extend, not replace), and confirm no screen accidentally re-imports a transport/floor/audio call now that it is mounted for real (each screen task's own review already checked this in isolation; re-check it holds once composed). This mirrors the TASK-032/033→035→037 and TASK-041/042→043 convergence pattern already used twice in this plan. Do not modify any file under `lib/features/**` — a real defect found in a screen's own territory during wiring is a finding for that task's record, not a fix made here.
 **Acceptance_Criteria:**
-- [ ] Every one of TASK-049/050/051/053/054/055/056's real screen widgets is mounted in the shell in place of TASK-048's placeholder — verified by widget-tree inspection in a test, not by visual inspection alone
-- [ ] Channels is still the default landing destination and Settings is still the other required persistent destination post-wiring (UX-D01/UX-D02) — regression test against TASK-048's own criterion
-- [ ] The persistent host (TASK-045/046's contract) still starts exactly once and survives every destination switch and screen push/pop across all seven newly-wired screens — extend TASK-048's branch-preservation test to cover the real screens, not just placeholders
-- [ ] Channel selector (TASK-050) is reachable from wherever the Design spec's navigation model places it (Channels landing and/or Talk screen) with a real, not placeholder, presentation
-- [ ] No screen widget under `lib/app_shell/**`'s new wiring directly imports a transport/floor/audio/platform API — everything routes through `RadioViewIntents`/`RadioHost` per Technical §5.1
-- [ ] `flutter analyze` clean; full suite green with no regression; `flutter build apk --debug` succeeds; every new regression test revert-mutation-checked
+- [x] Every one of TASK-049/050/051/053/054/055/056's real screen widgets is mounted in the shell in place of TASK-048's placeholder — verified by widget-tree inspection in a test, not by visual inspection alone
+- [x] Channels is still the default landing destination and Settings is still the other required persistent destination post-wiring (UX-D01/UX-D02) — regression test against TASK-048's own criterion
+- [x] The persistent host (TASK-045/046's contract) still starts exactly once and survives every destination switch and screen push/pop across all seven newly-wired screens — extend TASK-048's branch-preservation test to cover the real screens, not just placeholders
+- [x] Channel selector (TASK-050) is reachable from wherever the Design spec's navigation model places it (Channels landing and/or Talk screen) with a real, not placeholder, presentation
+- [x] No screen widget under `lib/app_shell/**`'s new wiring directly imports a transport/floor/audio/platform API — everything routes through `RadioViewIntents`/`RadioHost` per Technical §5.1
+- [x] `flutter analyze` clean; full suite green with no regression; `flutter build apk --debug` succeeds; every new regression test revert-mutation-checked
 **Branch:** task/TASK-052-gb
 **Started_At:** 2026-09-08T12:19:36Z
 **Progress_Notes:**
@@ -3136,6 +3136,28 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 Territory matches expectation (TASK-048 shell, not new files). `test/app_shell/**` is NOT in Owned_Paths — TASK-048's tests assert placeholder copy and will go red when placeholders are swapped; new widget-tree tests also belong there. Implementing the in-territory wiring now; will block OWNERSHIP_CONFLICT for `test/app_shell/**` if the existing suite cannot stay green without editing those tests.
 - [2026-09-08T12:26:49Z] [GB] Wave-4 wiring committed on `task/TASK-052-gb` (`b3d5d91`). Channels → `ChannelsLanding`; Settings → `SettingsScreen`; Talk/selector/Stations/Radio Controls/Event QR pushed from the composition root. Talk's picker/stations `onPressed` are empty no-ops with no callbacks (TASK-051 finding, not fixed here) — shell overlays intercept those hits; Radio Controls gets a visible shell `IconButton` because Talk has no third header button. New wiring imports no transport/floor/audio/platform API. `flutter analyze lib/app_shell` — No issues found. `flutter test test/app_shell` — **8 passed / 8 failed**; all 8 failures are placeholder-copy finders in `test/app_shell/**` (`Current: CH 1 · Code 0`, `Recently tuned`, `PTT`, `Latch`). Cannot retarget those tests or add the criterion-1 widget-tree / criterion-3 branch-preservation extensions: `test/app_shell/**` is outside Owned_Paths, and `flutter_test` files cannot live under `lib/app_shell/**`. Blocking OWNERSHIP_CONFLICT. Exact resume steps (same branch, do not re-claim) are in `dossiers/TASK-052.md`.
 - [2026-09-08T12:35:00Z] [ORCH] OWNERSHIP_CONFLICT resolved: `test/app_shell/**` added to `Owned_Paths` above (a decompose-time miss). `Status` set back to `in_progress`. GB resumes on the SAME branch `task/TASK-052-gb` (`b3d5d91`) — do not re-claim.
+- [2026-09-08T12:48:08Z] [GB] Resumed on `task/TASK-052-gb` after ORCH grant of `test/app_shell/**`. Preflight against master PLAN.md (`--repo E:/DELL-PROJECTS/WALKIETALKIE`):
+```
+[preflight] TASK-052 Owned_Paths inspected in E:/DELL-PROJECTS/WALKIETALKIE
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/app_shell/**  -> 6 file(s):
+           lib/app_shell/app_shell.dart
+           lib/app_shell/channels_screen.dart
+           lib/app_shell/legacy_compat.dart
+           lib/app_shell/mobile_app_shell.dart
+           lib/app_shell/radio_host_provider.dart
+           lib/app_shell/talk_screen.dart
+  GLOB   test/app_shell/**  -> 6 file(s):
+           test/app_shell/app_theme_test.dart
+           test/app_shell/channels_screen_test.dart
+           test/app_shell/fake_radio_host.dart
+           test/app_shell/legacy_compat_test.dart
+           test/app_shell/mobile_app_shell_test.dart
+           test/app_shell/talk_screen_test.dart
+  FILE   dossiers/TASK-052.md  -> exists, 41 line(s), 2167 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shell_routes.dart` live only on this branch. Placeholder finders retargeted; criterion-1 widget-tree and criterion-3 branch-preservation cases added. Overlay hit-targets gained TalkCopy semantics. Tip `7f0d7fa`. → needs_review.
 **Artifacts:**
 - lib/app_shell/shell_keys.dart
 - lib/app_shell/shell_routes.dart
@@ -3143,14 +3165,24 @@ Territory matches expectation (TASK-048 shell, not new files). `test/app_shell/*
 - lib/app_shell/talk_screen.dart
 - lib/app_shell/mobile_app_shell.dart
 - lib/app_shell/app_shell.dart
+- test/app_shell/channels_screen_test.dart
+- test/app_shell/talk_screen_test.dart
+- test/app_shell/mobile_app_shell_test.dart
+- test/app_shell/shell_harness.dart
+- test/app_shell/legacy_compat_test.dart
 - dossiers/TASK-052.md
 **Test_Evidence:**
 - [2026-09-08T12:26:49Z] [GB] `flutter analyze lib/app_shell` — No issues found. Analyzer auto-upgrade of `analysis_options.yaml` reverted, not committed.
 - [2026-09-08T12:26:49Z] [GB] `flutter test test/app_shell` — 8 passed / 8 failed. Failures (all out-of-territory files): channels_screen_test (3: `Current: CH 1 · Code 0`, `Recently tuned`, tap current-channel); talk_screen_test (2: `PTT`, `Latch`; mic-permission cue still passed); mobile_app_shell_test (3: VT-001, re-tap pop, branch-preservation — all tap `Current: CH 1 · Code 0`). Passing: app_theme_test, legacy_compat_test, Channels-is-default, two-destinations, host-started-once, legacy-route-not-linked, KeryxUxTokens-resolves.
+- [2026-09-08T12:48:08Z] [GB] `flutter test test/app_shell` — **22/22 pass**.
+- [2026-09-08T12:48:08Z] [GB] `flutter test` — **1318 passed / 0 failed / 40 skipped** (40 PARKED FR-025 soak seeds unchanged).
+- [2026-09-08T12:48:08Z] [GB] `flutter analyze lib/app_shell test/app_shell` — No issues found. Repo-wide `flutter analyze` — 8 issues, all pre-existing TASK-035 in `test/services/session/radio_session_controller_test.dart`. Analyzer auto-upgrade of `analysis_options.yaml` and `android/gradle.properties` reverted, not committed.
+- [2026-09-08T12:48:08Z] [GB] `flutter build apk --debug` — exit 0, `build/app/outputs/flutter-apk/app-debug.apk` 259,836,438 bytes.
+- [2026-09-08T12:48:08Z] [GB] Revert-mutation (restored after each; `git diff` of `mobile_app_shell.dart` empty of residue): (1) IndexedStack → `[children][_index]` fails branch-preservation (`shell.talk` Expected 1, Actual 0). (2) picker overlay `onTap: () {}` fails picker test (`shell.channel-selector` Found 0). (3) `SettingsScreen` → `BackPanelScreen` fails Wave-4 type test (`SettingsScreen` Found 0).
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-08T12:35:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-08T12:48:08Z
 
 
 ### TASK-053
