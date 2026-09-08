@@ -15,6 +15,7 @@ import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/radio_controls/radio_controls_copy.dart';
 import 'package:keryx/features/radio_controls/radio_controls_screen.dart';
 
+import '../talk/a11y_matrix_support.dart';
 import 'fake_radio_host.dart';
 
 /// A silent, single-device [FloorTransport] that can also be fed an inbound
@@ -50,7 +51,7 @@ void main() {
   late FakeRadioHost host;
   late ProviderContainer container;
 
-  Widget build() {
+  Widget build({Brightness brightness = Brightness.dark}) {
     container = ProviderContainer(
       overrides: <Override>[
         settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
@@ -60,7 +61,7 @@ void main() {
     return UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        theme: keryxUxThemeData(),
+        theme: keryxUxThemeData(brightness: brightness),
         home: RadioControlsScreen(host: host),
       ),
     );
@@ -74,10 +75,14 @@ void main() {
   /// real [FloorEngine] attached — same reasoning as
   /// `talk_screen_test.dart`'s `pumpReady`: the engine only needs to exist
   /// and be disposed at the end, no live session behind it.
-  Future<FloorEngine> pumpReady(WidgetTester tester, {FloorEngine? engine}) async {
+  Future<FloorEngine> pumpReady(
+    WidgetTester tester, {
+    FloorEngine? engine,
+    Brightness brightness = Brightness.dark,
+  }) async {
     final FloorEngine resolved = engine ?? _newEngine().$1;
     host.emit(RadioHostSnapshot(floorEngine: resolved));
-    await tester.pumpWidget(build());
+    await tester.pumpWidget(build(brightness: brightness));
     await tester.pumpAndSettle();
     container.read(radioStateProvider.notifier)
       ..dispatch(const PowerOn())
@@ -416,5 +421,41 @@ void main() {
         engine.dispose();
       },
     );
+  });
+
+  group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
+    testWidgets(
+      'renders without exception across the full responsive matrix '
+      '(320 lp, larger phone, landscape, text scale 2.0)',
+      (tester) async {
+        await expectResponsiveMatrix(tester, (t, size) async {
+          t.view.physicalSize = size;
+          t.view.devicePixelRatio = 1.0;
+          await t.pumpWidget(const SizedBox.shrink());
+          final engine = await pumpReady(t);
+          engine.dispose();
+        });
+      },
+    );
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(dark)', (tester) async {
+      final handle = tester.ensureSemantics();
+      final engine = await pumpReady(tester, brightness: Brightness.dark);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      engine.dispose();
+      handle.dispose();
+    });
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(light)', (tester) async {
+      final handle = tester.ensureSemantics();
+      final engine = await pumpReady(tester, brightness: Brightness.light);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      engine.dispose();
+      handle.dispose();
+    });
   });
 }
