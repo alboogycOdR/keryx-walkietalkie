@@ -3455,7 +3455,7 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 
 ### TASK-058
 **Title:** Full regression pass — successor goldens, integration suite, G4 evidence
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §0 ("Do not delete or weaken a historical test merely because the old UI is retired"), §2 (baseline and test environment — exact commands, versions, counts), §3 (VT-001–VT-005), §4 (VT-010–VT-015), §5 (VT-020–VT-024), §6 (golden fixtures for every significant state, dark and light), §9 gate G4 ("Complete regression suite, analyzer and Android builds passing or documented approved pre-existing exceptions") and G3; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §10 (a development-only compat harness may exist for side-by-side validation), §1 (Tests row — "Preserve historical tests; add successor tests rather than simply deleting failures"); ADR-001 §5 (the 40 PARKED FR-025 soak skips remain skipped and named — not reopened, not silently removed).
@@ -3476,12 +3476,22 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 **Started_At:** 2026-09-08T15:33:10Z
 **Progress_Notes:**
 - [2026-09-08T15:33:10Z] [GB] Claimed TASK-058. Resume check: no GB in_progress/claimed task. Depends_On TASK-057/068/069 all done. Branch task/TASK-058-gb from master. Preflight next, then assemble VT-001–005 against the real shell, map VT-010–024 coverage, and add successor goldens in test/regression/**. No production code.
+- [2026-09-08T15:48:00Z] [GB] Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-058 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   test/regression/**  -> matches nothing yet (new territory)
+  NEW    ops/REGRESSION_UX_R1.md  -> does not exist; parent ops/ exists
+  FILE   dossiers/TASK-058.md  -> exists, 30 line(s), 1419 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches expectation: new `test/regression/**` + new report file; dossier exists. No production directory in Owned_Paths — failures will be findings, not fixes. Implementing VT-001–005 against MobileAppShell, VT-010–024 coverage (assembled re-checks + named covering tests), successor goldens dark+light, G4 evidence. → Status: in_progress.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-08T15:33:10Z
+**Updated_At:** 2026-09-08T15:48:00Z
 
 
 ### TASK-059
