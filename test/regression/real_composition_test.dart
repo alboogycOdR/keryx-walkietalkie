@@ -201,6 +201,87 @@ void main() {
       expect(harness.audioSink!.stopAllCalled, isTrue);
     },
   );
+
+  testWidgets(
+    'on-screen PTT and a simulated notification PTT action both act on the '
+    'same real FloorEngine instance (VT-014, real KeryxRadioHost — closes '
+    "TASK-069's routed gap: no test previously proved the new shell's "
+    'on-screen and notification PTT entry points converge)',
+    (tester) async {
+      final harness = _RealCompositionHarness();
+      await tester.pumpWidget(buildRealApp(harness: harness));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(ChannelsLandingKeys.openTalk));
+      await tester.pumpAndSettle();
+      expect(find.byType(talkui.TalkScreen), findsOneWidget);
+
+      final FloorEngine engine = harness.session!.floorEngine;
+      expect(engine.isTransmitting, isFalse);
+
+      // On-screen PTT: hold the disc.
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+      );
+      await tester.pump();
+      expect(
+        engine.isTransmitting,
+        isTrue,
+        reason: 'on-screen PTT must reach the real, shared FloorEngine',
+      );
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(engine.isTransmitting, isFalse);
+
+      // Simulated notification PTT action (a native toggle, not a hold) —
+      // must land on the exact same FloorEngine instance the on-screen
+      // disc just used, proving the two entry points converge rather than
+      // each owning an independent engine.
+      harness.serviceController!.emitEvent(const RadioServicePttAction());
+      await tester.pumpAndSettle();
+      expect(
+        engine.isTransmitting,
+        isTrue,
+        reason:
+            'notification PTT must toggle the same shared FloorEngine the '
+            'on-screen disc just proved live, not a second instance',
+      );
+
+      harness.serviceController!.emitEvent(const RadioServicePttAction());
+      await tester.pumpAndSettle();
+      expect(engine.isTransmitting, isFalse);
+    },
+  );
+
+  testWidgets(
+    'navigating away from Talk does not stop the native radio service '
+    '(notification PTT action stays reachable) — VT-014',
+    (tester) async {
+      final harness = _RealCompositionHarness();
+      await tester.pumpWidget(buildRealApp(harness: harness));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(ChannelsLandingKeys.openTalk));
+      await tester.pumpAndSettle();
+      expect(harness.serviceController!.isRunning, isTrue);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.serviceController!.isRunning,
+        isTrue,
+        reason:
+            'leaving Talk must not stop the foreground service/notification '
+            '— its PTT action must remain reachable while off-screen',
+      );
+    },
+  );
 }
 
 /// Counts real construction calls and exposes the last-built real
@@ -214,6 +295,7 @@ class _RealCompositionHarness {
   int serviceControllersCreated = 0;
   _RealSessionHost? session;
   _RealAudioSink? audioSink;
+  _RealServiceController? serviceController;
 
   SessionHost sessionFactory({
     required String localPeerId,
@@ -249,7 +331,9 @@ class _RealCompositionHarness {
 
   RadioServiceController radioServiceFactory() {
     serviceControllersCreated++;
-    return _RealServiceController();
+    final controller = _RealServiceController();
+    serviceController = controller;
+    return controller;
   }
 }
 
@@ -371,6 +455,11 @@ class _RealPermissionGate implements FacePermissionGate {
 class _RealServiceController implements RadioServiceController {
   final _events = StreamController<RadioServiceEvent>.broadcast();
   bool _running = false;
+
+  /// Lets a test simulate a native notification-PTT/power-off/kill event
+  /// arriving from the platform channel, exactly as `ChannelRadioServiceController`
+  /// would surface one.
+  void emitEvent(RadioServiceEvent event) => _events.add(event);
 
   @override
   Stream<RadioServiceEvent> get events => _events.stream;
