@@ -3954,7 +3954,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-070
 **Title:** Lock in channel/privacy-code boundary validation with explicit tests
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** CX9
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-020 ("Input validation"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-003 (channel 1-99, code 0-38 validation); TASK-058's round-2 Review_Findings §9.9 (the routed finding this task closes — "no privacy-code boundary (0/38/-1/39) and no channel-99 upper bound tested anywhere, only tune(0,0)").
@@ -3969,10 +3969,23 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
 **Branch:** task/TASK-070-cx9
 **Started_At:** 2026-09-08T19:31:10Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-09-08T19:31:50Z] [CX9] Claimed on task/TASK-070-cx9 from shared master; no prior active CX9 task. Existing grouped tests already cover the requested edges; preserve them and add individually named regressions plus digit-gate coverage. Preflight:
+```
+[preflight] TASK-070 Owned_Paths inspected in E:/DELL-PROJECTS/wt-codex9-WALKIETALKIE
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   test/features/channel_selector/**  -> 4 file(s):
+           test/features/channel_selector/channel_selector_screen_test.dart
+           test/features/channel_selector/channel_validation_test.dart
+           test/features/channel_selector/fake_radio_host.dart
+           test/features/channel_selector/tune_coordinator_test.dart
+  FILE   lib/features/channel_selector/channel_validation.dart  -> exists, 39 line(s), 1639 bytes
+  FILE   dossiers/TASK-070.md  -> exists, 32 line(s), 1506 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX9
-**Updated_At:** 2026-09-08T19:31:10Z
+**Updated_At:** 2026-09-08T19:31:50Z
