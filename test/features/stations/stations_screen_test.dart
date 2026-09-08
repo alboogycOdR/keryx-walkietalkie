@@ -14,6 +14,7 @@ import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/stations/stations.dart';
 import 'package:keryx/services/session/session.dart' show StationInfo;
 
+import '../talk/a11y_matrix_support.dart';
 import 'fake_radio_host.dart';
 
 class SeededRadioStateController extends RadioStateController {
@@ -77,6 +78,7 @@ void main() {
     RadioViewState view, {
     Size surface = const Size(320, 720),
     bool streamFault = false,
+    Brightness brightness = Brightness.dark,
   }) async {
     tester.view.physicalSize = surface;
     tester.view.devicePixelRatio = 1.0;
@@ -85,7 +87,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: keryxUxThemeData(),
+        theme: keryxUxThemeData(brightness: brightness),
         home: StationsView(
           view: view,
           streamFault: streamFault,
@@ -106,6 +108,7 @@ void main() {
     KeryxSettings settings = const KeryxSettings(mode: RadioMode.local),
     RadioHostSnapshot snapshot = const RadioHostSnapshot(),
     Size surface = const Size(320, 720),
+    Brightness brightness = Brightness.dark,
   }) async {
     tester.view.physicalSize = surface;
     tester.view.devicePixelRatio = 1.0;
@@ -130,7 +133,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
-          theme: keryxUxThemeData(),
+          theme: keryxUxThemeData(brightness: brightness),
           home: StationsScreen(
             onScan: () => harness.scanCalls++,
             onExport: () => harness.exportCalls++,
@@ -543,5 +546,61 @@ void main() {
       expect(src.contains('Color(0x'), isFalse, reason: path);
       expect(RegExp(r'\bColors\.').hasMatch(src), isFalse, reason: path);
     }
+  });
+
+  group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
+    testWidgets(
+      'renders without exception across the full responsive matrix '
+      '(320 lp, larger phone, landscape, text scale 2.0)',
+      (tester) async {
+        await expectResponsiveMatrix(tester, (t, size) async {
+          await t.pumpWidget(const SizedBox.shrink());
+          await pumpStations(
+            t,
+            snapshot: const RadioHostSnapshot(
+              stations: <StationInfo>[
+                StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
+                StationInfo(peerId: 'peer-bbb', callsign: 'BRAVO-2'),
+              ],
+            ),
+            surface: size,
+          );
+        });
+      },
+    );
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(dark)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpStations(
+        tester,
+        snapshot: const RadioHostSnapshot(
+          stations: <StationInfo>[
+            StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
+          ],
+        ),
+        brightness: Brightness.dark,
+      );
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(light)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpStations(
+        tester,
+        snapshot: const RadioHostSnapshot(
+          stations: <StationInfo>[
+            StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
+          ],
+        ),
+        brightness: Brightness.light,
+      );
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
   });
 }

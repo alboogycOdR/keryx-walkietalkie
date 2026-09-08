@@ -14,6 +14,7 @@ import 'package:keryx/features/talk/talk_ptt_disc.dart';
 import 'package:keryx/features/talk/talk_screen.dart';
 import 'package:keryx/services/session/session.dart' show StationInfo;
 
+import 'a11y_matrix_support.dart';
 import 'fake_radio_host.dart';
 
 /// A silent, single-device [FloorTransport] — enough to satisfy
@@ -44,7 +45,7 @@ void main() {
   late FakeRadioHost host;
   late ProviderContainer container;
 
-  Widget build({FakeRadioHost? withHost}) {
+  Widget build({FakeRadioHost? withHost, Brightness brightness = Brightness.dark}) {
     host = withHost ?? host;
     container = ProviderContainer(
       overrides: <Override>[
@@ -55,7 +56,7 @@ void main() {
     return UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        theme: keryxUxThemeData(),
+        theme: keryxUxThemeData(brightness: brightness),
         home: TalkScreen(host: host),
       ),
     );
@@ -74,10 +75,14 @@ void main() {
   // "live" for the rest of the test — `addTearDown` fires too late to
   // satisfy `flutter_test`'s pending-timer invariant, which runs before
   // the zone-level teardown queue.
-  Future<void> pumpReady(WidgetTester tester, {FloorEngine? engine}) async {
+  Future<void> pumpReady(
+    WidgetTester tester, {
+    FloorEngine? engine,
+    Brightness brightness = Brightness.dark,
+  }) async {
     final FloorEngine resolved = engine ?? _newEngine();
     host.emit(RadioHostSnapshot(floorEngine: resolved));
-    await tester.pumpWidget(build());
+    await tester.pumpWidget(build(brightness: brightness));
     await tester.pumpAndSettle();
     container.read(radioStateProvider.notifier)
       ..dispatch(const PowerOn())
@@ -787,6 +792,76 @@ void main() {
       await pumpReady(tester);
       expect(tester.takeException(), isNull);
       addTearDown(() => tester.binding.setSurfaceSize(null));
+    });
+
+    testWidgets(
+      'TASK-057: content scrolls instead of overflowing at 320 lp width '
+      'and system text scale 2.0',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        await pumpReady(tester);
+        expect(tester.takeException(), isNull);
+        // The scroll view exists and (at this extreme text scale) the
+        // content genuinely exceeds the viewport, so it must actually be
+        // scrollable rather than merely present.
+        expect(find.byType(SingleChildScrollView), findsOneWidget);
+        // The primary PTT surface must still be reachable by scrolling to
+        // it — not merely rendered off-screen and inaccessible.
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('keryx-talk-ptt-disc')),
+          200,
+        );
+        expect(find.byKey(const Key('keryx-talk-ptt-disc')), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'TASK-057: content renders without overflow in landscape at a small '
+      'height',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(640, 320));
+        await pumpReady(tester);
+        expect(tester.takeException(), isNull);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+      },
+    );
+  });
+
+  group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
+    testWidgets(
+      'renders without exception across the full responsive matrix '
+      '(320 lp, larger phone, landscape, text scale 2.0)',
+      (tester) async {
+        await expectResponsiveMatrix(tester, (t, size) async {
+          t.view.physicalSize = size;
+          t.view.devicePixelRatio = 1.0;
+          await pumpReady(t);
+        });
+      },
+    );
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(dark)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpReady(tester, brightness: Brightness.dark);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(light)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpReady(tester, brightness: Brightness.light);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
     });
   });
 }

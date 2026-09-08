@@ -10,10 +10,23 @@ abstract final class RadioControlsCopy {
   static const String monitorDescription =
       'Hold to open the squelch and listen without transmitting.';
 
+  /// Text-equivalent of the monitor indicator's colour so the open/closed
+  /// state is never colour-only (Design §5; UX-FR-022).
+  static const String monitorOpenState = 'Open';
+  static const String monitorClosedState = 'Closed';
+  static const String monitorHoldTargetHint =
+      'Press and hold to open the squelch; release to close it.';
+
   static const String scanLabel = 'Scan';
   static const String scanDescription = 'Scan the channel for activity.';
 
+  /// Text-equivalent of the scan indicator's colour (Design §5; UX-FR-022).
+  static const String scanningState = 'Scanning';
+  static const String scanIdleState = 'Idle';
+
   static const String emergencyLabel = 'Emergency';
+  static const String emergencyHoldTargetHint =
+      'Press and hold to arm; release early to cancel.';
 
   /// Verification §8: no automatic location transmission, no
   /// emergency-service claim.

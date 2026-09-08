@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/floor/floor.dart';
@@ -13,6 +15,7 @@ import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/radio_controls/radio_controls_copy.dart';
 import 'package:keryx/features/radio_controls/radio_controls_screen.dart';
 
+import '../talk/a11y_matrix_support.dart';
 import 'fake_radio_host.dart';
 
 /// A silent, single-device [FloorTransport] that can also be fed an inbound
@@ -48,7 +51,7 @@ void main() {
   late FakeRadioHost host;
   late ProviderContainer container;
 
-  Widget build() {
+  Widget build({Brightness brightness = Brightness.dark}) {
     container = ProviderContainer(
       overrides: <Override>[
         settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
@@ -58,7 +61,7 @@ void main() {
     return UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        theme: keryxUxThemeData(),
+        theme: keryxUxThemeData(brightness: brightness),
         home: RadioControlsScreen(host: host),
       ),
     );
@@ -72,10 +75,14 @@ void main() {
   /// real [FloorEngine] attached — same reasoning as
   /// `talk_screen_test.dart`'s `pumpReady`: the engine only needs to exist
   /// and be disposed at the end, no live session behind it.
-  Future<FloorEngine> pumpReady(WidgetTester tester, {FloorEngine? engine}) async {
+  Future<FloorEngine> pumpReady(
+    WidgetTester tester, {
+    FloorEngine? engine,
+    Brightness brightness = Brightness.dark,
+  }) async {
     final FloorEngine resolved = engine ?? _newEngine().$1;
     host.emit(RadioHostSnapshot(floorEngine: resolved));
-    await tester.pumpWidget(build());
+    await tester.pumpWidget(build(brightness: brightness));
     await tester.pumpAndSettle();
     container.read(radioStateProvider.notifier)
       ..dispatch(const PowerOn())
@@ -313,5 +320,142 @@ void main() {
         engine.dispose();
       },
     );
+  });
+
+  group('TASK-057 — accessibility and safe-area polish', () {
+    testWidgets('the screen body is wrapped in a SafeArea', (tester) async {
+      final engine = await pumpReady(tester);
+      expect(find.byType(SafeArea), findsWidgets);
+      engine.dispose();
+    });
+
+    testWidgets(
+      'Monitor open/closed state has a text equivalent, not colour alone',
+      (tester) async {
+        final engine = await pumpReady(tester);
+        expect(find.text(RadioControlsCopy.monitorClosedState), findsOneWidget);
+        expect(find.text(RadioControlsCopy.monitorOpenState), findsNothing);
+
+        container.read(radioStateProvider.notifier).dispatch(
+          const MonitorChanged(true),
+        );
+        await tester.pump();
+        expect(find.text(RadioControlsCopy.monitorOpenState), findsOneWidget);
+        expect(find.text(RadioControlsCopy.monitorClosedState), findsNothing);
+        engine.dispose();
+      },
+    );
+
+    testWidgets(
+      'Scan on/off state has a text equivalent, not colour alone',
+      (tester) async {
+        final engine = await pumpReady(tester);
+        expect(find.text(RadioControlsCopy.scanIdleState), findsOneWidget);
+        expect(find.text(RadioControlsCopy.scanningState), findsNothing);
+
+        await tester.tap(find.byKey(RadioControlsKeys.scanSwitch));
+        await tester.pump();
+        expect(find.text(RadioControlsCopy.scanningState), findsOneWidget);
+        expect(find.text(RadioControlsCopy.scanIdleState), findsNothing);
+        engine.dispose();
+      },
+    );
+
+    testWidgets(
+      'the Monitor hold target exposes an explicit toggled Semantics node',
+      (tester) async {
+        final engine = await pumpReady(tester);
+        final SemanticsNode node = tester.getSemantics(
+          find.ancestor(
+            of: find.byKey(RadioControlsKeys.monitorHoldTarget),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(node.flagsCollection.isButton, isTrue);
+        expect(node.flagsCollection.isToggled, Tristate.isFalse);
+
+        container.read(radioStateProvider.notifier).dispatch(
+          const MonitorChanged(true),
+        );
+        await tester.pump();
+        final SemanticsNode nodeAfter = tester.getSemantics(
+          find.ancestor(
+            of: find.byKey(RadioControlsKeys.monitorHoldTarget),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(nodeAfter.flagsCollection.isToggled, Tristate.isTrue);
+        engine.dispose();
+      },
+    );
+
+    testWidgets(
+      'the Emergency hold target exposes an explicit button Semantics node '
+      'that reflects the arming state',
+      (tester) async {
+        final engine = await pumpReady(tester);
+        final SemanticsNode node = tester.getSemantics(
+          find.ancestor(
+            of: find.byKey(RadioControlsKeys.emergencyHoldTarget),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(node.flagsCollection.isButton, isTrue);
+        expect(node.flagsCollection.isToggled, Tristate.isFalse);
+
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(RadioControlsKeys.emergencyHoldTarget)),
+        );
+        await tester.pump();
+        final SemanticsNode armingNode = tester.getSemantics(
+          find.ancestor(
+            of: find.byKey(RadioControlsKeys.emergencyHoldTarget),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(armingNode.flagsCollection.isToggled, Tristate.isTrue);
+        // Release before the arm duration elapses — no activation, and no
+        // dangling timer left running past the test.
+        await gesture.up();
+        await tester.pump();
+        engine.dispose();
+      },
+    );
+  });
+
+  group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
+    testWidgets(
+      'renders without exception across the full responsive matrix '
+      '(320 lp, larger phone, landscape, text scale 2.0)',
+      (tester) async {
+        await expectResponsiveMatrix(tester, (t, size) async {
+          t.view.physicalSize = size;
+          t.view.devicePixelRatio = 1.0;
+          await t.pumpWidget(const SizedBox.shrink());
+          final engine = await pumpReady(t);
+          engine.dispose();
+        });
+      },
+    );
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(dark)', (tester) async {
+      final handle = tester.ensureSemantics();
+      final engine = await pumpReady(tester, brightness: Brightness.dark);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      engine.dispose();
+      handle.dispose();
+    });
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(light)', (tester) async {
+      final handle = tester.ensureSemantics();
+      final engine = await pumpReady(tester, brightness: Brightness.light);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      engine.dispose();
+      handle.dispose();
+    });
   });
 }

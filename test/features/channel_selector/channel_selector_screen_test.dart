@@ -10,6 +10,7 @@ import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/channel_selector/channel_selector_screen.dart';
 
+import '../talk/a11y_matrix_support.dart';
 import 'fake_radio_host.dart';
 
 void main() {
@@ -26,7 +27,7 @@ void main() {
     );
   }
 
-  Widget build() {
+  Widget build({Brightness brightness = Brightness.dark}) {
     container = ProviderContainer(
       overrides: <Override>[settingsStoreProvider.overrideWithValue(store)],
     );
@@ -34,7 +35,7 @@ void main() {
     return UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
-        theme: keryxUxThemeData(),
+        theme: keryxUxThemeData(brightness: brightness),
         home: ChannelSelectorScreen(
           host: host,
           onCancel: () => cancelled = true,
@@ -336,5 +337,106 @@ void main() {
         expect(find.byKey(ChannelSelectorKeys.retryButton), findsNothing);
       },
     );
+  });
+
+  group('TASK-057 — accessibility polish', () {
+    testWidgets(
+      'Cancel and Apply each meet the 48 dp minimum touch target',
+      (tester) async {
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+
+        final Size cancelSize = tester.getSize(
+          find.byKey(ChannelSelectorKeys.cancelButton),
+        );
+        final Size applySize = tester.getSize(
+          find.byKey(ChannelSelectorKeys.applyButton),
+        );
+        expect(cancelSize.height, greaterThanOrEqualTo(48));
+        expect(applySize.height, greaterThanOrEqualTo(48));
+      },
+    );
+
+    testWidgets(
+      'the channel and code fields meet the 48 dp minimum touch target',
+      (tester) async {
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+
+        final Size channelSize = tester.getSize(
+          find.byKey(ChannelSelectorKeys.channelField),
+        );
+        final Size codeSize = tester.getSize(
+          find.byKey(ChannelSelectorKeys.codeField),
+        );
+        expect(channelSize.height, greaterThanOrEqualTo(48));
+        expect(codeSize.height, greaterThanOrEqualTo(48));
+      },
+    );
+
+    testWidgets(
+      'transport-failure feedback is announced as a live region',
+      (tester) async {
+        host.autoResult = const TuneResult.transportFailure('offline');
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byKey(ChannelSelectorKeys.channelField),
+          '7',
+        );
+        await tester.enterText(
+          find.byKey(ChannelSelectorKeys.codeField),
+          '5',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(ChannelSelectorKeys.applyButton));
+        await tester.pumpAndSettle();
+
+        final Semantics semantics = tester.widget<Semantics>(
+          find.descendant(
+            of: find.byKey(ChannelSelectorKeys.feedback),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(semantics.properties.liveRegion, isTrue);
+      },
+    );
+  });
+
+  group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
+    testWidgets(
+      'renders without exception across the full responsive matrix '
+      '(320 lp, larger phone, landscape, text scale 2.0)',
+      (tester) async {
+        await expectResponsiveMatrix(tester, (t, size) async {
+          t.view.physicalSize = size;
+          t.view.devicePixelRatio = 1.0;
+          await t.pumpWidget(const SizedBox.shrink());
+          await t.pumpWidget(build());
+          await t.pumpAndSettle();
+        });
+      },
+    );
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(dark)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(build(brightness: Brightness.dark));
+      await tester.pumpAndSettle();
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(light)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(build(brightness: Brightness.light));
+      await tester.pumpAndSettle();
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
   });
 }

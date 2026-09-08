@@ -214,36 +214,46 @@ class _ChannelSelectorScreenState
             Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    key: ChannelSelectorKeys.channelField,
-                    controller: _channelController,
-                    enabled: !_coordinator.isBusy,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(2),
-                    ],
-                    decoration: const InputDecoration(
-                      labelText: ChannelSelectorCopy.channelFieldLabel,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: KeryxUxSpacing.minTarget,
                     ),
-                    onChanged: (_) => setState(() {}),
+                    child: TextField(
+                      key: ChannelSelectorKeys.channelField,
+                      controller: _channelController,
+                      enabled: !_coordinator.isBusy,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(2),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: ChannelSelectorCopy.channelFieldLabel,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: TextField(
-                    key: ChannelSelectorKeys.codeField,
-                    controller: _codeController,
-                    enabled: !_coordinator.isBusy,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(2),
-                    ],
-                    decoration: const InputDecoration(
-                      labelText: ChannelSelectorCopy.codeFieldLabel,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: KeryxUxSpacing.minTarget,
                     ),
-                    onChanged: (_) => setState(() {}),
+                    child: TextField(
+                      key: ChannelSelectorKeys.codeField,
+                      controller: _codeController,
+                      enabled: !_coordinator.isBusy,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(2),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: ChannelSelectorCopy.codeFieldLabel,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
                   ),
                 ),
               ],
@@ -252,18 +262,24 @@ class _ChannelSelectorScreenState
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton(
-                    key: ChannelSelectorKeys.cancelButton,
-                    onPressed: widget.onCancel,
-                    child: const Text(ChannelSelectorCopy.cancel),
+                  child: SizedBox(
+                    height: KeryxUxSpacing.minTarget,
+                    child: OutlinedButton(
+                      key: ChannelSelectorKeys.cancelButton,
+                      onPressed: widget.onCancel,
+                      child: const Text(ChannelSelectorCopy.cancel),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton(
-                    key: ChannelSelectorKeys.applyButton,
-                    onPressed: canApply ? _handleApply : null,
-                    child: const Text(ChannelSelectorCopy.apply),
+                  child: SizedBox(
+                    height: KeryxUxSpacing.minTarget,
+                    child: FilledButton(
+                      key: ChannelSelectorKeys.applyButton,
+                      onPressed: canApply ? _handleApply : null,
+                      child: const Text(ChannelSelectorCopy.apply),
+                    ),
                   ),
                 ),
               ],
@@ -292,13 +308,18 @@ class _ChannelSelectorScreenState
                     entry.privacyCode,
                   ),
                   color: tokens.surfaceCard,
-                  child: ListTile(
-                    enabled: !_coordinator.isBusy,
-                    title: Text(
-                      formatChannelCode(entry.channel, entry.privacyCode),
-                      style: TextStyle(color: tokens.textPrimary),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: KeryxUxSpacing.minTarget,
                     ),
-                    onTap: () => _handleRecentTap(entry),
+                    child: ListTile(
+                      enabled: !_coordinator.isBusy,
+                      title: Text(
+                        formatChannelCode(entry.channel, entry.privacyCode),
+                        style: TextStyle(color: tokens.textPrimary),
+                      ),
+                      onTap: () => _handleRecentTap(entry),
+                    ),
                   ),
                 ),
               ),
@@ -324,16 +345,22 @@ class _ChannelSelectorScreenState
     return Padding(
       key: ChannelSelectorKeys.feedback,
       padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Expanded(child: Text(message, style: TextStyle(color: color))),
-          if (outcome.kind == TuneOutcomeKind.retryableFailure)
-            TextButton(
-              key: ChannelSelectorKeys.retryButton,
-              onPressed: _handleRetry,
-              child: const Text(ChannelSelectorCopy.retry),
-            ),
-        ],
+      child: Semantics(
+        liveRegion: true,
+        child: Row(
+          children: [
+            Expanded(child: Text(message, style: TextStyle(color: color))),
+            if (outcome.kind == TuneOutcomeKind.retryableFailure)
+              SizedBox(
+                height: KeryxUxSpacing.minTarget,
+                child: TextButton(
+                  key: ChannelSelectorKeys.retryButton,
+                  onPressed: _handleRetry,
+                  child: const Text(ChannelSelectorCopy.retry),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -244,7 +244,8 @@ class _RadioControlsScreenState extends ConsumerState<RadioControlsScreen> {
         foregroundColor: tokens.textPrimary,
         elevation: 0,
       ),
-      body: ListView(
+      body: SafeArea(
+        child: ListView(
         padding: const EdgeInsets.all(KeryxUxSpacing.pageMargin),
         children: <Widget>[
           _MonitorRow(
@@ -273,6 +274,7 @@ class _RadioControlsScreenState extends ConsumerState<RadioControlsScreen> {
             onClear: _clearEmergency,
           ),
         ],
+        ),
       ),
     );
   }
@@ -379,32 +381,48 @@ class _MonitorRow extends StatelessWidget {
                 Icons.hearing,
                 color: active ? tokens.stateRx : tokens.textSecondary,
               ),
+              const SizedBox(width: 4),
+              Text(
+                active
+                    ? RadioControlsCopy.monitorOpenState
+                    : RadioControlsCopy.monitorClosedState,
+                style: KeryxUxTypography.compact.copyWith(
+                  color: active ? tokens.stateRx : tokens.textSecondary,
+                ),
+              ),
               const SizedBox(width: KeryxUxSpacing.controlGap),
-              Listener(
-                key: RadioControlsKeys.monitorHoldTarget,
-                onPointerDown: eligible ? (_) => onHoldStart() : null,
-                onPointerUp: eligible ? (_) => onHoldEnd() : null,
-                onPointerCancel: eligible ? (_) => onHoldEnd() : null,
-                child: Container(
-                  width: KeryxUxSpacing.minTarget,
-                  height: KeryxUxSpacing.minTarget,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: active ? tokens.stateRx : tokens.surfaceRaised,
-                    border: Border.all(
-                      color: eligible
-                          ? tokens.borderDefault
-                          : tokens.borderDefault.withValues(alpha: 0.4),
+              Semantics(
+                button: true,
+                enabled: eligible,
+                toggled: active,
+                label: RadioControlsCopy.monitorLabel,
+                hint: RadioControlsCopy.monitorHoldTargetHint,
+                child: Listener(
+                  key: RadioControlsKeys.monitorHoldTarget,
+                  onPointerDown: eligible ? (_) => onHoldStart() : null,
+                  onPointerUp: eligible ? (_) => onHoldEnd() : null,
+                  onPointerCancel: eligible ? (_) => onHoldEnd() : null,
+                  child: Container(
+                    width: KeryxUxSpacing.minTarget,
+                    height: KeryxUxSpacing.minTarget,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: active ? tokens.stateRx : tokens.surfaceRaised,
+                      border: Border.all(
+                        color: eligible
+                            ? tokens.borderDefault
+                            : tokens.borderDefault.withValues(alpha: 0.4),
+                      ),
                     ),
-                  ),
-                  child: Icon(
-                    Icons.radio_button_on,
-                    color: eligible
-                        ? tokens.palette.contrastingOn(
-                            active ? tokens.stateRx : tokens.surfaceRaised,
-                          )
-                        : tokens.textSecondary.withValues(alpha: 0.5),
+                    child: Icon(
+                      Icons.radio_button_on,
+                      color: eligible
+                          ? tokens.palette.contrastingOn(
+                              active ? tokens.stateRx : tokens.surfaceRaised,
+                            )
+                          : tokens.textSecondary.withValues(alpha: 0.5),
+                    ),
                   ),
                 ),
               ),
@@ -471,12 +489,24 @@ class _ScanRow extends StatelessWidget {
                 Icons.search,
                 color: active ? tokens.stateRx : tokens.textSecondary,
               ),
+              const SizedBox(width: 4),
+              Text(
+                active
+                    ? RadioControlsCopy.scanningState
+                    : RadioControlsCopy.scanIdleState,
+                style: KeryxUxTypography.compact.copyWith(
+                  color: active ? tokens.stateRx : tokens.textSecondary,
+                ),
+              ),
               const SizedBox(width: KeryxUxSpacing.controlGap),
-              Switch(
-                key: RadioControlsKeys.scanSwitch,
-                value: active,
-                onChanged: eligible ? (_) => onTap() : null,
-                activeThumbColor: tokens.stateRx,
+              Semantics(
+                label: RadioControlsCopy.scanLabel,
+                child: Switch(
+                  key: RadioControlsKeys.scanSwitch,
+                  value: active,
+                  onChanged: eligible ? (_) => onTap() : null,
+                  activeThumbColor: tokens.stateRx,
+                ),
               ),
             ],
           ),
@@ -595,35 +625,43 @@ class _EmergencyRow extends StatelessWidget {
               ],
             )
           else
-            Listener(
-              key: RadioControlsKeys.emergencyHoldTarget,
-              onPointerDown: (_) => onArmStart(),
-              onPointerUp: (_) => onArmCancel(),
-              onPointerCancel: (_) => onArmCancel(),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: KeryxUxSpacing.cardSpacing,
-                  vertical: KeryxUxSpacing.controlGap,
-                ),
-                decoration: BoxDecoration(
-                  color: arming ? emergencyColor : tokens.surfaceRaised,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: emergencyColor),
-                ),
-                constraints: const BoxConstraints(
-                  minHeight: KeryxUxSpacing.minTarget,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  arming
-                      ? RadioControlsCopy.emergencyArmingHint
-                      : RadioControlsCopy.emergencyLabel,
-                  key: arming ? RadioControlsKeys.emergencyArming : null,
-                  style: KeryxUxTypography.body.copyWith(
-                    color: arming
-                        ? tokens.palette.contrastingOn(emergencyColor)
-                        : emergencyColor,
-                    fontWeight: FontWeight.w600,
+            Semantics(
+              button: true,
+              enabled: true,
+              toggled: arming,
+              label: RadioControlsCopy.emergencyLabel,
+              hint: RadioControlsCopy.emergencyHoldTargetHint,
+              child: Listener(
+                key: RadioControlsKeys.emergencyHoldTarget,
+                onPointerDown: (_) => onArmStart(),
+                onPointerUp: (_) => onArmCancel(),
+                onPointerCancel: (_) => onArmCancel(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: KeryxUxSpacing.cardSpacing,
+                    vertical: KeryxUxSpacing.controlGap,
+                  ),
+                  decoration: BoxDecoration(
+                    color: arming ? emergencyColor : tokens.surfaceRaised,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: emergencyColor),
+                  ),
+                  constraints: const BoxConstraints(
+                    minHeight: KeryxUxSpacing.minTarget,
+                    minWidth: KeryxUxSpacing.minTarget,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    arming
+                        ? RadioControlsCopy.emergencyArmingHint
+                        : RadioControlsCopy.emergencyLabel,
+                    key: arming ? RadioControlsKeys.emergencyArming : null,
+                    style: KeryxUxTypography.body.copyWith(
+                      color: arming
+                          ? tokens.palette.contrastingOn(emergencyColor)
+                          : emergencyColor,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),

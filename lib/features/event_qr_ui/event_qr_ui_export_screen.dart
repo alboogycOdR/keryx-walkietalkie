@@ -40,20 +40,31 @@ class EventQrUiExportScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text(EventQrUiCopy.exportTitle, key: EventQrUiExportKeys.title)),
-      body: Padding(
-        padding: const EdgeInsets.all(KeryxUxSpacing.pageMargin),
-        child: _body(settings, radioState, tokens),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(KeryxUxSpacing.pageMargin),
+          // TASK-057 round 2: the embedded `EventQrExportScreen` (frozen
+          // legacy territory, `lib/features/event_qr/**` — not edited here,
+          // ADR-001 §6) has a fixed-height Column that genuinely overflows
+          // at a small landscape height (reproduced by the responsive-
+          // matrix test). Scrolling at this wrapper layer fixes the
+          // clipping without touching the frozen widget's own layout.
+          child: SingleChildScrollView(
+            child: _body(settings, radioState, tokens),
+          ),
+        ),
       ),
     );
   }
 
   Widget _body(KeryxSettings? settings, RadioState radioState, KeryxUxTokens tokens) {
     if (settings == null) {
-      return _unavailable(EventQrUiCopy.exportSettingsUnavailable);
+      return _unavailable(EventQrUiCopy.exportSettingsUnavailable, tokens);
     }
     if (radioState.isPrivate) {
       return _unavailable(
         EventQrUiCopy.keyedExportUnavailableBody,
+        tokens,
         title: EventQrUiCopy.keyedExportUnavailableTitle,
       );
     }
@@ -69,18 +80,33 @@ class EventQrUiExportScreen extends ConsumerWidget {
     );
   }
 
-  Widget _unavailable(String body, {String? title}) {
-    return Center(
-      key: EventQrUiExportKeys.unavailable,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (title != null) ...[
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: KeryxUxSpacing.controlGap),
+  Widget _unavailable(String body, KeryxUxTokens tokens, {String? title}) {
+    return Semantics(
+      liveRegion: true,
+      label: title ?? body,
+      child: Center(
+        key: EventQrUiExportKeys.unavailable,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (title != null) ...[
+              Text(
+                title,
+                style: KeryxUxTypography.sectionTitle.copyWith(
+                  color: tokens.textPrimary,
+                ),
+              ),
+              const SizedBox(height: KeryxUxSpacing.controlGap),
+            ],
+            Text(
+              body,
+              textAlign: TextAlign.center,
+              style: KeryxUxTypography.body.copyWith(
+                color: tokens.textSecondary,
+              ),
+            ),
           ],
-          Text(body, textAlign: TextAlign.center),
-        ],
+        ),
       ),
     );
   }

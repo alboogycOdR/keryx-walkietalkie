@@ -186,17 +186,27 @@ class _EventQrUiScanScreenState extends ConsumerState<EventQrUiScanScreen> {
     final tokens = KeryxUxTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text(EventQrUiCopy.scanTitle, key: EventQrUiScanKeys.title)),
-      body: Padding(
-        padding: const EdgeInsets.all(KeryxUxSpacing.pageMargin),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(child: _buildBody(tokens)),
-            if (_message != null) ...[
-              const SizedBox(height: KeryxUxSpacing.cardSpacing),
-              Text(_message!),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(KeryxUxSpacing.pageMargin),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _buildBody(tokens)),
+              if (_message != null) ...[
+                const SizedBox(height: KeryxUxSpacing.cardSpacing),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    _message!,
+                    style: KeryxUxTypography.secondary.copyWith(
+                      color: tokens.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -252,10 +262,13 @@ class _EventQrUiScanScreenState extends ConsumerState<EventQrUiScanScreen> {
           Text(body, textAlign: TextAlign.center),
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: KeryxUxSpacing.cardSpacing),
-            ElevatedButton(
-              key: EventQrUiScanKeys.permissionAction,
-              onPressed: onAction,
-              child: Text(actionLabel),
+            SizedBox(
+              height: KeryxUxSpacing.minTarget,
+              child: ElevatedButton(
+                key: EventQrUiScanKeys.permissionAction,
+                onPressed: onAction,
+                child: Text(actionLabel),
+              ),
             ),
           ],
         ],

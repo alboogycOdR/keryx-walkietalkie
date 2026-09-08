@@ -13,6 +13,7 @@ import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/channels/channels.dart';
 import 'package:keryx/services/session/session.dart' show StationInfo;
 
+import '../talk/a11y_matrix_support.dart';
 import 'fake_radio_host.dart';
 
 class SeededRadioStateController extends RadioStateController {
@@ -47,6 +48,7 @@ void main() {
     KeryxSettings settings = const KeryxSettings(mode: RadioMode.auto),
     bool includeNav = true,
     Size surface = const Size(320, 720),
+    Brightness brightness = Brightness.dark,
   }) async {
     tester.view.physicalSize = surface;
     tester.view.devicePixelRatio = 1.0;
@@ -70,7 +72,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
-          theme: keryxUxThemeData(),
+          theme: keryxUxThemeData(brightness: brightness),
           home: ChannelsLanding(
             onOpenTalk: () => harness.openTalkCalls++,
             onSelectChannel: () => harness.selectChannelCalls++,
@@ -419,6 +421,40 @@ void main() {
     },
   );
 
+  testWidgets(
+    'TASK-057: the current-channel card exposes an explicit button label, '
+    'not just visible text a screen reader has to piece together',
+    (WidgetTester tester) async {
+      await pumpLanding(
+        tester,
+        radio: const RadioState(
+          phase: RadioPhase.idle,
+          mode: RadioMode.local,
+          channel: 4,
+          privacyCode: 8,
+        ),
+      );
+
+      final Iterable<Semantics> candidates = tester
+          .widgetList<Semantics>(
+            find.descendant(
+              of: find.byKey(ChannelsLandingKeys.currentCard),
+              matching: find.byWidgetPredicate((w) => w is Semantics),
+            ),
+          )
+          .where((s) => s.properties.label != null);
+      expect(candidates, isNotEmpty);
+      expect(
+        candidates.any(
+          (s) =>
+              s.properties.label!.contains('CH 04') &&
+              s.properties.label!.contains('open Talk'),
+        ),
+        isTrue,
+      );
+    },
+  );
+
   test('no literal colour values in the landing (Design §3.2)', () {
     const List<String> paths = <String>[
       'lib/features/channels/channels_landing.dart',
@@ -431,5 +467,41 @@ void main() {
       expect(src.contains('Color(0x'), isFalse, reason: path);
       expect(RegExp(r'\bColors\.').hasMatch(src), isFalse, reason: path);
     }
+  });
+
+  group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
+    testWidgets(
+      'renders without exception across the full responsive matrix '
+      '(320 lp, larger phone, landscape, text scale 2.0)',
+      (tester) async {
+        await expectResponsiveMatrix(tester, (t, size) async {
+          // Fully unmount between cases: `pumpLanding` builds a fresh
+          // harness (and thus a new `watchChannel` closure) each call,
+          // which trips ChannelsLanding's own "same callback across
+          // rebuilds" invariant if the previous tree is merely updated in
+          // place rather than replaced.
+          await t.pumpWidget(const SizedBox.shrink());
+          await pumpLanding(t, surface: size);
+        });
+      },
+    );
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(dark)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpLanding(tester, brightness: Brightness.dark);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(light)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpLanding(tester, brightness: Brightness.light);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
   });
 }

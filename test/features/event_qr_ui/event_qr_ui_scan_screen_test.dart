@@ -5,11 +5,13 @@ import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
+import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/event_qr/event_qr.dart';
 import 'package:keryx/features/event_qr_ui/event_qr_permission_gate.dart';
 import 'package:keryx/features/event_qr_ui/event_qr_ui_copy.dart';
 import 'package:keryx/features/event_qr_ui/event_qr_ui_scan_screen.dart';
 
+import '../talk/a11y_matrix_support.dart';
 import 'fake_permission_gate.dart';
 import 'fake_radio_host.dart';
 
@@ -55,7 +57,10 @@ void main() {
   late FakePermissionGate permissionGate;
   late ProviderContainer container;
 
-  Future<Widget> build({KeryxSettings? settings}) async {
+  Future<Widget> build({
+    KeryxSettings? settings,
+    Brightness brightness = Brightness.dark,
+  }) async {
     final store = InMemorySettingsStore();
     if (settings != null) {
       await SettingsRepository(store).save(settings);
@@ -68,6 +73,7 @@ void main() {
       container: container,
       child: MaterialApp(
         navigatorKey: GlobalKey<NavigatorState>(),
+        theme: keryxUxThemeData(brightness: brightness),
         home: EventQrUiScanScreen(
           host: host,
           permissionGate: permissionGate,
@@ -267,6 +273,86 @@ void main() {
       // Same key (not remounted with a new scan generation) — malformed
       // scans are non-terminal, so the scanner keeps running as-is.
       expect(find.byType(_FakeScanner).evaluate().single.widget.key, keyBefore);
+    });
+  });
+
+  group('TASK-057 — accessibility polish', () {
+    testWidgets('the screen body is wrapped in a SafeArea', (tester) async {
+      permissionGate = FakePermissionGate(initial: EventQrPermissionState.denied);
+      await tester.pumpWidget(await build());
+      await settle(tester);
+      expect(find.byType(SafeArea), findsWidgets);
+    });
+
+    testWidgets(
+      'the permission grant-access action meets the 48 dp minimum target',
+      (tester) async {
+        permissionGate = FakePermissionGate(initial: EventQrPermissionState.denied);
+        await tester.pumpWidget(await build());
+        await settle(tester);
+
+        final Size size = tester.getSize(
+          find.ancestor(
+            of: find.byKey(EventQrUiScanKeys.permissionAction),
+            matching: find.byType(SizedBox),
+          ).first,
+        );
+        expect(size.height, greaterThanOrEqualTo(48));
+      },
+    );
+
+    testWidgets('the invalid/expired feedback message is a live region', (
+      tester,
+    ) async {
+      await tester.pumpWidget(await build());
+      await settle(tester);
+
+      await tester.tap(find.byKey(const Key('fake-scanner.malformed')));
+      await tester.pumpAndSettle();
+
+      final Semantics semantics = tester.widget<Semantics>(
+        find.ancestor(
+          of: find.text(EventQrUiCopy.scanInvalid),
+          matching: find.byWidgetPredicate((w) => w is Semantics),
+        ).first,
+      );
+      expect(semantics.properties.liveRegion, isTrue);
+    });
+  });
+
+  group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
+    testWidgets(
+      'renders without exception across the full responsive matrix '
+      '(320 lp, larger phone, landscape, text scale 2.0)',
+      (tester) async {
+        await expectResponsiveMatrix(tester, (t, size) async {
+          t.view.physicalSize = size;
+          t.view.devicePixelRatio = 1.0;
+          await t.pumpWidget(const SizedBox.shrink());
+          await t.pumpWidget(await build());
+          await settle(t);
+        });
+      },
+    );
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(dark)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(await build(brightness: Brightness.dark));
+      await settle(tester);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(light)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(await build(brightness: Brightness.light));
+      await settle(tester);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
     });
   });
 }

@@ -12,6 +12,7 @@ import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/settings/settings.dart';
 
 import '../../core/identity/memory_identity_store.dart';
+import '../talk/a11y_matrix_support.dart';
 import 'fake_radio_host.dart';
 
 class SeededRadioStateController extends RadioStateController {
@@ -45,8 +46,10 @@ void main() {
     ),
     SettingsConfirm? confirm,
     bool useProductionConfirm = false,
+    Size surface = const Size(800, 3600),
+    Brightness brightness = Brightness.dark,
   }) async {
-    tester.view.physicalSize = const Size(800, 3600);
+    tester.view.physicalSize = surface;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -71,7 +74,7 @@ void main() {
           radioStateProvider.overrideWith(() => radio),
         ],
         child: MaterialApp(
-          theme: keryxUxThemeData(),
+          theme: keryxUxThemeData(brightness: brightness),
           home: SettingsScreen(
             identityRepository: IdentityRepository(identityStore),
             confirm: useProductionConfirm
@@ -373,5 +376,69 @@ void main() {
       await AppearanceStore(store).load(),
       const AppearancePreference(theme: AppearanceTheme.light),
     );
+  });
+
+  group('TASK-057 — accessibility polish', () {
+    testWidgets(
+      'the callsign text field carries an explicit accessible label, not '
+      'just a visually-adjacent one',
+      (tester) async {
+        await pumpSettings(tester);
+        final Semantics semantics = tester.widget<Semantics>(
+          find.descendant(
+            of: find.byKey(SettingsKeys.callsign),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(semantics.properties.label, contains('Callsign'));
+      },
+    );
+
+    testWidgets(
+      'the squelch stepper value announces which setting it belongs to',
+      (tester) async {
+        await pumpSettings(tester);
+        final Semantics semantics = tester.widget<Semantics>(
+          find.descendant(
+            of: find.byKey(SettingsKeys.squelch),
+            matching: find.byWidgetPredicate(
+              (w) => w is Semantics && (w.properties.label ?? '').contains('Squelch,'),
+            ),
+          ),
+        );
+        expect(semantics.properties.label, contains('Squelch,'));
+      },
+    );
+  });
+
+  group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
+    testWidgets(
+      'renders without exception across the full responsive matrix '
+      '(320 lp, larger phone, landscape, text scale 2.0)',
+      (tester) async {
+        await expectResponsiveMatrix(tester, (t, size) async {
+          await t.pumpWidget(const SizedBox.shrink());
+          await pumpSettings(t, surface: size);
+        });
+      },
+    );
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(dark)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpSettings(tester, brightness: Brightness.dark);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
+
+    testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
+        '(light)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpSettings(tester, brightness: Brightness.light);
+      await expectRenderedContrast(tester);
+      await expectTapTargets(tester);
+      handle.dispose();
+    });
   });
 }
