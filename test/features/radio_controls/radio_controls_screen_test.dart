@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -365,8 +366,8 @@ void main() {
             matching: find.byWidgetPredicate((w) => w is Semantics),
           ).first,
         );
-        expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
-        expect(node.hasFlag(SemanticsFlag.isToggled), isFalse);
+        expect(node.flagsCollection.isButton, isTrue);
+        expect(node.flagsCollection.isToggled, Tristate.isFalse);
 
         container.read(radioStateProvider.notifier).dispatch(
           const MonitorChanged(true),
@@ -378,7 +379,7 @@ void main() {
             matching: find.byWidgetPredicate((w) => w is Semantics),
           ).first,
         );
-        expect(nodeAfter.hasFlag(SemanticsFlag.isToggled), isTrue);
+        expect(nodeAfter.flagsCollection.isToggled, Tristate.isTrue);
         engine.dispose();
       },
     );
@@ -394,8 +395,8 @@ void main() {
             matching: find.byWidgetPredicate((w) => w is Semantics),
           ).first,
         );
-        expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
-        expect(node.hasFlag(SemanticsFlag.isToggled), isFalse);
+        expect(node.flagsCollection.isButton, isTrue);
+        expect(node.flagsCollection.isToggled, Tristate.isFalse);
 
         final gesture = await tester.startGesture(
           tester.getCenter(find.byKey(RadioControlsKeys.emergencyHoldTarget)),
@@ -407,7 +408,7 @@ void main() {
             matching: find.byWidgetPredicate((w) => w is Semantics),
           ).first,
         );
-        expect(armingNode.hasFlag(SemanticsFlag.isToggled), isTrue);
+        expect(armingNode.flagsCollection.isToggled, Tristate.isTrue);
         // Release before the arm duration elapses — no activation, and no
         // dangling timer left running past the test.
         await gesture.up();
