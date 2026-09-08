@@ -2,13 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/floor/floor_engine.dart';
 import 'package:keryx/core/settings/settings_model.dart';
 import 'package:keryx/core/state/radio_state.dart';
-import 'package:keryx/services/linked/linked.dart';
-import 'package:keryx/services/mesh/mesh.dart';
 import 'package:keryx/services/session/radio_session_controller.dart';
-
-// Enums used in tests
-const _characterDspLight = CharacterDspIntensity.light;
-const _dimModeAuto = DimMode.auto;
 
 void main() {
   setUpAll(() {
@@ -18,8 +12,6 @@ void main() {
 
   group('RadioSessionController', () {
     late KeryxSettings settingsLocal;
-    late KeryxSettings settingsAuto;
-    late KeryxSettings settingsLinked;
     late List<RadioEvent> dispatchedEvents;
 
     setUp(() {
@@ -39,33 +31,6 @@ void main() {
         dimMode: DimMode.auto,
       );
 
-      settingsAuto = const KeryxSettings(
-        region: 'US',
-        squelchLevel: 5,
-        totSeconds: 120,
-        busyLockout: false,
-        latchMode: false,
-        forceLocalOnly: false,
-        mode: RadioMode.auto,
-        relayUrl: '',
-        tokenServiceUrl: '',
-        characterDspIntensity: CharacterDspIntensity.light,
-        dimMode: DimMode.auto,
-      );
-
-      settingsLinked = const KeryxSettings(
-        region: 'US',
-        squelchLevel: 5,
-        totSeconds: 120,
-        busyLockout: false,
-        latchMode: false,
-        forceLocalOnly: false,
-        mode: RadioMode.linked,
-        relayUrl: 'wss://relay.example',
-        tokenServiceUrl: 'https://relay.example/token-svc',
-        characterDspIntensity: CharacterDspIntensity.light,
-        dimMode: DimMode.auto,
-      );
     });
 
     // Criterion 2: Composed floor engine — verify engine exists and is accessible
@@ -108,7 +73,7 @@ void main() {
 
     // Criterion 3: Mode matrix (8 cases)
     group('mode matrix', () {
-      Future<void> _testMode({
+      Future<void> testMode({
         required RadioMode mode,
         required bool forceLocalOnly,
         required String relayUrl,
@@ -159,7 +124,7 @@ void main() {
       }
 
       test('local mode → LOCAL only', () async {
-        await _testMode(
+        await testMode(
           mode: RadioMode.local,
           forceLocalOnly: false,
           relayUrl: 'wss://relay.example',
@@ -168,7 +133,7 @@ void main() {
       });
 
       test('local mode + forceLocalOnly → LOCAL only', () async {
-        await _testMode(
+        await testMode(
           mode: RadioMode.local,
           forceLocalOnly: true,
           relayUrl: 'wss://relay.example',
@@ -177,7 +142,7 @@ void main() {
       });
 
       test('auto mode + no relay → LOCAL only', () async {
-        await _testMode(
+        await testMode(
           mode: RadioMode.auto,
           forceLocalOnly: false,
           relayUrl: '',
@@ -186,7 +151,7 @@ void main() {
       });
 
       test('auto mode + no relay + forceLocalOnly → LOCAL only', () async {
-        await _testMode(
+        await testMode(
           mode: RadioMode.auto,
           forceLocalOnly: true,
           relayUrl: '',
@@ -195,7 +160,7 @@ void main() {
       });
 
       test('forceLocalOnly=true prevents LINKED even in linked mode', () async {
-        await _testMode(
+        await testMode(
           mode: RadioMode.linked,
           forceLocalOnly: true,
           relayUrl: 'wss://relay.example',
@@ -342,6 +307,10 @@ void main() {
 
         await controller.start();
         final engine1 = controller.floorEngine;
+        // Pre-retune engine must itself be valid, so a post-retune comparison
+        // means something rather than checking a fresh engine against nothing.
+        expect(engine1, isNotNull);
+        expect(engine1, isA<FloorEngine>());
 
         await controller.retune(channel: 2, code: 5);
         final engine2 = controller.floorEngine;
