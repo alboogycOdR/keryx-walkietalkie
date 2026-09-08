@@ -3954,7 +3954,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-070
 **Title:** Lock in channel/privacy-code boundary validation with explicit tests
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX9
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-020 ("Input validation"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-003 (channel 1-99, code 0-38 validation); TASK-058's round-2 Review_Findings §9.9 (the routed finding this task closes — "no privacy-code boundary (0/38/-1/39) and no channel-99 upper bound tested anywhere, only tune(0,0)").
@@ -3962,11 +3962,11 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 **Depends_On:** —
 **Description:** **ORCH-created 2026-09-09, a routed finding from TASK-058's review.** `ChannelInputValidation` (`lib/features/channel_selector/channel_validation.dart`, read directly by ORCH before creating this task) already appears to handle boundaries correctly by construction: a `^\d+$` regex rejects any negative sign outright before parsing, and `_parseInRange` rejects anything outside `[min, max]`. No production defect is known or assumed — this task's job is to add the explicit boundary tests VT-020 requires (channel 1/99/100/0, privacy code 0/38/39/-1-as-text, non-numeric, empty) and confirm the existing logic is genuinely correct at every edge, not just in the middle of its range. **If a real defect is found at a boundary, fix it narrowly in `channel_validation.dart` (the one production file this task may touch) and document exactly what was wrong — do not expand scope beyond the validation function itself.**
 **Acceptance_Criteria:**
-- [ ] Explicit tests cover channel boundaries: 1 (min, valid), 99 (max, valid), 0 (invalid, below min), 100 (invalid, above max)
-- [ ] Explicit tests cover privacy-code boundaries: 0 (min, valid), 38 (max, valid), "-1" (invalid — confirm rejected as non-digit input, not a negative int), 39 (invalid, above max)
-- [ ] Existing non-numeric/empty/malformed-input tests (if any) are preserved, not replaced
-- [ ] If a real boundary defect is found, it is fixed narrowly in `channel_validation.dart` only, with the defect and fix documented in the dossier
-- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+- [x] Explicit tests cover channel boundaries: 1 (min, valid), 99 (max, valid), 0 (invalid, below min), 100 (invalid, above max)
+- [x] Explicit tests cover privacy-code boundaries: 0 (min, valid), 38 (max, valid), "-1" (invalid — confirm rejected as non-digit input, not a negative int), 39 (invalid, above max)
+- [x] Existing non-numeric/empty/malformed-input tests (if any) are preserved, not replaced
+- [x] If a real boundary defect is found, it is fixed narrowly in `channel_validation.dart` only, with the defect and fix documented in the dossier
+- [x] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
 **Branch:** task/TASK-070-cx9
 **Started_At:** 2026-09-08T19:31:10Z
 **Progress_Notes:**
@@ -3984,9 +3984,13 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 - [2026-09-08T19:34:47Z] [CX9] Added nine individually named VT-020 regressions, preserving every existing test. Baseline validation file: 14 passed. All nine new tests independently fail under corresponding temporary mutations (four channel limits, three code limits, negative-text acceptance, digit-gate removal); production bytes restored. No production defect found. Full suite and analyze running. Corrected the brief premise in dossier: grouped boundary assertions already existed at base bc91c79.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-08T19:37:53Z] [CX9] Ready for review at 336c982 on task/TASK-070-cx9. Nine explicit regressions added; every existing test preserved; no production defect or production diff. Full suite 1422 passed / 0 failed / 40 existing skips. Scoped analyze clean; repo-wide analyze retains eight established TASK-035 findings (not literally zero issues). All nine mutations killed individually and restored. Only test/features/channel_selector/channel_validation_test.dart and dossiers/TASK-070.md changed; worktree clean. Tool-generated analysis_options.yaml/pubspec.lock changes restored. plan_commit auxiliary notification errors occur after successful commits, verified directly.
+**Artifacts:**
+- test/features/channel_selector/channel_validation_test.dart
+- dossiers/TASK-070.md
+**Test_Evidence:**
+- [2026-09-08T19:37:53Z] [CX9] flutter test --no-pub test/features/channel_selector/channel_validation_test.dart: 14 passed. flutter test --no-pub: 1422 passed, 0 failed, 40 existing skips. flutter analyze --no-pub lib/features/channel_selector/channel_validation.dart test/features/channel_selector: no issues. flutter analyze --no-pub: 8 pre-existing TASK-035 findings in test/services/session/radio_session_controller_test.dart only. Nine independent temporary mutations run with --plain-name "VT-020 explicit boundaries": each exited 1 with exactly its corresponding new test failing and other eight passing; table in dossier. Production restored byte-for-byte. dart format applied; git diff --check passed. git diff master...HEAD --name-only: exactly the two owned artifacts. Commit 336c982.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX9
-**Updated_At:** 2026-09-08T19:34:47Z
+**Updated_At:** 2026-09-08T19:37:53Z
