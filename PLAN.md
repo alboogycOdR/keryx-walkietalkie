@@ -3860,7 +3860,7 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 
 ### TASK-069
 **Title:** Keyboard/switch access for Radio Controls' Monitor and Emergency hold targets
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §5 ("Keyboard and screen-reader users must be able to tune, cancel, open Stations, navigate Settings and release a latched TX"); TASK-057's Review_Findings (the accepted, explicitly-not-fixed finding this task closes — "Radio Controls' Monitor and Emergency arm hold-targets remain pointer-only... needs its own design decision rather than a copy of Talk's toggle").
@@ -3872,12 +3872,13 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 - [ ] A keyboard/switch user can activate Monitor and arm/clear Emergency — covered by a test, not inspection alone
 - [ ] Emergency's existing 600ms hold-duration/accidental-activation semantics for POINTER input are unchanged (regression test against TASK-054's existing pointer-based tests)
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-069-gb
+**Started_At:** 2026-09-08T15:00:37Z
+**Progress_Notes:**
+- [2026-09-08T15:00:37Z] [GB] Claimed TASK-069. Resume check: no GB in_progress/claimed task. TASK-057 done; this is the only pending GB assignment and Depends_On is satisfied. Branch task/TASK-069-gb from master. Preflight next, then document the keyboard/switch hold-gated decision in the dossier *before* any code (criterion 1). Will not copy Talk's single-press latch-release onto Emergency.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-08T14:05:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-08T15:00:37Z
