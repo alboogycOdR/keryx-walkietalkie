@@ -3116,7 +3116,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-053
 **Title:** Stations screen — live roster with honest presence and quality
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.4 (Stations — "full-screen list or sheet with known callsigns and actual presence… must update while open without relying on a parent-screen rebuild… Include an empty state, current-channel context and existing Event QR actions… Quality information is omitted or marked unavailable unless a real metric exists. If LINKED roster support is incomplete, explicitly state that a complete member list is unavailable rather than displaying zero as a verified count"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-040, UX-FR-026, UX-FR-045, UX-FR-046, UX-FR-008; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §1 (Roster row — "Reuse live state; distinguish unavailable LINKED roster and unmeasured quality"), §1.1 ("The existing station stream is LOCAL signaling-backed; LINKED mode does not provide a complete roster… `StationInfo.signalQuality` defaults to a placeholder maximum value"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-024; ADR-001 §6 ("subscribing to the same RadioHost station stream `RosterScreen` used — the live-data SOURCE is unchanged, the widget is"), ADR-001 §7 item 2.
@@ -3124,15 +3124,15 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 **Depends_On:** TASK-048
 **Description:** A new full-screen station list built against Design §2.4, subscribing to the same host station stream TASK-043's `RosterScreen` used — the data source is untouched, the widget tree is new (ADR-001 §6/§7). The list updates live while open, driven by its own subscription rather than a parent-screen rebuild (Design §2.4) — this is the same live join/depart guarantee TASK-037 established and TASK-043 ported, and it must be re-proven here, not assumed. Rows show known callsigns and actual presence, with a neutral fallback for unknown identities and never a peer ID presented as a verified human name (UX-FR-026). **The honesty requirements are the substance of this task, not decoration:** the existing `StationInfo.signalQuality` placeholder maximum is omitted or explicitly marked unavailable — never rendered as measured bars (Technical §1.1, UX-FR-045, VT-024) — and where the LINKED roster is incomplete the screen states plainly that a complete member list is unavailable rather than showing zero as a verified count (Design §2.4, UX-FR-046). Local station count and any LINKED member count are visibly distinct (UX-FR-046). Include the empty state ("No other stations are currently visible", Design §5), current-channel context, and entry points to the existing Event QR actions — the QR screens themselves are TASK-056's. This is local presence, not a contacts directory (Design §2.4, UX-D09).
 **Acceptance_Criteria:**
-- [ ] Full-screen station list renders known callsigns and actual presence from the host's existing station stream — no new data source is introduced (Design §2.4; Technical §1)
-- [ ] Live join/depart updates are reflected while the screen is open, without a parent-screen rebuild — asserted by a test that emits stream events with the screen mounted (Design §2.4; UX-FR-040; VT-024)
-- [ ] Unknown identity uses a neutral fallback; no peer ID is presented as a verified human name (UX-FR-026)
-- [ ] Placeholder `signalQuality` is omitted or marked unavailable and is never rendered as measured full bars — asserted by test (Technical §1.1; UX-FR-045; VT-024)
-- [ ] An incomplete LINKED roster renders an explicit "complete member list unavailable" statement, never a zero count presented as verified (Design §2.4; UX-FR-046; VT-024)
-- [ ] Local station count is visually and semantically distinct from any LINKED member count (UX-FR-046)
-- [ ] Empty state renders the Design §5 copy plus current-channel context (Design §2.4/§5)
-- [ ] Existing Event QR actions are reachable from this screen; no contacts-directory affordance, favourite, message or unread count appears (Design §2.4; UX-FR-008; UX-D09)
-- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+- [x] Full-screen station list renders known callsigns and actual presence from the host's existing station stream — no new data source is introduced (Design §2.4; Technical §1)
+- [x] Live join/depart updates are reflected while the screen is open, without a parent-screen rebuild — asserted by a test that emits stream events with the screen mounted (Design §2.4; UX-FR-040; VT-024)
+- [x] Unknown identity uses a neutral fallback; no peer ID is presented as a verified human name (UX-FR-026)
+- [x] Placeholder `signalQuality` is omitted or marked unavailable and is never rendered as measured full bars — asserted by test (Technical §1.1; UX-FR-045; VT-024)
+- [x] An incomplete LINKED roster renders an explicit "complete member list unavailable" statement, never a zero count presented as verified (Design §2.4; UX-FR-046; VT-024)
+- [x] Local station count is visually and semantically distinct from any LINKED member count (UX-FR-046)
+- [x] Empty state renders the Design §5 copy plus current-channel context (Design §2.4/§5)
+- [x] Existing Event QR actions are reachable from this screen; no contacts-directory affordance, favourite, message or unread count appears (Design §2.4; UX-FR-008; UX-D09)
+- [x] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
 **Branch:** task/TASK-053-gb
 **Started_At:** 2026-09-08T09:19:16Z
 **Progress_Notes:**
@@ -3146,12 +3146,26 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
   [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
   Territory matches expectation: new `lib/features/stations/**` + `test/features/stations/**`, dossier already present. Fresh widgets (ADR-001 §7 item 2) over RadioHost.changes / RadioViewState.stations — same host station stream RosterScreen used, no new data source. Will not edit `lib/app_shell/**` or `lib/features/face/**`.
 - [2026-09-08T09:21:00Z] [GB] Status → in_progress. Building StationsScreen over RadioHost.changes (live join/depart without parent rebuild), RadioViewState.rosterCount for LINKED honesty, omitted placeholder signalQuality, QR launch callbacks (TASK-056 owns the screens).
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-08T09:29:04Z] [GB] Stations screen landed as `5867d2c` on `task/TASK-053-gb`. Fresh widgets in `lib/features/stations/**` (ADR-001 §7 item 2): live join/depart via own `RadioHost.changes` subscription (same host station stream RosterScreen used; no new data source), known callsigns + Visible presence, unknown identity → "Unknown station" (peer ID never shown), placeholder signalQuality omitted/marked "Quality unavailable" (never bars), LINKED "Complete member list unavailable" on a dedicated field distinct from "Local stations: N", Design §5 empty copy + CH XX · YY context, Scan/Export QR launch callbacks (TASK-056). `lib/app_shell/**` not edited (TASK-048 frozen) — TASK-052 mounts this screen. → needs_review.
+**Artifacts:**
+- lib/features/stations/stations.dart
+- lib/features/stations/stations_screen.dart
+- lib/features/stations/station_copy.dart
+- lib/features/stations/station_identity.dart
+- lib/features/stations/README.md
+- test/features/stations/stations_screen_test.dart
+- test/features/stations/station_identity_test.dart
+- test/features/stations/fake_radio_host.dart
+- dossiers/TASK-053.md
+**Test_Evidence:**
+- [2026-09-08T09:29:04Z] [GB] `flutter test test/features/stations/` — 18/18 pass.
+- [2026-09-08T09:29:04Z] [GB] `flutter test` — **1181 passed / 0 failed / 40 skipped** (40 PARKED FR-025 skips unchanged; +18 new).
+- [2026-09-08T09:29:04Z] [GB] `flutter analyze lib/features/stations test/features/stations` — No issues found. Repo-wide `flutter analyze` — 8 issues, all pre-existing TASK-035 in `test/services/session/radio_session_controller_test.dart`. Analyzer auto-upgrade of `analysis_options.yaml` reverted, not committed.
+- [2026-09-08T09:29:04Z] [GB] Revert-mutation: (1) drop live `setState` in `host.changes` listener fails "live join/depart" (ALPHA-1 Expected 1, Actual 0); restored. (2) inject `signalQuality`/`generate(9)` into source fails "source never reads StationInfo.signalQuality" (Expected false, Actual true); restored. (3) replace LINKED unavailable copy with `0 members` fails "incomplete LINKED roster" (Complete member list unavailable Found 0); restored. `setState` still present after restore.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-08T09:21:00Z
+**Updated_At:** 2026-09-08T09:29:04Z
 
 
 ### TASK-054
