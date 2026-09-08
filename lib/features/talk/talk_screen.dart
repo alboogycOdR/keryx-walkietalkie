@@ -27,9 +27,43 @@ import 'talk_ptt_disc.dart';
 /// (the dependency runs the other way: the shell composes features). Tests
 /// in `test/features/talk/**` inject a `FakeRadioHost` the same way.
 class TalkScreen extends ConsumerStatefulWidget {
-  const TalkScreen({super.key, required this.host});
+  const TalkScreen({
+    super.key,
+    required this.host,
+    this.onOpenPicker,
+    this.onOpenStations,
+    this.onOpenRadioControls,
+  });
 
   final RadioHost host;
+
+  /// Real navigation callback for the header's channel-picker affordance
+  /// (TASK-050's selector). `null` in tests/stand-ins that don't exercise
+  /// navigation — the button still renders, per Design §2.2's "offers a
+  /// clear channel picker", but is a no-op rather than throwing.
+  ///
+  /// TASK-068: this replaces the TASK-052 workaround where the app-shell
+  /// composition root (`lib/app_shell/talk_screen.dart`) intercepted this
+  /// button's tap with an invisible overlay positioned by hardcoded
+  /// geometry matching this screen's own header layout — a real callback
+  /// parameter cannot be silently broken by a future padding/layout change
+  /// here the way a coordinate-matched overlay could (TASK-052's
+  /// Review_Findings has the proof: shifting the overlay 100dp left left
+  /// every overlay-based test green while a real-centre-tap probe failed).
+  final VoidCallback? onOpenPicker;
+
+  /// Real navigation callback for the header's Stations affordance
+  /// (TASK-053's roster). See [onOpenPicker]'s dartdoc — same TASK-068
+  /// rationale, same TASK-052 overlay this replaces.
+  final VoidCallback? onOpenStations;
+
+  /// Real navigation callback for the header's Radio Controls affordance
+  /// (TASK-054). Design §2.2 does not place Radio Controls bottom-left in
+  /// the PTT area — TASK-054/TASK-052 put it there only because this
+  /// screen (TASK-051) shipped no header slot for it and TASK-052 could
+  /// not edit `lib/features/talk/**` to add one. TASK-068 gives it a real
+  /// header slot, matching the picker/stations affordances.
+  final VoidCallback? onOpenRadioControls;
 
   @override
   ConsumerState<TalkScreen> createState() => _TalkScreenState();
@@ -234,6 +268,9 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
                           channel: viewState.channel,
                           privacyCode: viewState.privacyCode,
                           tokens: tokens,
+                          onOpenPicker: widget.onOpenPicker,
+                          onOpenStations: widget.onOpenStations,
+                          onOpenRadioControls: widget.onOpenRadioControls,
                         ),
                         const SizedBox(height: 12),
                         _ConnectionLine(viewState: viewState, tokens: tokens),
@@ -418,11 +455,21 @@ class _Header extends StatelessWidget {
     required this.channel,
     required this.privacyCode,
     required this.tokens,
+    required this.onOpenPicker,
+    required this.onOpenStations,
+    required this.onOpenRadioControls,
   });
 
   final int channel;
   final int privacyCode;
   final KeryxUxTokens tokens;
+
+  /// TASK-068: real constructor callbacks, wired by the composition root
+  /// (`lib/app_shell/talk_screen.dart`) — no more empty `onPressed` bodies
+  /// with a comment claiming a shell-owned overlay will handle the tap.
+  final VoidCallback? onOpenPicker;
+  final VoidCallback? onOpenStations;
+  final VoidCallback? onOpenRadioControls;
 
   @override
   Widget build(BuildContext context) {
@@ -455,10 +502,7 @@ class _Header extends StatelessWidget {
           child: IconButton(
             key: const Key('keryx-talk-picker'),
             tooltip: TalkCopy.openChannelPicker,
-            onPressed: () {
-              // Navigation to TASK-050's selector is wired by the shell
-              // composition root; this screen only exposes the affordance.
-            },
+            onPressed: onOpenPicker,
             icon: Icon(Icons.dialpad, color: tokens.textSecondary),
           ),
         ),
@@ -468,11 +512,18 @@ class _Header extends StatelessWidget {
           child: IconButton(
             key: const Key('keryx-talk-stations'),
             tooltip: TalkCopy.openStations,
-            onPressed: () {
-              // Navigation to TASK-053's roster is wired by the shell
-              // composition root; this screen only exposes the affordance.
-            },
+            onPressed: onOpenStations,
             icon: Icon(Icons.groups_outlined, color: tokens.textSecondary),
+          ),
+        ),
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: IconButton(
+            key: const Key('keryx-talk-radio-controls'),
+            tooltip: TalkCopy.openRadioControls,
+            onPressed: onOpenRadioControls,
+            icon: Icon(Icons.tune, color: tokens.textSecondary),
           ),
         ),
       ],

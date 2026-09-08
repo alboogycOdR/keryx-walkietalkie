@@ -218,12 +218,12 @@ void main() {
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
       expect(find.byType(TalkPttDisc), findsOneWidget);
 
-      await tester.tap(find.byKey(ShellKeys.talkPickerHit));
+      await tester.tap(find.byKey(const Key('keryx-talk-picker')));
       await tester.pumpAndSettle();
       expect(find.byType(ChannelSelectorScreen), findsOneWidget);
       await popScreen(tester, find.byType(ChannelSelectorScreen));
 
-      await tester.tap(find.byKey(ShellKeys.talkStationsHit));
+      await tester.tap(find.byKey(const Key('keryx-talk-stations')));
       await tester.pumpAndSettle();
       expect(find.byType(StationsScreen), findsOneWidget);
       expect(find.byKey(ShellKeys.stations), findsOneWidget);
@@ -243,7 +243,7 @@ void main() {
 
       await popScreen(tester, find.byType(StationsScreen));
 
-      await tester.tap(find.byKey(ShellKeys.talkRadioControls));
+      await tester.tap(find.byKey(const Key('keryx-talk-radio-controls')));
       await tester.pumpAndSettle();
       expect(find.byType(RadioControlsScreen), findsOneWidget);
       expect(find.byKey(ShellKeys.radioControls), findsOneWidget);
@@ -270,7 +270,7 @@ void main() {
 
       await tester.tap(find.byKey(ChannelsLandingKeys.openTalk));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(ShellKeys.talkPickerHit));
+      await tester.tap(find.byKey(const Key('keryx-talk-picker')));
       await tester.pumpAndSettle();
       expect(find.byType(ChannelSelectorScreen), findsOneWidget);
 
@@ -290,7 +290,7 @@ void main() {
       await popScreen(tester, find.byType(ChannelSelectorScreen));
       expect(find.byKey(ShellKeys.talk), findsOneWidget);
 
-      await tester.tap(find.byKey(ShellKeys.talkStationsHit));
+      await tester.tap(find.byKey(const Key('keryx-talk-stations')));
       await tester.pumpAndSettle();
       expect(find.byType(StationsScreen), findsOneWidget);
 
@@ -301,7 +301,7 @@ void main() {
       expect(find.byType(StationsScreen), findsOneWidget);
 
       await popScreen(tester, find.byType(StationsScreen));
-      await tester.tap(find.byKey(ShellKeys.talkRadioControls));
+      await tester.tap(find.byKey(const Key('keryx-talk-radio-controls')));
       await tester.pumpAndSettle();
       expect(find.byType(RadioControlsScreen), findsOneWidget);
 

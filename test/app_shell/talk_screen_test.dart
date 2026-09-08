@@ -29,45 +29,53 @@ void main() {
     expect(find.byType(TalkPttDisc), findsOneWidget);
   });
 
-  testWidgets('picker overlay pushes TASK-050 ChannelSelectorScreen', (
-    tester,
-  ) async {
-    givePhoneSurface(tester);
-    await tester.pumpWidget(build());
-    await tester.pumpAndSettle();
+  testWidgets(
+    "picker's real onOpenPicker callback pushes TASK-050 "
+    'ChannelSelectorScreen (TASK-068 — no overlay involved)',
+    (tester) async {
+      givePhoneSurface(tester);
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(ShellKeys.talkPickerHit));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('keryx-talk-picker')));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(ShellKeys.channelSelector), findsOneWidget);
-    expect(find.byType(ChannelSelectorScreen), findsOneWidget);
-  });
+      expect(find.byKey(ShellKeys.channelSelector), findsOneWidget);
+      expect(find.byType(ChannelSelectorScreen), findsOneWidget);
+    },
+  );
 
-  testWidgets('stations overlay pushes TASK-053 StationsScreen', (tester) async {
-    givePhoneSurface(tester);
-    await tester.pumpWidget(build());
-    await tester.pumpAndSettle();
+  testWidgets(
+    "stations' real onOpenStations callback pushes TASK-053 "
+    'StationsScreen (TASK-068 — no overlay involved)',
+    (tester) async {
+      givePhoneSurface(tester);
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(ShellKeys.talkStationsHit));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('keryx-talk-stations')));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(ShellKeys.stations), findsOneWidget);
-    expect(find.byType(StationsScreen), findsOneWidget);
-  });
+      expect(find.byKey(ShellKeys.stations), findsOneWidget);
+      expect(find.byType(StationsScreen), findsOneWidget);
+    },
+  );
 
-  testWidgets('Radio Controls button pushes TASK-054 RadioControlsScreen', (
-    tester,
-  ) async {
-    givePhoneSurface(tester);
-    await tester.pumpWidget(build());
-    await tester.pumpAndSettle();
+  testWidgets(
+    'Radio Controls header button pushes TASK-054 RadioControlsScreen '
+    '(TASK-068 — real header slot, not a bottom-left shell overlay)',
+    (tester) async {
+      givePhoneSurface(tester);
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(ShellKeys.talkRadioControls));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('keryx-talk-radio-controls')));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(ShellKeys.radioControls), findsOneWidget);
-    expect(find.byType(RadioControlsScreen), findsOneWidget);
-  });
+      expect(find.byKey(ShellKeys.radioControls), findsOneWidget);
+      expect(find.byType(RadioControlsScreen), findsOneWidget);
+    },
+  );
 
   testWidgets('a pending mic-permission fault projects as an overlay cue, '
       'not a fabricated full-strength signal', (tester) async {

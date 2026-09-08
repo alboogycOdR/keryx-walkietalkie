@@ -22,5 +22,6 @@ abstract final class TalkCopy {
   static const String stopTransmitting = 'Stop transmitting';
   static const String openStations = 'Stations';
   static const String openChannelPicker = 'Change channel';
+  static const String openRadioControls = 'Radio controls';
   static const String rosterUnavailable = 'Member list unavailable';
 }
