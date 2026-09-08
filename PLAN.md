@@ -3420,7 +3420,7 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 
 ### TASK-057
 **Title:** Accessibility and responsive polish across all successor screens
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (visual and accessibility verification — "Test at a minimum 320 logical-pixel width, a normal phone, a larger phone, landscape, system text scale 1.0 and 2.0, and large display insets. No essential control or state label may be clipped or require horizontal scrolling… Check minimum 48 dp touch targets, primary PTT size and one-hand access, WCAG AA text contrast, focus order, TalkBack labels, state announcements, keyboard/switch access and reduced-motion behavior"); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §5 (copy and accessibility — plain-language copy, semantic label and state on every action, "Keyboard and screen-reader users must be able to tune, cancel, open Stations, navigate Settings and release a latched TX. Do not require color, sound or haptics alone to understand a state"), §3.3 (text scaling, 48×48 dp), §3.4 (reduced motion); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md §6 (48 dp targets, WCAG AA, TalkBack, scalable text, reduced motion, small phones, landscape, safe-area insets); ADR-001 §3 item 2 (DS §8's accessibility substance carries forward unchanged into the new design).
@@ -3438,15 +3438,16 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 - [ ] Safe-area insets are respected on every screen (PRD §6)
 - [ ] Any defect requiring behavioural redesign is recorded as a finding rather than fixed out of scope
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-057-s5
+**Started_At:** 2026-09-08T20:00:00Z
+**Progress_Notes:**
+- [2026-09-08T20:00:00Z] [S5] Claimed TASK-057 (accessibility/responsive polish, single-owner union territory over all Wave 4 screens). Dependencies TASK-049/050/051/052/053/054/055/056/067 confirmed done. Preflight (python scripts/preflight_paths.py TASK-057) confirms all Owned_Paths glob to existing files, dossiers/TASK-057.md exists (32 lines). Starting on branch task/TASK-057-s5.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-08T20:00:00Z
 
 
 ### TASK-058
