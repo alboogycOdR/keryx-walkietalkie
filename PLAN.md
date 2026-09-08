@@ -3420,7 +3420,7 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 
 ### TASK-057
 **Title:** Accessibility and responsive polish across all successor screens
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (visual and accessibility verification — "Test at a minimum 320 logical-pixel width, a normal phone, a larger phone, landscape, system text scale 1.0 and 2.0, and large display insets. No essential control or state label may be clipped or require horizontal scrolling… Check minimum 48 dp touch targets, primary PTT size and one-hand access, WCAG AA text contrast, focus order, TalkBack labels, state announcements, keyboard/switch access and reduced-motion behavior"); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §5 (copy and accessibility — plain-language copy, semantic label and state on every action, "Keyboard and screen-reader users must be able to tune, cancel, open Stations, navigate Settings and release a latched TX. Do not require color, sound or haptics alone to understand a state"), §3.3 (text scaling, 48×48 dp), §3.4 (reduced motion); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md §6 (48 dp targets, WCAG AA, TalkBack, scalable text, reduced motion, small phones, landscape, safe-area insets); ADR-001 §3 item 2 (DS §8's accessibility substance carries forward unchanged into the new design).
