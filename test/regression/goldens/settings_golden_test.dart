@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,12 +7,21 @@ import 'package:keryx/app_shell/radio_host_provider.dart';
 import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
+import 'package:keryx/features/settings/appearance_preference.dart';
 import 'package:keryx/features/settings/settings_screen.dart';
 
 import '../../app_shell/fake_radio_host.dart';
 import '../../core/identity/memory_identity_store.dart';
 
 /// TASK-058 — Verification §6: golden fixture for Settings, dark and light.
+///
+/// REWORK round 1 finding (1): `SettingsScreen.build` derives its own
+/// brightness from the persisted `AppearancePreference` (defaults to
+/// `AppearanceTheme.dark`, `lib/features/settings/appearance_preference.dart`)
+/// rather than the ambient `MaterialApp` theme, so passing `Brightness.light`
+/// to `MaterialApp.theme` alone did nothing — both goldens rendered dark.
+/// The store must be seeded with the matching `AppearancePreference` for
+/// each variant.
 void main() {
   Future<void> pumpAndGolden(
     WidgetTester tester, {
@@ -32,11 +43,26 @@ void main() {
       'keryx.identity.callsign': 'GOLDEN-1',
     });
 
+    final settingsStore = InMemorySettingsStore();
+    // Seed the screen's own persisted appearance preference so it actually
+    // renders in `brightness` — the screen ignores the ambient MaterialApp
+    // theme (see class doc above).
+    final AppearanceTheme appearanceTheme =
+        brightness == Brightness.dark
+            ? AppearanceTheme.dark
+            : AppearanceTheme.light;
+    await settingsStore.write(
+      AppearancePreference.storageKey,
+      jsonEncode(
+        AppearancePreference(theme: appearanceTheme).toJson(),
+      ),
+    );
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
           radioHostProvider.overrideWithValue(host),
-          settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
+          settingsStoreProvider.overrideWithValue(settingsStore),
         ],
         child: MaterialApp(
           theme: keryxUxThemeData(brightness: brightness),
