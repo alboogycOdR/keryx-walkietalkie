@@ -128,3 +128,70 @@ there belong to that screen's own task record.
   `lib/app_shell/shell_routes.dart`, rewritten `channels_screen.dart` /
   `talk_screen.dart`, `mobile_app_shell.dart` Settings swap,
   `app_shell.dart` export.
+
+- [2026-09-08T13:20:00Z] [GB] Resume after ORCH grant of `test/app_shell/**`.
+  Same branch `task/TASK-052-gb` @ `b3d5d91` — no re-claim. Preflight
+  against master PLAN.md (`--repo E:/DELL-PROJECTS/WALKIETALKIE`):
+
+  ```
+  [preflight] TASK-052 Owned_Paths inspected in E:/DELL-PROJECTS/WALKIETALKIE
+  [preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+    GLOB   lib/app_shell/**  -> 6 file(s):
+             lib/app_shell/app_shell.dart
+             lib/app_shell/channels_screen.dart
+             lib/app_shell/legacy_compat.dart
+             lib/app_shell/mobile_app_shell.dart
+             lib/app_shell/radio_host_provider.dart
+             lib/app_shell/talk_screen.dart
+    GLOB   test/app_shell/**  -> 6 file(s):
+             test/app_shell/app_theme_test.dart
+             test/app_shell/channels_screen_test.dart
+             test/app_shell/fake_radio_host.dart
+             test/app_shell/legacy_compat_test.dart
+             test/app_shell/mobile_app_shell_test.dart
+             test/app_shell/talk_screen_test.dart
+    FILE   dossiers/TASK-052.md  -> exists, 41 line(s), 2167 bytes
+  [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+  ```
+
+  Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart`
+  / `shell_routes.dart` live only on this branch. Worktree `lib/app_shell`
+  has those 8 files; `test/app_shell` is now in-territory. Retargeting
+  placeholder finders and adding the criterion-1 widget-tree /
+  criterion-3 branch-preservation cases.
+
+- [2026-09-08T12:48:08Z] [GB] Tests retargeted; ready for review.
+
+  **Widget-tree (criterion 1):** `ChannelsLanding`, `ChannelSelectorScreen`,
+  `talkui.TalkScreen` + `TalkPttDisc`, `StationsScreen`,
+  `RadioControlsScreen`, `SettingsScreen`, `EventQrUiScanScreen`,
+  `EventQrUiExportScreen` each `findsOneWidget` after the matching
+  navigation (`mobile_app_shell_test` "each Wave-4 screen type").
+
+  **UX-D01/D02 (criterion 2):** Channels default landing; two
+  NavigationDestinations; Settings is the other persistent destination.
+
+  **Host survival (criterion 3):** `startCalls == 1`, `disposeCalls == 0`,
+  `tuneCalls` empty across destination switches and selector / Stations /
+  Radio Controls / Event QR pushes. IndexedStack branch-preservation
+  extended to those real screens.
+
+  **Selector (criterion 4):** reachable from Channels `selectChannel` AND
+  Talk picker overlay.
+
+  **Imports (criterion 5):** wiring files (not `radio_host_provider.dart`)
+  contain none of `core/audio`, `core/floor`, `services/mesh`,
+  `services/linked`, `services/platform`.
+
+  **Talk header compensation (unchanged finding):** overlay hit-targets
+  now carry `TalkCopy` semantics; Radio Controls remains a visible
+  shell `IconButton`.
+
+  **Revert-mutation (restored after each, `git diff` of
+  `mobile_app_shell.dart` empty of residue):**
+  1. IndexedStack → `[children][_index]` — branch-preservation fails
+     (`shell.talk` Expected 1, Actual 0).
+  2. picker overlay `onTap: () {}` — picker test fails
+     (`shell.channel-selector` Found 0).
+  3. `SettingsScreen` → `BackPanelScreen` — Wave-4 type test fails
+     (`SettingsScreen` Found 0).

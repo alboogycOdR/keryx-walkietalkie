@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
+import 'package:keryx/features/talk/talk_copy.dart';
 import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 
 import 'radio_host_provider.dart';
@@ -45,10 +46,12 @@ class TalkScreen extends ConsumerWidget {
               const Expanded(child: SizedBox.shrink()),
               _HeaderHitTarget(
                 key: ShellKeys.talkPickerHit,
+                label: TalkCopy.openChannelPicker,
                 onTap: () => ShellRoutes.openSelector(context, resolved),
               ),
               _HeaderHitTarget(
                 key: ShellKeys.talkStationsHit,
+                label: TalkCopy.openStations,
                 onTap: () => ShellRoutes.openStations(context, resolved),
               ),
             ],
@@ -77,16 +80,25 @@ class TalkScreen extends ConsumerWidget {
 /// (Design §2.2 48 dp minimum). Sits above the real button so the
 /// shell, not the empty `onPressed`, receives the tap.
 class _HeaderHitTarget extends StatelessWidget {
-  const _HeaderHitTarget({super.key, required this.onTap});
+  const _HeaderHitTarget({
+    super.key,
+    required this.label,
+    required this.onTap,
+  });
 
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: const SizedBox(width: 48, height: 48),
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: const SizedBox(width: 48, height: 48),
+      ),
     );
   }
 }

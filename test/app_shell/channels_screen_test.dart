@@ -1,38 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/app_shell/app_shell.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
-import 'package:keryx/core/settings/settings_repository.dart';
+import 'package:keryx/core/settings/settings_repository.dart' show TunedChannel;
+import 'package:keryx/features/channel_selector/channel_selector_screen.dart';
+import 'package:keryx/features/channels/channels_landing.dart';
+import 'package:keryx/features/talk/talk_ptt_disc.dart';
+import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 
 import 'fake_radio_host.dart';
+import 'shell_harness.dart';
 
 void main() {
   late FakeRadioHost host;
 
   Widget build() {
     host = FakeRadioHost();
-    return ProviderScope(
-      overrides: <Override>[
-        radioHostProvider.overrideWithValue(host),
-        settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
-      ],
-      child: const MaterialApp(home: ChannelsScreen()),
-    );
+    return pumpShell(host: host, home: const ChannelsScreen());
   }
 
-  testWidgets('shows the real current channel/code — never a fabricated '
-      'list (UX-FR-008/PRD §2.2)', (tester) async {
+  testWidgets('mounts TASK-049 ChannelsLanding with Open Talk and Select '
+      'channel (UX-D01 / Design §2.1)', (tester) async {
+    givePhoneSurface(tester);
     await tester.pumpWidget(build());
     await tester.pumpAndSettle();
 
-    expect(find.text('Current: CH 1 · Code 0'), findsOneWidget);
-    // No recall memory yet: no fabricated "Recently tuned" section either.
-    expect(find.text('Recently tuned'), findsNothing);
+    expect(find.byKey(ShellKeys.channelsLanding), findsOneWidget);
+    expect(find.byType(ChannelsLanding), findsOneWidget);
+    expect(find.byKey(ChannelsLandingKeys.openTalk), findsOneWidget);
+    expect(find.byKey(ChannelsLandingKeys.selectChannel), findsOneWidget);
+    expect(find.byKey(ChannelsLandingKeys.recentSection), findsOneWidget);
+    expect(find.text('Recent channels'), findsOneWidget);
+    expect(find.byKey(ChannelsLandingKeys.emptyMemory), findsOneWidget);
   });
 
-  testWidgets('renders real channel-recall memory from the host snapshot, '
-      'tapping an entry tunes and opens Talk', (tester) async {
+  testWidgets('renders real channel-recall memory from the host snapshot', (
+    tester,
+  ) async {
+    givePhoneSurface(tester);
     await tester.pumpWidget(build());
     await tester.pumpAndSettle();
 
@@ -43,24 +48,50 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Recently tuned'), findsOneWidget);
-    expect(find.text('CH 7 · Code 3'), findsOneWidget);
+    expect(find.byKey(ChannelsLandingKeys.recentSection), findsOneWidget);
+    expect(find.text('Recent channels'), findsOneWidget);
+    expect(
+      find.byKey(ChannelsLandingKeys.recentEntry(7, 3)),
+      findsOneWidget,
+    );
+    expect(find.byKey(ChannelsLandingKeys.emptyMemory), findsNothing);
 
-    await tester.tap(find.text('CH 7 · Code 3'));
+    await tester.tap(find.byKey(ChannelsLandingKeys.recentEntry(7, 3)));
     await tester.pumpAndSettle();
 
     expect(host.tuneCalls, <(int, int)>[(7, 3)]);
-    expect(find.text('Talk'), findsWidgets);
+    // Recall retunes in place; it does not push Talk (Open Talk is a
+    // separate affordance — Design §2.1).
+    expect(find.byKey(ShellKeys.talk), findsNothing);
   });
 
-  testWidgets('tapping the current-channel row opens Talk without tuning', (tester) async {
+  testWidgets('Open Talk pushes TASK-051 Talk without tuning', (tester) async {
+    givePhoneSurface(tester);
     await tester.pumpWidget(build());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Current: CH 1 · Code 0'));
+    await tester.tap(find.byKey(ChannelsLandingKeys.openTalk));
     await tester.pumpAndSettle();
 
     expect(host.tuneCalls, isEmpty);
-    expect(find.text('Talk'), findsWidgets);
+    expect(find.byKey(ShellKeys.talk), findsOneWidget);
+    expect(find.byType(talkui.TalkScreen), findsOneWidget);
+    expect(find.byType(TalkPttDisc), findsOneWidget);
+  });
+
+  testWidgets('Select channel pushes TASK-050 ChannelSelectorScreen', (
+    tester,
+  ) async {
+    givePhoneSurface(tester);
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(ChannelsLandingKeys.selectChannel));
+    await tester.tap(find.byKey(ChannelsLandingKeys.selectChannel));
+    await tester.pumpAndSettle();
+
+    expect(host.tuneCalls, isEmpty);
+    expect(find.byKey(ShellKeys.channelSelector), findsOneWidget);
+    expect(find.byType(ChannelSelectorScreen), findsOneWidget);
   });
 }
