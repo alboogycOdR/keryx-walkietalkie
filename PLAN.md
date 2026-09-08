@@ -3328,7 +3328,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-056
 **Title:** Event QR re-theme — scan/export framing with explicit route-transition workflow
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.7 (Event QR — "Preserve existing scan and export components, with modern framing and appropriate camera/permission states. The scan result must not silently fail in LOCAL mode when a LINKED session is required. Provide a clear explanation and explicit route transition, or keep the operation unavailable with a reason. Do not invent keyed-channel UI behavior that the current session implementation cannot execute"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §8 (Event QR and deep links — "Add a host-level join coordinator that checks effective route and LOCAL-only policy before invoking the existing LINKED-only join. A required route change is user-approved, cancellable and safely serialized. Do not initiate WAN traffic when force-LOCAL is enabled… Keyed export, persistence and server-side expiration behavior must be verified independently before being represented as complete. No unreviewed secret or passphrase may be logged"), §1.1 (QR join currently requires an active LINKED session; a LOCAL scan currently just errors); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-063, §4.4 (Join an event journey — "A failure must not leave a falsely selected channel or an apparently connected session. Export retains the existing expiry choices and does not expose private passphrases unnecessarily"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-023; ADR-001 §6 ("NEW framing on the existing scan/export LOGIC — `EventLinkPayload`/deep-link handling reused, screens rebuilt").
@@ -3346,15 +3346,16 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 - [ ] Numeric export retains existing expiry choices; keyed export is either surfaced as unavailable with a reason or explicitly deferred — it is not presented as working (Technical §1.1/§8)
 - [ ] No passphrase, token or secret is logged, unnecessarily displayed, or included in diagnostics (Technical §8; PRD §4.4)
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-056-s5
+**Started_At:** 2026-09-08T18:20:00Z
+**Progress_Notes:**
+- [2026-09-08T18:20:00Z] [S5] Claimed TASK-056 (Event QR re-theme). Dependencies TASK-047 and TASK-048 confirmed done. Preflight (python scripts/preflight_paths.py TASK-056): lib/features/event_qr_ui/** -> new territory; test/features/event_qr_ui/** -> new territory; dossiers/TASK-056.md -> exists, 29 lines. Starting on branch task/TASK-056-s5 (branched fresh off current master f6af580; TASK-054 is merged/done so worktree's prior detached HEAD is stale).
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-08T18:20:00Z
 
 
 ### TASK-057
