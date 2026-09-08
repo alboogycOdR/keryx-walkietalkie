@@ -3235,7 +3235,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-055
 **Title:** Settings redesign — Radio/Audio/Connectivity/Identity/Appearance/About sections
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.6 (Settings — "ordinary mobile settings with sections and readable descriptions. Retain every existing setting and its validation… Connectivity shows the configured mode, effective route and LOCAL-only privacy toggle… A setting that rebuilds the communication session must not look like a harmless appearance-only toggle. Show an explanatory confirmation when applying it could interrupt transmission or change network connectivity. Non-session settings must not needlessly reconnect"), §1 (Settings subtree); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-060, UX-FR-061, UX-FR-062, UX-FR-064, UX-FR-066, UX-D07, UX-D08; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("Retain `KeryxSettings`, SettingsRepository storage key, defaults and migration behavior. New appearance preferences may be added additively with safe defaults. Do not overwrite existing stored data with a reduced settings object… A session-affecting settings change while transmitting must be deferred or safely serialized… No hot-mic window is permitted"), §1.1 (settings captured at construction; changes need host-managed reconstruction), §10 (legacy settings survive upgrade); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-003, VT-005, VT-022; ADR-001 §5 (settings persistence NOT superseded — model/repository reused, widget tree new), ADR-001 §6.
@@ -3243,17 +3243,17 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 **Depends_On:** TASK-047, TASK-048
 **Description:** Reorganize the existing `BackPanelScreen`/settings-panel content into conventional mobile settings with the six Design §2.6 sections, as new widgets over the **unchanged** `KeryxSettings` model and `SettingsRepository` (ADR-001 §6: only the model/repository layer is reused, not the old widget tree). Every existing setting, its validation and its stored defaults survive verbatim; nothing is dropped, renamed in storage, or written back as a reduced object (Technical §7, UX-FR-061). New appearance preferences (theme, optional night dimming) are added **additively with safe defaults** so an old stored fixture still loads without loss (Technical §7/§10, VT-005). Connectivity shows configured mode, **effective** route and the LOCAL-only privacy toggle as three distinct things (Design §2.6, UX-FR-062, Technical §7's "A configured AUTO value does not establish that the app is currently connected to both LAN and WAN"), and no WAN operation may be initiated contrary to force-LOCAL. The dangerous-toggle rule is a hard acceptance item: a session-rebuilding setting must not present as a harmless appearance toggle, must show an explanatory confirmation when applying it could interrupt transmission or change connectivity, and must be applied through the host with a documented defer-or-serialize policy that opens no hot-mic window (Design §2.6, Technical §7, VT-003). Presentation-only preferences must cause **no** session reconstruction (VT-003). Identity keeps callsign editing; Audio keeps existing sound preferences and routing options with no substitution of radio SFX for generic messaging sounds (UX-FR-066); About carries version and sanitized diagnostics only (Design §5: no raw exceptions or internal service names). The token-URL fix is TASK-063's territory and this task must not touch `lib/core/settings/**`.
 **Acceptance_Criteria:**
-- [ ] Six sections exist — Radio, Audio, Connectivity, Identity, Appearance, About — with readable descriptions (Design §2.6; UX-FR-060)
-- [ ] Every setting present in the legacy settings panel is present here with its validation intact; an inventory mapping old→new is recorded in the dossier (UX-FR-061)
-- [ ] VT-005 evidence: a legacy-version settings fixture loads with callsign/identity, region, channel memory, LOCAL-only preference, URLs, sound settings and latch retained; saving a new appearance preference does not drop old fields (Technical §7/§10; VT-005)
-- [ ] VT-003 evidence: presentation-only preference changes cause zero session reconstruction; each session-affecting field causes exactly one serialized reconstruction with the correct new settings, no stale listener and proper old-resource cleanup (Technical §7; VT-003)
-- [ ] A session-rebuilding setting is visually distinguished from an appearance toggle and shows an explanatory confirmation before applying when transmission or connectivity could be interrupted (Design §2.6)
-- [ ] A session-affecting change while transmitting is deferred or serialized per a documented policy with no hot-mic window — asserted against authoritative engine state (Technical §7; PTS §8.5)
-- [ ] Connectivity displays configured mode, effective route and LOCAL-only privacy as separate values; force-LOCAL prevents any WAN-initiating action (UX-FR-062; UX-D07; Technical §7; VT-022)
-- [ ] Audio retains existing sound preferences and routing options with no substitution of generic messaging sounds for radio SFX (UX-FR-066)
-- [ ] About shows version and sanitized diagnostics only — no raw exception text or internal service names surfaced to ordinary users (Design §5)
-- [ ] `lib/core/settings/**` is not modified by this task (TASK-063 owns it); all styling uses TASK-047's tokens
-- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+- [x] Six sections exist — Radio, Audio, Connectivity, Identity, Appearance, About — with readable descriptions (Design §2.6; UX-FR-060)
+- [x] Every setting present in the legacy settings panel is present here with its validation intact; an inventory mapping old→new is recorded in the dossier (UX-FR-061)
+- [x] VT-005 evidence: a legacy-version settings fixture loads with callsign/identity, region, channel memory, LOCAL-only preference, URLs, sound settings and latch retained; saving a new appearance preference does not drop old fields (Technical §7/§10; VT-005)
+- [x] VT-003 evidence: presentation-only preference changes cause zero session reconstruction; each session-affecting field causes exactly one serialized reconstruction with the correct new settings, no stale listener and proper old-resource cleanup (Technical §7; VT-003)
+- [x] A session-rebuilding setting is visually distinguished from an appearance toggle and shows an explanatory confirmation before applying when transmission or connectivity could be interrupted (Design §2.6)
+- [x] A session-affecting change while transmitting is deferred or serialized per a documented policy with no hot-mic window — asserted against authoritative engine state (Technical §7; PTS §8.5)
+- [x] Connectivity displays configured mode, effective route and LOCAL-only privacy as separate values; force-LOCAL prevents any WAN-initiating action (UX-FR-062; UX-D07; Technical §7; VT-022)
+- [x] Audio retains existing sound preferences and routing options with no substitution of generic messaging sounds for radio SFX (UX-FR-066)
+- [x] About shows version and sanitized diagnostics only — no raw exception text or internal service names surfaced to ordinary users (Design §5)
+- [x] `lib/core/settings/**` is not modified by this task (TASK-063 owns it); all styling uses TASK-047's tokens
+- [x] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
 **Branch:** task/TASK-055-gb
 **Started_At:** 2026-09-08T10:23:29Z
 **Progress_Notes:**
@@ -3266,12 +3266,35 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
     FILE   dossiers/TASK-055.md  -> exists, 30 line(s), 1500 bytes
   [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
   Territory matches expectation: new `lib/features/settings/**` + `test/features/settings/**`, dossier already present. Fresh widgets (ADR-001 §6/§7) over unchanged `KeryxSettings`/`SettingsRepository`. Will not edit `lib/core/settings/**`, `lib/app_shell/**`, or `lib/features/settings_panel/**`.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-08T10:45:40Z] [GB] Settings screen landed as `55759ac` on `task/TASK-055-gb`. Fresh widgets in `lib/features/settings/**` (ADR-001 §6): six sections; old→new inventory in dossier + `settings_inventory.dart`; session-affecting set mirrors frozen `KeryxRadioHost._sessionAffectingFieldsChanged`; defer-until-idle against `FloorEngine.isTransmitting` (fallback `RadioPhase.tx`); confirmation dialog + "Reconnects radio" badge (text+icon, not colour alone); theme additive under `keryx.appearance.v1`; dimMode via existing settings field; About sanitized. `lib/core/settings/**` and `lib/app_shell/**` untouched — TASK-052 mounts this screen. → needs_review.
+**Artifacts:**
+- lib/features/settings/README.md
+- lib/features/settings/about_diagnostics.dart
+- lib/features/settings/appearance_preference.dart
+- lib/features/settings/session_settings.dart
+- lib/features/settings/settings.dart
+- lib/features/settings/settings_apply.dart
+- lib/features/settings/settings_copy.dart
+- lib/features/settings/settings_inventory.dart
+- lib/features/settings/settings_keys.dart
+- lib/features/settings/settings_rows.dart
+- lib/features/settings/settings_screen.dart
+- test/features/settings/about_diagnostics_test.dart
+- test/features/settings/fake_radio_host.dart
+- test/features/settings/settings_apply_test.dart
+- test/features/settings/settings_inventory_test.dart
+- test/features/settings/settings_persistence_test.dart
+- test/features/settings/settings_screen_test.dart
+- dossiers/TASK-055.md
+**Test_Evidence:**
+- [2026-09-08T10:45:40Z] [GB] `flutter test test/features/settings/` — 26/26 pass.
+- [2026-09-08T10:45:40Z] [GB] `flutter test` (full suite) — 1274 passed, 0 failed, 40 skipped (parked FR-025 soak seeds).
+- [2026-09-08T10:45:40Z] [GB] `flutter analyze lib/features/settings test/features/settings` — No issues found.
+- [2026-09-08T10:45:40Z] [GB] Revert-mutation-checked 4 guards (all RED then restored): (1) `sessionAffectingFieldsChanged` always false → reconstruction test Expected appliedSession Actual appliedPresentation; (2) `isLocallyTransmitting` always false → engine test Expected true Actual false; (3) skip confirm → cancel test Expected cancelled Actual appliedSession; (4) skip deferral → TX test Expected deferred Actual appliedSession.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-08T10:23:29Z
+**Updated_At:** 2026-09-08T10:45:40Z
 
 
 ### TASK-056
