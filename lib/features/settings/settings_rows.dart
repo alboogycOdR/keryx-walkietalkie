@@ -69,16 +69,24 @@ class ReconnectsRadioBadge extends StatelessWidget {
     final KeryxUxTokens tokens = KeryxUxTokens.of(context);
     return Semantics(
       label: SettingsCopy.reconnectsRadio,
+      // TASK-057 round 2: at 320 lp width this badge sits inside a narrow
+      // `Wrap` slot alongside the row's label text; a `mainAxisSize.min`
+      // Row with an un-flexed Text reliably overflowed by a few pixels
+      // (reproduced by the responsive-matrix test, not hypothetical).
+      // `Flexible` + ellipsis lets it shrink rather than clip/throw.
       child: Row(
         key: SettingsKeys.reconnectBadge,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Icon(Icons.sync, size: 16, color: tokens.stateWarning),
           const SizedBox(width: 4),
-          Text(
-            SettingsCopy.reconnectsRadio,
-            style: KeryxUxTypography.compact.copyWith(
-              color: tokens.textPrimary,
+          Flexible(
+            child: Text(
+              SettingsCopy.reconnectsRadio,
+              overflow: TextOverflow.ellipsis,
+              style: KeryxUxTypography.compact.copyWith(
+                color: tokens.textPrimary,
+              ),
             ),
           ),
         ],
