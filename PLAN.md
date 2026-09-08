@@ -3421,7 +3421,7 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 ### TASK-057
 **Title:** Accessibility and responsive polish across all successor screens
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (visual and accessibility verification — "Test at a minimum 320 logical-pixel width, a normal phone, a larger phone, landscape, system text scale 1.0 and 2.0, and large display insets. No essential control or state label may be clipped or require horizontal scrolling… Check minimum 48 dp touch targets, primary PTT size and one-hand access, WCAG AA text contrast, focus order, TalkBack labels, state announcements, keyboard/switch access and reduced-motion behavior"); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §5 (copy and accessibility — plain-language copy, semantic label and state on every action, "Keyboard and screen-reader users must be able to tune, cancel, open Stations, navigate Settings and release a latched TX. Do not require color, sound or haptics alone to understand a state"), §3.3 (text scaling, 48×48 dp), §3.4 (reduced motion); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md §6 (48 dp targets, WCAG AA, TalkBack, scalable text, reduced motion, small phones, landscape, safe-area insets); ADR-001 §3 item 2 (DS §8's accessibility substance carries forward unchanged into the new design).
 **Owned_Paths:** lib/features/channels/**, lib/features/channel_selector/**, lib/features/talk/**, lib/features/stations/**, lib/features/radio_controls/**, lib/features/settings/**, lib/features/event_qr_ui/**, test/features/channels/**, test/features/channel_selector/**, test/features/talk/**, test/features/stations/**, test/features/radio_controls/**, test/features/settings/**, test/features/event_qr_ui/**, dossiers/TASK-057.md
@@ -3456,7 +3456,7 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 **Priority:** critical
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §0 ("Do not delete or weaken a historical test merely because the old UI is retired"), §2 (baseline and test environment — exact commands, versions, counts), §3 (VT-001–VT-005), §4 (VT-010–VT-015), §5 (VT-020–VT-024), §6 (golden fixtures for every significant state, dark and light), §9 gate G4 ("Complete regression suite, analyzer and Android builds passing or documented approved pre-existing exceptions") and G3; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §10 (a development-only compat harness may exist for side-by-side validation), §1 (Tests row — "Preserve historical tests; add successor tests rather than simply deleting failures"); ADR-001 §5 (the 40 PARKED FR-025 soak skips remain skipped and named — not reopened, not silently removed).
 **Owned_Paths:** test/regression/**, ops/REGRESSION_UX_R1.md, dossiers/TASK-058.md
-**Depends_On:** TASK-057
+**Depends_On:** TASK-057, TASK-068
 **Description:** The G3/G4 evidence gate before any hardware testing. Assemble the cross-cutting integration and golden coverage that no single screen task owns: end-to-end navigation integration tests exercising the real composition (Verification §9: "A scoped mock test is not sufficient evidence for a production wiring change; include a test that exercises the actual composition when the defect concerns wiring"), the full VT-001–VT-005 host/navigation set against the assembled shell, and golden fixtures for every significant Talk state plus Channels empty/populated, selector, Stations empty/populated, Settings, controls, QR and error states, in **both** dark and light themes (Verification §6). Written into `test/regression/**` and a report at `ops/REGRESSION_UX_R1.md` — deliberately no production directory is in this territory, so this task cannot "fix" a screen; a failure becomes a finding routed back to the owning task, which is the whole point of placing this gate here. Historical tests are preserved: the legacy face's tests still pass at this point (its deletion is TASK-061's) and no historical test may be deleted or weakened to make the successor suite green (Verification §0, Technical §1). The 40 named PARKED FR-025 soak skips stay skipped with their reason strings intact (ADR-001 §5). Record the exact baseline commit, toolchain versions, commands, results and any pre-existing failures verbatim per Verification §2 — the 8 pre-existing TASK-035 analyzer warnings are the known documented exception and must be reported as such, not silently absorbed.
 **Acceptance_Criteria:**
 - [ ] VT-001 through VT-005 are implemented against the assembled shell (not per-screen fakes in isolation) and pass (Verification §3)
@@ -3824,3 +3824,29 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-08T16:40:00Z
+
+
+### TASK-068
+**Title:** Replace Talk header overlay hack with real callback wiring; give Radio Controls a proper header slot
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** medium
+**Spec_References:** TASK-052's Review_Findings (the finding this task closes, verbatim: "the overlays are coupled to Talk's layout by hardcoded geometry and nothing guards that coupling... a future padding change in lib/features/talk/** would silently kill the picker in production. Real fix: add onOpenPicker/onOpenStations callbacks to TASK-051's TalkScreen and delete the overlays"); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 (Talk screen layout, header affordances).
+**Owned_Paths:** lib/features/talk/**, lib/app_shell/**, test/features/talk/**, test/app_shell/**, dossiers/TASK-068.md
+**Depends_On:** TASK-057
+**Description:** **ORCH-created 2026-09-08, a disclosed fragility from TASK-052's review, not a functional defect** — TASK-052's shell wiring found `TalkScreen`'s header picker/stations buttons had no callback parameters (a TASK-051 gap, left unfixed at the time since TASK-052 could not edit `lib/features/**`), and worked around it with invisible 48×48 overlays in `lib/app_shell/talk_screen.dart` positioned by hardcoded geometry matching Talk's `SafeArea`/padding. TASK-052's own reviewer proved this is a live risk, not theoretical: shifting the overlay's `top` by +100dp left GB's entire `test/app_shell` suite green while a real-centre-tap probe went red — a future Talk layout change could silently break the picker/stations buttons in production with every existing test still passing. This task removes that coupling at the source: add `onOpenPicker`/`onOpenStations` (and while in this territory, a proper `onOpenRadioControls` header slot, closing the Radio Controls placement finding too — Design §2.2 doesn't put it bottom-left in the PTT area) as real constructor callbacks on `TalkScreen`, wire them from the shell the normal way, and delete the geometry-matched overlays entirely. **Sequenced after TASK-057** (not because of a hard technical dependency, but because both tasks touch `lib/features/talk/**` and must never run concurrently — TASK-057's polish pass should land first so this task's callback-API change doesn't fight over the same file mid-flight).
+**Acceptance_Criteria:**
+- [ ] `TalkScreen` exposes real constructor callbacks for picker/stations (and radio-controls) actions — no more empty `onPressed` no-ops with a comment claiming the shell will handle it
+- [ ] `lib/app_shell/talk_screen.dart`'s invisible geometry-matched overlays are deleted entirely — the shell wires the real callbacks, nothing intercepts a tap by coordinate guessing
+- [ ] A test proves the picker/stations/radio-controls buttons keep working after Talk's own internal layout changes (e.g. wrap the header in extra padding in a test double and confirm the callback still fires) — this is the actual regression guard the fragility needs, not just "the button still renders"
+- [ ] Radio Controls gets a real header slot consistent with Design §2.2, not a shell-owned `IconButton` bolted onto the PTT area
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-08T13:10:00Z
