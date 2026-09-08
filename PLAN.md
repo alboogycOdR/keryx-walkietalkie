@@ -3994,3 +3994,28 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-08T19:56:05Z
+
+
+### TASK-071
+**Title:** Clean up the 8 pre-existing TASK-035 analyzer findings
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** low
+**Spec_References:** No spec citation — pure lint/dead-code cleanup, carried as documented debt since TASK-035 and repeatedly disclosed-not-fixed by every review since (most recently TASK-070's).
+**Owned_Paths:** test/services/session/radio_session_controller_test.dart
+**Depends_On:** —
+**Description:** **ORCH-created 2026-09-09.** Eight `flutter analyze` findings have been carried as "known, pre-existing, unrelated" in every review's Test_Evidence since TASK-035 first introduced them, with no task ever created to actually close them. All eight are in one file, all mechanical: 2 unused imports (`linked.dart`, `mesh.dart`), 2 unreferenced private declarations (`_characterDspLight`, `_dimModeAuto`), 3 unused local variables (`settingsAuto`, `settingsLinked`, `engine1`), 1 leading-underscore local-variable naming lint (`_testMode`). Reopens `test/services/session/radio_session_controller_test.dart` alone — this is TASK-035's frozen test file, not its production code; no `lib/**` path is touched. **Before deleting anything, confirm each flagged item is genuinely dead** (not, say, a variable that looks unused but is actually referenced through a closure the analyzer can't see, or a declaration some other test file depends on being present) — the fix should be as small as the finding, nothing more.
+**Acceptance_Criteria:**
+- [ ] All 8 findings resolved: `flutter analyze` on this file reports zero issues
+- [ ] No test coverage is lost — if a flagged variable/import was actually load-bearing for a test's meaning (not just its compilation), the test is fixed to use it correctly rather than the variable silently deleted
+- [ ] `flutter analyze` repo-wide reports zero issues (previously 8, now 0) — the first review in this entire project able to say that cleanly
+- [ ] Full suite green with no regression in test count
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-09T03:20:00Z
