@@ -185,9 +185,7 @@ class _ChannelsLandingState extends ConsumerState<ChannelsLanding> {
             color: tokens.textPrimary,
           ),
         ),
-        actions: <Widget>[
-          _ConnectionIndicator(view: view, tokens: tokens),
-        ],
+        actions: <Widget>[_ConnectionIndicator(view: view, tokens: tokens)],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
@@ -214,9 +212,7 @@ class _ChannelsLandingState extends ConsumerState<ChannelsLanding> {
           if (_coordinator.isBusy)
             Padding(
               key: ChannelsLandingKeys.recallProgress,
-              padding: const EdgeInsets.only(
-                bottom: KeryxUxSpacing.controlGap,
-              ),
+              padding: const EdgeInsets.only(bottom: KeryxUxSpacing.controlGap),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
@@ -343,55 +339,64 @@ class _CurrentChannelCard extends StatelessWidget {
       child: InkWell(
         onTap: onOpenTalk,
         borderRadius: BorderRadius.circular(KeryxUxSpacing.grid),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: KeryxUxSpacing.minTarget),
-          child: Padding(
-            padding: const EdgeInsets.all(KeryxUxSpacing.cardSpacing),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  channelLabel,
-                  style: KeryxUxTypography.sectionTitle.copyWith(
-                    color: tokens.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: KeryxUxSpacing.controlGap),
-                Text(
-                  configured,
-                  key: ChannelsLandingKeys.configuredMode,
-                  style: KeryxUxTypography.body.copyWith(
-                    color: tokens.textPrimary,
-                  ),
-                ),
-                Text(
-                  effective,
-                  key: ChannelsLandingKeys.effectiveRoute,
-                  style: KeryxUxTypography.body.copyWith(
-                    color: tokens.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: KeryxUxSpacing.controlGap),
-                Row(
-                  children: <Widget>[
-                    Icon(
-                      iconForPresentation(view.phaseCue.iconId),
-                      color: statusColor,
-                      size: 20,
+        // Same destination as the explicit "Open Talk" button below, but a
+        // screen reader has no other cue that tapping this whole card does
+        // the same thing (Design §5; TASK-057).
+        child: Semantics(
+          button: true,
+          label: 'Current channel $channelLabel, open Talk',
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: KeryxUxSpacing.minTarget,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(KeryxUxSpacing.cardSpacing),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    channelLabel,
+                    style: KeryxUxTypography.sectionTitle.copyWith(
+                      color: tokens.textPrimary,
                     ),
-                    const SizedBox(width: KeryxUxSpacing.controlGap),
-                    Expanded(
-                      child: Text(
-                        status,
-                        key: ChannelsLandingKeys.actualStatus,
-                        style: KeryxUxTypography.secondary.copyWith(
-                          color: tokens.textSecondary,
+                  ),
+                  const SizedBox(height: KeryxUxSpacing.controlGap),
+                  Text(
+                    configured,
+                    key: ChannelsLandingKeys.configuredMode,
+                    style: KeryxUxTypography.body.copyWith(
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    effective,
+                    key: ChannelsLandingKeys.effectiveRoute,
+                    style: KeryxUxTypography.body.copyWith(
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: KeryxUxSpacing.controlGap),
+                  Row(
+                    children: <Widget>[
+                      Icon(
+                        iconForPresentation(view.phaseCue.iconId),
+                        color: statusColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: KeryxUxSpacing.controlGap),
+                      Expanded(
+                        child: Text(
+                          status,
+                          key: ChannelsLandingKeys.actualStatus,
+                          style: KeryxUxTypography.secondary.copyWith(
+                            color: tokens.textSecondary,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

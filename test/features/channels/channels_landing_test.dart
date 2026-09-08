@@ -419,6 +419,40 @@ void main() {
     },
   );
 
+  testWidgets(
+    'TASK-057: the current-channel card exposes an explicit button label, '
+    'not just visible text a screen reader has to piece together',
+    (WidgetTester tester) async {
+      await pumpLanding(
+        tester,
+        radio: const RadioState(
+          phase: RadioPhase.idle,
+          mode: RadioMode.local,
+          channel: 4,
+          privacyCode: 8,
+        ),
+      );
+
+      final Iterable<Semantics> candidates = tester
+          .widgetList<Semantics>(
+            find.descendant(
+              of: find.byKey(ChannelsLandingKeys.currentCard),
+              matching: find.byWidgetPredicate((w) => w is Semantics),
+            ),
+          )
+          .where((s) => s.properties.label != null);
+      expect(candidates, isNotEmpty);
+      expect(
+        candidates.any(
+          (s) =>
+              s.properties.label!.contains('CH 04') &&
+              s.properties.label!.contains('open Talk'),
+        ),
+        isTrue,
+      );
+    },
+  );
+
   test('no literal colour values in the landing (Design §3.2)', () {
     const List<String> paths = <String>[
       'lib/features/channels/channels_landing.dart',
