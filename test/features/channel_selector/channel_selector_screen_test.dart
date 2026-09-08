@@ -337,4 +337,69 @@ void main() {
       },
     );
   });
+
+  group('TASK-057 — accessibility polish', () {
+    testWidgets(
+      'Cancel and Apply each meet the 48 dp minimum touch target',
+      (tester) async {
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+
+        final Size cancelSize = tester.getSize(
+          find.byKey(ChannelSelectorKeys.cancelButton),
+        );
+        final Size applySize = tester.getSize(
+          find.byKey(ChannelSelectorKeys.applyButton),
+        );
+        expect(cancelSize.height, greaterThanOrEqualTo(48));
+        expect(applySize.height, greaterThanOrEqualTo(48));
+      },
+    );
+
+    testWidgets(
+      'the channel and code fields meet the 48 dp minimum touch target',
+      (tester) async {
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+
+        final Size channelSize = tester.getSize(
+          find.byKey(ChannelSelectorKeys.channelField),
+        );
+        final Size codeSize = tester.getSize(
+          find.byKey(ChannelSelectorKeys.codeField),
+        );
+        expect(channelSize.height, greaterThanOrEqualTo(48));
+        expect(codeSize.height, greaterThanOrEqualTo(48));
+      },
+    );
+
+    testWidgets(
+      'transport-failure feedback is announced as a live region',
+      (tester) async {
+        host.autoResult = const TuneResult.transportFailure('offline');
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byKey(ChannelSelectorKeys.channelField),
+          '7',
+        );
+        await tester.enterText(
+          find.byKey(ChannelSelectorKeys.codeField),
+          '5',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(ChannelSelectorKeys.applyButton));
+        await tester.pumpAndSettle();
+
+        final Semantics semantics = tester.widget<Semantics>(
+          find.descendant(
+            of: find.byKey(ChannelSelectorKeys.feedback),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(semantics.properties.liveRegion, isTrue);
+      },
+    );
+  });
 }
