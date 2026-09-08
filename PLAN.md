@@ -3684,7 +3684,7 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 
 ### TASK-066
 **Title:** Project TOT (time-out-tension) warning into RadioViewState
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-023 (TOT: max TX duration, warning chirp at T-5s, hard cut at 0); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 ("TX time-out warning" catalogue row, carried into the successor state model); TASK-051's Review_Findings round 2 (the carve-out that created this task — `RadioState.isTotWarning` exists in the reducer with no `RadioViewState` projection, and Talk's own presentation-boundary rule forbids reading `RadioState` directly).
@@ -3700,12 +3700,32 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 **Started_At:** 2026-09-08T11:15:00Z
 **Progress_Notes:**
 - [2026-09-08T11:15:00Z] [GB] Claimed TASK-066. Zero in_progress/claimed GB tasks at session start; this is the only pending GB assignment and Depends_On is empty. Branch task/TASK-066-gb from master. Preflight next, then project RadioState.isTotWarning onto RadioViewState as an independent overlay field. Will not touch lib/features/talk/** or lib/core/state/**.
+- [2026-09-08T11:16:30Z] [GB] Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-066 Owned_Paths inspected in E:/DELL-PROJECTS/wt-grok-WALKIETALKIE
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/presentation/**  -> 8 file(s):
+           lib/core/presentation/connection_condition.dart
+           lib/core/presentation/presentation.dart
+           lib/core/presentation/presentation_cue.dart
+           lib/core/presentation/radio_phase_presentation.dart
+           lib/core/presentation/radio_view_intents.dart
+           lib/core/presentation/radio_view_state.dart
+           lib/core/presentation/telemetry.dart
+           lib/core/presentation/tuning_target.dart
+  GLOB   test/core/presentation/**  -> 2 file(s):
+           test/core/presentation/radio_view_intents_test.dart
+           test/core/presentation/radio_view_state_test.dart
+  FILE   dossiers/TASK-066.md  -> exists, 32 line(s), 1444 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches expectation (existing TASK-046 projection, not new files). Design §4's 13-row table has no "TX time-out warning" row (that name is DS §6 / FR-023); TX granted says "Red + timer if authoritative". Pinning cue copy as an implementation decision: label `Transmission ending soon`, iconId `timer` — text+icon, not colour-only, distinct from the 13 Design §4 labels. Field `totWarning` defaults false so out-of-territory direct `RadioViewState(...)` constructors keep compiling; `project()` always sources `radioState.isTotWarning`. Implementing now.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-08T11:15:00Z
+**Updated_At:** 2026-09-08T11:16:30Z
 
 
 ### TASK-067
