@@ -3459,7 +3459,7 @@ Master preflight lists 6 `lib/app_shell` files because `shell_keys.dart` / `shel
 **Priority:** critical
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §0 ("Do not delete or weaken a historical test merely because the old UI is retired"), §2 (baseline and test environment — exact commands, versions, counts), §3 (VT-001–VT-005), §4 (VT-010–VT-015), §5 (VT-020–VT-024), §6 (golden fixtures for every significant state, dark and light), §9 gate G4 ("Complete regression suite, analyzer and Android builds passing or documented approved pre-existing exceptions") and G3; specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §10 (a development-only compat harness may exist for side-by-side validation), §1 (Tests row — "Preserve historical tests; add successor tests rather than simply deleting failures"); ADR-001 §5 (the 40 PARKED FR-025 soak skips remain skipped and named — not reopened, not silently removed).
 **Owned_Paths:** test/regression/**, ops/REGRESSION_UX_R1.md, dossiers/TASK-058.md
-**Depends_On:** TASK-057, TASK-068
+**Depends_On:** TASK-057, TASK-068, TASK-069
 **Description:** The G3/G4 evidence gate before any hardware testing. Assemble the cross-cutting integration and golden coverage that no single screen task owns: end-to-end navigation integration tests exercising the real composition (Verification §9: "A scoped mock test is not sufficient evidence for a production wiring change; include a test that exercises the actual composition when the defect concerns wiring"), the full VT-001–VT-005 host/navigation set against the assembled shell, and golden fixtures for every significant Talk state plus Channels empty/populated, selector, Stations empty/populated, Settings, controls, QR and error states, in **both** dark and light themes (Verification §6). Written into `test/regression/**` and a report at `ops/REGRESSION_UX_R1.md` — deliberately no production directory is in this territory, so this task cannot "fix" a screen; a failure becomes a finding routed back to the owning task, which is the whole point of placing this gate here. Historical tests are preserved: the legacy face's tests still pass at this point (its deletion is TASK-061's) and no historical test may be deleted or weakened to make the successor suite green (Verification §0, Technical §1). The 40 named PARKED FR-025 soak skips stay skipped with their reason strings intact (ADR-001 §5). Record the exact baseline commit, toolchain versions, commands, results and any pre-existing failures verbatim per Verification §2 — the 8 pre-existing TASK-035 analyzer warnings are the known documented exception and must be reported as such, not silently absorbed.
 **Acceptance_Criteria:**
 - [ ] VT-001 through VT-005 are implemented against the assembled shell (not per-screen fakes in isolation) and pass (Verification §3)
@@ -3853,3 +3853,28 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-08T13:10:00Z
+
+
+### TASK-069
+**Title:** Keyboard/switch access for Radio Controls' Monitor and Emergency hold targets
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** medium
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §5 ("Keyboard and screen-reader users must be able to tune, cancel, open Stations, navigate Settings and release a latched TX"); TASK-057's Review_Findings (the accepted, explicitly-not-fixed finding this task closes — "Radio Controls' Monitor and Emergency arm hold-targets remain pointer-only... needs its own design decision rather than a copy of Talk's toggle").
+**Owned_Paths:** lib/features/radio_controls/**, test/features/radio_controls/**, dossiers/TASK-069.md
+**Depends_On:** TASK-057
+**Description:** **ORCH-created 2026-09-08, an accepted-not-fixed finding from TASK-057's review.** Monitor's hold-to-open semantics (TASK-054, preserved deliberately — no toggle variant) and Emergency's 600ms hold-to-arm (also preserved verbatim from the legacy `EmgKey`) are both pointer-only gestures with no keyboard/switch equivalent. Design §5's functional floor names TX-latch release explicitly as a safety property but is silent on Monitor/Emergency specifically — this task makes an explicit, documented decision (not a silent copy of Talk's latch-release button pattern, since Emergency's accidental-activation guard is exactly what a keyboard "hold" analog must not undermine) for how a keyboard/switch user activates a hold-gated control safely, and implements it. **Sequenced after TASK-057** (shares `lib/features/radio_controls/**` territory, never concurrent).
+**Acceptance_Criteria:**
+- [ ] A documented decision exists for keyboard/switch activation of a hold-gated control (e.g. explicit press-and-hold-substitute action, or a confirm-then-arm two-step) that does not weaken Emergency's accidental-activation guard (UX-FR-042) — the decision itself, and why it doesn't undermine the guard, is written in this task's dossier/Description before implementation, not invented ad hoc mid-build
+- [ ] A keyboard/switch user can activate Monitor and arm/clear Emergency — covered by a test, not inspection alone
+- [ ] Emergency's existing 600ms hold-duration/accidental-activation semantics for POINTER input are unchanged (regression test against TASK-054's existing pointer-based tests)
+- [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-08T14:05:00Z
