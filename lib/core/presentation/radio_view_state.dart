@@ -11,10 +11,13 @@ import 'telemetry.dart';
 import 'tuning_target.dart';
 
 /// Overlay cues for the 5 Design §4 catalogue rows that are **not** a
-/// [RadioPhase] — each is an independent boolean/nullable field on
-/// [RadioViewState], never folded into a single priority switch (Technical
-/// §5.2; Design §4's closing paragraph). Kept as static constants here
-/// (rather than duplicated inline) so their copy has exactly one source.
+/// [RadioPhase], plus the FR-023 / DS §6 TOT-warning overlay (Design §4
+/// has no dedicated "TX time-out warning" row; TX granted's treatment is
+/// "Red + timer if authoritative"). Each is an independent boolean/nullable
+/// field on [RadioViewState], never folded into a single priority switch
+/// (Technical §5.2; Design §4's closing paragraph). Kept as static
+/// constants here (rather than duplicated inline) so their copy has
+/// exactly one source.
 abstract final class OverlayCues {
   static const deniedFlash = PresentationCue(
     label: 'Channel busy',
@@ -35,6 +38,13 @@ abstract final class OverlayCues {
   static const serviceFault = PresentationCue(
     label: 'Background service unavailable',
     iconId: 'error',
+  );
+
+  /// FR-023 T-5 s TOT warning (DS §6 "TX time-out warning"). Not a Design
+  /// §4 catalogue row — pinned copy, not colour-only (Design §5).
+  static const totWarning = PresentationCue(
+    label: 'Transmission ending soon',
+    iconId: 'timer',
   );
 }
 
@@ -64,6 +74,7 @@ class RadioViewState {
     required this.emergency,
     required this.latched,
     required this.deniedFlash,
+    this.totWarning = false,
     required this.connection,
     required this.permissionDenied,
     required this.serviceFaultMessage,
@@ -103,6 +114,14 @@ class RadioViewState {
   /// impossible, e.g. a deny that lands the same tick a separate granted
   /// TX is reported for a different, unrelated station update).
   final bool deniedFlash;
+
+  /// FR-023 / DS §6 "TX time-out warning" — a TX-phase overlay mirroring
+  /// `RadioState.isTotWarning`. Independent of [phase]/[emergency]/
+  /// [latched]: a TOT warning during granted TX projects both
+  /// [phase] == `RadioPhase.tx` and this field simultaneously. Default
+  /// `false` so out-of-territory direct constructors keep compiling;
+  /// [RadioViewState.project] always sources the real reducer flag.
+  final bool totWarning;
 
   /// Configured mode vs. effective route vs. degraded connectivity — kept
   /// as one nested-but-still-independent value (Technical §7; UX-FR-002).
@@ -171,19 +190,22 @@ class RadioViewState {
 
   /// Design §4's cue for [phase] alone (the 8 phase-mapped rows). A
   /// screen composes this with [emergency]/[latched]/[deniedFlash]/
-  /// [permissionDenied]/[serviceFaultMessage]'s own cues — see
-  /// [activeOverlayCues] — rather than reading one collapsed value.
+  /// [totWarning]/[permissionDenied]/[serviceFaultMessage]'s own cues —
+  /// see [activeOverlayCues] — rather than reading one collapsed value.
   PresentationCue get phaseCue => phase.cue;
 
-  /// Every overlay row (of the 5 non-phase catalogue rows) currently
-  /// active, in Design §4's table order. Deliberately a list, not a single
-  /// value — more than one may be simultaneously true, and a screen must
-  /// render all of them (Technical §5.2; Design §4's closing paragraph).
+  /// Every overlay currently active. The five Design §4 non-phase rows
+  /// stay in that table's order; FR-023's TOT warning is appended after
+  /// Denied/busy (both are TX overlays) and before Latched. Deliberately
+  /// a list, not a single value — more than one may be simultaneously
+  /// true, and a screen must render all of them (Technical §5.2; Design
+  /// §4's closing paragraph).
   List<PresentationCue> get activeOverlayCues => [
     if (permissionDenied) OverlayCues.permissionDenied,
     if (serviceFaultMessage != null) OverlayCues.serviceFault,
     if (emergency) OverlayCues.emergency,
     if (deniedFlash) OverlayCues.deniedFlash,
+    if (totWarning) OverlayCues.totWarning,
     if (latched) OverlayCues.latched,
   ];
 
@@ -236,6 +258,7 @@ class RadioViewState {
       emergency: radioState.isEmergency,
       latched: latched,
       deniedFlash: radioState.isTransmitDenied,
+      totWarning: radioState.isTotWarning,
       connection: ConnectionCondition(
         configuredMode: settings.mode,
         effectiveRoute: radioState.mode,
@@ -268,7 +291,8 @@ class RadioViewState {
   @override
   String toString() =>
       'RadioViewState(phase: $phase, emergency: $emergency, '
-      'latched: $latched, deniedFlash: $deniedFlash, connection: $connection, '
+      'latched: $latched, deniedFlash: $deniedFlash, totWarning: $totWarning, '
+      'connection: $connection, '
       'permissionDenied: $permissionDenied, '
       'serviceFaultMessage: $serviceFaultMessage, channel: $channel, '
       'privacyCode: $privacyCode, pendingTuningTarget: $pendingTuningTarget, '

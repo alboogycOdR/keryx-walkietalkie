@@ -14,7 +14,8 @@ import 'presentation_cue.dart';
 /// doesn't already have, and a widget must still read [RadioViewState
 /// .phase] (== `RadioState.phase`, unchanged) for the authoritative value —
 /// this extension only supplies the label/icon Design §4 requires
-/// alongside colour.
+/// alongside colour. The FR-023 TOT-warning overlay is not a phase; it
+/// lives on `RadioViewState.totWarning` / `OverlayCues.totWarning`.
 extension RadioPhasePresentation on RadioPhase {
   PresentationCue get cue => switch (this) {
     RadioPhase.off => const PresentationCue(

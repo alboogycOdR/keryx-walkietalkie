@@ -109,6 +109,49 @@ void main() {
       expect(view.latched, isTrue);
       expect(view.activeOverlayCues, contains(OverlayCues.latched));
     });
+
+    test(
+      'TOT-warning during TX shows both phase==tx and totWarning==true — '
+      'neither field replaces the other (FR-023; Design §4 independent fields)',
+      () {
+        final view = RadioViewState.project(
+          radioState: const RadioState(
+            phase: RadioPhase.tx,
+            isTotWarning: true,
+          ),
+          hostSnapshot: const RadioHostSnapshot(),
+          settings: const KeryxSettings(),
+        );
+
+        expect(view.phase, RadioPhase.tx);
+        expect(view.totWarning, isTrue);
+        expect(view.emergency, isFalse);
+        expect(view.latched, isFalse);
+        expect(view.phaseCue.label, 'Transmitting');
+        expect(view.activeOverlayCues, contains(OverlayCues.totWarning));
+        expect(OverlayCues.totWarning.label, isNotEmpty);
+        expect(OverlayCues.totWarning.iconId, isNotEmpty);
+      },
+    );
+
+    test(
+      'totWarning is sourced from RadioState.isTotWarning, never '
+      'fabricated from phase==tx alone',
+      () {
+        final view = RadioViewState.project(
+          radioState: const RadioState(
+            phase: RadioPhase.tx,
+            isTotWarning: false,
+          ),
+          hostSnapshot: const RadioHostSnapshot(),
+          settings: const KeryxSettings(),
+        );
+
+        expect(view.phase, RadioPhase.tx);
+        expect(view.totWarning, isFalse);
+        expect(view.activeOverlayCues, isNot(contains(OverlayCues.totWarning)));
+      },
+    );
   });
 
   group('UX-FR-002 / Technical §7 — configured mode vs effective route', () {
@@ -180,6 +223,32 @@ void main() {
       expect(overlayCues.toSet().length, 5);
       expect(allLabels.length, 13);
     });
+
+    test(
+      'TOT-warning cue is text+icon and distinct from every Design §4 '
+      'catalogue label (FR-023 overlay is not a 14th Design §4 row)',
+      () {
+        expect(OverlayCues.totWarning.label, 'Transmission ending soon');
+        expect(OverlayCues.totWarning.iconId, 'timer');
+        expect(OverlayCues.totWarning.label, isNotEmpty);
+        expect(OverlayCues.totWarning.iconId, isNotEmpty);
+
+        final designLabels = <String>{
+          ...RadioPhase.values.map((p) => p.cue.label),
+          OverlayCues.deniedFlash.label,
+          OverlayCues.latched.label,
+          OverlayCues.emergency.label,
+          OverlayCues.permissionDenied.label,
+          OverlayCues.serviceFault.label,
+        };
+        expect(designLabels.length, 13);
+        expect(designLabels, isNot(contains(OverlayCues.totWarning.label)));
+        expect(
+          RadioPhase.values.map((p) => p.cue.iconId),
+          isNot(contains(OverlayCues.totWarning.iconId)),
+        );
+      },
+    );
 
     test(
       'a pending request never projects as granted TX — grant appears '
