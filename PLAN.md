@@ -3102,7 +3102,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 ### TASK-052
 **Title:** Wire Wave 4 screens into the mobile app shell (replace TASK-048's placeholders)
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** docs/adr/ADR-001-mobile-ux-redesign-reconciliation.md §6 (app-shell migration shape — the shell mounts real screens, owns no screen content itself); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §2-§4 (persistent host survives navigation; navigation-shaped operations must not retune/dispose); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D01/UX-D02 (Channels default landing, Channels+Settings required destinations).
 **Owned_Paths:** lib/app_shell/**, dossiers/TASK-052.md
