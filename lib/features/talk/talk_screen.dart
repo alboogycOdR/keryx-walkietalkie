@@ -11,6 +11,7 @@ import 'package:keryx/core/state/radio_state.dart' show RadioMode, RadioPhase;
 import 'package:keryx/core/theme/ux_tokens.dart';
 
 import 'talk_copy.dart';
+import 'talk_latch_state.dart';
 import 'talk_ptt_disc.dart';
 
 /// The successor Talk screen (Design §2.2) — the primary communication
@@ -53,7 +54,16 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   /// [RadioViewState.project] takes this flag as a caller-supplied
   /// argument (TASK-046's Review_Findings: TASK-050/051 are "on the hook
   /// for actually tracking it").
-  bool _latched = false;
+  ///
+  /// Backed by [TalkLatchState], keyed on [widget.host]'s identity, **not**
+  /// a plain field on this [State] — round-1 review found a widget-local
+  /// bool dies with the widget on route unmount, so a latched transmission
+  /// survived at the engine (correctly) but lost its only UI release
+  /// affordance the moment the screen was remounted (`TalkLatchState`'s own
+  /// dartdoc has the full incident). This getter, not a cached field, so it
+  /// always reflects the persistent holder even across this State's own
+  /// disposal/recreation.
+  bool get _latched => TalkLatchState.of(widget.host);
 
   FloorEngine? _lastFloorEngine;
   bool _wasPermissionDenied = false;
@@ -130,12 +140,12 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
 
   void _engageLatch() {
     if (!_holding || _latched) return;
-    setState(() => _latched = true);
+    setState(() => TalkLatchState.engage(widget.host));
   }
 
   void _releaseLatch(RadioViewIntents intents) {
     if (!_latched) return;
-    setState(() => _latched = false);
+    setState(() => TalkLatchState.release(widget.host));
     intents.releaseLatch();
   }
 
@@ -168,11 +178,15 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
         _snapshot.floorEngine != null;
 
     final _DiscTreatment treatment = _treatmentFor(viewState);
+    // Design §4's catalogue table: "Requesting" is Pending/amber, not the
+    // Ready row's Primary blue — and within the idle bucket, Off/Boot/
+    // Tuning are their own "Neutral disabled"/"Neutral progress"/"Progress"
+    // treatments, distinct from Ready's blue (round-1 review BLOCKING 3a).
     final Color discColor = switch (treatment) {
       _DiscTreatment.tx => tokens.stateTx,
       _DiscTreatment.rx => tokens.stateRx,
-      _DiscTreatment.requesting => tokens.actionPrimary,
-      _DiscTreatment.idle => tokens.actionPrimary,
+      _DiscTreatment.requesting => tokens.stateWarning,
+      _DiscTreatment.idle => _idleColorFor(viewState.phase, tokens),
     };
     final String statusLine = _statusLineFor(viewState, treatment);
 
@@ -209,7 +223,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
                   enabled: ptteEnabled,
                   showsTx: treatment == _DiscTreatment.tx,
                   label: statusLine,
-                  icon: _iconFor(treatment),
+                  icon: _iconFor(treatment, viewState.phase),
                   color: discColor,
                   onColor: tokens.palette.contrastingOn(discColor),
                   onHoldStart: () => _handleHoldStart(intents),
@@ -240,12 +254,64 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     );
   }
 
-  static IconData _iconFor(_DiscTreatment treatment) => switch (treatment) {
-    _DiscTreatment.tx => Icons.mic,
-    _DiscTreatment.rx => Icons.volume_up,
-    _DiscTreatment.requesting => Icons.pending_outlined,
-    _DiscTreatment.idle => Icons.mic_none,
+  // Idle-bucket phases (off/boot/idle/tuning/linkDegraded) share one
+  // `_DiscTreatment` but Design §4 gives each its own icon/colour — so both
+  // resolve off `RadioPhase.cue` (`radio_phase_presentation.dart`, the same
+  // catalogue source of truth `RadioViewState.phaseCue` exposes) rather than
+  // a second, hand-duplicated mapping.
+  static IconData _iconFor(_DiscTreatment treatment, RadioPhase phase) =>
+      switch (treatment) {
+        _DiscTreatment.tx => Icons.mic,
+        _DiscTreatment.rx => Icons.volume_up,
+        _DiscTreatment.requesting => _iconForCueId('pending'),
+        _DiscTreatment.idle => _iconForCueId(phase.cue.iconId),
+      };
+
+  /// Design §4: Off/Boot/Tuning/No-link are each their own neutral/warning
+  /// treatment, not Ready's Primary blue — only [RadioPhase.idle] itself
+  /// earns the blue "Hold to talk" treatment.
+  static Color _idleColorFor(RadioPhase phase, KeryxUxTokens tokens) =>
+      switch (phase) {
+        RadioPhase.idle => tokens.actionPrimary,
+        RadioPhase.linkDegraded => tokens.stateWarning,
+        _ => tokens.textSecondary,
+      };
+
+  /// Resolves a [PresentationCue.iconId]/[OverlayCues] semantic key to a
+  /// concrete glyph — the icon-mapping table `presentation_cue.dart`'s own
+  /// dartdoc says belongs at "a screen's icon-mapping table", deliberately
+  /// kept framework-agnostic upstream (Design §3.4: "a consistent icon
+  /// family").
+  static IconData _iconForCueId(String iconId) => switch (iconId) {
+    'power_off' => Icons.power_settings_new,
+    'hourglass' => Icons.hourglass_empty,
+    'mic_none' => Icons.mic_none,
+    'tune' => Icons.tune,
+    'pending' => Icons.pending_outlined,
+    'mic' => Icons.mic,
+    'volume_up' => Icons.volume_up,
+    'wifi_off' => Icons.wifi_off,
+    'block' => Icons.block,
+    'lock' => Icons.lock,
+    'warning' => Icons.priority_high,
+    'mic_off' => Icons.mic_off,
+    'error' => Icons.error_outline,
+    _ => Icons.circle,
   };
+
+  /// Design §4's per-row colour for the 5 overlay cues — a single hardcoded
+  /// warning colour (round-1 review non-blocking (iii)) collapsed
+  /// "Transmission locked" (Red) and "Emergency active" (Orange priority)
+  /// into the same amber as "Channel busy"/"Service fault", losing the
+  /// colour half of the catalogue's redundant label+icon+colour cue for
+  /// exactly the two rows Design §2.5/§4 call out as needing their own
+  /// distinct treatment.
+  static Color _overlayColorFor(PresentationCue cue, KeryxUxTokens tokens) =>
+      switch (cue.iconId) {
+        'lock' => tokens.stateTx, // Latched: "Red + explicit release".
+        'warning' => tokens.stateEmergency, // Emergency: "Orange priority".
+        _ => tokens.stateWarning, // Denied/busy, permission, service fault.
+      };
 
   static _DiscTreatment _treatmentFor(RadioViewState viewState) {
     if (viewState.latched || viewState.phase == RadioPhase.tx) {
@@ -265,6 +331,11 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     // Design §2.2/§5: "A disconnected screen must not show 'Ready.'" — the
     // happy-path idle copy is gated behind connection health.
     if (viewState.connection.degraded) return TalkCopy.connectionLost;
+    // Round-1 review non-blocking (ii): a permission-denied screen showed
+    // the generic "Hold to talk" status line (disc merely disabled) instead
+    // of naming the reason — Design §5's own persistent-actionable-message
+    // copy belongs on the status line, not only the overlay chip above it.
+    if (viewState.permissionDenied) return TalkCopy.microphonePermissionRequired;
     return switch (treatment) {
       _DiscTreatment.tx => viewState.latched
           ? TalkCopy.transmissionLocked
@@ -276,7 +347,11 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
         RadioPhase.off => 'Radio off',
         RadioPhase.boot => 'Starting radio',
         RadioPhase.tuning => 'Changing channel',
-        _ => TalkCopy.holdToTalk,
+        // Design §5's literal idle copy is the two sentences together:
+        // "Channel clear. Hold to talk." — `TalkCopy.holdToTalk` itself
+        // stays period-free since it doubles as Design §4's bare catalogue
+        // label for the Ready row.
+        _ => '${TalkCopy.channelClear} ${TalkCopy.holdToTalk}.',
       },
     };
   }
@@ -406,17 +481,21 @@ class _OverlayCueChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color color = _TalkScreenState._overlayColorFor(cue, tokens);
     return Padding(
+      key: Key('keryx-talk-overlay-${cue.iconId}'),
       padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: <Widget>[
-          Icon(Icons.circle, size: 8, color: tokens.stateWarning),
+          Icon(
+            _TalkScreenState._iconForCueId(cue.iconId),
+            size: 14,
+            color: color,
+          ),
           const SizedBox(width: 6),
           Text(
             cue.label,
-            style: KeryxUxTypography.compact.copyWith(
-              color: tokens.textSecondary,
-            ),
+            style: KeryxUxTypography.compact.copyWith(color: color),
           ),
         ],
       ),

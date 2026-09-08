@@ -10,6 +10,7 @@ import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
+import 'package:keryx/features/talk/talk_ptt_disc.dart';
 import 'package:keryx/features/talk/talk_screen.dart';
 import 'package:keryx/services/session/session.dart' show StationInfo;
 
@@ -276,6 +277,62 @@ void main() {
         expect(host.releaseLatchCalls, 0);
       },
     );
+
+    testWidgets(
+      'a deliberate latch survives route unmount and remains releasable '
+      'on remount (round-1 review BLOCKING 1/2)',
+      (tester) async {
+        await pumpReady(tester);
+        await tester.startGesture(
+          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+        );
+        await tester.pump();
+        container.read(radioStateProvider.notifier)
+          ..dispatch(const PowerOn())
+          ..dispatch(const BootCompleted())
+          ..dispatch(const RequestTransmit())
+          ..dispatch(const TransmitGranted());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('keryx-talk-latch')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('keryx-talk-unlatch')), findsOneWidget);
+
+        // Unmount — mirrors a route pop while latched.
+        await tester.pumpWidget(const SizedBox.shrink());
+        expect(host.releasePttCalls, 0);
+        expect(host.releaseLatchCalls, 0);
+
+        // Remount against the SAME persistent host and provider container
+        // (mirrors navigating back to Talk in the real app, where
+        // `RadioHost`/`ProviderContainer` are app-scoped and outlive the
+        // route — `build()` would construct a brand-new container/settings
+        // store, which is not what a real remount does). A widget-local
+        // latch flag (round-1's defect) would reset to `false` here and
+        // silently drop both the overlay cue and the release affordance
+        // while the floor is still actually held.
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: keryxUxThemeData(),
+              home: TalkScreen(host: host),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Transmission locked'), findsWidgets);
+        expect(find.byKey(const Key('keryx-talk-unlatch')), findsOneWidget);
+        expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
+
+        // And it must actually still work: exactly one releaseLatch call
+        // fires, and the screen returns to the un-latched affordance.
+        await tester.tap(find.byKey(const Key('keryx-talk-unlatch')));
+        await tester.pumpAndSettle();
+        expect(host.releaseLatchCalls, 1);
+        expect(find.byKey(const Key('keryx-talk-latch')), findsOneWidget);
+      },
+    );
   });
 
   group('latch — explicit affordance (Technical §5.2 replacement rationale)', () {
@@ -493,6 +550,205 @@ void main() {
         ),
       );
       expect(button.onPressed, isNull);
+    });
+  });
+
+  group('Design §4 state catalogue — icon and colour (round-1 review '
+      'BLOCKING 3a)', () {
+    // `TalkPttDisc.icon`/`.color` are the semantic values `TalkScreen`
+    // computed and handed down — asserted on the widget itself, not the
+    // rendered `AnimatedContainer`'s decoration, because the disc's own
+    // disabled-state dimming (`color.withValues(alpha: .35)`) is that
+    // component's own presentation concern, not part of what this screen
+    // is responsible for choosing per Design §4's catalogue row.
+    TalkPttDisc discWidget(WidgetTester tester) =>
+        tester.widget<TalkPttDisc>(find.byType(TalkPttDisc));
+
+    Icon overlayIcon(WidgetTester tester, String iconId) => tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(Key('keryx-talk-overlay-$iconId')),
+        matching: find.byType(Icon),
+      ),
+    );
+
+    testWidgets('Off: neutral icon and colour, PTT disabled', (
+      tester,
+    ) async {
+      final engine = _newEngine();
+      host.emit(RadioHostSnapshot(floorEngine: engine));
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      engine.dispose();
+      final tokens = KeryxUxTokens.dark;
+      final icon = discWidget(tester);
+      expect(icon.icon, Icons.power_settings_new);
+      expect(icon.color, tokens.textSecondary);
+    });
+
+    testWidgets('Boot: neutral progress icon and colour', (tester) async {
+      final engine = _newEngine();
+      host.emit(RadioHostSnapshot(floorEngine: engine));
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      container.read(radioStateProvider.notifier).dispatch(const PowerOn());
+      await tester.pumpAndSettle();
+      engine.dispose();
+      final tokens = KeryxUxTokens.dark;
+      final icon = discWidget(tester);
+      expect(icon.icon, Icons.hourglass_empty);
+      expect(icon.color, tokens.textSecondary);
+    });
+
+    testWidgets('Ready: primary-blue mic icon, enabled, full idle copy', (
+      tester,
+    ) async {
+      await pumpReady(tester);
+      final tokens = KeryxUxTokens.dark;
+      final icon = discWidget(tester);
+      expect(icon.icon, Icons.mic_none);
+      expect(icon.color, tokens.actionPrimary);
+      expect(find.text('Channel clear. Hold to talk.'), findsWidgets);
+    });
+
+    testWidgets('Tuning: progress icon and neutral colour', (tester) async {
+      await pumpReady(tester);
+      container.read(radioStateProvider.notifier).dispatch(
+        const BeginTuning(),
+      );
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final icon = discWidget(tester);
+      expect(icon.icon, Icons.tune);
+      expect(icon.color, tokens.textSecondary);
+      expect(find.text('Changing channel'), findsWidgets);
+    });
+
+    testWidgets('Requesting: pending/amber icon and colour', (tester) async {
+      await pumpReady(tester);
+      container.read(radioStateProvider.notifier).dispatch(
+        const RequestTransmit(),
+      );
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final icon = discWidget(tester);
+      expect(icon.icon, Icons.pending_outlined);
+      expect(icon.color, tokens.stateWarning);
+    });
+
+    testWidgets('TX granted: red mic icon and colour', (tester) async {
+      await pumpReady(tester);
+      container.read(radioStateProvider.notifier)
+        ..dispatch(const RequestTransmit())
+        ..dispatch(const TransmitGranted());
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final icon = discWidget(tester);
+      expect(icon.icon, Icons.mic);
+      expect(icon.color, tokens.stateTx);
+    });
+
+    testWidgets('Receiving: green speaker icon and colour', (tester) async {
+      await pumpReady(tester);
+      container.read(radioStateProvider.notifier)
+        ..dispatch(const RemoteFloorStarted())
+        ..dispatch(const ActiveSpeakerChanged('peer-77'));
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final icon = discWidget(tester);
+      expect(icon.icon, Icons.volume_up);
+      expect(icon.color, tokens.stateRx);
+    });
+
+    testWidgets('No link: warning icon and colour on the PTT surface too', (
+      tester,
+    ) async {
+      await pumpReady(tester);
+      container.read(radioStateProvider.notifier).dispatch(
+        const LinkDegraded(),
+      );
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final icon = discWidget(tester);
+      expect(icon.icon, Icons.wifi_off);
+      expect(icon.color, tokens.stateWarning);
+    });
+
+    testWidgets('Denied/busy overlay: amber block icon and colour', (
+      tester,
+    ) async {
+      await pumpReady(tester);
+      container.read(radioStateProvider.notifier)
+        ..dispatch(const RequestTransmit())
+        ..dispatch(const TransmitGranted())
+        ..dispatch(const TransmitDeniedIndicated());
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final icon = overlayIcon(tester, 'block');
+      expect(icon.icon, Icons.block);
+      expect(icon.color, tokens.stateWarning);
+    });
+
+    testWidgets('Latched overlay: red lock icon and colour', (tester) async {
+      await pumpReady(tester);
+      await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+      );
+      await tester.pump();
+      container.read(radioStateProvider.notifier)
+        ..dispatch(const RequestTransmit())
+        ..dispatch(const TransmitGranted());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('keryx-talk-latch')));
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final icon = overlayIcon(tester, 'lock');
+      expect(icon.icon, Icons.lock);
+      expect(icon.color, tokens.stateTx);
+    });
+
+    testWidgets('Emergency overlay: distinct orange priority icon and '
+        'colour, not the shared amber warning colour', (tester) async {
+      await pumpReady(tester);
+      container.read(radioStateProvider.notifier).dispatch(
+        const EmergencyPinned(),
+      );
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final icon = overlayIcon(tester, 'warning');
+      expect(icon.icon, Icons.priority_high);
+      expect(icon.color, tokens.stateEmergency);
+      expect(icon.color, isNot(tokens.stateWarning));
+    });
+
+    testWidgets('Permission denied overlay: mic-off icon and colour', (
+      tester,
+    ) async {
+      host.emit(const RadioHostSnapshot(micPermissionDenied: true));
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final icon = overlayIcon(tester, 'mic_off');
+      expect(icon.icon, Icons.mic_off);
+      expect(icon.color, tokens.stateWarning);
+    });
+
+    testWidgets('Service fault overlay: error icon and colour', (
+      tester,
+    ) async {
+      final engine = _newEngine();
+      host.emit(
+        RadioHostSnapshot(
+          floorEngine: engine,
+          serviceFaultMessage: 'Background service unavailable',
+        ),
+      );
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      engine.dispose();
+      final tokens = KeryxUxTokens.dark;
+      final icon = overlayIcon(tester, 'error');
+      expect(icon.icon, Icons.error_outline);
+      expect(icon.color, tokens.stateWarning);
     });
   });
 

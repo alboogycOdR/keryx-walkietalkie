@@ -145,3 +145,114 @@ control screen is TASK-054's, and FR-025 stays PARKED.
     suite additive rather than repetitive, but noted here rather than silently assumed.
 
   Status -> needs_review.
+
+- [2026-09-08T12:00:00Z] [S5] Round-2 rework. Resumed on the existing branch
+  `task/TASK-051-s5` (already checked out; `git status` clean except a stray
+  `analysis_options.yaml` diff from the local toolchain, reverted with
+  `git checkout -- analysis_options.yaml` before starting). Read ORCH's
+  Review_Findings in full from `PLAN.md` fresh before touching code.
+
+  **BLOCKING 1/2 — stuck-latch defect.** ORCH's diagnosis was exactly right:
+  `_TalkScreenState._latched` was a plain `bool` field, disposed with the
+  widget on every route unmount. A latched transmission survived correctly at
+  the engine (`dispose()` never releases a latch, per Technical §4) but lost
+  its *only* UI release affordance on remount, because the fresh `State`
+  started with `_latched == false`. Considered going `blocked` with
+  `OWNERSHIP_CONFLICT` per the finding's own suggested escape hatch (no
+  `RadioHost` acquire-latch operation exists), but concluded a host-side
+  change isn't actually required: `RadioViewState.latched`'s own dartdoc
+  already says a deliberate latch is "UI-owned" state that must "survive
+  navigation" — the contract was always that *some* durable UI-side store
+  holds it, not necessarily `RadioHost` itself. Added
+  `lib/features/talk/talk_latch_state.dart`: `TalkLatchState`, an
+  `Expando<bool>` at module scope keyed on `RadioHost` identity. Module scope
+  (not a `State` field) means it survives exactly as long as the `RadioHost`
+  instance does — which in the real app is the persistent, app-scoped host
+  (TASK-045), i.e. exactly as long as Design/Technical require. Keying by
+  identity (not a shared static bool) means a fresh `FakeRadioHost()` per
+  test — or a genuinely replaced host — never inherits a stale flag.
+  `_latched` is now a getter reading this store; `_engageLatch`/
+  `_releaseLatch` write through it. Added the test ORCH specified verbatim:
+  latch → unmount (assert nothing released, matches the existing pre-fix
+  test) → remount against the *same* host **and** the same `ProviderContainer`
+  (deliberately not `build()`, which constructs a fresh container/settings
+  store and would reset `RadioState` too — that is not what a real
+  navigation does; the real app's container and host both outlive the
+  route) → assert the overlay cue and `keryx-talk-unlatch` are both still
+  present → tap it → assert exactly one `releaseLatch` call and the screen
+  returns to the un-latched affordance. Mutation-checked: reverted the getter
+  to `=> false`, which flipped exactly this one new test red (`Found 0
+  widgets with key 'keryx-talk-unlatch'`), nothing else; reverted clean.
+
+  **BLOCKING 3(a) — per-row icon/colour.** Rebuilt the disc's icon/colour
+  resolution to route through `RadioPhase.cue` (`radio_phase_presentation
+  .dart`, the same catalogue source `RadioViewState.phaseCue` already
+  exposes) instead of the old 4-bucket (`idle`/`requesting`/`tx`/`rx`)
+  mapping that gave every non-tx/rx/requesting phase (off/boot/idle/tuning/
+  linkDegraded) the same icon and colour. This surfaced two real defects
+  beyond the missing test coverage itself: (1) Requesting rendered
+  `actionPrimary` (blue) — Design §4's table says Requesting is
+  "Pending/amber"; (2) Off/Boot/Tuning all rendered `actionPrimary` too —
+  the table gives them their own "Neutral disabled"/"Neutral progress"/
+  "Progress" treatments, and only the Ready row itself earns blue. Added
+  `_idleColorFor`/`_iconForCueId` to resolve these correctly, and did the
+  same for `_OverlayCueChip`, which previously hardcoded `Icons.circle` +
+  `tokens.stateWarning` for all five overlay rows — collapsing Latched
+  ("Red + explicit release") and Emergency ("Orange priority banner") into
+  the same amber as Denied/busy and Service fault, losing exactly the colour
+  half of Design §4's redundant label+icon+colour requirement for the two
+  rows the spec calls out by name. Added a `Key('keryx-talk-overlay-
+  ${cue.iconId}')` to `_OverlayCueChip` so tests can address each row
+  directly. Added 13 new tests, one per Design §4 catalogue row, each
+  asserting the `TalkPttDisc` widget's own `.icon`/`.color` (the semantic
+  values this screen computed and handed down — not the rendered
+  `AnimatedContainer` decoration, which additionally applies the disc's own
+  disabled-state alpha dimming, a presentation concern belonging to
+  `TalkPttDisc` itself, already covered by its existing enabled/disabled
+  tests) or the matching overlay chip's `Icon`. Mutation-checked both splits:
+  reverting `_idleColorFor` to always return `actionPrimary` flipped exactly
+  the Off/Boot/Tuning tests red (3 failures, nothing else); reverting
+  `_overlayColorFor`'s emergency branch flipped exactly the Emergency test
+  red (1 failure, nothing else). Both reverted clean.
+
+  **BLOCKING 3(b) — TOT.** Confirmed (did not just re-assert) that
+  `RadioState.isTotWarning` has no projection anywhere in `RadioViewState`
+  by grepping `lib/core/presentation/**` for `isTotWarning`/`TOT` — zero
+  hits outside `radio_state.dart` itself. This is TASK-046's own scope, not
+  reachable from `lib/features/talk/**`. Per the finding's own instruction,
+  left the acceptance box unchecked but replaced the vague prose with an
+  explicit carve-out request recorded inline on the criterion in `PLAN.md`,
+  asking ORCH to task the projection against `lib/core/presentation/**`.
+
+  **BLOCKING 3(c) — VT-015.** Re-confirmed no decorative meter is built
+  (`RadioViewState.meterLevel` still constructed but never read by this
+  screen). Documented the stricter-reading decision inline on the criterion
+  and checked the box, per the finding's own suggested resolution.
+
+  **Non-blocking (i)-(iv).** (i) Deleted the two genuinely dead `TalkCopy`
+  constants (`channelBusy`, `emergencyActive`) — confirmed via grep they are
+  referenced nowhere; the overlay chip's labels come from core-owned
+  `OverlayCues` constants, never these. Wired the two that *should* have
+  been used: `channelClear` and `microphonePermissionRequired` (see (ii)).
+  (ii) Idle status line is now the full Design §5 copy, "Channel clear. Hold
+  to talk." (was bare "Hold to talk" — `TalkCopy.holdToTalk` itself stays
+  period-free since it doubles as Design §4's bare catalogue label for the
+  Ready row); permission-denied status line now says "Microphone permission
+  required" instead of falling through to the generic idle copy. (iii) Fixed
+  as part of BLOCKING 3(a) above — overlay chip icon+colour are now per-cue.
+  (iv) This round's commits all carry the `[TASK-051]` suffix; round-1's two
+  non-conforming commits are already merged history on `master` and are not
+  being rewritten to fix a commit-message nit.
+
+  `flutter analyze` (repo-wide): clean except the same 8 pre-existing
+  TASK-035 warnings, none in this territory. `flutter test` (full repo
+  suite): 1182 passed, 0 failed, 40 skipped — 1168 round-1 baseline + 14 new
+  (1 latch-remount test + 13 catalogue tests); the 40 skips are the
+  unchanged, owner-parked FR-025 soak seeds. `flutter test
+  test/features/talk/` in isolation: 37 passed (23 round-1 + 14 new).
+  `flutter build apk --debug`: succeeded. Reverted the same two standing
+  local-toolchain auto-edits (`analysis_options.yaml`, `android/
+  gradle.properties`) before every commit, as every prior S5 task on this
+  repo has disclosed.
+
+  Status -> needs_review.
