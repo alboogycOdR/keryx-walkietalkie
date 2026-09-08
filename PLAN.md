@@ -3101,11 +3101,11 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-052
 **Title:** Wire Wave 4 screens into the mobile app shell (replace TASK-048's placeholders)
-**Status:** blocked
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** docs/adr/ADR-001-mobile-ux-redesign-reconciliation.md §6 (app-shell migration shape — the shell mounts real screens, owns no screen content itself); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §2-§4 (persistent host survives navigation; navigation-shaped operations must not retune/dispose); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D01/UX-D02 (Channels default landing, Channels+Settings required destinations).
-**Owned_Paths:** lib/app_shell/**, dossiers/TASK-052.md
+**Owned_Paths:** lib/app_shell/**, test/app_shell/**, dossiers/TASK-052.md
 **Depends_On:** TASK-049, TASK-050, TASK-051, TASK-053, TASK-054, TASK-055, TASK-056
 **Description:** **ORCH-created 2026-09-07, filling a real planning gap surfaced by TASK-049's review**: TASK-048 built the persistent shell (host mounting, Channels/Settings navigation, theme wiring) with placeholder screen bodies, and froze `lib/app_shell/**` on merge. None of the seven Wave 4 screen tasks (TASK-049/050/051/053/054/055/056) may touch that territory — each was correctly scoped to its own `lib/features/<name>/**` directory only, so each lands built, tested and reviewed but **not reachable from the running app**. This single-owner task is the convergence point: swap each of TASK-048's placeholder screen widgets for the real implementation the corresponding Wave 4 task shipped, wire the Channel selector's presentation into wherever TASK-050 exposes it from Channels/Talk, confirm the persistent host still survives every destination switch and every screen push/pop (TASK-048's existing branch-preservation test is the pattern to extend, not replace), and confirm no screen accidentally re-imports a transport/floor/audio call now that it is mounted for real (each screen task's own review already checked this in isolation; re-check it holds once composed). This mirrors the TASK-032/033→035→037 and TASK-041/042→043 convergence pattern already used twice in this plan. Do not modify any file under `lib/features/**` — a real defect found in a screen's own territory during wiring is a finding for that task's record, not a fix made here.
 **Acceptance_Criteria:**
@@ -3135,6 +3135,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 ```
 Territory matches expectation (TASK-048 shell, not new files). `test/app_shell/**` is NOT in Owned_Paths — TASK-048's tests assert placeholder copy and will go red when placeholders are swapped; new widget-tree tests also belong there. Implementing the in-territory wiring now; will block OWNERSHIP_CONFLICT for `test/app_shell/**` if the existing suite cannot stay green without editing those tests.
 - [2026-09-08T12:26:49Z] [GB] Wave-4 wiring committed on `task/TASK-052-gb` (`b3d5d91`). Channels → `ChannelsLanding`; Settings → `SettingsScreen`; Talk/selector/Stations/Radio Controls/Event QR pushed from the composition root. Talk's picker/stations `onPressed` are empty no-ops with no callbacks (TASK-051 finding, not fixed here) — shell overlays intercept those hits; Radio Controls gets a visible shell `IconButton` because Talk has no third header button. New wiring imports no transport/floor/audio/platform API. `flutter analyze lib/app_shell` — No issues found. `flutter test test/app_shell` — **8 passed / 8 failed**; all 8 failures are placeholder-copy finders in `test/app_shell/**` (`Current: CH 1 · Code 0`, `Recently tuned`, `PTT`, `Latch`). Cannot retarget those tests or add the criterion-1 widget-tree / criterion-3 branch-preservation extensions: `test/app_shell/**` is outside Owned_Paths, and `flutter_test` files cannot live under `lib/app_shell/**`. Blocking OWNERSHIP_CONFLICT. Exact resume steps (same branch, do not re-claim) are in `dossiers/TASK-052.md`.
+- [2026-09-08T12:35:00Z] [ORCH] OWNERSHIP_CONFLICT resolved: `test/app_shell/**` added to `Owned_Paths` above (a decompose-time miss). `Status` set back to `in_progress`. GB resumes on the SAME branch `task/TASK-052-gb` (`b3d5d91`) — do not re-claim.
 **Artifacts:**
 - lib/app_shell/shell_keys.dart
 - lib/app_shell/shell_routes.dart
@@ -3147,9 +3148,9 @@ Territory matches expectation (TASK-048 shell, not new files). `test/app_shell/*
 - [2026-09-08T12:26:49Z] [GB] `flutter analyze lib/app_shell` — No issues found. Analyzer auto-upgrade of `analysis_options.yaml` reverted, not committed.
 - [2026-09-08T12:26:49Z] [GB] `flutter test test/app_shell` — 8 passed / 8 failed. Failures (all out-of-territory files): channels_screen_test (3: `Current: CH 1 · Code 0`, `Recently tuned`, tap current-channel); talk_screen_test (2: `PTT`, `Latch`; mic-permission cue still passed); mobile_app_shell_test (3: VT-001, re-tap pop, branch-preservation — all tap `Current: CH 1 · Code 0`). Passing: app_theme_test, legacy_compat_test, Channels-is-default, two-destinations, host-started-once, legacy-route-not-linked, KeryxUxTokens-resolves.
 **Review_Findings:** —
-**Blocked_Reason:** OWNERSHIP_CONFLICT — need `test/app_shell/**` added to Owned_Paths so TASK-048's placeholder-copy tests can be retargeted at the real screens and so criteria 1/3/6 (widget-tree inspection, extended branch-preservation, revert-mutation) can be written. Wiring is on `task/TASK-052-gb` (`b3d5d91`); resume there, do not re-claim.
-**Updated_By:** GB
-**Updated_At:** 2026-09-08T12:26:49Z
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-08T12:35:00Z
 
 
 ### TASK-053
