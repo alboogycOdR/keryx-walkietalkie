@@ -3623,7 +3623,7 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 ### TASK-066
 **Title:** Project TOT (time-out-tension) warning into RadioViewState
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Product_Technical_Spec_v1.1.md FR-023 (TOT: max TX duration, warning chirp at T-5s, hard cut at 0); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 ("TX time-out warning" catalogue row, carried into the successor state model); TASK-051's Review_Findings round 2 (the carve-out that created this task — `RadioState.isTotWarning` exists in the reducer with no `RadioViewState` projection, and Talk's own presentation-boundary rule forbids reading `RadioState` directly).
 **Owned_Paths:** lib/core/presentation/**, test/core/presentation/**, dossiers/TASK-066.md
@@ -3648,7 +3648,7 @@ Territory matches expectation. Existing FakePeerConnection `implements` RtcPeerC
 ### TASK-067
 **Title:** Route Channels recall-tap through TASK-050's result-handling
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-009 (pending/connected/failed/unavailable, real retry/cancel path); TASK-049's Review_Findings (flagged the discard); TASK-050's Review_Findings (built the exact pattern this task must reuse, but had no territory to apply it to Channels).
 **Owned_Paths:** lib/features/channels/**, test/features/channels/**, dossiers/TASK-067.md
