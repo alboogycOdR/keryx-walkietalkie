@@ -3833,7 +3833,7 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 ### TASK-068
 **Title:** Replace Talk header overlay hack with real callback wiring; give Radio Controls a proper header slot
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** TASK-052's Review_Findings (the finding this task closes, verbatim: "the overlays are coupled to Talk's layout by hardcoded geometry and nothing guards that coupling... a future padding change in lib/features/talk/** would silently kill the picker in production. Real fix: add onOpenPicker/onOpenStations callbacks to TASK-051's TalkScreen and delete the overlays"); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 (Talk screen layout, header affordances).
 **Owned_Paths:** lib/features/talk/**, lib/app_shell/**, test/features/talk/**, test/app_shell/**, dossiers/TASK-068.md
@@ -3859,7 +3859,7 @@ Territory matches expectation (existing TASK-046 projection, not new files). Des
 ### TASK-069
 **Title:** Keyboard/switch access for Radio Controls' Monitor and Emergency hold targets
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §5 ("Keyboard and screen-reader users must be able to tune, cancel, open Stations, navigate Settings and release a latched TX"); TASK-057's Review_Findings (the accepted, explicitly-not-fixed finding this task closes — "Radio Controls' Monitor and Emergency arm hold-targets remain pointer-only... needs its own design decision rather than a copy of Talk's toggle").
 **Owned_Paths:** lib/features/radio_controls/**, test/features/radio_controls/**, dossiers/TASK-069.md
