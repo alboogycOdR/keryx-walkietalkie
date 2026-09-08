@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/floor/floor.dart';
@@ -310,6 +311,107 @@ void main() {
         );
         expect(find.textContaining('911'), findsNothing);
         expect(find.textContaining('emergency service'), findsOneWidget);
+        engine.dispose();
+      },
+    );
+  });
+
+  group('TASK-057 — accessibility and safe-area polish', () {
+    testWidgets('the screen body is wrapped in a SafeArea', (tester) async {
+      final engine = await pumpReady(tester);
+      expect(find.byType(SafeArea), findsWidgets);
+      engine.dispose();
+    });
+
+    testWidgets(
+      'Monitor open/closed state has a text equivalent, not colour alone',
+      (tester) async {
+        final engine = await pumpReady(tester);
+        expect(find.text(RadioControlsCopy.monitorClosedState), findsOneWidget);
+        expect(find.text(RadioControlsCopy.monitorOpenState), findsNothing);
+
+        container.read(radioStateProvider.notifier).dispatch(
+          const MonitorChanged(true),
+        );
+        await tester.pump();
+        expect(find.text(RadioControlsCopy.monitorOpenState), findsOneWidget);
+        expect(find.text(RadioControlsCopy.monitorClosedState), findsNothing);
+        engine.dispose();
+      },
+    );
+
+    testWidgets(
+      'Scan on/off state has a text equivalent, not colour alone',
+      (tester) async {
+        final engine = await pumpReady(tester);
+        expect(find.text(RadioControlsCopy.scanIdleState), findsOneWidget);
+        expect(find.text(RadioControlsCopy.scanningState), findsNothing);
+
+        await tester.tap(find.byKey(RadioControlsKeys.scanSwitch));
+        await tester.pump();
+        expect(find.text(RadioControlsCopy.scanningState), findsOneWidget);
+        expect(find.text(RadioControlsCopy.scanIdleState), findsNothing);
+        engine.dispose();
+      },
+    );
+
+    testWidgets(
+      'the Monitor hold target exposes an explicit toggled Semantics node',
+      (tester) async {
+        final engine = await pumpReady(tester);
+        final SemanticsNode node = tester.getSemantics(
+          find.ancestor(
+            of: find.byKey(RadioControlsKeys.monitorHoldTarget),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
+        expect(node.hasFlag(SemanticsFlag.isToggled), isFalse);
+
+        container.read(radioStateProvider.notifier).dispatch(
+          const MonitorChanged(true),
+        );
+        await tester.pump();
+        final SemanticsNode nodeAfter = tester.getSemantics(
+          find.ancestor(
+            of: find.byKey(RadioControlsKeys.monitorHoldTarget),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(nodeAfter.hasFlag(SemanticsFlag.isToggled), isTrue);
+        engine.dispose();
+      },
+    );
+
+    testWidgets(
+      'the Emergency hold target exposes an explicit button Semantics node '
+      'that reflects the arming state',
+      (tester) async {
+        final engine = await pumpReady(tester);
+        final SemanticsNode node = tester.getSemantics(
+          find.ancestor(
+            of: find.byKey(RadioControlsKeys.emergencyHoldTarget),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(node.hasFlag(SemanticsFlag.isButton), isTrue);
+        expect(node.hasFlag(SemanticsFlag.isToggled), isFalse);
+
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(RadioControlsKeys.emergencyHoldTarget)),
+        );
+        await tester.pump();
+        final SemanticsNode armingNode = tester.getSemantics(
+          find.ancestor(
+            of: find.byKey(RadioControlsKeys.emergencyHoldTarget),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(armingNode.hasFlag(SemanticsFlag.isToggled), isTrue);
+        // Release before the arm duration elapses — no activation, and no
+        // dangling timer left running past the test.
+        await gesture.up();
+        await tester.pump();
         engine.dispose();
       },
     );

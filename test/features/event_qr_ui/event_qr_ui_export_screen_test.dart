@@ -88,6 +88,35 @@ void main() {
     expect(find.byKey(EventQrUiExportKeys.unavailable), findsOneWidget);
     expect(find.text(EventQrUiCopy.exportSettingsUnavailable), findsOneWidget);
   });
+
+  group('TASK-057 — accessibility polish', () {
+    testWidgets('the screen body is wrapped in a SafeArea', (tester) async {
+      await tester.pumpWidget(await build(settings: const KeryxSettings(region: 'za-cpt')));
+      await tester.pumpAndSettle();
+      expect(find.byType(SafeArea), findsWidgets);
+    });
+
+    testWidgets(
+      'the keyed-unavailable explanation is announced as a live region',
+      (tester) async {
+        await tester.pumpWidget(await build(settings: const KeryxSettings(region: 'za-cpt')));
+        await tester.pumpAndSettle();
+        container.read(radioStateProvider.notifier)
+          ..dispatch(const PowerOn())
+          ..dispatch(const BootCompleted())
+          ..dispatch(const PrivateChannelChanged(true));
+        await tester.pumpAndSettle();
+
+        final Semantics semantics = tester.widget<Semantics>(
+          find.ancestor(
+            of: find.byKey(EventQrUiExportKeys.unavailable),
+            matching: find.byWidgetPredicate((w) => w is Semantics),
+          ).first,
+        );
+        expect(semantics.properties.liveRegion, isTrue);
+      },
+    );
+  });
 }
 
 /// Never resolves — simulates settings still loading (asserts AC "settings

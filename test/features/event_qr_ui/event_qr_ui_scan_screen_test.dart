@@ -269,4 +269,48 @@ void main() {
       expect(find.byType(_FakeScanner).evaluate().single.widget.key, keyBefore);
     });
   });
+
+  group('TASK-057 — accessibility polish', () {
+    testWidgets('the screen body is wrapped in a SafeArea', (tester) async {
+      permissionGate = FakePermissionGate(initial: EventQrPermissionState.denied);
+      await tester.pumpWidget(await build());
+      await settle(tester);
+      expect(find.byType(SafeArea), findsWidgets);
+    });
+
+    testWidgets(
+      'the permission grant-access action meets the 48 dp minimum target',
+      (tester) async {
+        permissionGate = FakePermissionGate(initial: EventQrPermissionState.denied);
+        await tester.pumpWidget(await build());
+        await settle(tester);
+
+        final Size size = tester.getSize(
+          find.ancestor(
+            of: find.byKey(EventQrUiScanKeys.permissionAction),
+            matching: find.byType(SizedBox),
+          ).first,
+        );
+        expect(size.height, greaterThanOrEqualTo(48));
+      },
+    );
+
+    testWidgets('the invalid/expired feedback message is a live region', (
+      tester,
+    ) async {
+      await tester.pumpWidget(await build());
+      await settle(tester);
+
+      await tester.tap(find.byKey(const Key('fake-scanner.malformed')));
+      await tester.pumpAndSettle();
+
+      final Semantics semantics = tester.widget<Semantics>(
+        find.ancestor(
+          of: find.text(EventQrUiCopy.scanInvalid),
+          matching: find.byWidgetPredicate((w) => w is Semantics),
+        ).first,
+      );
+      expect(semantics.properties.liveRegion, isTrue);
+    });
+  });
 }
