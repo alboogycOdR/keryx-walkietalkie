@@ -50,6 +50,8 @@ void main() {
       'lib/app_shell/mobile_app_shell.dart',
       'lib/app_shell/channels_screen.dart',
       'lib/app_shell/talk_screen.dart',
+      'lib/app_shell/shell_routes.dart',
+      'lib/app_shell/shell_keys.dart',
     ]) {
       final shellSource = File(path).readAsStringSync();
       expect(
