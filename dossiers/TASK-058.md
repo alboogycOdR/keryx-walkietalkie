@@ -135,3 +135,60 @@ explicitly as the known documented exception rather than absorbing them into a
   construction, not just by intent.
 
   All acceptance criteria met. -> Status: needs_review.
+
+- [2026-09-08T20:10:00Z] [S5] **REWORK round 1 (ORCH).** Resumed on the
+  existing `task/TASK-058-s5` branch (worktree PLAN.md was stale from before
+  compaction; re-synced from the canonical `E:\DELL-PROJECTS\WALKIETALKIE\PLAN.md`
+  before doing anything). Addressed all 4 blocking findings, all in-territory:
+  1. Settings golden light variant fixed — `SettingsScreen` derives brightness
+     from its own persisted `AppearancePreference` (default `dark`), not the
+     ambient `MaterialApp` theme; `settings_golden_test.dart` now seeds that
+     preference per variant via `settingsStore.write(AppearancePreference.
+     storageKey, ...)` before pump. Regenerated with `--update-goldens`,
+     confirmed `settings_dark.png`/`settings_light.png` md5 now differ, then
+     re-ran clean twice with no `--update-goldens` — deterministic.
+  2. `ops/REGRESSION_UX_R1.md` §1 now records Android tooling: AGP 8.11.1,
+     Kotlin 2.2.20 (`android/settings.gradle.kts:22-23`), compileSdk 37,
+     minSdk 26 (`android/app/build.gradle.kts:26,40-41`), JDK Temurin
+     17.0.20.1. `flutter pub get` now listed as a discrete run step, not
+     hedged as implicit.
+  3. `radio_controls_golden_test.dart` gained a new test asserting Monitor
+     and Emergency hold targets both meet 48dp via `tester.getSize` —
+     required attaching a real `FloorEngine` via `RadioHostSnapshot` and
+     dispatching `PowerOn`/`BootCompleted` on `radioStateProvider.notifier`
+     through a manually-created `ProviderContainer` (`UncontrolledProviderScope`),
+     because the Emergency hold target is swapped for an "unavailable"
+     explanation entirely when no engine is attached (`!engineAvailable`
+     branch in `_EmergencyRow.build`), and Monitor's `_eligible` gate needs
+     `RadioPhase.idle`. Also needed `tester.ensureVisible` before each
+     `getSize` — the screen's `ListView` doesn't lay out the Emergency row
+     until scrolled into the build/cache extent. Closes the obligation
+     TASK-069's approval routed here (it had been re-routed onward instead
+     of discharged in the first pass).
+  4. Report VT rows corrected from unflagged "Covered" to honestly caveated:
+     VT-004 (receiving-state service-persistence clause untested), VT-014
+     (hardware-controls entry point untested — no hardware-key PTT exists in
+     `lib/` at all), VT-015 (decorative-animation-vs-amplitude clause
+     untested, plausibly vacuous), VT-020 (privacy-code boundary values
+     0/38/−1/39 and channel-99 untested — the substantive gap). Each now
+     routed as its own numbered finding in §9. Also added: VT-010
+     accessibility-value gap, VT-012 app-background-transition gap, VT-013
+     marker note (not fixed — `floor_engine_test.dart` is outside
+     `Owned_Paths`), AC1 divergence justification (VT-002/003/005 not
+     re-proven through the full shell, judged defensible and now stated
+     explicitly), TASK-057's inset-routing item explicitly declined rather
+     than left ambiguous.
+  Also reverted an incidental `pubspec.lock` drift from running
+  `flutter pub get` (transitive dep bumps, outside `Owned_Paths`, no code
+  needed the newer versions) — `git checkout -- pubspec.lock` before
+  committing. Left `analysis_options.yaml`/`android/gradle.properties`
+  untouched (pre-existing local edits ORCH's own review already noted as
+  harmless environment noise, outside this task's `Owned_Paths`).
+  Re-ran full evidence after all fixes: `flutter test` **1413 passed / 0
+  failed / 40 skipped** (was 1412; +1 for the new size-assertion test),
+  `flutter analyze` **8 issues, all pre-existing, 0 new**,
+  `flutter test test/regression/goldens/` run twice clean **37/37 both
+  times**, `flutter build apk --debug` **SUCCESS**, `flutter build apk
+  --release` **SUCCESS (116.3MB)**. `git diff master...HEAD --stat` — 46
+  files, zero outside `Owned_Paths`, zero under `lib/**`. Committed
+  (764b84a). → Status: needs_review.
