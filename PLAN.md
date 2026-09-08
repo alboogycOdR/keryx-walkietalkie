@@ -3014,7 +3014,7 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 
 ### TASK-050
 **Title:** Channel selector + direct-tune workflow with serialized retune and recovery policy
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.3 (Channel selector — searchable/selectable list or direct numeric entry, 1–99 and 0–38, two-digit labels, separate recent section, Apply disabled for invalid values, Cancel leaves current channel untouched, pending retune shows progress and prevents competing tune actions, "The currently active channel remains authoritative until the selected operation succeeds"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §6 (tuning and channel operations — "The current implementation dispatches TuneTo and launches asynchronous retune without waiting. ORCH must inspect and resolve the associated race/failure behavior as a dedicated migration task… latest requested target wins… Do not invent rollback support if the underlying operation has already torn down the previous chain; implement an explicit recovery policy and test it"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-FR-003, UX-FR-004, UX-FR-009, UX-FR-010, UX-FR-030; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-020 (input validation), VT-021 (retune serialization); ADR-001 §5 (session retune contracts preserved — the fix is serialization at the coordinator, not new session semantics).
@@ -3032,15 +3032,16 @@ Round-2 diff is exactly the expected minimum — `7e2ef32..a640b4e` touches 4 fi
 - [ ] A tune requested during TX is serialized per the documented policy; ordinary navigation does not interrupt TX (UX-FR-030)
 - [ ] Cosmetic labels/favourites cannot redefine room identity — the existing channel/code namespace is authoritative (UX-FR-010)
 - [ ] `flutter analyze` clean; full suite green with no regression; every new regression test revert-mutation-checked
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-050-s5
+**Started_At:** 2026-09-08T13:20:00Z
+**Progress_Notes:**
+- [2026-09-08T13:20:00Z] [S5] Claimed TASK-050 (Channel selector + direct-tune workflow with serialized retune and recovery policy). Dependency TASK-048 confirmed done. Starting on branch task/TASK-050-s5.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-08T13:20:00Z
 
 
 ### TASK-051
