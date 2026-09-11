@@ -6,9 +6,10 @@ enough to start). One Docker Compose file brings up:
 | Service | Role |
 |---|---|
 | **LiveKit** | SFU. One room per channel. Audio publish/subscribe mirrors PTT. Floor-control messages ride LiveKit data messages (TS §8.4). |
-| **Redis** | Ephemeral room/routing state for LiveKit. **No persistence.** |
+| **Redis** | Ephemeral room/routing state for LiveKit. **No persistence.** Also the v2 directory nonce/presence bus. |
 | **Caddy** | TLS 1.3 on `DOMAIN`, reverse-proxy to LiveKit `:7880`. `/token` reverse-proxies to token-svc on `TOKEN_SVC_UPSTREAM` (loopback `:8080`). |
 | **coturn** | TURN for hostile NATs (TS §8.4, NFR-05 ≥ 97% connection success). |
+| **Postgres 16** | Directory (identities, contacts, groups). Named volume `keryx_pg`. Loopback-only (`listen_addresses=127.0.0.1`). |
 
 There is **no** LiveKit Egress/Ingress/recording container. Voice is never
 written to disk (TS §8.7).
@@ -183,6 +184,42 @@ Caddy `https://DOMAIN/token` reverse-proxies to `TOKEN_SVC_UPSTREAM`
 (default `127.0.0.1:8080`). That is the TASK-036 client convention
 (`wss://HOST` → `https://HOST/token`). The FastAPI app's route is `POST /token`,
 so the public URL and the process URL are the same path.
+
+## Postgres (TASK-084 / Technical §9)
+
+`postgres:16.10-alpine` is in this compose. It binds `127.0.0.1:5432` only
+(host network). Defaults (override in the VPS `.env`; these use compose
+`${VAR:-default}` so `.env.example` does not have to change):
+
+| Variable | Default |
+|---|---|
+| `POSTGRES_USER` | `keryx` |
+| `POSTGRES_PASSWORD` | `REPLACE_ME_POSTGRES_PASSWORD` |
+| `POSTGRES_DB` | `keryx` |
+
+token-svc (still **not** a compose service) must receive:
+
+```
+DATABASE_URL=postgresql+psycopg://keryx:REPLACE_ME_POSTGRES_PASSWORD@127.0.0.1:5432/keryx
+REDIS_URL=redis://127.0.0.1:6379/0
+KERYX_SIGNING_WINDOW_S=120
+```
+
+Migrate before serving `/v2/`:
+
+```bash
+cd ../token-svc
+DATABASE_URL=postgresql+psycopg://keryx:REPLACE_ME_POSTGRES_PASSWORD@127.0.0.1:5432/keryx \
+  alembic upgrade head
+```
+
+Nightly backups: `token-svc/scripts/pg_dump_nightly.sh` — `pg_dump` to
+`/var/backups/keryx`, keep 7 copies. Install as a cron job on the VPS
+(`15 3 * * *`). The database is small by design (V2-NFR-007).
+
+Caddy's `/token` matcher does not yet include `/v2/` (Caddyfile is outside
+this task). Until a successor widens the matcher, bind token-svc on
+loopback and front `/v2/` the same way as `/token` (`path /token /token/* /v2 /v2/*`).
 
 token-svc is **not** a compose service. Run it next to this stack, sharing
 `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` with `.env`:

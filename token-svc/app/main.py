@@ -1,7 +1,8 @@
-"""Stateless FastAPI token service — LiveKit JWT mint, no user DB (TS §8.1)."""
+"""Token mint plus v2 directory (Technical §4). POST /token is unchanged this task."""
 
 from __future__ import annotations
 
+import re
 import time
 from typing import Callable
 
@@ -10,13 +11,21 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.config import Settings
+from app.db import make_engine, make_session_factory
+from app.errors import DirectoryError, error_response
 from app.event_token import EventTokenError, verify_event_token
 from app.jwt_mint import mint_livekit_jwt, new_identity
 from app.logging_policy import configure_logging
 from app.models import TokenRequest, TokenResponse
+from app.presence import MemoryPresenceHub, RedisPresenceHub
 from app.rate_limit import IpRateLimiter
+from app.signing import MemoryNonceStore, RedisNonceStore
+from app.v2_api import router as v2_router
 
 log = configure_logging()
+
+# Access log must never carry keys (base64url pubkeys in contact paths).
+_REDACT_IDS = re.compile(r"[A-Za-z0-9_-]{20,}")
 
 
 def _client_ip(request: Request) -> str:
@@ -28,10 +37,17 @@ def _client_ip(request: Request) -> str:
     return "0.0.0.0"
 
 
+def _safe_path(path: str) -> str:
+    return _REDACT_IDS.sub(":id", path)
+
+
 def create_app(
     settings: Settings | None = None,
     limiter: IpRateLimiter | None = None,
     clock: Callable[[], float] | None = None,
+    session_factory: Callable | None = None,
+    nonce_store: object | None = None,
+    presence_hub: object | None = None,
 ) -> FastAPI:
     cfg = settings or Settings.from_env()
     now = clock or time.time
@@ -46,15 +62,43 @@ def create_app(
     app.state.limiter = rate
     app.state.clock = now
 
+    if session_factory is None:
+        engine = make_engine(cfg.database_url)
+        session_factory = make_session_factory(engine)
+        app.state.engine = engine
+    app.state.session_factory = session_factory
+
+    redis_client = None
+    if cfg.redis_url:
+        try:
+            import redis as redis_lib
+
+            redis_client = redis_lib.Redis.from_url(cfg.redis_url, decode_responses=True)
+        except Exception:
+            redis_client = None
+
+    if nonce_store is None:
+        nonce_store = RedisNonceStore(redis_client) if redis_client is not None else MemoryNonceStore()
+    app.state.nonce_store = nonce_store
+
+    if presence_hub is None:
+        presence_hub = RedisPresenceHub(redis_client) if redis_client is not None else MemoryPresenceHub()
+    app.state.presence_hub = presence_hub
+
     @app.middleware("http")
     async def access_log(request: Request, call_next):  # type: ignore[no-untyped-def]
         response = await call_next(request)
-        # Path + status only — never query, body, identity, or room.
-        log.info("%s %s %s", request.method, request.url.path, response.status_code)
+        log.info("%s %s %s", request.method, _safe_path(request.url.path), response.status_code)
         return response
 
+    @app.exception_handler(DirectoryError)
+    async def directory_handler(_request: Request, exc: DirectoryError) -> JSONResponse:
+        return error_response(exc.status_code, exc.code)
+
     @app.exception_handler(RequestValidationError)
-    async def validation_handler(_request: Request, _exc: RequestValidationError) -> JSONResponse:
+    async def validation_handler(request: Request, _exc: RequestValidationError) -> JSONResponse:
+        if request.url.path.startswith("/v2/"):
+            return error_response(422, "invalid_request")
         return JSONResponse(status_code=422, content={"detail": "invalid_request"})
 
     @app.get("/healthz")
@@ -87,6 +131,7 @@ def create_app(
         )
         return TokenResponse(token=token, identity=identity, ttl_seconds=cfg.token_ttl_seconds)
 
+    app.include_router(v2_router)
     return app
 
 
