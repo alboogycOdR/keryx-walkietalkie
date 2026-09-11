@@ -4,17 +4,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/features/talk/talk_ptt_ring.dart';
 
+final Finder _ringRoot = find.byKey(const Key('keryx-talk-ptt-disc'));
+final Finder _ringPaint = find.descendant(
+  of: _ringRoot,
+  matching: find.byType(CustomPaint),
+);
+
 void main() {
   Widget buildRing({
     TalkPttRingTreatment treatment = TalkPttRingTreatment.ready,
     MeterLevel meterLevel = MeterLevel.decorative,
     bool reducedMotion = false,
+    bool enabled = true,
     required VoidCallback onStart,
     required VoidCallback onEnd,
   }) => MaterialApp(
     home: Scaffold(
       body: TalkPttRing(
-        enabled: true,
+        enabled: enabled,
         treatment: treatment,
         meterLevel: meterLevel,
         reducedMotion: reducedMotion,
@@ -90,6 +97,8 @@ void main() {
     node.properties.customSemanticsActions!.values.single();
     await tester.pump();
     expect(starts, 1);
+    Focus.of(tester.element(_ringRoot)).requestFocus();
+    await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pump();
     expect(ends, 1);
@@ -109,9 +118,20 @@ void main() {
     );
     await tester.pump();
     expect(tester.binding.hasScheduledFrame, isFalse);
+
+    await tester.pumpWidget(
+      buildRing(
+        treatment: TalkPttRingTreatment.deniedFlash,
+        reducedMotion: true,
+        onStart: () {},
+        onEnd: () {},
+      ),
+    );
+    await tester.pump();
+    expect(tester.binding.hasScheduledFrame, isFalse);
   });
 
-  testWidgets('every state treatment renders a ring without disc text', (
+  testWidgets('every treatment supplies its specified painter ring colour', (
     tester,
   ) async {
     for (final treatment in TalkPttRingTreatment.values) {
@@ -119,9 +139,100 @@ void main() {
         buildRing(treatment: treatment, onStart: () {}, onEnd: () {}),
       );
       await tester.pump();
-      expect(find.byType(CustomPaint), findsWidgets);
+      final CustomPaint paint = tester.widget<CustomPaint>(
+        _ringPaint,
+      );
+      final TalkPttRingPainter painter = paint.painter! as TalkPttRingPainter;
+      final bool neutral =
+          treatment == TalkPttRingTreatment.deniedFlash ||
+          treatment == TalkPttRingTreatment.neutral;
+      expect(
+        painter.ringColor,
+        neutral ? const Color(0xff566272) : const Color(0xfff0b44c),
+      );
       expect(find.text('Channel clear'), findsNothing);
       expect(tester.takeException(), isNull);
     }
+  });
+
+  testWidgets('disabled ring dims its painter colour and rejects all inputs', (
+    tester,
+  ) async {
+    var starts = 0;
+    var ends = 0;
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(
+      buildRing(enabled: false, onStart: () => starts++, onEnd: () => ends++),
+    );
+    final CustomPaint paint = tester.widget<CustomPaint>(
+      _ringPaint,
+    );
+    expect(
+      (paint.painter! as TalkPttRingPainter).ringColor,
+      const Color(0xfff0b44c).withValues(alpha: .35),
+    );
+    final center = tester.getCenter(
+      find.byKey(const Key('keryx-talk-ptt-disc')),
+    );
+    final gesture = await tester.startGesture(center);
+    await gesture.up();
+    final Semantics node = tester.widget<Semantics>(
+      find.byKey(const Key('keryx-talk-ptt-disc-semantics')),
+    );
+    node.properties.customSemanticsActions!.values.single();
+    Focus.of(tester.element(_ringRoot)).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    expect(starts, 0);
+    expect(ends, 0);
+    semantics.dispose();
+  });
+
+  testWidgets('keyboard activation requires deliberate PTT focus', (tester) async {
+    var starts = 0;
+    var ends = 0;
+    await tester.pumpWidget(
+      buildRing(onStart: () => starts++, onEnd: () => ends++),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    expect(starts, 0);
+    Focus.of(tester.element(_ringRoot)).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    expect(starts, 1);
+    expect(ends, 0);
+  });
+
+  testWidgets('requesting sweeps and denied flash settles after its one shot', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildRing(
+        treatment: TalkPttRingTreatment.requesting,
+        onStart: () {},
+        onEnd: () {},
+      ),
+    );
+    await tester.pump();
+    expect(tester.binding.hasScheduledFrame, isTrue);
+    await tester.pumpWidget(
+      buildRing(
+        treatment: TalkPttRingTreatment.deniedFlash,
+        onStart: () {},
+        onEnd: () {},
+      ),
+    );
+    await tester.pump();
+    expect(tester.binding.hasScheduledFrame, isTrue);
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
+
+  testWidgets('decorative telemetry at rest schedules no animation', (tester) async {
+    await tester.pumpWidget(
+      buildRing(onStart: () {}, onEnd: () {}),
+    );
+    await tester.pump();
+    expect(tester.binding.hasScheduledFrame, isFalse);
   });
 }

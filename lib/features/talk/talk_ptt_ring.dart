@@ -204,7 +204,6 @@ class _TalkPttRingState extends State<TalkPttRing>
           value: widget.semanticStatus,
           customSemanticsActions: actions,
           child: Focus(
-            autofocus: true,
             onKeyEvent: (FocusNode node, KeyEvent event) {
               if (event is KeyDownEvent &&
                   (event.logicalKey == LogicalKeyboardKey.enter ||
@@ -246,7 +245,7 @@ class _TalkPttRingState extends State<TalkPttRing>
                             ),
                           ),
                           child: CustomPaint(
-                            painter: _TalkPttRingPainter(
+                            painter: TalkPttRingPainter(
                               treatment: widget.treatment,
                               ringColor: widget.enabled
                                   ? ringColor
@@ -273,8 +272,12 @@ class _TalkPttRingState extends State<TalkPttRing>
   }
 }
 
-class _TalkPttRingPainter extends CustomPainter {
-  const _TalkPttRingPainter({
+/// Paints the parameter-driven face, state ring, and state glyph.
+///
+/// This is public so the ring's state-colour contract remains directly
+/// inspectable in widget tests without relying on pixels or a golden fixture.
+class TalkPttRingPainter extends CustomPainter {
+  const TalkPttRingPainter({
     required this.treatment,
     required this.ringColor,
     required this.faceColor,
@@ -370,7 +373,7 @@ class _TalkPttRingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _TalkPttRingPainter oldDelegate) =>
+  bool shouldRepaint(covariant TalkPttRingPainter oldDelegate) =>
       treatment != oldDelegate.treatment ||
       ringColor != oldDelegate.ringColor ||
       faceColor != oldDelegate.faceColor ||
