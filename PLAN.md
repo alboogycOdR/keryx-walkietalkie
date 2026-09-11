@@ -1,6 +1,6 @@
 ---
 plan_version: 15.0
-last_updated: 2026-09-11T10:07:46Z
+last_updated: 2026-09-11T10:49:45Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4037,7 +4037,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-072
 **Title:** UX R2 tokens — amber accent, PTT ring/face tokens, tab indicator, golden refresh
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A5 (accent becomes amber/radio-yellow; `state/warning` off the PTT ring; emergency hue separation ≥ 20°), A3 (`ptt/face` token, ring treatments), A1 (tab accent underline); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §3.2 ("Color values must pass contrast verification… do not scatter literal color values across widgets"), §3.4
@@ -4067,10 +4067,24 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 - [2026-09-11T02:15:00Z] [S5] `flutter test --no-pub --update-goldens test/regression/goldens` -> **37/37 pass**, 30/36 PNGs changed (colour-only, spot-checked).
 - [2026-09-11T02:15:00Z] [S5] `flutter test --no-pub` (full suite) -> **1429 passed / 0 failed / 40 skipped**, exit 0 (baseline 1422 + this task's 7 new unit tests; same 40 PARKED FR-025 soak-seed skips, reason string unchanged).
 - [2026-09-11T02:15:00Z] [S5] `git diff master...HEAD --stat` -> `lib/core/theme/ux_tokens.dart`, `test/core/theme/ux_tokens_test.dart`, 30 golden PNGs under `test/regression/goldens/goldens/`, `dossiers/TASK-072.md` — all inside `Owned_Paths`; zero PLAN.md commits on the branch.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T10:49:45Z] [ORCH] **APPROVED first-pass**, merged `68b3c35`. Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave).
+- **Territory:** clean. 33 files: `ux_tokens.dart`, its test, 30 golden PNGs and the dossier, all inside Owned_Paths. The single branch commit `54af9c1` has no PLAN.md changes, and S5's two PLAN.md commits touched only its own block.
+- **Tests:** run independently in the S5 worktree by a subagent. `flutter analyze` 0 issues; full suite 1429 passed / 0 failed / 40 skipped (the baseline 1422 plus 7 new token tests; the same 40 parked FR-025 skips); golden suite 37/37.
+- **Goldens:** ORCH viewed talk_idle dark and light before and after. The only change is the disc and outlined-button fill moving from blue to amber (`#FFD54F` dark, `#8A6D00` light), so the diffs are colour-only as claimed.
+- **Criteria:** all five verified against ADR-002 A5/A3/A1 in source.
+  - `actionPrimary` is amber in both palettes, and the hue-separation test is real (dark 21.1°, light 23.0° vs emergency).
+  - All six tokens exist with ADR-cited dartdoc, and no token was renamed.
+  - `lerp` was extended, and `specBodyTextMisses` was honestly updated (the dark accent miss is removed now that it passes; the light accent miss is re-measured at 4.19).
+- **Non-blocking:**
+  - (a) The light accent `#8A6D00` reads as dark mustard rather than bright radio-yellow. This is the price of light-theme contrast, and the owner should judge it at the TASK-078 review build.
+  - (b) The dark accent (45.7°) sits only ~8° from `stateWarning` (~38°). That is acceptable only because ADR-002 A5 keeps warning off the ring; TASK-074 must honour that.
+  - (c) The test "state/warning is never used for the PTT ring" only asserts token inequality, and its name overclaims.
+  - (d) Progress_Note/Test_Evidence timestamps (00:00Z, 02:15Z) predate the real claim at ~10:33Z. They are fabricated clock values, a repeat of an earlier S5 process note.
+  - (e) Light `pttNeutralRing` `#8D95A1` is ~3.0:1 against the light surface, borderline. Check it visually in TASK-074 goldens.
+- **Unlocks:** TASK-076 (S5), TASK-075 (CX, after TASK-073). TASK-074 still needs TASK-073.
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T02:15:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T10:49:45Z
 
 
 ### TASK-073
