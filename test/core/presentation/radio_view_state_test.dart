@@ -372,8 +372,8 @@ void main() {
     });
 
     test(
-      'the meter/animation level is typed decorative-only, never a '
-      'measured value, regardless of phase',
+      'with no real host-side sample, the meter/animation level is typed '
+      'decorative-only for every phase',
       () {
         for (final phase in RadioPhase.values) {
           final view = RadioViewState.project(
@@ -387,6 +387,46 @@ void main() {
             reason: 'phase $phase must not yield a measured meter level',
           );
           expect(view.meterLevel, isNot(isA<MeasuredMeterLevel>()));
+        }
+      },
+    );
+
+    test(
+      'TASK-079/ADR-002 A6: a real measured host sample projects as '
+      'measured only while actually receiving (rxActive)',
+      () {
+        final view = RadioViewState.project(
+          radioState: const RadioState(phase: RadioPhase.rxActive),
+          hostSnapshot: const RadioHostSnapshot(
+            meterLevel: MeasuredMeterLevel(37),
+          ),
+          settings: const KeryxSettings(),
+        );
+
+        expect(view.meterLevel, const MeasuredMeterLevel(37));
+      },
+    );
+
+    test(
+      'TASK-079/ADR-002 A6: a stale/racing measured host sample outside '
+      'rxActive is re-asserted as decorative, never leaked through',
+      () {
+        for (final phase in RadioPhase.values) {
+          if (phase == RadioPhase.rxActive) continue;
+          final view = RadioViewState.project(
+            radioState: RadioState(phase: phase),
+            hostSnapshot: const RadioHostSnapshot(
+              meterLevel: MeasuredMeterLevel(80),
+            ),
+            settings: const KeryxSettings(),
+          );
+          expect(
+            view.meterLevel,
+            MeterLevel.decorative,
+            reason:
+                'phase $phase must never surface a measured level even if '
+                'the host snapshot still carries a stale one',
+          );
         }
       },
     );

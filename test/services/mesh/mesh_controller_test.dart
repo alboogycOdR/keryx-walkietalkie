@@ -155,6 +155,65 @@ void main() {
 
       expect(adapterA.connectionsCreated.single.closed, isTrue);
     });
+
+    group('readAudioLevel (TASK-079/ADR-002 A6)', () {
+      test('unavailable for a peer with no open connection', () async {
+        expect(
+          await controllerA.readAudioLevel('nobody'),
+          const RtcUnavailableAudioLevel(),
+        );
+      });
+
+      test(
+        'unavailable before a remote audio track has been delivered',
+        () async {
+          expect(
+            await controllerA.readAudioLevel(_bravo),
+            const RtcUnavailableAudioLevel(),
+          );
+        },
+      );
+
+      test(
+        'delegates to the first delivered remote audio track once present',
+        () async {
+          final pcA = adapterA.connectionsCreated.single;
+          pcA.deliverRemoteAudioTrack(
+            RtcRemoteAudioTrack(
+              id: 'remote-1',
+              readAudioLevel: () async => const RtcMeasuredAudioLevel(0.42),
+            ),
+          );
+
+          expect(
+            await controllerA.readAudioLevel(_bravo),
+            const RtcMeasuredAudioLevel(0.42),
+          );
+        },
+      );
+
+      test('reads unavailable again after the peer departs', () async {
+        final pcA = adapterA.connectionsCreated.single;
+        pcA.deliverRemoteAudioTrack(
+          RtcRemoteAudioTrack(
+            id: 'remote-1',
+            readAudioLevel: () async => const RtcMeasuredAudioLevel(0.9),
+          ),
+        );
+        expect(
+          await controllerA.readAudioLevel(_bravo),
+          isA<RtcMeasuredAudioLevel>(),
+        );
+
+        sigA.onPeerLost(_peer(id: _bravo, port: sigB.boundPort));
+        await flush();
+
+        expect(
+          await controllerA.readAudioLevel(_bravo),
+          const RtcUnavailableAudioLevel(),
+        );
+      });
+    });
   });
 
   group('MeshController — PTT gate (TS §8.5 / FR-020)', () {

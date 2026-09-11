@@ -283,7 +283,15 @@ class RadioViewState {
           ? KnownRosterCount(hostSnapshot.stations.length)
           : const UnavailableRosterCount(),
       signalQuality: SignalQuality.unavailable,
-      meterLevel: MeterLevel.decorative,
+      // TASK-079/ADR-002 A6: only a real, verified sample renders as
+      // measured, and only while actually receiving — a `MeasuredMeterLevel`
+      // left over from a just-ended RX (host emits decorative on
+      // `RemoteFloorEnded`/`EndTransmit`, but this projection re-asserts it
+      // independently so a caller can never observe a measured level
+      // outside `rxActive` even from a stale/racing snapshot).
+      meterLevel: radioState.phase == RadioPhase.rxActive
+          ? hostSnapshot.meterLevel
+          : MeterLevel.decorative,
       isPro: settings.isPro,
     );
   }

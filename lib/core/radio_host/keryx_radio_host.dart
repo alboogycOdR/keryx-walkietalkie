@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:keryx/core/audio/audio.dart';
 import 'package:keryx/core/floor/floor.dart';
 import 'package:keryx/core/identity/identity.dart';
+import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/features/event_qr/event_link.dart';
@@ -130,6 +131,7 @@ class KeryxRadioHost implements RadioHost {
   StreamSubscription<List<StationInfo>>? _stationsSub;
   StreamSubscription<FloorEffect>? _floorEffectsSub;
   StreamSubscription<RadioServiceEvent>? _radioServiceSub;
+  StreamSubscription<MeterLevel>? _meterLevelSub;
 
   /// Last [RadioTransportPhase] actually pushed to [_radioService] — de-
   /// dupes [_syncServicePhase] so an unrelated [RadioState] emission
@@ -151,6 +153,7 @@ class KeryxRadioHost implements RadioHost {
   String? _serviceFaultMessage;
   List<StationInfo> _stations = const <StationInfo>[];
   List<TunedChannel> _channelMemory = const <TunedChannel>[];
+  MeterLevel _meterLevel = MeterLevel.decorative;
 
   RadioHostSnapshot _snapshot = const RadioHostSnapshot();
   final StreamController<RadioHostSnapshot> _changes =
@@ -169,6 +172,7 @@ class KeryxRadioHost implements RadioHost {
       floorEngine: _floorEngine,
       stations: _stations,
       channelMemory: _channelMemory,
+      meterLevel: _meterLevel,
     );
     if (!_changes.isClosed) _changes.add(_snapshot);
   }
@@ -355,6 +359,9 @@ class KeryxRadioHost implements RadioHost {
     _stationsSub = null;
     await _floorEffectsSub?.cancel();
     _floorEffectsSub = null;
+    await _meterLevelSub?.cancel();
+    _meterLevelSub = null;
+    _meterLevel = MeterLevel.decorative;
     if (previousSession != null) {
       unawaited(
         previousSession.dispose().catchError(
@@ -394,6 +401,23 @@ class KeryxRadioHost implements RadioHost {
       _stations = stations;
       _emitSnapshot();
     });
+    // `SessionHost` (`lib/features/face/session_host.dart`, outside this
+    // task's `Owned_Paths`) deliberately exposes only `start`/`retune`/
+    // `joinEvent`/`dispose`/`floorEngine`/`stations` — widening it for a
+    // single telemetry field was rejected in favour of exactly this seam:
+    // `RadioSessionHostAdapter.debugController` is already public
+    // ("lets a production-path integration test reach into the composed
+    // chain without widening `SessionHost` itself"). A hand-written
+    // `SessionHost` test fake is simply not a `RadioSessionHostAdapter`, so
+    // it falls through to the decorative default with no cast needed.
+    if (session is RadioSessionHostAdapter) {
+      final controller = session.debugController;
+      _meterLevel = controller.meterLevel;
+      _meterLevelSub = controller.meterLevelChanges.listen((level) {
+        _meterLevel = level;
+        _emitSnapshot();
+      });
+    }
 
     _session = session;
     _floorEngine = session.floorEngine;
@@ -661,6 +685,7 @@ class KeryxRadioHost implements RadioHost {
     unawaited(_stationsSub?.cancel());
     unawaited(_floorEffectsSub?.cancel());
     unawaited(_radioServiceSub?.cancel());
+    unawaited(_meterLevelSub?.cancel());
     unawaited(
       _sfxProjection?.dispose().catchError(
         (Object error, StackTrace stack) =>
