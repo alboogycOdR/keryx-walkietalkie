@@ -5385,7 +5385,7 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
 
 ### TASK-088
 **Title:** v2 session and host — target switching, roster-at-start, automatic direct/relay transport, v2 state and settings model
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §1.1, §6.3, §6.4, §7 (settings_model, radio_state, radio_session_controller); PRD V2-FR-040..045; Verification V2-VT-021, 022 (projection half), 023, 024; TASK-079 (e), TASK-082 (a) carried debt
@@ -5400,15 +5400,16 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
 - [ ] Reducer transition-matrix oracle updated with the removed/added fields and green; settings model round-trips the new fields and migrates old JSON without crashing (Technical §7, §8)
 - [ ] Carried debt closed: meter snapshot throttle test; remount-while-denied starts the flash timer (TASK-079 e, TASK-082 a)
 - [ ] `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-088-s5
+**Started_At:** 2026-09-11T19:10:00Z
+**Progress_Notes:**
+- [2026-09-11T19:10:00Z] [S5] Claimed TASK-088. Resume check: no S5 in_progress/claimed task found. Depends_On TASK-086, TASK-087 both done. Branch task/TASK-088-s5 to be created from master. Next: preflight_paths.py TASK-088, then read Technical §1.1/§6.3/§6.4/§7, current lib/services/session/**, lib/core/state/**, lib/core/settings/**, lib/core/presentation/**, and TASK-079/TASK-082 carried debt before writing.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-11T19:10:00Z
 
 
 ### TASK-089
