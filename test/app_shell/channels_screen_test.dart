@@ -5,83 +5,87 @@ import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart' show TunedChannel;
 import 'package:keryx/features/channel_selector/channel_selector_screen.dart';
 import 'package:keryx/features/channels/channels_landing.dart';
-import 'package:keryx/features/talk/talk_ptt_ring.dart';
-import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 
 import 'fake_radio_host.dart';
 import 'shell_harness.dart';
 
+/// TASK-077 (ADR-002 §2 O2, §3 A1) — `ChannelsScreen` is now the Channels
+/// **tab** body, not a pushed screen with its own Open Talk button: Talk is
+/// a sibling tab, so `embedded:true` and no `onOpenTalk`. What replaces it
+/// is the "switch to Talk" signal a successful tune produces (recall here,
+/// or a selector opened from here — see `mobile_app_shell_test.dart` for
+/// the selector-apply half, which needs the full shell to observe
+/// `radioStateProvider`).
 void main() {
   late FakeRadioHost host;
+  late int switchToTalkCalls;
 
   Widget build() {
     host = FakeRadioHost();
-    return pumpShell(host: host, home: const ChannelsScreen());
+    switchToTalkCalls = 0;
+    return pumpShell(
+      host: host,
+      home: ChannelsScreen(onSwitchToTalk: () => switchToTalkCalls++),
+    );
   }
 
-  testWidgets('mounts TASK-049 ChannelsLanding with Open Talk and Select '
-      'channel (UX-D01 / Design §2.1)', (tester) async {
+  testWidgets('mounts TASK-049 ChannelsLanding embedded, with Select '
+      'channel but no Open Talk button (ADR-002 §3 A1)', (tester) async {
     givePhoneSurface(tester);
     await tester.pumpWidget(build());
     await tester.pumpAndSettle();
 
     expect(find.byKey(ShellKeys.channelsLanding), findsOneWidget);
     expect(find.byType(ChannelsLanding), findsOneWidget);
-    expect(find.byKey(ChannelsLandingKeys.openTalk), findsOneWidget);
+    expect(
+      find.byKey(ChannelsLandingKeys.openTalk),
+      findsNothing,
+      reason: 'Talk is a sibling tab now, not pushed from here',
+    );
     expect(find.byKey(ChannelsLandingKeys.selectChannel), findsOneWidget);
     expect(find.byKey(ChannelsLandingKeys.recentSection), findsOneWidget);
     expect(find.text('Recent channels'), findsOneWidget);
     expect(find.byKey(ChannelsLandingKeys.emptyMemory), findsOneWidget);
-  });
-
-  testWidgets('renders real channel-recall memory from the host snapshot', (
-    tester,
-  ) async {
-    givePhoneSurface(tester);
-    await tester.pumpWidget(build());
-    await tester.pumpAndSettle();
-
-    host.emit(
-      const RadioHostSnapshot(
-        channelMemory: <TunedChannel>[TunedChannel(channel: 7, privacyCode: 3)],
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(ChannelsLandingKeys.recentSection), findsOneWidget);
-    expect(find.text('Recent channels'), findsOneWidget);
     expect(
-      find.byKey(ChannelsLandingKeys.recentEntry(7, 3)),
-      findsOneWidget,
+      find.byType(AppBar),
+      findsNothing,
+      reason: 'embedded:true omits the standalone app bar — the shell '
+          'owns it',
     );
-    expect(find.byKey(ChannelsLandingKeys.emptyMemory), findsNothing);
-
-    await tester.tap(find.byKey(ChannelsLandingKeys.recentEntry(7, 3)));
-    await tester.pumpAndSettle();
-
-    expect(host.tuneCalls, <(int, int)>[(7, 3)]);
-    // Recall retunes in place; it does not push Talk (Open Talk is a
-    // separate affordance — Design §2.1).
-    expect(find.byKey(ShellKeys.talk), findsNothing);
   });
 
-  testWidgets('Open Talk pushes TASK-051 Talk without tuning', (tester) async {
-    givePhoneSurface(tester);
-    await tester.pumpWidget(build());
-    await tester.pumpAndSettle();
+  testWidgets(
+    'a successful channel-recall retune calls onSwitchToTalk (ADR-002 §3 '
+    'A1: "Channels recall success … switch to Talk")',
+    (tester) async {
+      givePhoneSurface(tester);
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(ChannelsLandingKeys.openTalk));
-    await tester.pumpAndSettle();
+      host.emit(
+        const RadioHostSnapshot(
+          channelMemory: <TunedChannel>[TunedChannel(channel: 7, privacyCode: 3)],
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(host.tuneCalls, isEmpty);
-    expect(find.byKey(ShellKeys.talk), findsOneWidget);
-    expect(find.byType(talkui.TalkScreen), findsOneWidget);
-    expect(find.byType(TalkPttRing), findsOneWidget);
-  });
+      expect(find.byKey(ChannelsLandingKeys.recentEntry(7, 3)), findsOneWidget);
 
-  testWidgets('Select channel pushes TASK-050 ChannelSelectorScreen', (
-    tester,
-  ) async {
+      await tester.tap(find.byKey(ChannelsLandingKeys.recentEntry(7, 3)));
+      await tester.pumpAndSettle();
+
+      expect(host.tuneCalls, <(int, int)>[(7, 3)]);
+      expect(
+        switchToTalkCalls,
+        1,
+        reason: 'FakeRadioHost.tune() resolves success, which must reach '
+            'onSwitchToTalk exactly once',
+      );
+    },
+  );
+
+  testWidgets('Select channel pushes TASK-050 ChannelSelectorScreen, wired '
+      'so a successful apply also calls onSwitchToTalk', (tester) async {
     givePhoneSurface(tester);
     await tester.pumpWidget(build());
     await tester.pumpAndSettle();
@@ -93,5 +97,11 @@ void main() {
     expect(host.tuneCalls, isEmpty);
     expect(find.byKey(ShellKeys.channelSelector), findsOneWidget);
     expect(find.byType(ChannelSelectorScreen), findsOneWidget);
+    expect(
+      switchToTalkCalls,
+      0,
+      reason: 'no retune has happened yet — onSwitchToTalk is not called '
+          'just from opening the selector',
+    );
   });
 }
