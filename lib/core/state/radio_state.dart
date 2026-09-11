@@ -378,8 +378,14 @@ class RadioReducer {
                     : false,
               )
             : state,
+      // A mode here is the concrete route selected by the session, not the
+      // user's AUTO preference. Session construction happens during boot,
+      // before BootCompleted makes the reducer idle, so rejecting it until
+      // idle leaves the default AUTO visible as a fictional active route.
+      // Route projection is safe in every powered phase; it has no floor or
+      // transport side effect. AUTO itself is never a concrete route.
       SetMode() =>
-        state.phase == RadioPhase.idle
+        state.phase != RadioPhase.off && event.mode != RadioMode.auto
             ? state.copyWith(mode: event.mode)
             : state,
       RequestTransmit() =>

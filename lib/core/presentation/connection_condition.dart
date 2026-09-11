@@ -8,12 +8,9 @@ import 'package:keryx/core/state/radio_state.dart' show RadioMode;
 /// both LAN and WAN.").
 ///
 /// [configuredMode] mirrors `KeryxSettings.mode` verbatim — it may be
-/// `RadioMode.auto`. [effectiveRoute] mirrors `RadioState.mode`, which
-/// `RadioSessionController._resolveEffectiveMode` has already resolved to
-/// a concrete `local`/`linked` choice before it ever reaches the reducer
-/// (AUTO never appears there) — so this field is never `auto` in practice,
-/// but that invariant belongs to the session controller, not this type;
-/// this type does not itself assert it.
+/// `RadioMode.auto`. [isResolved] distinguishes an unresolved route from a
+/// concrete `local`/`linked` route, so a caller can label the former as
+/// connecting rather than presenting AUTO as an active connection.
 class ConnectionCondition {
   const ConnectionCondition({
     required this.configuredMode,
@@ -24,8 +21,18 @@ class ConnectionCondition {
   /// The user's own preference, exactly as stored (may be `auto`).
   final RadioMode configuredMode;
 
-  /// The route actually in effect right now.
+  /// The last route reported by radio state. Read [routeLabel] rather than
+  /// this value when presenting it to a user, because it is AUTO while the
+  /// session is still unresolved.
   final RadioMode effectiveRoute;
+
+  /// Whether a concrete effective route has been selected.
+  bool get isResolved => effectiveRoute != RadioMode.auto;
+
+  /// User-facing effective-route text. This is deliberately never `AUTO`:
+  /// AUTO is a configured preference, not a connected route.
+  String get routeLabel =>
+      isResolved ? effectiveRoute.name.toUpperCase() : 'Connecting';
 
   /// True while the radio is in `RadioPhase.linkDegraded` /
   /// `RadioState.isNoLink` — connectivity is currently unavailable
@@ -46,5 +53,5 @@ class ConnectionCondition {
   @override
   String toString() =>
       'ConnectionCondition(configured: $configuredMode, '
-      'effective: $effectiveRoute, degraded: $degraded)';
+      'effective: $effectiveRoute, resolved: $isResolved, degraded: $degraded)';
 }

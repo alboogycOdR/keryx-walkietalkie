@@ -71,8 +71,8 @@ void main() {
         }
       }
 
-      expect(legalTransitions, 139);
-      expect(illegalNoOps, 93);
+      expect(legalTransitions, 145);
+      expect(illegalNoOps, 87);
     });
 
     test('moves OFF to BOOT to IDLE and ignores invalid lifecycle events', () {
@@ -185,7 +185,7 @@ void main() {
       },
     );
 
-    test('defaults to AUTO and permits all three route selections', () {
+    test('defaults to AUTO until a concrete effective route is resolved', () {
       final state = bootToIdle();
 
       expect(state.mode, RadioMode.auto);
@@ -194,12 +194,23 @@ void main() {
         RadioMode.local,
       );
       expect(
-        reducer.reduce(state, const SetMode(RadioMode.auto)).mode,
-        RadioMode.auto,
-      );
-      expect(
         reducer.reduce(state, const SetMode(RadioMode.linked)).mode,
         RadioMode.linked,
+      );
+      expect(
+        reducer.reduce(state, const SetMode(RadioMode.auto)),
+        state,
+        reason: 'AUTO is a preference, never an effective route',
+      );
+    });
+
+    test('accepts a concrete resolved route while booting', () {
+      const booting = RadioState(phase: RadioPhase.boot);
+
+      expect(
+        reducer.reduce(booting, const SetMode(RadioMode.local)),
+        const RadioState(phase: RadioPhase.boot, mode: RadioMode.local),
+        reason: 'the session resolves its route before BootCompleted',
       );
     });
 
@@ -511,9 +522,9 @@ RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
       channel: event.channel,
       privacyCode: event.privacyCode,
     ),
-    SetMode() when state.phase == RadioPhase.idle => state.copyWith(
-      mode: event.mode,
-    ),
+    SetMode()
+        when state.phase != RadioPhase.off && event.mode != RadioMode.auto =>
+      state.copyWith(mode: event.mode),
     RequestTransmit() when state.phase == RadioPhase.idle => state.copyWith(
       phase: RadioPhase.txRequest,
     ),

@@ -75,7 +75,8 @@ class RadioSessionController {
        _rtcAdapter = rtcAdapter ?? const FlutterWebrtcAdapter(),
        _liveKitAdapter = liveKitAdapter ?? const LiveKitClientAdapter(),
        _tokenClientFactory =
-           tokenClientFactory ?? ((Uri baseUrl) => TokenClient(baseUrl: baseUrl)),
+           tokenClientFactory ??
+           ((Uri baseUrl) => TokenClient(baseUrl: baseUrl)),
        _isIdleOverride = isIdle;
 
   final String localPeerId;
@@ -145,6 +146,7 @@ class RadioSessionController {
   MeterLevel _meterLevel = MeterLevel.decorative;
   FloorTimer? _meterPollTimer;
   String? _polledSpeakerId;
+  int _meterPollGeneration = 0;
   StreamSubscription<FloorEffect>? _meterTrackSub;
   final _meterLevelController = StreamController<MeterLevel>.broadcast();
 
@@ -385,7 +387,10 @@ class RadioSessionController {
     _floorEngine?.updateRoster(ids);
     _bridge?.updateRoster(ids.length);
     final stations = _peers.values
-        .map((session) => StationInfo(peerId: session.peerId, callsign: session.callsign))
+        .map(
+          (session) =>
+              StationInfo(peerId: session.peerId, callsign: session.callsign),
+        )
         .toList(growable: false);
     if (!_stations.isClosed) _stations.add(stations);
   }
@@ -443,34 +448,51 @@ class RadioSessionController {
   void _startMeterPolling(String speakerId) {
     _meterPollTimer?.cancel();
     _polledSpeakerId = speakerId;
-    _scheduleMeterPoll();
+    _scheduleMeterPoll(++_meterPollGeneration);
   }
 
   void _stopMeterPolling() {
     _meterPollTimer?.cancel();
     _meterPollTimer = null;
     _polledSpeakerId = null;
+    _meterPollGeneration++;
     _setMeterLevel(MeterLevel.decorative);
   }
 
-  void _scheduleMeterPoll() {
-    _meterPollTimer = _clock.schedule(_meterPollInterval, _pollMeterLevel);
+  void _scheduleMeterPoll(int generation) {
+    _meterPollTimer = _clock.schedule(
+      _meterPollInterval,
+      () => _pollMeterLevel(generation),
+    );
   }
 
-  Future<void> _pollMeterLevel() async {
+  Future<void> _pollMeterLevel(int generation) async {
     final speakerId = _polledSpeakerId;
-    if (_disposed || speakerId == null) return;
+    if (_disposed || speakerId == null || generation != _meterPollGeneration) {
+      return;
+    }
     // Only the LOCAL/mesh chain has a real reader today — see this
     // section's opening dartdoc for why LINKED is intentionally not
     // implemented here.
     final mesh = _mesh;
-    final level = mesh != null
-        ? await mesh.readAudioLevel(speakerId)
-        : const RtcUnavailableAudioLevel();
+    RtcAudioLevel level = const RtcUnavailableAudioLevel();
+    try {
+      level = mesh != null
+          ? await mesh.readAudioLevel(speakerId)
+          : const RtcUnavailableAudioLevel();
+    } catch (_) {
+      // A closing peer connection can reject getStats mid-poll. Treat that
+      // sample as unavailable; a transient read failure must not turn into
+      // an uncaught async error or stop the active RX polling chain.
+    }
     // Re-check after the `await` — a retune/dispose/floor-change may have
     // landed while the read was in flight, or a newer poll for a different
     // speaker may already be in progress.
-    if (_disposed || _polledSpeakerId != speakerId) return;
+    if (_disposed ||
+        _polledSpeakerId != speakerId ||
+        generation != _meterPollGeneration) {
+      return;
+    }
     _setMeterLevel(
       level is RtcMeasuredAudioLevel
           ? MeasuredMeterLevel(level.value * 100)
@@ -479,7 +501,9 @@ class RadioSessionController {
     // Still polling this speaker — reschedule. `_polledSpeakerId` is
     // cleared by `_stopMeterPolling`/teardown, so a stale timer never
     // outlives the RX window it was started for.
-    if (_polledSpeakerId == speakerId) _scheduleMeterPoll();
+    if (_polledSpeakerId == speakerId && generation == _meterPollGeneration) {
+      _scheduleMeterPoll(generation);
+    }
   }
 
   void _setMeterLevel(MeterLevel level) {
