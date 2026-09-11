@@ -221,4 +221,51 @@ void main() {
     await presence.dispose();
     await cleanup();
   });
+
+  test('a simulated 5-min silence marks the peer Offline locally too', () async {
+    final transport = FakePresenceTransport();
+    final presence = PresenceClient(
+      baseUrl: Uri.parse('wss://directory.example'),
+      keyPair: keyPair,
+      transport: transport,
+    );
+    var fakeNow = 1000;
+    controller = ContactsController(
+      directoryClient: directoryClient,
+      repository: repository,
+      presenceClient: presence,
+      nowUnixSeconds: () => fakeNow,
+    );
+    server.responder = (req) => const DirectoryFakeResponse(
+      statusCode: 200,
+      body: {
+        'pk': 'me', 'callsign': 'ME', 'status': 'available',
+        'contacts': [
+          {'pk': 'c1', 'callsign': 'ALPHA-1', 'status': 'offline'},
+        ],
+        'pending_in': [], 'pending_out': [], 'groups': [],
+      },
+    );
+    await controller.refreshFromServer();
+    await presence.start();
+
+    // A live update establishes a baseline "last seen live" at fakeNow.
+    transport.lastSocket!.deliver('{"pk":"c1","status":"available","since":1000}');
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.contactsSnapshot.single.status, 'available');
+
+    // Less than 5 minutes of silence: still available.
+    fakeNow = 1000 + 60;
+    controller.checkSilence();
+    expect(controller.contactsSnapshot.single.status, 'available');
+
+    // 5+ minutes of silence: swept to offline locally, without any new
+    // server push.
+    fakeNow = 1000 + const Duration(minutes: 5).inSeconds;
+    controller.checkSilence();
+    expect(controller.contactsSnapshot.single.status, 'offline');
+
+    await presence.dispose();
+    await cleanup();
+  });
 }

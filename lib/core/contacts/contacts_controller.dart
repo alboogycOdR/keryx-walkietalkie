@@ -24,18 +24,34 @@ class ContactsController {
     required ContactsRepository repository,
     PresenceClient? presenceClient,
     int Function()? nowUnixSeconds,
+    Duration silenceThreshold = const Duration(minutes: 5),
+    Duration? silenceSweepInterval,
   }) : _directory = directoryClient,
        _repository = repository,
-       _now = nowUnixSeconds ?? (() => DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000) {
+       _now = nowUnixSeconds ?? (() => DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000),
+       _silenceThresholdSeconds = silenceThreshold.inSeconds {
     if (presenceClient != null) {
       _presenceSub = presenceClient.updates.listen(_onPresenceUpdate);
+    }
+    if (silenceSweepInterval != null) {
+      _silenceSweepTimer = Timer.periodic(silenceSweepInterval, (_) => checkSilence());
     }
   }
 
   final DirectoryClient _directory;
   final ContactsRepository _repository;
   final int Function() _now;
+  final int _silenceThresholdSeconds;
   StreamSubscription<PresenceUpdate>? _presenceSub;
+  Timer? _silenceSweepTimer;
+
+  /// Last time (unix seconds) a live [PresenceUpdate] was actually seen for
+  /// a contact — separate from the persisted `lastSeenAt` so a restart
+  /// doesn't immediately treat every contact as silent (Technical §4.3's
+  /// server-side "Offline after 5 minutes without a heartbeat" is mirrored
+  /// here client-side via [checkSilence] for contacts whose *last known*
+  /// status was non-offline but whose socket has gone quiet).
+  final Map<String, int> _lastPresenceSeenAt = {};
 
   final _contactsController = StreamController<List<Contact>>.broadcast(sync: true);
   final _pendingController = StreamController<List<PendingContactRequest>>.broadcast(sync: true);
@@ -175,6 +191,7 @@ class ContactsController {
   bool isBlocked(String pk) => _blocked.any((b) => b.pk == pk);
 
   void _onPresenceUpdate(PresenceUpdate update) {
+    _lastPresenceSeenAt[update.pk] = _now();
     final idx = _contacts.indexWhere((c) => c.pk == update.pk);
     if (idx < 0) return;
     final next = [..._contacts];
@@ -182,6 +199,41 @@ class ContactsController {
     _contacts = next;
     _emitContacts();
     unawaited(_persistContacts());
+  }
+
+  /// Marks any contact whose live presence has gone quiet for at least
+  /// `silenceThreshold` (constructor param, default 5 minutes) as
+  /// `offline` locally — the client-side mirror of the server's own
+  /// "Offline after 5 minutes without a heartbeat" (Technical §4.3). A
+  /// contact that has never sent a live update since this controller
+  /// started is *not* swept (no baseline to measure silence from) — it
+  /// keeps whatever status the last [refreshFromServer] gave it until a
+  /// live update establishes one.
+  ///
+  /// Called automatically every `silenceSweepInterval` if one was passed
+  /// to the constructor (opt-in; a later session/host wiring task decides
+  /// the production cadence), and always callable directly — which is how
+  /// a test simulates "5 minutes of silence" without a real timer, via an
+  /// injected `nowUnixSeconds` clock.
+  void checkSilence() {
+    final now = _now();
+    var changed = false;
+    final next = [..._contacts];
+    for (var i = 0; i < next.length; i++) {
+      final contact = next[i];
+      if (contact.status == 'offline') continue;
+      final lastSeen = _lastPresenceSeenAt[contact.pk];
+      if (lastSeen == null) continue;
+      if (now - lastSeen >= _silenceThresholdSeconds) {
+        next[i] = contact.copyWith(status: 'offline');
+        changed = true;
+      }
+    }
+    if (changed) {
+      _contacts = next;
+      _emitContacts();
+      unawaited(_persistContacts());
+    }
   }
 
   Future<void> _persistContacts() async {
@@ -203,6 +255,7 @@ class ContactsController {
   }
 
   Future<void> dispose() async {
+    _silenceSweepTimer?.cancel();
     await _presenceSub?.cancel();
     await _contactsController.close();
     await _pendingController.close();
