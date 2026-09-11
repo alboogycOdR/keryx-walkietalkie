@@ -1,6 +1,6 @@
 ---
 plan_version: 15.1
-last_updated: 2026-09-11T13:07:44Z
+last_updated: 2026-09-11T13:34:47Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4654,7 +4654,7 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 
 ### TASK-081
 **Title:** Adopt ConnectionCondition's resolved route label in every UI call site (no literal AUTO as an effective route)
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; TASK-080 (adds `ConnectionCondition.isResolved`/`routeLabel` and fixes the reducer root cause — this task is the UI half it could not reach, re-carved by ORCH from TASK-080's OWNERSHIP_CONFLICT block 2026-09-11)
@@ -4799,6 +4799,27 @@ Territory matches expectation: all listed UI files exist; goldens are existing P
 - (d) `talk_channel_card.dart`'s `configuredDiffers` compares label strings. That works, but prefer comparing `configuredMode` against `isResolved ? effectiveRoute : null`.
 
 **Next step for GB:** fix (1) on the existing branch; run the FULL suite in the foreground with exact counts; set needs_review.
+[2026-09-11T13:34:47Z] [ORCH] **APPROVED round 2**, merged `6d9d9d1`. Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave).
+- **Territory:** clean. The fix commit `92d7ec8` is tagged, and all 10 files are inside Owned_Paths.
+- **Tests:** run independently in the worktree by a subagent. `flutter analyze` 0 issues; targeted 233/233; full suite 1493 passed / 0 failed / 40 skipped.
+- **BLOCKING (1) fixed (verified in source):**
+  - The build-time mutation is gone.
+  - A `ref.listen(radioStateProvider)` calls `_releaseLeftoverLatchIfPhaseLeftTx`, which calls `_releaseLatch()`. That clears `TalkLatchState` **and** calls `releaseLatch()` exactly once, guarded by `if (!_latched) return`, on any transition out of tx: TOT/EndTransmit/LinkDegraded.
+  - A post-frame callback covers the remount-while-already-out-of-tx case that a listener cannot see, de-duplicated by `_autoReleasePosted`.
+  - The latched projection is still gated on phase == tx.
+  - New tests cover latched TX → LinkDegraded (`releaseLatchCalls == 1`, no latched treatment) and the EndTransmit path. GB's revert-mutation of the release call turned the LinkDegraded test red (Expected 1, Actual 0).
+- **Non-blocking (a)–(d) addressed:**
+  - `StationsCopy.membersLabel` now switches on `isResolved` + the `effectiveRoute` enum;
+  - settings/diagnostics effective route uses the `modeOptionLabel` casing when resolved, and 'Connecting' otherwise;
+  - the stray blank import is removed;
+  - the card compares `configuredMode` against the resolved `effectiveRoute`.
+- **Test-integrity audit (ORCH, scripted against master):**
+  - talk 53→58 tests, expects 119→143.
+  - The one removed talk expect (Lock visible after unlatch without a hold) is an intentional semantic consequence of the carried `_holding` rule.
+  - stations: the old "AUTO incomplete roster is labelled AUTO" test and its `incompleteRoster(RadioMode.*)` expects were replaced by `ConnectionCondition`-based ones, because AUTO is now deliberately never an effective-route label (TASK-080/ADR Technical §7).
+  - settings, about and channels only gained tests and expects.
+- **Non-blocking:** the talk/settings test files carry large `dart format` churn, which makes diffs noisy; format-only commits should be separate next time.
+- **Unlocks:** TASK-078 (needs 077 too).
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-11T13:23:46Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T13:34:47Z
