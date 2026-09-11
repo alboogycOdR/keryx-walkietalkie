@@ -4235,7 +4235,7 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 
 ### TASK-075
 **Title:** UX R2 Channels as a tab body — embedded mode, polished list rows, tune-success callback
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** CX
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A1 (Channels becomes a tab under a shell-owned app bar; Talk is default; recent channels stay here); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.1 ("Recent entries show their actual channel/code values and remain selectable. Empty memory uses a neutral explanatory message and a direct tune action. Do not show a fake online count"), §2.3, §3.3
@@ -4259,15 +4259,15 @@ No fake presence counts. Regenerate `channels_*` goldens.
 - [ ] Current row pinned with accent bar; recent rows show real channel/code and stay selectable; empty memory shows the neutral message + direct tune action (Design §2.1)
 - [ ] `test/app_shell/**` and `test/regression/real_composition_test.dart` pass with zero edits
 - [ ] `channels_*` goldens regenerated; `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-075-cx
+**Started_At:** 2026-09-11T11:37:39Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T10:07:46Z
+**Updated_By:** CX
+**Updated_At:** 2026-09-11T11:37:39Z
 
 
 ### TASK-076
