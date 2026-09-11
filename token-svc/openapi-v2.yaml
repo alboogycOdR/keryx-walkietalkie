@@ -4,13 +4,14 @@ info:
   version: "2.0.0"
   description: |
     Directory grown from token-svc (Technical §3.3, §4).
-    Every `/v2/` call is signed. `POST /token` is unchanged in TASK-084
-    (membership gate is TASK-085). Group write endpoints are TASK-085.
+    Every `/v2/` call is signed. `POST /token` is signed and membership-gated.
 
     Signature (Technical §3.3):
       canonical = METHOD|path|body|timestamp   (body is raw bytes; empty if none)
       X-Keryx-Sig: standard base64(Ed25519(sha256(canonical)))
-      X-Keryx-Key: unpadded base64url of the 32-byte Ed25519 public key
+      X-Keryx-Key: canonically unpadded base64url of the 32-byte Ed25519 public
+        key. The server also accepts standard base64 (padded, + /) as emitted
+        by the Dart client.
       X-Keryx-Ts: Unix seconds
     Reject if |now - ts| > 120 s, if the nonce (sha256(sig)) was seen in that
     window, or if the signature does not verify.
@@ -24,6 +25,8 @@ servers:
 tags:
   - name: identity
   - name: contacts
+  - name: groups
+  - name: alerts
   - name: presence
   - name: token
 
@@ -45,7 +48,11 @@ paths:
     post:
       tags: [token]
       operationId: mintToken
-      description: Existing LiveKit JWT mint. Unchanged in TASK-084.
+      security: [{ keryxSign: [] }]
+      description: |
+        LiveKit JWT mint. Request is signed. Caller must be a current member of
+        `room_id` (group room stored at create/rotate, or 1:1 room bound on
+        demand via `peer_pk` when the pair are contacts).
       requestBody:
         required: true
         content:
@@ -57,9 +64,14 @@ paths:
                 room_id: { type: string }
                 callsign: { type: string }
                 event_token: { type: string, nullable: true }
+                peer_pk: { type: string, nullable: true, description: contact pk to bind a 1:1 room }
       responses:
         "200":
           description: JWT
+        "401":
+          description: missing_signature / unknown_identity
+        "403":
+          description: not_member
         "422":
           description: invalid_request (`detail`)
         "429":
@@ -235,6 +247,230 @@ paths:
         "404":
           description: not_contacts
 
+  /v2/groups:
+    post:
+      tags: [groups]
+      operationId: createGroup
+      security: [{ keryxSign: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, my_secret_enc, room_id]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 40 }
+                my_secret_enc: { type: string, description: sealed copy; server cannot open }
+                room_id: { type: string, description: 16-char base32 room id }
+      responses:
+        "200":
+          description: Created; caller is admin
+        "401": { $ref: "#/components/responses/AuthError" }
+        "409":
+          description: room_conflict
+
+  /v2/groups/join:
+    post:
+      tags: [groups]
+      operationId: joinGroup
+      security: [{ keryxSign: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, my_secret_enc]
+              properties:
+                token: { type: string }
+                my_secret_enc: { type: string }
+      responses:
+        "200":
+          description: Joined as member
+        "409":
+          description: group_full (26th) or already_member
+        "410":
+          description: invite_expired
+
+  /v2/groups/{id}:
+    get:
+      tags: [groups]
+      operationId: getGroup
+      security: [{ keryxSign: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Members + roles + presence
+        "403":
+          description: not_member
+    patch:
+      tags: [groups]
+      operationId: renameGroup
+      security: [{ keryxSign: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 40 }
+      responses:
+        "200":
+          description: Renamed
+        "403":
+          description: not_admin
+
+  /v2/groups/{id}/invites:
+    post:
+      tags: [groups]
+      operationId: mintInvite
+      security: [{ keryxSign: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expires_in:
+                  description: 4h, 24h, 7d, none, or integer seconds
+                  oneOf: [{ type: string }, { type: integer }]
+      responses:
+        "200":
+          description: "{ token, expires_at, group_id } — token is shown once; only the hash is stored"
+
+  /v2/groups/{id}/rotate:
+    post:
+      tags: [groups]
+      operationId: rotateGroup
+      security: [{ keryxSign: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [secrets_enc, room_id]
+              properties:
+                secrets_enc:
+                  type: object
+                  additionalProperties: { type: string }
+                  description: sealed copy for every remaining member
+                room_id: { type: string }
+      responses:
+        "200":
+          description: key_version bumped; rotation notice on presence WS
+        "422":
+          description: rotate_incomplete
+
+  /v2/groups/{id}/members/me:
+    delete:
+      tags: [groups]
+      operationId: leaveGroup
+      security: [{ keryxSign: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Left; last-admin succession promotes the oldest remaining member
+
+  /v2/groups/{id}/members/{pk}:
+    delete:
+      tags: [groups]
+      operationId: removeMember
+      security: [{ keryxSign: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: pk
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [secrets_enc, room_id]
+              properties:
+                secrets_enc:
+                  type: object
+                  additionalProperties: { type: string }
+                room_id: { type: string }
+      responses:
+        "200":
+          description: Removed and rotated in the same call
+        "422":
+          description: rotate_incomplete if secrets_enc is not exactly the remaining members
+
+  /v2/groups/{id}/members/{pk}:admin:
+    post:
+      tags: [groups]
+      operationId: makeAdmin
+      security: [{ keryxSign: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: pk
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Target is now admin
+
+  /v2/alerts:
+    post:
+      tags: [alerts]
+      operationId: sendAlert
+      security: [{ keryxSign: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to_pk]
+              properties:
+                to_pk: { type: string }
+      responses:
+        "200":
+          description: Delivered over the target's presence socket
+        "403":
+          description: not_contacts
+        "429":
+          description: alert_rate_limited (1 per sender per target per 10 min)
+
   /v2/presence:
     get:
       tags: [presence]
@@ -243,8 +479,12 @@ paths:
         WebSocket. Upgrade with the same signed headers (method GET, path
         `/v2/presence`, empty body). Then send `{ "status": "available"|"busy"|"dnd"|"offline" }`
         on change and `{ "type": "heartbeat" }` every 60 s. Server marks Offline
-        after 5 minutes without a heartbeat. Fan-out to contacts:
-        `{ pk, status, talking?, since }`. Nearby is never computed here.
+        after 5 minutes without a heartbeat. A periodic sweep (≤60 s) marks
+        silent identities Offline without waiting for another socket message.
+        Fan-out via Redis pub/sub to contacts and co-members:
+        `{ pk, status, talking?, since }`. Rotation notices:
+        `{ type: rotation, group_id, key_version }`. Alerts:
+        `{ type: alert, from_pk, since }`. Nearby is never computed here.
       security: [{ keryxSign: [] }]
       responses:
         "101":
@@ -306,7 +546,7 @@ components:
           type: array
           items:
             type: object
-            description: Empty until TASK-085 writes memberships; schema is stable.
+            description: Memberships with id, name, role, key_version, secret_enc.
 
   responses:
     AuthError:

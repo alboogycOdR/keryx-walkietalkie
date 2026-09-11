@@ -11,3 +11,6 @@ Second half of the directory. Groups: create (creator's sealed secret copy store
 - Depends_On: TASK-084
 
 ## Work Log
+
+- [2026-09-11T18:24:00Z] [GB] Claimed. Preflight pasted in PLAN.md. Growing token-svc `/v2/` groups/invites/rotation/alerts; membership-gated signed `/token`; X-Keryx-Key dual encoding; periodic presence sweep; Redis presence subscriber.
+- [2026-09-11T18:55:00Z] [GB] Implementation complete. `cd token-svc; python -m pytest --tb=short -q` — 64 passed. Groups lifecycle (26th join, last-admin succession, remove-requires-rotate), secret scan, token gate, alerts, Dart standard-base64 key, co-member presence, Redis bus, sweep without a peer socket message. Ready for needs_review.

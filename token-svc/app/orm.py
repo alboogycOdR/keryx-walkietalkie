@@ -1,4 +1,4 @@
-"""SQLAlchemy models for Technical §4.1. Groups tables exist; group HTTP is TASK-085."""
+"""SQLAlchemy models for Technical §4.1 plus TASK-085 room_id / 1:1 / alerts."""
 
 from __future__ import annotations
 
@@ -67,6 +67,7 @@ class Group(Base):
     created_by: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
     key_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    room_id: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
 
 
 class GroupMember(Base):
@@ -86,3 +87,23 @@ class Invite(Base):
     token_hash: Mapped[bytes] = mapped_column(LargeBinary, primary_key=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
     created_by: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
+
+
+class DirectRoom(Base):
+    """1:1 room_id stored on demand at first signed /token (TASK-085)."""
+
+    __tablename__ = "direct_rooms"
+    __table_args__ = (CheckConstraint("a_pk < b_pk", name="direct_rooms_ordered"),)
+
+    a_pk: Mapped[bytes] = mapped_column(LargeBinary(32), primary_key=True)
+    b_pk: Mapped[bytes] = mapped_column(LargeBinary(32), primary_key=True)
+    room_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)
+
+
+class AlertSend(Base):
+    __tablename__ = "alert_sends"
+
+    from_pk: Mapped[bytes] = mapped_column(LargeBinary(32), primary_key=True)
+    to_pk: Mapped[bytes] = mapped_column(LargeBinary(32), primary_key=True)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=False), nullable=False)

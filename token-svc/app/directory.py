@@ -254,6 +254,7 @@ def identity_me(session: Session, me: bytes, now: float) -> dict[str, object]:
                 "name": group.name,
                 "role": ROLE_TO_NAME.get(mem.role, "member"),
                 "key_version": group.key_version,
+                "room_id": group.room_id,
                 "secret_enc": b64url_encode(mem.secret_enc),
             }
         )

@@ -32,7 +32,8 @@ def _client(settings: Settings, clock: list[float], max_requests: int = 3) -> Te
 def test_same_ip_exceeds_window(settings, clock) -> None:
     client = _client(settings, clock, max_requests=3)
     for _ in range(3):
-        assert client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}).status_code == 200
+        # Unsigned is 401, but the IP limiter still counts the attempt.
+        assert client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}).status_code == 401
     res = client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN})
     assert res.status_code == 429
     assert res.json()["detail"] == "rate_limited"
@@ -42,18 +43,18 @@ def test_distinct_ips_have_independent_counters(settings, clock) -> None:
     client = _client(settings, clock, max_requests=1)
     a = client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}, headers={"X-Forwarded-For": "10.0.0.1"})
     b = client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}, headers={"X-Forwarded-For": "10.0.0.2"})
-    assert a.status_code == 200
-    assert b.status_code == 200
+    assert a.status_code == 401
+    assert b.status_code == 401
     again = client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}, headers={"X-Forwarded-For": "10.0.0.1"})
     assert again.status_code == 429
 
 
 def test_window_resets(settings, clock) -> None:
     client = _client(settings, clock, max_requests=1)
-    assert client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}).status_code == 200
+    assert client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}).status_code == 401
     assert client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}).status_code == 429
     clock[0] += 60
-    assert client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}).status_code == 200
+    assert client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}).status_code == 401
 
 
 def test_counters_expire_within_one_hour(settings, clock) -> None:

@@ -55,3 +55,17 @@ class Agent:
     def ws_headers(self) -> dict[str, str]:
         self.bump()
         return self._headers("GET", "/v2/presence", b"")
+
+
+def sealed_copy(marker: bytes = b"\x03") -> str:
+    return b64url_encode(marker * 64)
+
+
+def create_group(agent: Agent, room_id: str, name: str = "CREW") -> str:
+    res = agent.request(
+        "POST",
+        "/v2/groups",
+        {"name": name, "my_secret_enc": sealed_copy(), "room_id": room_id},
+    )
+    assert res.status_code == 200, res.text
+    return str(res.json()["id"])

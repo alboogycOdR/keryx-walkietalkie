@@ -40,12 +40,18 @@ def test_request_cycle_never_logs_callsign_or_room(settings, clock) -> None:
 
     limiter = IpRateLimiter(max_requests=30, window_seconds=60, ttl_seconds=3600, clock=lambda: clock[0])
     client = TestClient(create_app(settings=settings, limiter=limiter, clock=lambda: clock[0]))
+    from tests.v2_helpers import Agent, create_group
+
+    agent = Agent(client, clock, SENTINEL_CALLSIGN)
+    assert agent.register().status_code == 200
+    create_group(agent, SENTINEL_ROOM)
     event = sign_event_token(SENTINEL_ROOM, settings.event_token_secret, exp=int(clock[0]) + 60)
-    res = client.post(
+    res = agent.request(
+        "POST",
         "/token",
-        json={"room_id": SENTINEL_ROOM, "callsign": SENTINEL_CALLSIGN, "event_token": event},
+        {"room_id": SENTINEL_ROOM, "callsign": SENTINEL_CALLSIGN, "event_token": event},
     )
-    assert res.status_code == 200
+    assert res.status_code == 200, res.text
     identity = res.json()["identity"]
 
     blob = stream.getvalue()
