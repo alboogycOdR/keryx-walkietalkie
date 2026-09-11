@@ -136,6 +136,10 @@ Direct WebRTC is already DTLS-SRTP. For the relay, LiveKit's end-to-end encrypti
 - `RadioSessionController` gains `switchTarget(roomId, members)`; it calls the existing teardown/rebuild path and `FloorEngine.updateRoster(members)` immediately (fixes the solo join-guard, §1.1).
 - Transport selection per listener: direct if the listener's peer ID is currently discovered on the LAN, else relay. Both may be active in one session (LAN mesh + relay room) — this already exists as the AUTO bridge in `_resolveEffectiveMode`; it becomes always-on.
 
+## 6a. Sequencing correction (amended 2026-09-11 after TASK-088)
+
+§6.3/§6.4/§7 as originally written asked TASK-088 to remove `RadioMode`/`channel`/`privacyCode` from `RadioState` and rename `RadioSessionController.retune` in the same pass. That cannot compile: a dozen `lib/features/**` files and the `SessionHost` contract in `lib/features/face/session_host.dart` consume those symbols and belong to tasks that have not landed yet (TASK-091..094 per §10). **TASK-088 is additive only**: it adds `roomId`/`Transport`/`SetTransport`/`switchTarget`/`target`/`audience`/`.transport` alongside the v1 fields and methods, changing no existing signature. **TASK-094 removes the v1 fields** once TASK-091/092/093 have migrated their consumers off them, as part of its existing deletion sweep. §6.3/§6.4/§7 below describe the *target* shape; read every "remove"/"becomes"/"->" there as "add alongside, removed later by TASK-094" unless the file is already exclusively v2 territory (e.g. new modules in §6.1 that no v1 code touches).
+
 ## 7. Changes inside kept modules (explicit, nothing else)
 - `lib/core/identity/peer_id.dart`: input becomes the public key.
 - `lib/core/rooms/derivation.dart`: delete `deriveNumbered`.
