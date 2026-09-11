@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:keryx/core/floor/floor.dart' show FloorEngine;
 import 'package:keryx/core/presentation/presentation.dart';
@@ -98,6 +100,13 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   bool _wasPermissionDenied = false;
   bool _autoReleasePosted = false;
 
+  /// ADR-002 A7: the denied flash is presentation-only. The reducer keeps
+  /// `isTransmitDenied` until the next radio event; this timer is what
+  /// returns the ring to Ready when nobody else is on the channel.
+  static const Duration _deniedFlashDuration = Duration(milliseconds: 1500);
+  Timer? _deniedFlashTimer;
+  bool _flashExpired = false;
+
   @override
   void initState() {
     super.initState();
@@ -111,6 +120,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _deniedFlashTimer?.cancel();
     unawaited(_hostSub?.cancel());
     // VT-012: route unmount during a hold releases an ordinary hold safely
     // and creates no latch. A deliberate latch survives navigation
@@ -195,6 +205,32 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     _releaseLatch();
   }
 
+  /// Rising edge of `isTransmitDenied` starts (or restarts) the 1.5 s
+  /// presentation timer. A falling edge cancels it. Does not [setState]
+  /// on the edge — the [radioStateProvider] watch already rebuilds.
+  void _syncDeniedFlashTimer({
+    required bool wasDenied,
+    required bool nowDenied,
+  }) {
+    if (nowDenied && !wasDenied) {
+      _deniedFlashTimer?.cancel();
+      _flashExpired = false;
+      _deniedFlashTimer = Timer(_deniedFlashDuration, () {
+        if (!mounted) return;
+        setState(() => _flashExpired = true);
+      });
+      return;
+    }
+    if (!nowDenied && wasDenied) {
+      _deniedFlashTimer?.cancel();
+      _deniedFlashTimer = null;
+      _flashExpired = false;
+    }
+  }
+
+  bool _flashIsShowing(RadioViewState viewState) =>
+      viewState.deniedFlash && !_flashExpired;
+
   @override
   Widget build(BuildContext context) {
     final intents = RadioViewIntents(widget.host);
@@ -204,6 +240,10 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
 
     ref.listen(radioStateProvider, (previous, next) {
       _releaseLeftoverLatchIfPhaseLeftTx(next.phase);
+      _syncDeniedFlashTimer(
+        wasDenied: previous?.isTransmitDenied ?? false,
+        nowDenied: next.isTransmitDenied,
+      );
     });
 
     if (settings == null) {
@@ -245,6 +285,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
       viewState,
       treatment,
     );
+    final Iterable<PresentationCue> overlayCues = _overlayCuesFor(viewState);
     final String semanticStatus = secondaryLine.isEmpty
         ? primaryLine
         : '$primaryLine $secondaryLine';
@@ -255,22 +296,96 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     final bool canLatch =
         _holding && !_latched && viewState.phase == RadioPhase.tx;
 
-    // Design §2.2 wants the primary content (card/banners) pinned to the
-    // top and the PTT controls pinned toward the bottom with the remaining
-    // space distributed between them — the original single `Column` used a
-    // `Spacer()` for that, which only works while every non-flexible child
-    // fits within the viewport. At small widths combined with a large
-    // system text scale (Verification §6: 320 lp width, text scale 2.0)
-    // the fixed children alone can exceed the available height, and a
-    // `Spacer()` cannot shrink below zero — the excess would silently
-    // overflow rather than clip. `LayoutBuilder` + `SingleChildScrollView`
-    // + a `ConstrainedBox(minHeight:)` around a two-group `Column` with
-    // `mainAxisAlignment: spaceBetween` reproduces the same "flexible gap
-    // between a top and a bottom group" visual when everything fits, and
-    // falls back to scrolling instead of clipping when it does not.
+    // ADR-002 A7: card + banners stay at the top; the ring, status and
+    // latch row are centred in the remaining height. A two-child render
+    // object (not SliverFillRemaining — TalkPttRing's LayoutBuilder cannot
+    // report intrinsics) sizes to max(viewport, children) so the
+    // SingleChildScrollView still scrolls at text scale 2.0 / landscape.
     const EdgeInsets pagePadding = EdgeInsets.symmetric(
       horizontal: 16,
       vertical: 12,
+    );
+    final Widget topGroup = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (Navigator.of(context).canPop())
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: IconButton(
+                key: const Key('keryx-talk-back'),
+                tooltip: 'Back',
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: Icon(Icons.arrow_back, color: tokens.textPrimary),
+              ),
+            ),
+          ),
+        TalkChannelCard(
+          channel: viewState.channel,
+          privacyCode: viewState.privacyCode,
+          connection: viewState.connection,
+          stationCountLabel: _rosterLabel(viewState.rosterCount),
+          onOpenPicker: widget.onOpenPicker,
+          onOpenStations: widget.onOpenStations,
+          onOpenRadioControls: widget.onOpenRadioControls,
+        ),
+        const SizedBox(height: 8),
+        for (final cue in overlayCues)
+          _OverlayCueChip(cue: cue, tokens: tokens),
+      ],
+    );
+    final Widget pttGroup = Column(
+      key: const Key('keryx-talk-ptt-cluster'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Center(
+          child: TalkPttRing(
+            enabled: ptteEnabled,
+            treatment: treatment,
+            meterLevel: viewState.meterLevel,
+            reducedMotion: reducedMotion,
+            semanticStatus: semanticStatus,
+            ringColor: _ringColorFor(treatment, tokens),
+            faceColor: tokens.pttFace,
+            glyphColor: tokens.palette.contrastingOn(tokens.pttFace),
+            neutralRingColor: tokens.pttNeutralRing,
+            onHoldStart: () => _handleHoldStart(intents),
+            onHoldEnd: () => _handleHoldEnd(intents),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          primaryLine,
+          key: const Key('keryx-talk-status-line'),
+          textAlign: TextAlign.center,
+          style: KeryxUxTypography.sectionTitle.copyWith(
+            color: tokens.textPrimary,
+          ),
+        ),
+        if (secondaryLine.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              secondaryLine,
+              key: const Key('keryx-talk-status-secondary'),
+              textAlign: TextAlign.center,
+              style: KeryxUxTypography.secondary.copyWith(
+                color: tokens.textSecondary,
+              ),
+            ),
+          ),
+        const SizedBox(height: 16),
+        _ContextualLatchRow(
+          latched: viewState.latched,
+          canLatch: canLatch,
+          onLatch: _engageLatch,
+          onUnlatch: () => _releaseLatch(intents),
+        ),
+      ],
     );
     return Scaffold(
       backgroundColor: tokens.surfaceBase,
@@ -284,105 +399,10 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
                 );
             return SingleChildScrollView(
               padding: pagePadding,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: minContentHeight),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        if (Navigator.of(context).canPop())
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: SizedBox(
-                              width: 48,
-                              height: 48,
-                              child: IconButton(
-                                key: const Key('keryx-talk-back'),
-                                tooltip: 'Back',
-                                onPressed: () =>
-                                    Navigator.of(context).maybePop(),
-                                icon: Icon(
-                                  Icons.arrow_back,
-                                  color: tokens.textPrimary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        TalkChannelCard(
-                          channel: viewState.channel,
-                          privacyCode: viewState.privacyCode,
-                          connection: viewState.connection,
-                          stationCountLabel: _rosterLabel(
-                            viewState.rosterCount,
-                          ),
-                          onOpenPicker: widget.onOpenPicker,
-                          onOpenStations: widget.onOpenStations,
-                          onOpenRadioControls: widget.onOpenRadioControls,
-                        ),
-                        const SizedBox(height: 8),
-                        for (final cue in viewState.activeOverlayCues)
-                          _OverlayCueChip(cue: cue, tokens: tokens),
-                      ],
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        const SizedBox(height: 16),
-                        Center(
-                          child: TalkPttRing(
-                            enabled: ptteEnabled,
-                            treatment: treatment,
-                            meterLevel: viewState.meterLevel,
-                            reducedMotion: reducedMotion,
-                            semanticStatus: semanticStatus,
-                            ringColor: _ringColorFor(treatment, tokens),
-                            faceColor: tokens.pttFace,
-                            glyphColor: tokens.palette.contrastingOn(
-                              tokens.pttFace,
-                            ),
-                            neutralRingColor: tokens.pttNeutralRing,
-                            onHoldStart: () => _handleHoldStart(intents),
-                            onHoldEnd: () => _handleHoldEnd(intents),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          primaryLine,
-                          key: const Key('keryx-talk-status-line'),
-                          textAlign: TextAlign.center,
-                          style: KeryxUxTypography.sectionTitle.copyWith(
-                            color: tokens.textPrimary,
-                          ),
-                        ),
-                        if (secondaryLine.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              secondaryLine,
-                              key: const Key('keryx-talk-status-secondary'),
-                              textAlign: TextAlign.center,
-                              style: KeryxUxTypography.secondary.copyWith(
-                                color: tokens.textSecondary,
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 16),
-                        _ContextualLatchRow(
-                          latched: viewState.latched,
-                          canLatch: canLatch,
-                          onLatch: _engageLatch,
-                          onUnlatch: () => _releaseLatch(intents),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              child: _TalkBody(
+                minHeight: minContentHeight,
+                top: topGroup,
+                bottom: pttGroup,
               ),
             );
           },
@@ -396,8 +416,9 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   /// "A denied flash cannot override a currently granted TX") — the flash
   /// only reaches [TalkPttRingTreatment.deniedFlash] when there is no
   /// active grant to protect, matching [OverlayCues.deniedFlash]'s own
-  /// independent-overlay rendering above the ring.
-  static TalkPttRingTreatment _treatmentFor(RadioViewState viewState) {
+  /// independent-overlay rendering above the ring. After [_deniedFlashDuration]
+  /// the presentation expires even if the reducer flag is still set (A7).
+  TalkPttRingTreatment _treatmentFor(RadioViewState viewState) {
     if (viewState.latched) return TalkPttRingTreatment.latched;
     if (viewState.phase == RadioPhase.tx) return TalkPttRingTreatment.tx;
     if (viewState.phase == RadioPhase.rxActive) {
@@ -406,7 +427,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     if (viewState.phase == RadioPhase.txRequest) {
       return TalkPttRingTreatment.requesting;
     }
-    if (viewState.deniedFlash) return TalkPttRingTreatment.deniedFlash;
+    if (_flashIsShowing(viewState)) return TalkPttRingTreatment.deniedFlash;
     if (viewState.phase == RadioPhase.idle) {
       return TalkPttRingTreatment.ready;
     }
@@ -488,13 +509,35 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
         '',
       ),
       TalkPttRingTreatment.requesting => (TalkCopy.requestingChannel, ''),
-      TalkPttRingTreatment.deniedFlash => (TalkCopy.channelClear, ''),
+      TalkPttRingTreatment.deniedFlash => (_denyCopy(viewState), ''),
       TalkPttRingTreatment.ready => (
         TalkCopy.channelClear,
         TalkCopy.holdToTalk,
       ),
       TalkPttRingTreatment.neutral => (_neutralPhaseLabel(viewState.phase), ''),
     };
+  }
+
+  /// ADR-002 A7: empty LOCAL roster is not "busy"; contention still is.
+  static String _denyCopy(RadioViewState viewState) {
+    if (viewState.rosterCount case KnownRosterCount(count: 0)) {
+      return TalkCopy.noOtherStationsOnChannel;
+    }
+    return TalkCopy.channelBusy;
+  }
+
+  Iterable<PresentationCue> _overlayCuesFor(RadioViewState viewState) sync* {
+    for (final PresentationCue cue in viewState.activeOverlayCues) {
+      if (cue == OverlayCues.deniedFlash) {
+        if (!_flashIsShowing(viewState)) continue;
+        final String label = _denyCopy(viewState);
+        yield label == cue.label
+            ? cue
+            : PresentationCue(label: label, iconId: cue.iconId);
+      } else {
+        yield cue;
+      }
+    }
   }
 
   static String _neutralPhaseLabel(RadioPhase phase) => switch (phase) {
@@ -582,5 +625,81 @@ class _ContextualLatchRow extends StatelessWidget {
               ),
       ),
     );
+  }
+}
+
+/// Pins [top] to the start and centres [bottom] in leftover height.
+/// Grows past [minHeight] when the children do not fit so a parent
+/// [SingleChildScrollView] can scroll instead of overflowing.
+class _TalkBody extends MultiChildRenderObjectWidget {
+  _TalkBody({
+    required this.minHeight,
+    required Widget top,
+    required Widget bottom,
+  }) : super(children: <Widget>[top, bottom]);
+
+  final double minHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderTalkBody(minHeight: minHeight);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderTalkBody renderObject) {
+    renderObject.minHeight = minHeight;
+  }
+}
+
+class _TalkBodyParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderTalkBody extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _TalkBodyParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _TalkBodyParentData> {
+  _RenderTalkBody({required double minHeight}) : _minHeight = minHeight;
+
+  double _minHeight;
+  set minHeight(double value) {
+    if (_minHeight == value) return;
+    _minHeight = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _TalkBodyParentData) {
+      child.parentData = _TalkBodyParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final BoxConstraints childConstraints = BoxConstraints(
+      minWidth: constraints.maxWidth,
+      maxWidth: constraints.maxWidth,
+    );
+    final RenderBox top = firstChild!;
+    final RenderBox bottom = childAfter(top)!;
+    top.layout(childConstraints, parentUsesSize: true);
+    bottom.layout(childConstraints, parentUsesSize: true);
+    final double contentH = top.size.height + bottom.size.height;
+    final double height = math.max(_minHeight, contentH);
+    size = constraints.constrain(Size(constraints.maxWidth, height));
+    final double extra = math.max(0.0, size.height - contentH);
+    (top.parentData! as _TalkBodyParentData).offset = Offset.zero;
+    (bottom.parentData! as _TalkBodyParentData).offset = Offset(
+      0,
+      top.size.height + extra / 2,
+    );
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    defaultPaint(context, offset);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    return defaultHitTestChildren(result, position: position);
   }
 }

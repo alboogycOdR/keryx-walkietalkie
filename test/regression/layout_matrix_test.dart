@@ -29,52 +29,63 @@ const List<_LayoutCase> _matrix = <_LayoutCase>[
 
 void main() {
   for (final _LayoutCase c in _matrix) {
-    testWidgets(
-      'R2 shell layout — ${c.label}: no overflow, PTT and chrome '
-      'reachable (Verification §6)',
-      (tester) async {
-        await pumpRegressionShell(
-          tester,
-          size: c.size,
-          textScale: c.textScale,
-        );
+    testWidgets('R2 shell layout — ${c.label}: no overflow, PTT and chrome '
+        'reachable (Verification §6)', (tester) async {
+      await pumpRegressionShell(tester, size: c.size, textScale: c.textScale);
 
-        expect(
-          tester.takeException(),
-          isNull,
-          reason: '${c.label} threw (overflow or other layout exception)',
-        );
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: '${c.label} threw (overflow or other layout exception)',
+      );
 
-        expect(tabTalk(), findsOneWidget);
-        expect(tabChannels(), findsOneWidget);
-        expect(tabStations(), findsOneWidget);
-        expect(overflowMenu(), findsOneWidget);
-        await tester.ensureVisible(tabTalk());
-        await tester.ensureVisible(overflowMenu());
+      expect(tabTalk(), findsOneWidget);
+      expect(tabChannels(), findsOneWidget);
+      expect(tabStations(), findsOneWidget);
+      expect(overflowMenu(), findsOneWidget);
+      await tester.ensureVisible(tabTalk());
+      await tester.ensureVisible(overflowMenu());
 
-        final Size talkTarget = tester.getSize(tabTalk());
-        expect(
-          talkTarget.width,
-          greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
-          reason: '${c.label}: Talk tab width ${talkTarget.width}',
-        );
-        expect(
-          talkTarget.height,
-          greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
-          reason: '${c.label}: Talk tab height ${talkTarget.height}',
-        );
+      final Size talkTarget = tester.getSize(tabTalk());
+      expect(
+        talkTarget.width,
+        greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
+        reason: '${c.label}: Talk tab width ${talkTarget.width}',
+      );
+      expect(
+        talkTarget.height,
+        greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
+        reason: '${c.label}: Talk tab height ${talkTarget.height}',
+      );
 
-        expect(find.byType(talkui.TalkScreen), findsOneWidget);
-        expect(pttDisc(), findsOneWidget);
-        // ADR-002 A3: at text scale 2.0 scrolling is allowed; reachable
-        // means the disc can be brought on-stage, not that it starts there.
-        await tester.ensureVisible(pttDisc());
-        expect(
-          tester.getSize(pttDisc()).shortestSide,
-          greaterThanOrEqualTo(96),
-          reason: '${c.label}: PTT below ADR-002 A3 96 dp floor',
+      expect(find.byType(talkui.TalkScreen), findsOneWidget);
+      expect(pttDisc(), findsOneWidget);
+      // ADR-002 A3: at text scale 2.0 scrolling is allowed; reachable
+      // means the disc can be brought on-stage, not that it starts there.
+      await tester.ensureVisible(pttDisc());
+      expect(
+        tester.getSize(pttDisc()).shortestSide,
+        greaterThanOrEqualTo(96),
+        reason: '${c.label}: PTT below ADR-002 A3 96 dp floor',
+      );
+
+      if (c.label == '360×640 @ 1.0') {
+        // ADR-002 A7: ring centred in the space below the channel card.
+        final Rect card = tester.getRect(
+          find.byKey(const Key('keryx-talk-channel-card')),
         );
-      },
-    );
+        final Rect ring = tester.getRect(pttDisc());
+        final Rect talk = tester.getRect(find.byType(talkui.TalkScreen));
+        final double remainingMid = (card.bottom + talk.bottom) / 2;
+        expect(
+          (ring.center.dy - remainingMid).abs(),
+          lessThanOrEqualTo(c.size.height * 0.10),
+          reason:
+              '${c.label}: PTT centre ${ring.center.dy} vs remaining '
+              'mid $remainingMid (card.bottom=${card.bottom}, '
+              'talk.bottom=${talk.bottom})',
+        );
+      }
+    });
   }
 }
