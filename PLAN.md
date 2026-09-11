@@ -5213,15 +5213,16 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 - [ ] `/token` requests carry signature headers; a fake server that rejects unsigned calls is satisfied (Technical §4.2)
 - [ ] LiveKit E2EE is enabled with the HKDF-derived key; a test proves the adapter refuses to publish without a key provider (V2-NFR-004; Technical §5.5)
 - [ ] Migrated vector tests pass; `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-087-s5
+**Started_At:** 2026-09-11T20:00:00Z
+**Progress_Notes:**
+- [2026-09-11T20:00:00Z] [S5] Claimed TASK-087. Resume check: no S5 in_progress/claimed task found in PLAN.md (TASK-077/079/083 all done). Depends_On TASK-083 is done (merged). Branch task/TASK-087-s5 created from master tip. Next: preflight_paths.py TASK-087, then read specs/KERYX_v2.0_Technical_v1.0.md §1/§5.1/§5.4/§5.5/§7 and the current derivation.dart/discovery/linked files before touching code.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-11T20:00:00Z
 
 
 ### TASK-088
