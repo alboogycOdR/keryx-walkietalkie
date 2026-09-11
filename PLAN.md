@@ -4352,7 +4352,7 @@ Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
 
 ### TASK-079
 **Title:** RX level telemetry — plumb inbound-rtp audioLevel into RadioViewState as MeasuredMeterLevel
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A6 (RX plumbing authorised; unavailable stays decorative; no TX mic metering); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.3 ("An animation driven by phase is decorative and must not be described as measured RMS"); Verification VT-015; lib/services/mesh/rtc_adapter.dart (`readAudioLevel`, `audioLevelFromInboundRtpStats`, TASK-065); lib/core/presentation/telemetry.dart (`MeasuredMeterLevel`, "reserved for TASK-065's real RX metering")
@@ -4373,15 +4373,16 @@ Files in `Owned_Paths` that turn out not to need changes stay untouched.
 - [ ] Polling starts on RX entry and stops on RX exit, retune and dispose — verified with a fake clock/adapter call count, no leaked timers (ADR-002 A6)
 - [ ] LINKED implemented or explicitly decorative, with the reason recorded in the dossier
 - [ ] No TX/media-source metering added; `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-079-s5
+**Started_At:** 2026-09-11T11:15:00Z
+**Progress_Notes:**
+- [2026-09-11T11:15:00Z] [S5] Claimed TASK-079. Resume check: no S5 in_progress/claimed task found (TASK-058 done). Depends_On: none. Territory disjoint from CX's in_progress TASK-073 (talk_ptt_ring.dart only) and other pending tasks — confirmed no overlap. Branch task/TASK-079-s5 created from master tip 01d0af5. Reading dossiers/TASK-079.md and relevant Owned_Paths files next, then preflight.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T10:07:46Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-11T11:15:00Z
 
 
 ### TASK-080
