@@ -1,6 +1,6 @@
 ---
 plan_version: 15.0
-last_updated: 2026-09-11T11:27:29Z
+last_updated: 2026-09-11T11:36:40Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4089,7 +4089,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-073
 **Title:** UX R2 PTT ring widget — dark face, state ring, measured-only glow, press feedback, accessible toggle action
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A3 (face/ring/glyph, no text in disc, diameter clamp, ring treatments, press feedback, measured-only glow, reduced motion), A4 (semantics custom action + Enter/Space as the non-drag alternative); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 ("accessible hold action and a non-drag alternative"), §3.4 ("No continuously animated fake waveform presented as real audio telemetry"), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-011 (duplicate pointer-up/cancel is a no-op), VT-015; lib/core/presentation/telemetry.dart (`MeterLevel` sealed type)
@@ -4171,9 +4171,23 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 - (g) The Test_Evidence timestamp for the full-suite run is real (11:26Z), which is good; the earlier notes are fine too.
 
 **Next step for CX:** fix (1) and (2a)–(2d) on the existing branch, re-run the focused tests and the full suite, then return to needs_review.
+[2026-09-11T11:36:40Z] [ORCH] **APPROVED round 2**, merged `148d218`. Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave).
+- **Territory:** clean. 3 files, and the fix commit `f7ad211` is tagged.
+- **BLOCKING (1) fixed:** `autofocus` removed. The new test "keyboard activation requires deliberate PTT focus" proves Space does nothing before focus and starts TX after `requestFocus()`.
+- **BLOCKING (2) fixed:**
+  - (a) `TalkPttRingPainter` made public so the colour contract can be inspected; the per-treatment test asserts neutral/deniedFlash → `neutralRingColor` and every other treatment → `ringColor`.
+  - (b) The requesting sweep schedules frames, and deniedFlash animates, then settles by 350 ms; reduced motion keeps requesting and deniedFlash static.
+  - (c) Decorative telemetry at rest schedules no frames.
+  - (d) A disabled ring dims to alpha 0.35 and rejects the pointer, the semantics action and Space.
+- **Tests:** run independently in the worktree by a subagent. `flutter analyze` 0 issues; ring tests 10/10; full suite 1444 passed / 0 failed / 40 skipped.
+- **Carried non-blocking:**
+  - (e) near-black face darkening on press is invisible;
+  - (f) no comment explaining that the first pointer's cancel ends the hold.
+  - Neither was addressed, and both are fine to leave. TASK-074 should judge (e) visually.
+- **Unlocks:** TASK-074 (S5, needs 072+073, both done) and TASK-075 (CX, needs 072).
 **Blocked_Reason:** —
-**Updated_By:** CX
-**Updated_At:** 2026-09-11T11:31:52Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T11:36:40Z
 
 
 ### TASK-074
