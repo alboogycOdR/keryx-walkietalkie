@@ -7,19 +7,27 @@ import 'package:keryx/core/presentation/presentation.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
-import 'package:keryx/core/state/radio_state.dart' show RadioMode, RadioPhase;
+import 'package:keryx/core/state/radio_state.dart' show RadioPhase;
 import 'package:keryx/core/theme/ux_tokens.dart';
 
+import 'talk_channel_card.dart';
 import 'talk_copy.dart';
 import 'talk_latch_state.dart';
-import 'talk_ptt_disc.dart';
+import 'talk_ptt_ring.dart';
 
-/// The successor Talk screen (Design §2.2) — the primary communication
-/// surface and, per the intake, the single most safety-critical screen in
-/// the wave. Built fresh against TASK-046's projection/intents; owns no
-/// session, floor engine, audio pipeline or service controller of its own
-/// (Design §1: "Talk is a dedicated route... but its presentation lifecycle
-/// must not own the radio session").
+/// The successor Talk screen (Design §2.2, amended by ADR-002 §3 A2/A3/A4)
+/// — the primary communication surface and, per the intake, the single most
+/// safety-critical screen in the wave. Built fresh against TASK-046's
+/// projection/intents; owns no session, floor engine, audio pipeline or
+/// service controller of its own (Design §1: "Talk is a dedicated route...
+/// but its presentation lifecycle must not own the radio session").
+///
+/// TASK-074 recomposes this screen to ADR-002 A2's content order — channel
+/// card; overlay banners; flexible space; PTT ring; status text below the
+/// ring; a contextual latch/release control — and deletes the pre-ADR-002
+/// header/disc/toggle presentation. **All hold/latch/lifecycle safety
+/// logic below is unchanged from the pre-ADR-002 screen** (VT-010–VT-015);
+/// only the widget tree this state drives has changed.
 ///
 /// [host] is injected by the caller (the app-scoped composition root,
 /// `lib/app_shell/**`) rather than read from an ambient provider defined in
@@ -37,32 +45,19 @@ class TalkScreen extends ConsumerStatefulWidget {
 
   final RadioHost host;
 
-  /// Real navigation callback for the header's channel-picker affordance
+  /// Real navigation callback for the channel card's picker affordance
   /// (TASK-050's selector). `null` in tests/stand-ins that don't exercise
   /// navigation — the button still renders, per Design §2.2's "offers a
   /// clear channel picker", but is a no-op rather than throwing.
-  ///
-  /// TASK-068: this replaces the TASK-052 workaround where the app-shell
-  /// composition root (`lib/app_shell/talk_screen.dart`) intercepted this
-  /// button's tap with an invisible overlay positioned by hardcoded
-  /// geometry matching this screen's own header layout — a real callback
-  /// parameter cannot be silently broken by a future padding/layout change
-  /// here the way a coordinate-matched overlay could (TASK-052's
-  /// Review_Findings has the proof: shifting the overlay 100dp left left
-  /// every overlay-based test green while a real-centre-tap probe failed).
   final VoidCallback? onOpenPicker;
 
-  /// Real navigation callback for the header's Stations affordance
-  /// (TASK-053's roster). See [onOpenPicker]'s dartdoc — same TASK-068
-  /// rationale, same TASK-052 overlay this replaces.
+  /// Real navigation callback for the channel card's Stations affordance
+  /// (TASK-053's roster). See [onOpenPicker]'s dartdoc.
   final VoidCallback? onOpenStations;
 
-  /// Real navigation callback for the header's Radio Controls affordance
-  /// (TASK-054). Design §2.2 does not place Radio Controls bottom-left in
-  /// the PTT area — TASK-054/TASK-052 put it there only because this
-  /// screen (TASK-051) shipped no header slot for it and TASK-052 could
-  /// not edit `lib/features/talk/**` to add one. TASK-068 gives it a real
-  /// header slot, matching the picker/stations affordances.
+  /// Real navigation callback for the channel card's Radio Controls
+  /// affordance (TASK-054). ADR-002 §3 A2: rendered **only when non-null**
+  /// — omitted entirely rather than merely disabled when absent.
   final VoidCallback? onOpenRadioControls;
 
   @override
@@ -80,6 +75,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   /// `RadioPhase` — only governs whether *this* screen still owes the host
   /// a release call.
   bool _holding = false;
+  RadioPhase? _lastBuiltPhase;
 
   /// A deliberate latch is UI-owned (Technical §4's dartdoc on
   /// `RadioHost.releaseLatch`) — there is no `RadioHost` operation to
@@ -173,7 +169,11 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   }
 
   void _engageLatch() {
-    if (!_holding || _latched) return;
+    // Precondition matches the control's own visibility (`canLatch` below):
+    // granted TX, not already latched. Do not also require `_holding` — the
+    // finger may already have lifted while TX is still granted, and the
+    // visible Lock control must not go inert in that window.
+    if (_latched || _lastBuiltPhase != RadioPhase.tx) return;
     setState(() => TalkLatchState.engage(widget.host));
   }
 
@@ -200,6 +200,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
       settings: settings,
       latched: _latched,
     );
+    _lastBuiltPhase = viewState.phase;
 
     final tokens = KeryxUxTokens.of(context);
 
@@ -211,20 +212,24 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
         !viewState.permissionDenied &&
         _snapshot.floorEngine != null;
 
-    final _DiscTreatment treatment = _treatmentFor(viewState);
-    // Design §4's catalogue table: "Requesting" is Pending/amber, not the
-    // Ready row's Primary blue — and within the idle bucket, Off/Boot/
-    // Tuning are their own "Neutral disabled"/"Neutral progress"/"Progress"
-    // treatments, distinct from Ready's blue (round-1 review BLOCKING 3a).
-    final Color discColor = switch (treatment) {
-      _DiscTreatment.tx => tokens.stateTx,
-      _DiscTreatment.rx => tokens.stateRx,
-      _DiscTreatment.requesting => tokens.stateWarning,
-      _DiscTreatment.idle => _idleColorFor(viewState.phase, tokens),
-    };
-    final String statusLine = _statusLineFor(viewState, treatment);
+    final TalkPttRingTreatment treatment = _treatmentFor(viewState);
+    final bool reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final (String primaryLine, String secondaryLine) = _statusLinesFor(
+      viewState,
+      treatment,
+    );
+    final String semanticStatus = secondaryLine.isEmpty
+        ? primaryLine
+        : '$primaryLine $secondaryLine';
 
-    // Design §2.2 wants the primary content (header/status) pinned to the
+    // ADR-002 A4: the lock control tracks TX being granted, not this
+    // screen's own transient hold bookkeeping — a real grant can outlive
+    // the physical hold that requested it (that is the whole point of a
+    // latch), so gating on `_holding` here hid the control the instant the
+    // finger lifted, before the user had a chance to tap it.
+    final bool canLatch = !_latched && viewState.phase == RadioPhase.tx;
+
+    // Design §2.2 wants the primary content (card/banners) pinned to the
     // top and the PTT controls pinned toward the bottom with the remaining
     // space distributed between them — the original single `Column` used a
     // `Spacer()` for that, which only works while every non-flexible child
@@ -232,7 +237,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     // system text scale (Verification §6: 320 lp width, text scale 2.0)
     // the fixed children alone can exceed the available height, and a
     // `Spacer()` cannot shrink below zero — the excess would silently
-    // overflow rather than scroll. `LayoutBuilder` + `SingleChildScrollView`
+    // overflow rather than clip. `LayoutBuilder` + `SingleChildScrollView`
     // + a `ConstrainedBox(minHeight:)` around a two-group `Column` with
     // `mainAxisAlignment: spaceBetween` reproduces the same "flexible gap
     // between a top and a bottom group" visual when everything fits, and
@@ -264,28 +269,38 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        _Header(
+                        if (Navigator.of(context).canPop())
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: IconButton(
+                                key: const Key('keryx-talk-back'),
+                                tooltip: 'Back',
+                                onPressed: () =>
+                                    Navigator.of(context).maybePop(),
+                                icon: Icon(
+                                  Icons.arrow_back,
+                                  color: tokens.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        TalkChannelCard(
                           channel: viewState.channel,
                           privacyCode: viewState.privacyCode,
-                          tokens: tokens,
+                          connection: viewState.connection,
+                          stationCountLabel: _rosterLabel(
+                            viewState.rosterCount,
+                          ),
                           onOpenPicker: widget.onOpenPicker,
                           onOpenStations: widget.onOpenStations,
                           onOpenRadioControls: widget.onOpenRadioControls,
                         ),
-                        const SizedBox(height: 12),
-                        _ConnectionLine(viewState: viewState, tokens: tokens),
                         const SizedBox(height: 8),
                         for (final cue in viewState.activeOverlayCues)
                           _OverlayCueChip(cue: cue, tokens: tokens),
-                        const SizedBox(height: 16),
-                        Text(
-                          statusLine,
-                          key: const Key('keryx-talk-status-line'),
-                          textAlign: TextAlign.center,
-                          style: KeryxUxTypography.sectionTitle.copyWith(
-                            color: tokens.textPrimary,
-                          ),
-                        ),
                       ],
                     ),
                     Column(
@@ -294,38 +309,49 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
                       children: <Widget>[
                         const SizedBox(height: 16),
                         Center(
-                          child: TalkPttDisc(
+                          child: TalkPttRing(
                             enabled: ptteEnabled,
-                            showsTx: treatment == _DiscTreatment.tx,
-                            label: statusLine,
-                            icon: _iconFor(treatment, viewState.phase),
-                            color: discColor,
-                            onColor: tokens.palette.contrastingOn(discColor),
+                            treatment: treatment,
+                            meterLevel: viewState.meterLevel,
+                            reducedMotion: reducedMotion,
+                            semanticStatus: semanticStatus,
+                            ringColor: _ringColorFor(treatment, tokens),
+                            faceColor: tokens.pttFace,
+                            glyphColor: tokens.palette.contrastingOn(
+                              tokens.pttFace,
+                            ),
+                            neutralRingColor: tokens.pttNeutralRing,
                             onHoldStart: () => _handleHoldStart(intents),
                             onHoldEnd: () => _handleHoldEnd(intents),
                           ),
                         ),
                         const SizedBox(height: 16),
-                        Center(
-                          child: TalkPttToggleAlternative(
-                            enabled: ptteEnabled,
-                            active: _holding,
-                            onHoldStart: () => _handleHoldStart(intents),
-                            onHoldEnd: () => _handleHoldEnd(intents),
+                        Text(
+                          primaryLine,
+                          key: const Key('keryx-talk-status-line'),
+                          textAlign: TextAlign.center,
+                          style: KeryxUxTypography.sectionTitle.copyWith(
+                            color: tokens.textPrimary,
                           ),
                         ),
+                        if (secondaryLine.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              secondaryLine,
+                              key: const Key('keryx-talk-status-secondary'),
+                              textAlign: TextAlign.center,
+                              style: KeryxUxTypography.secondary.copyWith(
+                                color: tokens.textSecondary,
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 16),
-                        _SecondaryActionRow(
+                        _ContextualLatchRow(
                           latched: _latched,
-                          canLatch:
-                              _holding &&
-                              !_latched &&
-                              viewState.phase == RadioPhase.tx,
+                          canLatch: canLatch,
                           onLatch: _engageLatch,
                           onUnlatch: () => _releaseLatch(intents),
-                          stationCountLabel: _rosterLabel(
-                            viewState.rosterCount,
-                          ),
                         ),
                       ],
                     ),
@@ -339,34 +365,56 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     );
   }
 
-  // Idle-bucket phases (off/boot/idle/tuning/linkDegraded) share one
-  // `_DiscTreatment` but Design §4 gives each its own icon/colour — so both
-  // resolve off `RadioPhase.cue` (`radio_phase_presentation.dart`, the same
-  // catalogue source of truth `RadioViewState.phaseCue` exposes) rather than
-  // a second, hand-duplicated mapping.
-  static IconData _iconFor(_DiscTreatment treatment, RadioPhase phase) =>
-      switch (treatment) {
-        _DiscTreatment.tx => Icons.mic,
-        _DiscTreatment.rx => Icons.volume_up,
-        _DiscTreatment.requesting => _iconForCueId('pending'),
-        _DiscTreatment.idle => _iconForCueId(phase.cue.iconId),
+  /// ADR-002 §3 A3's ring-treatment mapping. A currently granted/latched
+  /// TX always takes precedence over a transient denied flash (Design §4:
+  /// "A denied flash cannot override a currently granted TX") — the flash
+  /// only reaches [TalkPttRingTreatment.deniedFlash] when there is no
+  /// active grant to protect, matching [OverlayCues.deniedFlash]'s own
+  /// independent-overlay rendering above the ring.
+  static TalkPttRingTreatment _treatmentFor(RadioViewState viewState) {
+    if (viewState.latched) return TalkPttRingTreatment.latched;
+    if (viewState.phase == RadioPhase.tx) return TalkPttRingTreatment.tx;
+    if (viewState.phase == RadioPhase.rxActive) {
+      return TalkPttRingTreatment.rx;
+    }
+    if (viewState.phase == RadioPhase.txRequest) {
+      return TalkPttRingTreatment.requesting;
+    }
+    if (viewState.deniedFlash) return TalkPttRingTreatment.deniedFlash;
+    if (viewState.phase == RadioPhase.idle) {
+      return TalkPttRingTreatment.ready;
+    }
+    // Off/Boot/Tuning/No-link (ADR-002 A3: "Off/Boot/No link/Tuning:
+    // neutral, dimmed").
+    return TalkPttRingTreatment.neutral;
+  }
+
+  static Color _ringColorFor(
+    TalkPttRingTreatment treatment,
+    KeryxUxTokens tokens,
+  ) => switch (treatment) {
+    TalkPttRingTreatment.tx || TalkPttRingTreatment.latched => tokens.stateTx,
+    TalkPttRingTreatment.rx => tokens.stateRx,
+    TalkPttRingTreatment.requesting ||
+    TalkPttRingTreatment.ready => tokens.actionPrimary,
+    TalkPttRingTreatment.deniedFlash ||
+    TalkPttRingTreatment.neutral => tokens.pttNeutralRing,
+  };
+
+  /// Design §4's per-row colour for the 5 overlay cues — a single hardcoded
+  /// warning colour (round-1 review non-blocking (iii)) collapsed
+  /// "Transmission locked" (Red) and "Emergency active" (Orange priority)
+  /// into the same amber as "Channel busy"/"Service fault", losing the
+  /// colour half of the catalogue's redundant label+icon+colour cue for
+  /// exactly the two rows Design §2.5/§4 call out as needing their own
+  /// distinct treatment.
+  static Color _overlayColorFor(PresentationCue cue, KeryxUxTokens tokens) =>
+      switch (cue.iconId) {
+        'lock' => tokens.stateTx, // Latched: "Red + explicit release".
+        'warning' => tokens.stateEmergency, // Emergency: "Orange priority".
+        _ => tokens.stateWarning, // Denied/busy, permission, service fault.
       };
 
-  /// Design §4: Off/Boot/Tuning/No-link are each their own neutral/warning
-  /// treatment, not Ready's Primary blue — only [RadioPhase.idle] itself
-  /// earns the blue "Hold to talk" treatment.
-  static Color _idleColorFor(RadioPhase phase, KeryxUxTokens tokens) =>
-      switch (phase) {
-        RadioPhase.idle => tokens.actionPrimary,
-        RadioPhase.linkDegraded => tokens.stateWarning,
-        _ => tokens.textSecondary,
-      };
-
-  /// Resolves a [PresentationCue.iconId]/[OverlayCues] semantic key to a
-  /// concrete glyph — the icon-mapping table `presentation_cue.dart`'s own
-  /// dartdoc says belongs at "a screen's icon-mapping table", deliberately
-  /// kept framework-agnostic upstream (Design §3.4: "a consistent icon
-  /// family").
   static IconData _iconForCueId(String iconId) => switch (iconId) {
     'power_off' => Icons.power_settings_new,
     'hourglass' => Icons.hourglass_empty,
@@ -384,192 +432,62 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     _ => Icons.circle,
   };
 
-  /// Design §4's per-row colour for the 5 overlay cues — a single hardcoded
-  /// warning colour (round-1 review non-blocking (iii)) collapsed
-  /// "Transmission locked" (Red) and "Emergency active" (Orange priority)
-  /// into the same amber as "Channel busy"/"Service fault", losing the
-  /// colour half of the catalogue's redundant label+icon+colour cue for
-  /// exactly the two rows Design §2.5/§4 call out as needing their own
-  /// distinct treatment.
-  static Color _overlayColorFor(PresentationCue cue, KeryxUxTokens tokens) =>
-      switch (cue.iconId) {
-        'lock' => tokens.stateTx, // Latched: "Red + explicit release".
-        'warning' => tokens.stateEmergency, // Emergency: "Orange priority".
-        _ => tokens.stateWarning, // Denied/busy, permission, service fault.
-      };
-
-  static _DiscTreatment _treatmentFor(RadioViewState viewState) {
-    if (viewState.latched || viewState.phase == RadioPhase.tx) {
-      return _DiscTreatment.tx;
-    }
-    if (viewState.phase == RadioPhase.rxActive) return _DiscTreatment.rx;
-    if (viewState.phase == RadioPhase.txRequest) {
-      return _DiscTreatment.requesting;
-    }
-    return _DiscTreatment.idle;
-  }
-
-  static String _statusLineFor(
+  /// Design §2.2/§5's primary/secondary status-text split — the primary
+  /// line carries the state's headline copy (callsign speaking /
+  /// catalogue label), the secondary line carries the supporting
+  /// instruction ("Hold to talk") only where the catalogue defines one.
+  /// "A disconnected screen must not show 'Ready'" is preserved by gating
+  /// the happy-path idle copy behind connection health, same as before.
+  static (String, String) _statusLinesFor(
     RadioViewState viewState,
-    _DiscTreatment treatment,
+    TalkPttRingTreatment treatment,
   ) {
-    // Design §2.2/§5: "A disconnected screen must not show 'Ready.'" — the
-    // happy-path idle copy is gated behind connection health.
-    if (viewState.connection.degraded) return TalkCopy.connectionLost;
+    if (viewState.connection.degraded) {
+      return (TalkCopy.connectionLost, '');
+    }
     // Round-1 review non-blocking (ii): a permission-denied screen showed
     // the generic "Hold to talk" status line (disc merely disabled) instead
     // of naming the reason — Design §5's own persistent-actionable-message
     // copy belongs on the status line, not only the overlay chip above it.
-    if (viewState.permissionDenied) return TalkCopy.microphonePermissionRequired;
+    if (viewState.permissionDenied) {
+      return (TalkCopy.microphonePermissionRequired, '');
+    }
     return switch (treatment) {
-      _DiscTreatment.tx => viewState.latched
-          ? TalkCopy.transmissionLocked
-          : TalkCopy.transmitting,
-      _DiscTreatment.rx =>
+      TalkPttRingTreatment.tx || TalkPttRingTreatment.latched => (
+        viewState.latched
+            ? TalkCopy.transmissionLocked
+            : TalkCopy.transmitting,
+        '',
+      ),
+      TalkPttRingTreatment.rx => (
         viewState.receivingLabel ?? TalkCopy.someoneIsSpeaking,
-      _DiscTreatment.requesting => TalkCopy.requestingChannel,
-      _DiscTreatment.idle => switch (viewState.phase) {
-        RadioPhase.off => 'Radio off',
-        RadioPhase.boot => 'Starting radio',
-        RadioPhase.tuning => 'Changing channel',
-        // Design §5's literal idle copy is the two sentences together:
-        // "Channel clear. Hold to talk." — `TalkCopy.holdToTalk` itself
-        // stays period-free since it doubles as Design §4's bare catalogue
-        // label for the Ready row.
-        _ => '${TalkCopy.channelClear} ${TalkCopy.holdToTalk}.',
-      },
+        '',
+      ),
+      TalkPttRingTreatment.requesting => (TalkCopy.requestingChannel, ''),
+      TalkPttRingTreatment.deniedFlash => (TalkCopy.channelClear, ''),
+      TalkPttRingTreatment.ready => (
+        TalkCopy.channelClear,
+        TalkCopy.holdToTalk,
+      ),
+      TalkPttRingTreatment.neutral => (
+        _neutralPhaseLabel(viewState.phase),
+        '',
+      ),
     };
   }
+
+  static String _neutralPhaseLabel(RadioPhase phase) => switch (phase) {
+    RadioPhase.off => 'Radio off',
+    RadioPhase.boot => 'Starting radio',
+    RadioPhase.tuning => 'Changing channel',
+    _ => phase.cue.label,
+  };
 
   static String _rosterLabel(RosterCount count) => switch (count) {
     KnownRosterCount(:final count) =>
       count == 0 ? TalkCopy.noOtherStationsVisible : '$count stations',
     UnavailableRosterCount() => TalkCopy.rosterUnavailable,
   };
-}
-
-enum _DiscTreatment { idle, requesting, tx, rx }
-
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.channel,
-    required this.privacyCode,
-    required this.tokens,
-    required this.onOpenPicker,
-    required this.onOpenStations,
-    required this.onOpenRadioControls,
-  });
-
-  final int channel;
-  final int privacyCode;
-  final KeryxUxTokens tokens;
-
-  /// TASK-068: real constructor callbacks, wired by the composition root
-  /// (`lib/app_shell/talk_screen.dart`) — no more empty `onPressed` bodies
-  /// with a comment claiming a shell-owned overlay will handle the tap.
-  final VoidCallback? onOpenPicker;
-  final VoidCallback? onOpenStations;
-  final VoidCallback? onOpenRadioControls;
-
-  @override
-  Widget build(BuildContext context) {
-    final String channelLabel = channel.toString().padLeft(2, '0');
-    final String codeLabel = privacyCode.toString().padLeft(2, '0');
-    return Row(
-      children: <Widget>[
-        SizedBox(
-          width: 48,
-          height: 48,
-          child: IconButton(
-            key: const Key('keryx-talk-back'),
-            tooltip: 'Back',
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: Icon(Icons.arrow_back, color: tokens.textPrimary),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            'CH $channelLabel · $codeLabel',
-            key: const Key('keryx-talk-channel-label'),
-            style: KeryxUxTypography.screenTitle.copyWith(
-              color: tokens.textPrimary,
-            ),
-          ),
-        ),
-        SizedBox(
-          width: 48,
-          height: 48,
-          child: IconButton(
-            key: const Key('keryx-talk-picker'),
-            tooltip: TalkCopy.openChannelPicker,
-            onPressed: onOpenPicker,
-            icon: Icon(Icons.dialpad, color: tokens.textSecondary),
-          ),
-        ),
-        SizedBox(
-          width: 48,
-          height: 48,
-          child: IconButton(
-            key: const Key('keryx-talk-stations'),
-            tooltip: TalkCopy.openStations,
-            onPressed: onOpenStations,
-            icon: Icon(Icons.groups_outlined, color: tokens.textSecondary),
-          ),
-        ),
-        SizedBox(
-          width: 48,
-          height: 48,
-          child: IconButton(
-            key: const Key('keryx-talk-radio-controls'),
-            tooltip: TalkCopy.openRadioControls,
-            onPressed: onOpenRadioControls,
-            icon: Icon(Icons.tune, color: tokens.textSecondary),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ConnectionLine extends StatelessWidget {
-  const _ConnectionLine({required this.viewState, required this.tokens});
-
-  final RadioViewState viewState;
-  final KeryxUxTokens tokens;
-
-  static String _modeLabel(RadioMode mode) => switch (mode) {
-    RadioMode.local => 'LOCAL',
-    RadioMode.linked => 'LINKED',
-    RadioMode.auto => 'AUTO',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final condition = viewState.connection;
-    return Row(
-      key: const Key('keryx-talk-connection-line'),
-      children: <Widget>[
-        Icon(
-          condition.degraded ? Icons.wifi_off : Icons.wifi,
-          size: 16,
-          color: condition.degraded ? tokens.stateWarning : tokens.textSecondary,
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            // UX-FR-002/Technical §7: configured preference and effective
-            // route are kept as distinct, never-conflated fields.
-            'Configured ${_modeLabel(condition.configuredMode)} '
-            '· Route ${_modeLabel(condition.effectiveRoute)}'
-            '${condition.degraded ? ' · ${TalkCopy.connectionLost}' : ''}',
-            style: KeryxUxTypography.secondary.copyWith(
-              color: tokens.textSecondary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _OverlayCueChip extends StatelessWidget {
@@ -602,54 +520,46 @@ class _OverlayCueChip extends StatelessWidget {
   }
 }
 
-class _SecondaryActionRow extends StatelessWidget {
-  const _SecondaryActionRow({
+/// ADR-002 §3 A4's contextual row: a labelled lock control only while TX is
+/// granted and not latched, a labelled "Release" control while latched,
+/// nothing otherwise. Replaces the pre-ADR-002 `_SecondaryActionRow`, which
+/// also carried the station-count affordance — that now lives on
+/// [TalkChannelCard].
+class _ContextualLatchRow extends StatelessWidget {
+  const _ContextualLatchRow({
     required this.latched,
     required this.canLatch,
     required this.onLatch,
     required this.onUnlatch,
-    required this.stationCountLabel,
   });
 
   final bool latched;
   final bool canLatch;
   final VoidCallback onLatch;
   final VoidCallback onUnlatch;
-  final String stationCountLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 12,
-      runSpacing: 8,
-      children: <Widget>[
-        SizedBox(
-          height: 48,
-          child: latched
-              ? OutlinedButton.icon(
-                  key: const Key('keryx-talk-unlatch'),
-                  onPressed: onUnlatch,
-                  icon: const Icon(Icons.lock_open),
-                  label: const Text(TalkCopy.releaseTransmission),
-                )
-              : OutlinedButton.icon(
-                  key: const Key('keryx-talk-latch'),
-                  onPressed: canLatch ? onLatch : null,
-                  icon: const Icon(Icons.lock_outline),
-                  label: const Text(TalkCopy.lockTransmission),
-                ),
-        ),
-        SizedBox(
-          height: 48,
-          child: Center(
-            child: Text(
-              stationCountLabel,
-              key: const Key('keryx-talk-station-count'),
-            ),
-          ),
-        ),
-      ],
+    if (!latched && !canLatch) {
+      return const SizedBox.shrink();
+    }
+    return Center(
+      child: SizedBox(
+        height: 48,
+        child: latched
+            ? OutlinedButton.icon(
+                key: const Key('keryx-talk-unlatch'),
+                onPressed: onUnlatch,
+                icon: const Icon(Icons.lock_open),
+                label: const Text(TalkCopy.releaseTransmission),
+              )
+            : OutlinedButton.icon(
+                key: const Key('keryx-talk-latch'),
+                onPressed: onLatch,
+                icon: const Icon(Icons.lock_outline),
+                label: const Text(TalkCopy.lockTransmission),
+              ),
+      ),
     );
   }
 }

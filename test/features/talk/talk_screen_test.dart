@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/floor/floor.dart';
@@ -10,7 +12,8 @@ import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
-import 'package:keryx/features/talk/talk_ptt_disc.dart';
+import 'package:keryx/features/talk/talk_copy.dart';
+import 'package:keryx/features/talk/talk_ptt_ring.dart';
 import 'package:keryx/features/talk/talk_screen.dart';
 import 'package:keryx/services/session/session.dart' show StationInfo;
 
@@ -390,30 +393,61 @@ void main() {
         tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
       );
       await tester.pump();
-      // Still only txRequest — never actually granted.
-      final button = tester.widget<OutlinedButton>(
-        find.byKey(const Key('keryx-talk-latch')),
-      );
-      expect(button.onPressed, isNull);
+      // Still only txRequest — never actually granted (ADR-002 A4: the lock
+      // control is visible only while TX is granted, not merely disabled).
+      expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
     });
   });
 
-  group('non-drag accessible alternative', () {
-    testWidgets('toggle alternative starts and stops a hold without a '
-        'sustained pointer', (tester) async {
+  group('non-drag accessible alternative (ADR-002 A4)', () {
+    // The visible "Start transmitting" button is gone (A4) — the non-drag
+    // alternative now lives on the ring's own semantics custom action and
+    // keyboard (`Enter`/`Space`) toggle.
+    FocusNode ringFocusNode(WidgetTester tester) => Focus.of(
+      tester.element(find.byKey(const Key('keryx-talk-ptt-disc'))),
+    );
+
+    testWidgets('no visible "Start transmitting" button is rendered '
+        '(ADR-002 A4)', (tester) async {
       await pumpReady(tester);
-      expect(find.text('Start transmitting'), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('keryx-talk-ptt-toggle-alt')));
-      await tester.pump();
-      expect(host.pressPttCalls, 1);
-      expect(find.text('Stop transmitting'), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('keryx-talk-ptt-toggle-alt')));
-      await tester.pump();
-      expect(host.releasePttCalls, 1);
-      expect(find.text('Start transmitting'), findsOneWidget);
+      expect(find.text('Start transmitting'), findsNothing);
+      expect(find.byKey(const Key('keryx-talk-ptt-toggle-alt')), findsNothing);
     });
+
+    testWidgets(
+      'keyboard Enter/Space toggles a hold without a sustained pointer',
+      (tester) async {
+        await pumpReady(tester);
+        ringFocusNode(tester).requestFocus();
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(host.pressPttCalls, 1);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pump();
+        expect(host.releasePttCalls, 1);
+      },
+    );
+
+    testWidgets(
+      'the ring exposes a "Start transmitting"/"Stop transmitting" custom '
+      'semantics action reachable by TalkBack (ADR-002 A4)',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        await pumpReady(tester);
+        final Semantics node = tester.widget<Semantics>(
+          find.byKey(const Key('keryx-talk-ptt-disc-semantics')),
+        );
+        expect(
+          node.properties.customSemanticsActions?.keys
+              .map((CustomSemanticsAction a) => a.label),
+          contains('Start transmitting'),
+        );
+        handle.dispose();
+      },
+    );
   });
 
   group('VT-010 — state matrix', () {
@@ -433,7 +467,10 @@ void main() {
       container.read(radioStateProvider.notifier).dispatch(
         const RequestTransmit(),
       );
-      await tester.pumpAndSettle();
+      // The requesting treatment's sweep animates continuously by design
+      // (ADR-002 A3) — `pumpAndSettle` never settles here.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Requesting channel…'), findsWidgets);
       expect(find.text('Transmitting'), findsNothing);
     });
@@ -524,13 +561,10 @@ void main() {
       engine.dispose();
       // No PowerOn dispatched — phase stays RadioPhase.off.
       expect(find.text('Radio off'), findsWidgets);
-      final button = tester.widget<OutlinedButton>(
-        find.descendant(
-          of: find.byKey(const Key('keryx-talk-ptt-toggle-alt')),
-          matching: find.byType(OutlinedButton),
-        ),
+      final TalkPttRing ring = tester.widget<TalkPttRing>(
+        find.byType(TalkPttRing),
       );
-      expect(button.onPressed, isNull);
+      expect(ring.enabled, isFalse);
     });
 
     testWidgets(
@@ -543,13 +577,10 @@ void main() {
           ..dispatch(const PowerOn())
           ..dispatch(const BootCompleted());
         await tester.pumpAndSettle();
-        final button = tester.widget<OutlinedButton>(
-          find.descendant(
-            of: find.byKey(const Key('keryx-talk-ptt-toggle-alt')),
-            matching: find.byType(OutlinedButton),
-          ),
+        final TalkPttRing ring = tester.widget<TalkPttRing>(
+          find.byType(TalkPttRing),
         );
-        expect(button.onPressed, isNull);
+        expect(ring.enabled, isFalse);
       },
     );
 
@@ -561,26 +592,24 @@ void main() {
       await tester.pumpWidget(build());
       await tester.pumpAndSettle();
       expect(find.text('Microphone required'), findsOneWidget);
-      final button = tester.widget<OutlinedButton>(
-        find.descendant(
-          of: find.byKey(const Key('keryx-talk-ptt-toggle-alt')),
-          matching: find.byType(OutlinedButton),
-        ),
+      final TalkPttRing ring = tester.widget<TalkPttRing>(
+        find.byType(TalkPttRing),
       );
-      expect(button.onPressed, isNull);
+      expect(ring.enabled, isFalse);
     });
   });
 
-  group('Design §4 state catalogue — icon and colour (round-1 review '
-      'BLOCKING 3a)', () {
-    // `TalkPttDisc.icon`/`.color` are the semantic values `TalkScreen`
-    // computed and handed down — asserted on the widget itself, not the
-    // rendered `AnimatedContainer`'s decoration, because the disc's own
-    // disabled-state dimming (`color.withValues(alpha: .35)`) is that
-    // component's own presentation concern, not part of what this screen
-    // is responsible for choosing per Design §4's catalogue row.
-    TalkPttDisc discWidget(WidgetTester tester) =>
-        tester.widget<TalkPttDisc>(find.byType(TalkPttDisc));
+  group('ADR-002 A3 — ring treatment/colour per Design §4 row (one test per '
+      'row)', () {
+    // [TalkPttRing.treatment]/[TalkPttRing.ringColor] are the semantic
+    // values `TalkScreen` computed and handed down — asserted on the widget
+    // itself, not the rendered `CustomPaint`'s pixels, matching the
+    // pre-ADR-002 disc tests' own rationale (round-1 review BLOCKING 3a):
+    // the disc/ring's own disabled-state dimming is that widget's own
+    // presentation concern, not part of what this screen is responsible for
+    // choosing per Design §4's catalogue row.
+    TalkPttRing ringWidget(WidgetTester tester) =>
+        tester.widget<TalkPttRing>(find.byType(TalkPttRing));
 
     Icon overlayIcon(WidgetTester tester, String iconId) => tester.widget<Icon>(
       find.descendant(
@@ -589,21 +618,20 @@ void main() {
       ),
     );
 
-    testWidgets('Off: neutral icon and colour, PTT disabled', (
-      tester,
-    ) async {
+    testWidgets('Off: neutral treatment, PTT disabled', (tester) async {
       final engine = _newEngine();
       host.emit(RadioHostSnapshot(floorEngine: engine));
       await tester.pumpWidget(build());
       await tester.pumpAndSettle();
       engine.dispose();
       final tokens = KeryxUxTokens.dark;
-      final icon = discWidget(tester);
-      expect(icon.icon, Icons.power_settings_new);
-      expect(icon.color, tokens.textSecondary);
+      final ring = ringWidget(tester);
+      expect(ring.treatment, TalkPttRingTreatment.neutral);
+      expect(ring.ringColor, tokens.pttNeutralRing);
+      expect(ring.enabled, isFalse);
     });
 
-    testWidgets('Boot: neutral progress icon and colour', (tester) async {
+    testWidgets('Boot: neutral treatment', (tester) async {
       final engine = _newEngine();
       host.emit(RadioHostSnapshot(floorEngine: engine));
       await tester.pumpWidget(build());
@@ -612,72 +640,128 @@ void main() {
       await tester.pumpAndSettle();
       engine.dispose();
       final tokens = KeryxUxTokens.dark;
-      final icon = discWidget(tester);
-      expect(icon.icon, Icons.hourglass_empty);
-      expect(icon.color, tokens.textSecondary);
+      final ring = ringWidget(tester);
+      expect(ring.treatment, TalkPttRingTreatment.neutral);
+      expect(ring.ringColor, tokens.pttNeutralRing);
     });
 
-    testWidgets('Ready: primary-blue mic icon, enabled, full idle copy', (
+    testWidgets('Ready: accent treatment, enabled, full idle copy', (
       tester,
     ) async {
       await pumpReady(tester);
       final tokens = KeryxUxTokens.dark;
-      final icon = discWidget(tester);
-      expect(icon.icon, Icons.mic_none);
-      expect(icon.color, tokens.actionPrimary);
-      expect(find.text('Channel clear. Hold to talk.'), findsWidgets);
+      final ring = ringWidget(tester);
+      expect(ring.treatment, TalkPttRingTreatment.ready);
+      expect(ring.ringColor, tokens.actionPrimary);
+      expect(ring.enabled, isTrue);
+      // ADR-002 A2 splits status copy into a primary line below the ring
+      // and a secondary instruction line, rather than one concatenated
+      // sentence (pre-ADR-002 rendered them as a single Text).
+      expect(find.text(TalkCopy.channelClear), findsWidgets);
+      expect(find.text(TalkCopy.holdToTalk), findsWidgets);
     });
 
-    testWidgets('Tuning: progress icon and neutral colour', (tester) async {
+    testWidgets('Tuning: neutral treatment', (tester) async {
       await pumpReady(tester);
       container.read(radioStateProvider.notifier).dispatch(
         const BeginTuning(),
       );
       await tester.pumpAndSettle();
       final tokens = KeryxUxTokens.dark;
-      final icon = discWidget(tester);
-      expect(icon.icon, Icons.tune);
-      expect(icon.color, tokens.textSecondary);
+      final ring = ringWidget(tester);
+      expect(ring.treatment, TalkPttRingTreatment.neutral);
+      expect(ring.ringColor, tokens.pttNeutralRing);
       expect(find.text('Changing channel'), findsWidgets);
     });
 
-    testWidgets('Requesting: pending/amber icon and colour', (tester) async {
+    testWidgets('Requesting: accent treatment with sweep', (tester) async {
       await pumpReady(tester);
       container.read(radioStateProvider.notifier).dispatch(
         const RequestTransmit(),
       );
-      await tester.pumpAndSettle();
+      // The requesting treatment's sweep animates continuously by design
+      // (ADR-002 A3) — `pumpAndSettle` never settles here, so pump a
+      // bounded number of frames instead (mirrors the golden test's fix).
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
       final tokens = KeryxUxTokens.dark;
-      final icon = discWidget(tester);
-      expect(icon.icon, Icons.pending_outlined);
-      expect(icon.color, tokens.stateWarning);
+      final ring = ringWidget(tester);
+      expect(ring.treatment, TalkPttRingTreatment.requesting);
+      expect(ring.ringColor, tokens.actionPrimary);
     });
 
-    testWidgets('TX granted: red mic icon and colour', (tester) async {
+    testWidgets('TX granted: tx treatment, red colour', (tester) async {
       await pumpReady(tester);
       container.read(radioStateProvider.notifier)
         ..dispatch(const RequestTransmit())
         ..dispatch(const TransmitGranted());
       await tester.pumpAndSettle();
       final tokens = KeryxUxTokens.dark;
-      final icon = discWidget(tester);
-      expect(icon.icon, Icons.mic);
-      expect(icon.color, tokens.stateTx);
+      final ring = ringWidget(tester);
+      expect(ring.treatment, TalkPttRingTreatment.tx);
+      expect(ring.ringColor, tokens.stateTx);
     });
 
-    testWidgets('Receiving: green speaker icon and colour', (tester) async {
+    testWidgets('Receiving: rx treatment, green colour', (tester) async {
       await pumpReady(tester);
       container.read(radioStateProvider.notifier)
         ..dispatch(const RemoteFloorStarted())
         ..dispatch(const ActiveSpeakerChanged('peer-77'));
       await tester.pumpAndSettle();
       final tokens = KeryxUxTokens.dark;
-      final icon = discWidget(tester);
-      expect(icon.icon, Icons.volume_up);
-      expect(icon.color, tokens.stateRx);
+      final ring = ringWidget(tester);
+      expect(ring.treatment, TalkPttRingTreatment.rx);
+      expect(ring.ringColor, tokens.stateRx);
     });
 
-    testWidgets('No link: warning icon and colour on the PTT surface too', (
+    testWidgets('Latched: latched treatment (lock badge), red colour', (
+      tester,
+    ) async {
+      await pumpReady(tester);
+      await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+      );
+      await tester.pump();
+      container.read(radioStateProvider.notifier)
+        ..dispatch(const RequestTransmit())
+        ..dispatch(const TransmitGranted());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('keryx-talk-latch')));
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final ring = ringWidget(tester);
+      expect(ring.treatment, TalkPttRingTreatment.latched);
+      expect(ring.ringColor, tokens.stateTx);
+    });
+
+    testWidgets('Denied/busy: neutral ring flash, never overriding a '
+        'currently granted TX (Design §4)', (tester) async {
+      await pumpReady(tester);
+      // A bare denied flash with no TX in progress renders on the ring.
+      container.read(radioStateProvider.notifier).dispatch(
+        const TransmitDeniedIndicated(),
+      );
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final ring = ringWidget(tester);
+      expect(ring.treatment, TalkPttRingTreatment.deniedFlash);
+      expect(ring.ringColor, tokens.pttNeutralRing);
+
+      // A denied flash concurrent with a granted TX must not recolour the
+      // ring away from `tx` — the overlay banner carries the deny, not the
+      // ring (Design §4: "A denied flash cannot override a currently
+      // granted TX").
+      container.read(radioStateProvider.notifier)
+        ..dispatch(const RequestTransmit())
+        ..dispatch(const TransmitGranted())
+        ..dispatch(const TransmitDeniedIndicated());
+      await tester.pumpAndSettle();
+      final ring2 = ringWidget(tester);
+      expect(ring2.treatment, TalkPttRingTreatment.tx);
+      expect(ring2.ringColor, tokens.stateTx);
+    });
+
+    testWidgets('No link: neutral treatment on the PTT ring too', (
       tester,
     ) async {
       await pumpReady(tester);
@@ -686,9 +770,36 @@ void main() {
       );
       await tester.pumpAndSettle();
       final tokens = KeryxUxTokens.dark;
-      final icon = discWidget(tester);
-      expect(icon.icon, Icons.wifi_off);
-      expect(icon.color, tokens.stateWarning);
+      final ring = ringWidget(tester);
+      expect(ring.treatment, TalkPttRingTreatment.neutral);
+      expect(ring.ringColor, tokens.pttNeutralRing);
+    });
+
+    testWidgets('Emergency: banner overlay only, does not recolour the '
+        'ring (Design §4 "overlay, not replacement")', (tester) async {
+      await pumpReady(tester);
+      final TalkPttRingTreatment before = ringWidget(tester).treatment;
+      final Color beforeColor = ringWidget(tester).ringColor;
+      container.read(radioStateProvider.notifier).dispatch(
+        const EmergencyPinned(),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Emergency active'), findsOneWidget);
+      final ring = ringWidget(tester);
+      expect(ring.treatment, before);
+      expect(ring.ringColor, beforeColor);
+    });
+
+    testWidgets('Permission denied: neutral treatment on the PTT ring too', (
+      tester,
+    ) async {
+      host.emit(const RadioHostSnapshot(micPermissionDenied: true));
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      final tokens = KeryxUxTokens.dark;
+      final ring = ringWidget(tester);
+      expect(ring.treatment, TalkPttRingTreatment.neutral);
+      expect(ring.ringColor, tokens.pttNeutralRing);
     });
 
     testWidgets('Denied/busy overlay: amber block icon and colour', (
@@ -844,6 +955,40 @@ void main() {
         addTearDown(() => tester.binding.setSurfaceSize(null));
       },
     );
+
+    testWidgets(
+      'TASK-074: at 360x640 dp and text scale 1.0, the channel card, PTT '
+      'ring and status line are all visible without scrolling (ADR-002 A3)',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        tester.platformDispatcher.textScaleFactorTestValue = 1.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        await pumpReady(tester);
+        expect(tester.takeException(), isNull);
+
+        const viewport = Rect.fromLTWH(0, 0, 360, 640);
+        for (final key in const [
+          'keryx-talk-channel-card',
+          'keryx-talk-ptt-disc',
+          'keryx-talk-status-line',
+        ]) {
+          final finder = find.byKey(Key(key));
+          expect(finder, findsOneWidget, reason: 'missing $key');
+          final rect = tester.getRect(finder);
+          expect(
+            viewport.contains(rect.topLeft) &&
+                viewport.contains(rect.bottomRight),
+            isTrue,
+            reason: '$key rect $rect not fully within viewport $viewport '
+                '(without scrolling)',
+          );
+        }
+      },
+    );
   });
 
   group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
@@ -951,23 +1096,33 @@ void main() {
       },
     );
 
-    testWidgets('a null callback renders the button disabled rather than '
-        'throwing on tap', (tester) async {
+    testWidgets('a null onOpenPicker/onOpenStations renders the buttons '
+        'disabled rather than throwing on tap', (tester) async {
       await tester.pumpWidget(build());
       await tester.pumpAndSettle();
 
       final IconButton picker = tester.widget<IconButton>(
         find.byKey(const Key('keryx-talk-picker')),
       );
-      final IconButton stations = tester.widget<IconButton>(
+      final TextButton stations = tester.widget<TextButton>(
         find.byKey(const Key('keryx-talk-stations')),
-      );
-      final IconButton radioControls = tester.widget<IconButton>(
-        find.byKey(const Key('keryx-talk-radio-controls')),
       );
       expect(picker.onPressed, isNull);
       expect(stations.onPressed, isNull);
-      expect(radioControls.onPressed, isNull);
     });
+
+    testWidgets(
+      'a null onOpenRadioControls omits the radio-controls affordance '
+      'entirely (ADR-002 A2 — rendered only when the callback is non-null)',
+      (tester) async {
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('keryx-talk-radio-controls')),
+          findsNothing,
+        );
+      },
+    );
   });
 }

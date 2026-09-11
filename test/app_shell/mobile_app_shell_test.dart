@@ -11,7 +11,7 @@ import 'package:keryx/features/event_qr_ui/event_qr_ui_scan_screen.dart';
 import 'package:keryx/features/radio_controls/radio_controls_screen.dart';
 import 'package:keryx/features/settings/settings_screen.dart';
 import 'package:keryx/features/stations/stations_screen.dart';
-import 'package:keryx/features/talk/talk_ptt_disc.dart';
+import 'package:keryx/features/talk/talk_ptt_ring.dart';
 import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 
 import 'fake_radio_host.dart';
@@ -216,7 +216,7 @@ void main() {
       await tester.tap(find.byKey(ChannelsLandingKeys.openTalk));
       await tester.pumpAndSettle();
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
-      expect(find.byType(TalkPttDisc), findsOneWidget);
+      expect(find.byType(TalkPttRing), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('keryx-talk-picker')));
       await tester.pumpAndSettle();

@@ -90,7 +90,12 @@ void main() {
     await tester.pumpAndSettle();
 
     arrange(host, container, engine);
-    await tester.pumpAndSettle();
+    // Some ring treatments (requesting's sweep) animate continuously by
+    // design (ADR-002 A3), so `pumpAndSettle` never settles here — pump a
+    // bounded number of frames instead, enough for one-shot transitions
+    // (denied shake, press scale) to finish.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     await expectLater(
       find.byType(TalkScreen),

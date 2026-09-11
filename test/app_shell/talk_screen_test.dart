@@ -5,7 +5,7 @@ import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/features/channel_selector/channel_selector_screen.dart';
 import 'package:keryx/features/radio_controls/radio_controls_screen.dart';
 import 'package:keryx/features/stations/stations_screen.dart';
-import 'package:keryx/features/talk/talk_ptt_disc.dart';
+import 'package:keryx/features/talk/talk_ptt_ring.dart';
 import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 
 import 'fake_radio_host.dart';
@@ -19,14 +19,15 @@ void main() {
     return pumpShell(host: host, home: TalkScreen(host: host));
   }
 
-  testWidgets('mounts TASK-051 TalkScreen with TalkPttDisc', (tester) async {
+  testWidgets('mounts TASK-051 TalkScreen with the ADR-002 TalkPttRing '
+      '(TASK-074)', (tester) async {
     givePhoneSurface(tester);
     await tester.pumpWidget(build());
     await tester.pumpAndSettle();
 
     expect(find.byKey(ShellKeys.talk), findsOneWidget);
     expect(find.byType(talkui.TalkScreen), findsOneWidget);
-    expect(find.byType(TalkPttDisc), findsOneWidget);
+    expect(find.byType(TalkPttRing), findsOneWidget);
   });
 
   testWidgets(
