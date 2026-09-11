@@ -4946,7 +4946,7 @@ Territory matches expectation: all listed UI files exist; goldens are existing P
 
 ### TASK-082
 **Title:** Owner review fixes — denied flash auto-clears back to Ready, honest "no other stations" deny copy, PTT centred vertically
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A7 (owner on-device review 2026-09-11: vertical centring; denied flash transient ~1.5 s then Ready with no further event; "No other stations on this channel" when a refused press meets a known-empty roster), A3 (ring treatments; denied flash never overrides granted TX), A2 (content order); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 ("Denied/busy — Amber transient + reason — No false TX"; "A denied flash cannot override a currently granted TX"), §5 (plain-language copy); Verification §6 (small-phone / text-scale / landscape reachability)
@@ -4975,12 +4975,42 @@ Fix all three in the Talk presentation layer only. **Do not touch `lib/core/**`*
 - [ ] At 360×640, text scale 1.0, the PTT ring's vertical centre lies within ±10% of the viewport height of the midpoint of the space below the channel card, and the card, ring and status are all visible without scrolling. At 320×568 @ 2.0 and landscape 640×360, the PTT is still reachable by scrolling with no overflow (ADR-002 A7; Verification §6)
 - [ ] The dossier states the concrete floor-engine reason a solo press is refused and when a solo station can self-grant (diagnosis only; no `lib/core/**` changes)
 - [ ] Changed goldens regenerated and listed; `flutter analyze` clean; full suite green, run in the foreground
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-082-gb
+**Started_At:** 2026-09-11T15:57:13Z
+**Progress_Notes:**
+- [2026-09-11T15:57:13Z] [GB] Claimed TASK-082. Resume check: no GB in_progress/claimed task. Depends_On none. Branch task/TASK-082-gb from master. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-082 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 8 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  FILE   lib/features/talk/talk_screen.dart  -> exists, 586 line(s), 24862 bytes
+  FILE   lib/features/talk/talk_copy.dart  -> exists, 27 line(s), 1523 bytes
+  FILE   test/features/talk/talk_screen_test.dart  -> exists, 1235 line(s), 49125 bytes
+  FILE   test/regression/goldens/talk_states_golden_test.dart  -> exists, 236 line(s), 7694 bytes
+  GLOB   test/regression/goldens/goldens/talk_*.png  -> 18 file(s):
+           test/regression/goldens/goldens/talk_degraded_dark.png
+           test/regression/goldens/goldens/talk_degraded_light.png
+           test/regression/goldens/goldens/talk_emergency_dark.png
+           test/regression/goldens/goldens/talk_emergency_light.png
+           test/regression/goldens/goldens/talk_granted_dark.png
+           test/regression/goldens/goldens/talk_granted_light.png
+           test/regression/goldens/goldens/talk_idle_dark.png
+           test/regression/goldens/goldens/talk_idle_light.png
+           test/regression/goldens/goldens/talk_permission_denied_dark.png
+           test/regression/goldens/goldens/talk_permission_denied_light.png
+           test/regression/goldens/goldens/talk_receiving_dark.png
+           test/regression/goldens/goldens/talk_receiving_glow_dark.png
+           ... and 6 more
+  GLOB   test/regression/goldens/goldens/shell_frame_*.png  -> 2 file(s):
+           test/regression/goldens/goldens/shell_frame_dark.png
+           test/regression/goldens/goldens/shell_frame_light.png
+  FILE   test/regression/layout_matrix_test.dart  -> exists, 80 line(s), 2824 bytes
+  FILE   dossiers/TASK-082.md  -> exists, 29 line(s), 1813 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib/core/**. Implementing next.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T15:45:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-11T15:57:13Z
