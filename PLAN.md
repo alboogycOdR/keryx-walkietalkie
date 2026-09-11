@@ -4431,7 +4431,7 @@ In embedded mode, the Event QR actions ("Scan QR" / "Share QR") render as a comp
 
 ### TASK-077
 **Title:** UX R2 shell — Talk-first launch, top app bar, icon tab strip (Talk · Channels · Stations), overflow menu
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §2 O1/O2 and §3 A1 (Talk default on every launch including first; icon-only tab strip with accent underline; swipe disabled; Settings + Radio controls in overflow; back on a non-Talk tab returns to Talk; bottom nav removed); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §1 ("its presentation lifecycle must not own the radio session. Secondary screens and sheets return to the previous context without changing the current channel"); Verification VT-001–VT-005; Technical §9
@@ -4459,15 +4459,16 @@ The host is still constructed and started exactly once above all routes, and no 
 - [ ] Talk station chip switches to Stations; Channels recall success and selector apply switch to Talk; system back on Channels/Stations returns to Talk (ADR-002 A1)
 - [ ] VT-001–VT-005 pass against the new shell: exactly one host start, no lifecycle call on tab switch or push/pop, current channel preserved (Verification §3)
 - [ ] `flutter analyze` clean; full suite green; `flutter build apk --debug` succeeds
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-077-s5
+**Started_At:** 2026-09-11T12:49:17Z
+**Progress_Notes:**
+- [2026-09-11T12:49:17Z] [S5] Claimed TASK-077. Resume check: no S5 in_progress/claimed task found in PLAN.md. Depends_On TASK-074/075/076 all done. Branch task/TASK-077-s5 created from master. Dossier dossiers/TASK-077.md already has a Brief/Approach outline from ORCH decompose (empty Work Log) — read in full before starting. Next: preflight_paths.py TASK-077, then read mobile_app_shell.dart + ADR-002 + Design §1 before touching code.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T10:07:46Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-11T12:49:17Z
 
 
 ### TASK-078
