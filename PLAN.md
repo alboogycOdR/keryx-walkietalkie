@@ -4235,7 +4235,7 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 
 ### TASK-075
 **Title:** UX R2 Channels as a tab body — embedded mode, polished list rows, tune-success callback
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A1 (Channels becomes a tab under a shell-owned app bar; Talk is default; recent channels stay here); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.1 ("Recent entries show their actual channel/code values and remain selectable. Empty memory uses a neutral explanatory message and a direct tune action. Do not show a fake online count"), §2.3, §3.3
@@ -4254,21 +4254,35 @@ With the new parameters omitted, keep `ChannelsLandingKeys.openTalk`/`selectChan
 
 No fake presence counts. Regenerate `channels_*` goldens.
 **Acceptance_Criteria:**
-- [ ] `embedded: true` renders no app bar/brand title; omitting all new params renders the existing structure with the same keys, proven by a test (ADR-002 A1)
-- [ ] `onOpenTalk: null` hides Open Talk and card tap-to-talk; `onTuneSucceeded` fires once on a successful recall retune and not on failure/cancel (ADR-002 A1; Design §2.3)
-- [ ] Current row pinned with accent bar; recent rows show real channel/code and stay selectable; empty memory shows the neutral message + direct tune action (Design §2.1)
-- [ ] `test/app_shell/**` and `test/regression/real_composition_test.dart` pass with zero edits
-- [ ] `channels_*` goldens regenerated; `flutter analyze` clean; full suite green
+- [x] `embedded: true` renders no app bar/brand title; omitting all new params renders the existing structure with the same keys, proven by a test (ADR-002 A1)
+- [x] `onOpenTalk: null` hides Open Talk and card tap-to-talk; `onTuneSucceeded` fires once on a successful recall retune and not on failure/cancel (ADR-002 A1; Design §2.3)
+- [x] Current row pinned with accent bar; recent rows show real channel/code and stay selectable; empty memory shows the neutral message + direct tune action (Design §2.1)
+- [x] `test/app_shell/**` and `test/regression/real_composition_test.dart` pass with zero edits
+- [x] `channels_*` goldens regenerated; `flutter analyze` clean; full suite green
 **Branch:** task/TASK-075-cx
 **Started_At:** 2026-09-11T11:37:39Z
 **Progress_Notes:**
 - [2026-09-11T11:38:37Z] [CX] Claimed and started TASK-075 on `task/TASK-075-cx`. TASK-072 is done; territory is limited to Channels, its tests/goldens, and the dossier. Read ADR-002, the UX design spec, existing task dossier, and current landing/test coverage. Next: preflight the owned paths and implement the additive embedded/callback API plus row polish without touching shell tests.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-11T11:48:08Z] [CX] Complete on `task/TASK-075-cx` at `57b3d61` (`feat(channels): add embedded tab body polish [TASK-075]`). `ChannelsLanding` has additive `embedded`/nullable `onOpenTalk`/success-only `onTuneSucceeded` APIs; the default remains structurally keyed as before. Added the Current accent row and 64 dp real-value recall tiles, regenerated all four owned goldens, and documented the surface. No shell or real-composition paths were edited.
+**Artifacts:**
+- lib/features/channels/channels_landing.dart
+- lib/features/channels/README.md
+- test/features/channels/channels_landing_test.dart
+- test/regression/goldens/goldens/channels_empty_dark.png
+- test/regression/goldens/goldens/channels_empty_light.png
+- test/regression/goldens/goldens/channels_populated_dark.png
+- test/regression/goldens/goldens/channels_populated_light.png
+- dossiers/TASK-075.md
+**Test_Evidence:**
+- [2026-09-11T11:48:08Z] [CX] `flutter analyze --no-pub` -> No issues found.
+- [2026-09-11T11:48:08Z] [CX] `flutter test --no-pub test/features/channels/channels_landing_test.dart` -> 20/20 passed.
+- [2026-09-11T11:48:08Z] [CX] `flutter test --no-pub --update-goldens test/regression/goldens/channels_golden_test.dart` and a repeat without `--update-goldens` -> 4/4 passed; all four `channels_*` fixtures regenerated and verified.
+- [2026-09-11T11:48:08Z] [CX] `flutter test --no-pub test/app_shell/ test/regression/real_composition_test.dart` -> passed, with zero edits under either protected path.
+- [2026-09-11T11:48:08Z] [CX] `flutter test --no-pub` -> 1447 passed / 0 failed / 40 skipped (the existing PARKED FR-025 soak skips).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-09-11T11:38:37Z
+**Updated_At:** 2026-09-11T11:48:08Z
 
 
 ### TASK-076
