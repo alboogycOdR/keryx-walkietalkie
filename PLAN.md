@@ -4065,7 +4065,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 ### TASK-073
 **Title:** UX R2 PTT ring widget — dark face, state ring, measured-only glow, press feedback, accessible toggle action
 **Status:** pending
-**Assigned_To:** CX9
+**Assigned_To:** CX
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A3 (face/ring/glyph, no text in disc, diameter clamp, ring treatments, press feedback, measured-only glow, reduced motion), A4 (semantics custom action + Enter/Space as the non-drag alternative); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 ("accessible hold action and a non-drag alternative"), §3.4 ("No continuously animated fake waveform presented as real audio telemetry"), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-011 (duplicate pointer-up/cancel is a no-op), VT-015; lib/core/presentation/telemetry.dart (`MeterLevel` sealed type)
 **Owned_Paths:** lib/features/talk/talk_ptt_ring.dart, test/features/talk/talk_ptt_ring_test.dart, dossiers/TASK-073.md
@@ -4149,7 +4149,7 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 ### TASK-075
 **Title:** UX R2 Channels as a tab body — embedded mode, polished list rows, tune-success callback
 **Status:** pending
-**Assigned_To:** CX9
+**Assigned_To:** CX
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A1 (Channels becomes a tab under a shell-owned app bar; Talk is default; recent channels stay here); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.1 ("Recent entries show their actual channel/code values and remain selectable. Empty memory uses a neutral explanatory message and a direct tune action. Do not show a fake online count"), §2.3, §3.3
 **Owned_Paths:** lib/features/channels/**, test/features/channels/**, test/regression/goldens/channels_golden_test.dart, test/regression/goldens/goldens/channels_*.png, dossiers/TASK-075.md
@@ -4260,7 +4260,7 @@ The host is still constructed and started exactly once above all routes, and no 
 ### TASK-078
 **Title:** UX R2 regression + owner review build — goldens audit, small-phone/landscape checks, split release APKs
 **Status:** pending
-**Assigned_To:** CX9
+**Assigned_To:** CX
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §2 O4 (owner reviews the built APK instead of a mockup), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (golden fixtures for every significant state, dark and light; 320 lp width; text scale 2.0; landscape), §9 G4; ops/REGRESSION_UX_R1.md (the R1 baseline this extends)
 **Owned_Paths:** test/regression/**, ops/REGRESSION_UX_R2.md, dossiers/TASK-078.md
@@ -4291,7 +4291,7 @@ Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
 ### TASK-079
 **Title:** RX level telemetry — plumb inbound-rtp audioLevel into RadioViewState as MeasuredMeterLevel
 **Status:** pending
-**Assigned_To:** CX9
+**Assigned_To:** CX
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A6 (RX plumbing authorised; unavailable stays decorative; no TX mic metering); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.3 ("An animation driven by phase is decorative and must not be described as measured RMS"); Verification VT-015; lib/services/mesh/rtc_adapter.dart (`readAudioLevel`, `audioLevelFromInboundRtpStats`, TASK-065); lib/core/presentation/telemetry.dart (`MeasuredMeterLevel`, "reserved for TASK-065's real RX metering")
 **Owned_Paths:** lib/services/mesh/mesh_controller.dart, lib/services/session/radio_session_controller.dart, lib/services/linked/linked_controller.dart, lib/core/radio_host/**, lib/core/presentation/radio_view_state.dart, lib/core/presentation/telemetry.dart, test/services/mesh/mesh_controller_test.dart, test/services/session/radio_session_controller_test.dart, test/services/linked/linked_controller_test.dart, test/core/radio_host/**, test/core/presentation/radio_view_state_test.dart, dossiers/TASK-079.md
@@ -4325,7 +4325,7 @@ Files in `Owned_Paths` that turn out not to need changes stay untouched.
 ### TASK-080
 **Title:** Effective route shows "AUTO" — diagnose and fix the configured-vs-effective route projection
 **Status:** pending
-**Assigned_To:** CX9
+**Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; lib/core/presentation/connection_condition.dart dartdoc (effective route "is never `auto` in practice"); owner screenshot 2026-09-11 ("Configured LOCAL · Route AUTO" on a real phone), also noted in orchestrator_notes after the 2026-09-08 hardware attempt
 **Owned_Paths:** lib/services/session/radio_session_controller.dart, lib/core/state/radio_state.dart, lib/core/state/radio_state_controller.dart, lib/core/presentation/connection_condition.dart, test/services/session/radio_session_controller_test.dart, test/core/state/**, test/core/presentation/connection_condition_test.dart, dossiers/TASK-080.md
