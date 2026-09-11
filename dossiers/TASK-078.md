@@ -43,3 +43,5 @@ This is the evidence gate for UX R2: audit the goldens, add small-phone, large-t
 ```
 
   Implementing: shell-frame goldens (dark/light), measured-glow RX goldens, layout matrix (320×568 / 360×640 / 412×915 × scale 1.0/2.0 + landscape 640×360), overflow Settings/Radio-controls `handlePopRoute()` tests. No production files — territory is test/regression/** + ops/REGRESSION_UX_R2.md + this dossier.
+
+- [2026-09-11T14:34:45Z] [GB] Complete. Commit `3037f3b` (tests + goldens). Existing 36 goldens still match without regeneration. New: shell_frame_{dark,light}.png, talk_receiving_glow_{dark,light}.png (glow SHA differs from decorative receiving). Layout 7/7, overflow handlePopRoute 2/2. `flutter analyze --no-pub` No issues found. `flutter test --no-pub` 1519 passed / 0 failed / 40 skipped (= TASK-077's 1506 + 13). Split-per-abi release SUCCESS; arm64-v8a 44484200 bytes sha256 `95812C338435299784D1590F353B420389B3378BAFEE4CBBA817A255A409060B`. Fat debug APK failed three times on C: disk-full during mergeDebugNativeLibs — not a compile defect. Report: ops/REGRESSION_UX_R2.md. → needs_review.
