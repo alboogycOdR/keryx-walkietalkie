@@ -54,6 +54,32 @@ void main() {
     expect(all, contains(SettingsCopy.serviceUnavailable));
   });
 
+  test('unresolved effective route is Connecting, never AUTO; configured '
+      'AUTO is still named as a preference (Technical §7)', () {
+    final AboutDiagnostics about = buildAboutDiagnostics(
+      view: view(configured: RadioMode.auto, effective: RadioMode.auto),
+      settings: const KeryxSettings(mode: RadioMode.auto),
+      version: '1.0.0+1',
+    );
+    final String all = [...about.summaryLines, ...about.detailLines].join('\n');
+    expect(all, contains('Configured mode Auto'));
+    expect(all, contains('Effective route Connecting'));
+    expect(all, isNot(contains('Effective route Auto')));
+    expect(all, isNot(contains('Effective route AUTO')));
+  });
+
+  test('resolved LOCAL effective route matches configured-mode casing', () {
+    final AboutDiagnostics about = buildAboutDiagnostics(
+      view: view(configured: RadioMode.auto, effective: RadioMode.local),
+      settings: const KeryxSettings(mode: RadioMode.auto),
+      version: '1.0.0+1',
+    );
+    final String all = [...about.summaryLines, ...about.detailLines].join('\n');
+    expect(all, contains('Configured mode Auto'));
+    expect(all, contains('Effective route Local'));
+    expect(all, isNot(contains('Effective route LOCAL')));
+  });
+
   test('sanitizeDiagnosticText strips exceptions and type names', () {
     expect(
       sanitizeDiagnosticText(

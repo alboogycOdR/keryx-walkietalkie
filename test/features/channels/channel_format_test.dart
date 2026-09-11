@@ -46,5 +46,28 @@ void main() {
         'Connection lost',
       );
     });
+
+    test('unresolved effective route is Connecting, never AUTO', () {
+      expect(
+        actualConnectionLabel(
+          const ConnectionCondition(
+            configuredMode: RadioMode.auto,
+            effectiveRoute: RadioMode.auto,
+            degraded: false,
+          ),
+        ),
+        'Connecting',
+      );
+      expect(
+        actualConnectionLabel(
+          const ConnectionCondition(
+            configuredMode: RadioMode.local,
+            effectiveRoute: RadioMode.auto,
+            degraded: false,
+          ),
+        ),
+        'Connecting',
+      );
+    });
   });
 }

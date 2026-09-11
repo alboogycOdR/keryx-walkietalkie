@@ -149,17 +149,11 @@ void main() {
         // — the realistic shape of "duplicate" this widget must guard
         // against: an accidental second finger on the same disc while the
         // first hold is still down.
-        final firstFinger = await tester.startGesture(
-          center,
-          pointer: 1,
-        );
+        final firstFinger = await tester.startGesture(center, pointer: 1);
         await tester.pump();
         expect(host.pressPttCalls, 1);
 
-        final secondFinger = await tester.startGesture(
-          center,
-          pointer: 2,
-        );
+        final secondFinger = await tester.startGesture(center, pointer: 2);
         await tester.pump();
         // The overlapping second pointer-down must not issue a second
         // request.
@@ -234,9 +228,7 @@ void main() {
       expect(host.releaseLatchCalls, 0);
     });
 
-    testWidgets('permission loss mid-hold releases it safely', (
-      tester,
-    ) async {
+    testWidgets('permission loss mid-hold releases it safely', (tester) async {
       await pumpReady(tester);
       await tester.startGesture(
         tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
@@ -351,61 +343,170 @@ void main() {
         await tester.tap(find.byKey(const Key('keryx-talk-unlatch')));
         await tester.pumpAndSettle();
         expect(host.releaseLatchCalls, 1);
-        expect(find.byKey(const Key('keryx-talk-latch')), findsOneWidget);
+        // Remounted State is not holding, so Lock must not reappear even
+        // while the reducer is still in TX (TASK-074 latch-after-lift).
+        expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
       },
     );
   });
 
-  group('latch — explicit affordance (Technical §5.2 replacement rationale)', () {
-    testWidgets('engaging latch then releasing calls releaseLatch exactly '
-        'once', (tester) async {
-      await pumpReady(tester);
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+  group(
+    'latch — explicit affordance (Technical §5.2 replacement rationale)',
+    () {
+      testWidgets('engaging latch then releasing calls releaseLatch exactly '
+          'once', (tester) async {
+        await pumpReady(tester);
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+        );
+        await tester.pump();
+        container.read(radioStateProvider.notifier)
+          ..dispatch(const PowerOn())
+          ..dispatch(const BootCompleted())
+          ..dispatch(const RequestTransmit())
+          ..dispatch(const TransmitGranted());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('keryx-talk-latch')));
+        await tester.pumpAndSettle();
+
+        await gesture.up();
+        await tester.pumpAndSettle();
+        // Latched: the physical release must NOT end the floor.
+        expect(host.releasePttCalls, 0);
+
+        await tester.tap(find.byKey(const Key('keryx-talk-unlatch')));
+        await tester.pumpAndSettle();
+        expect(host.releaseLatchCalls, 1);
+        // Finger already lifted; Lock requires an in-progress hold.
+        expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
+      });
+
+      testWidgets(
+        'grant then lift then tap Lock in the same frame does not latch '
+        '(TASK-074 carry; VT-010; ADR-002 A5)',
+        (tester) async {
+          await pumpReady(tester);
+          final gesture = await tester.startGesture(
+            tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+          );
+          await tester.pump();
+          container.read(radioStateProvider.notifier)
+            ..dispatch(const PowerOn())
+            ..dispatch(const BootCompleted())
+            ..dispatch(const RequestTransmit())
+            ..dispatch(const TransmitGranted());
+          await tester.pumpAndSettle();
+          expect(find.byKey(const Key('keryx-talk-latch')), findsOneWidget);
+
+          await gesture.up();
+          // Same frame: the previous build still has the Lock control.
+          await tester.tap(find.byKey(const Key('keryx-talk-latch')));
+          await tester.pumpAndSettle();
+
+          expect(host.releasePttCalls, 1);
+          expect(host.releaseLatchCalls, 0);
+          expect(find.byKey(const Key('keryx-talk-unlatch')), findsNothing);
+          expect(find.text('Transmission locked'), findsNothing);
+          expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
+          final TalkPttRing ring = tester.widget<TalkPttRing>(
+            find.byType(TalkPttRing),
+          );
+          expect(ring.treatment, isNot(TalkPttRingTreatment.latched));
+        },
       );
-      await tester.pump();
-      container.read(radioStateProvider.notifier)
-        ..dispatch(const PowerOn())
-        ..dispatch(const BootCompleted())
-        ..dispatch(const RequestTransmit())
-        ..dispatch(const TransmitGranted());
-      await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('keryx-talk-latch')));
-      await tester.pumpAndSettle();
+      testWidgets(
+        'latched TX then LinkDegraded calls releaseLatch once and drops the '
+        'red latched treatment (TASK-081 rework hot-mic)',
+        (tester) async {
+          await pumpReady(tester);
+          final gesture = await tester.startGesture(
+            tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+          );
+          await tester.pump();
+          container.read(radioStateProvider.notifier)
+            ..dispatch(const PowerOn())
+            ..dispatch(const BootCompleted())
+            ..dispatch(const RequestTransmit())
+            ..dispatch(const TransmitGranted());
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('keryx-talk-latch')));
+          await tester.pumpAndSettle();
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(find.byKey(const Key('keryx-talk-unlatch')), findsOneWidget);
+          expect(host.releaseLatchCalls, 0);
 
-      await gesture.up();
-      await tester.pumpAndSettle();
-      // Latched: the physical release must NOT end the floor.
-      expect(host.releasePttCalls, 0);
+          container
+              .read(radioStateProvider.notifier)
+              .dispatch(const LinkDegraded());
+          await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('keryx-talk-unlatch')));
-      await tester.pumpAndSettle();
-      expect(host.releaseLatchCalls, 1);
-      expect(find.byKey(const Key('keryx-talk-latch')), findsOneWidget);
-    });
-
-    testWidgets('the latch control is unavailable before a real grant', (
-      tester,
-    ) async {
-      await pumpReady(tester);
-      await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+          expect(host.releaseLatchCalls, 1);
+          expect(find.byKey(const Key('keryx-talk-unlatch')), findsNothing);
+          expect(find.text('Transmission locked'), findsNothing);
+          final TalkPttRing ring = tester.widget<TalkPttRing>(
+            find.byType(TalkPttRing),
+          );
+          expect(ring.treatment, isNot(TalkPttRingTreatment.latched));
+        },
       );
-      await tester.pump();
-      // Still only txRequest — never actually granted (ADR-002 A4: the lock
-      // control is visible only while TX is granted, not merely disabled).
-      expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
-    });
-  });
+
+      testWidgets(
+        'latched TX then EndTransmit calls releaseLatch at most once and '
+        'does not stick Transmission locked (TASK-081 rework)',
+        (tester) async {
+          await pumpReady(tester);
+          final gesture = await tester.startGesture(
+            tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+          );
+          await tester.pump();
+          container.read(radioStateProvider.notifier)
+            ..dispatch(const PowerOn())
+            ..dispatch(const BootCompleted())
+            ..dispatch(const RequestTransmit())
+            ..dispatch(const TransmitGranted());
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('keryx-talk-latch')));
+          await tester.pumpAndSettle();
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(host.releaseLatchCalls, 0);
+
+          container
+              .read(radioStateProvider.notifier)
+              .dispatch(const EndTransmit());
+          await tester.pumpAndSettle();
+
+          expect(host.releaseLatchCalls, lessThanOrEqualTo(1));
+          expect(host.releaseLatchCalls, 1);
+          expect(find.text('Transmission locked'), findsNothing);
+          expect(find.byKey(const Key('keryx-talk-unlatch')), findsNothing);
+        },
+      );
+
+      testWidgets('the latch control is unavailable before a real grant', (
+        tester,
+      ) async {
+        await pumpReady(tester);
+        await tester.startGesture(
+          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+        );
+        await tester.pump();
+        // Still only txRequest — never actually granted (ADR-002 A4: the lock
+        // control is visible only while TX is granted, not merely disabled).
+        expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
+      });
+    },
+  );
 
   group('non-drag accessible alternative (ADR-002 A4)', () {
     // The visible "Start transmitting" button is gone (A4) — the non-drag
     // alternative now lives on the ring's own semantics custom action and
     // keyboard (`Enter`/`Space`) toggle.
-    FocusNode ringFocusNode(WidgetTester tester) => Focus.of(
-      tester.element(find.byKey(const Key('keryx-talk-ptt-disc'))),
-    );
+    FocusNode ringFocusNode(WidgetTester tester) =>
+        Focus.of(tester.element(find.byKey(const Key('keryx-talk-ptt-disc'))));
 
     testWidgets('no visible "Start transmitting" button is rendered '
         '(ADR-002 A4)', (tester) async {
@@ -441,8 +542,9 @@ void main() {
           find.byKey(const Key('keryx-talk-ptt-disc-semantics')),
         );
         expect(
-          node.properties.customSemanticsActions?.keys
-              .map((CustomSemanticsAction a) => a.label),
+          node.properties.customSemanticsActions?.keys.map(
+            (CustomSemanticsAction a) => a.label,
+          ),
           contains('Start transmitting'),
         );
         handle.dispose();
@@ -464,9 +566,9 @@ void main() {
       // back as `RequestTransmit` — reproduced explicitly here since
       // `FakeRadioHost.pressPtt` intentionally does not reduce state itself
       // (Technical §5.1: the UI/host boundary never synthesizes a result).
-      container.read(radioStateProvider.notifier).dispatch(
-        const RequestTransmit(),
-      );
+      container
+          .read(radioStateProvider.notifier)
+          .dispatch(const RequestTransmit());
       // The requesting treatment's sweep animates continuously by design
       // (ADR-002 A3) — `pumpAndSettle` never settles here.
       await tester.pump();
@@ -551,9 +653,7 @@ void main() {
       expect(find.text('Transmitting'), findsWidgets);
     });
 
-    testWidgets('the radio-off state disables the PTT surface', (
-      tester,
-    ) async {
+    testWidgets('the radio-off state disables the PTT surface', (tester) async {
       final engine = _newEngine();
       host.emit(RadioHostSnapshot(floorEngine: engine));
       await tester.pumpWidget(build());
@@ -586,9 +686,7 @@ void main() {
 
     testWidgets('permission-denied disables the PTT surface and shows the '
         'persistent overlay message', (tester) async {
-      host.emit(
-        const RadioHostSnapshot(micPermissionDenied: true),
-      );
+      host.emit(const RadioHostSnapshot(micPermissionDenied: true));
       await tester.pumpWidget(build());
       await tester.pumpAndSettle();
       expect(find.text('Microphone required'), findsOneWidget);
@@ -663,9 +761,7 @@ void main() {
 
     testWidgets('Tuning: neutral treatment', (tester) async {
       await pumpReady(tester);
-      container.read(radioStateProvider.notifier).dispatch(
-        const BeginTuning(),
-      );
+      container.read(radioStateProvider.notifier).dispatch(const BeginTuning());
       await tester.pumpAndSettle();
       final tokens = KeryxUxTokens.dark;
       final ring = ringWidget(tester);
@@ -676,9 +772,9 @@ void main() {
 
     testWidgets('Requesting: accent treatment with sweep', (tester) async {
       await pumpReady(tester);
-      container.read(radioStateProvider.notifier).dispatch(
-        const RequestTransmit(),
-      );
+      container
+          .read(radioStateProvider.notifier)
+          .dispatch(const RequestTransmit());
       // The requesting treatment's sweep animates continuously by design
       // (ADR-002 A3) — `pumpAndSettle` never settles here, so pump a
       // bounded number of frames instead (mirrors the golden test's fix).
@@ -738,9 +834,9 @@ void main() {
         'currently granted TX (Design §4)', (tester) async {
       await pumpReady(tester);
       // A bare denied flash with no TX in progress renders on the ring.
-      container.read(radioStateProvider.notifier).dispatch(
-        const TransmitDeniedIndicated(),
-      );
+      container
+          .read(radioStateProvider.notifier)
+          .dispatch(const TransmitDeniedIndicated());
       await tester.pumpAndSettle();
       final tokens = KeryxUxTokens.dark;
       final ring = ringWidget(tester);
@@ -765,9 +861,9 @@ void main() {
       tester,
     ) async {
       await pumpReady(tester);
-      container.read(radioStateProvider.notifier).dispatch(
-        const LinkDegraded(),
-      );
+      container
+          .read(radioStateProvider.notifier)
+          .dispatch(const LinkDegraded());
       await tester.pumpAndSettle();
       final tokens = KeryxUxTokens.dark;
       final ring = ringWidget(tester);
@@ -780,9 +876,9 @@ void main() {
       await pumpReady(tester);
       final TalkPttRingTreatment before = ringWidget(tester).treatment;
       final Color beforeColor = ringWidget(tester).ringColor;
-      container.read(radioStateProvider.notifier).dispatch(
-        const EmergencyPinned(),
-      );
+      container
+          .read(radioStateProvider.notifier)
+          .dispatch(const EmergencyPinned());
       await tester.pumpAndSettle();
       expect(find.text('Emergency active'), findsOneWidget);
       final ring = ringWidget(tester);
@@ -838,9 +934,9 @@ void main() {
     testWidgets('Emergency overlay: distinct orange priority icon and '
         'colour, not the shared amber warning colour', (tester) async {
       await pumpReady(tester);
-      container.read(radioStateProvider.notifier).dispatch(
-        const EmergencyPinned(),
-      );
+      container
+          .read(radioStateProvider.notifier)
+          .dispatch(const EmergencyPinned());
       await tester.pumpAndSettle();
       final tokens = KeryxUxTokens.dark;
       final icon = overlayIcon(tester, 'warning');
@@ -861,9 +957,7 @@ void main() {
       expect(icon.color, tokens.stateWarning);
     });
 
-    testWidgets('Service fault overlay: error icon and colour', (
-      tester,
-    ) async {
+    testWidgets('Service fault overlay: error icon and colour', (tester) async {
       final engine = _newEngine();
       host.emit(
         RadioHostSnapshot(
@@ -881,12 +975,32 @@ void main() {
     });
   });
 
+  group('effective route label (Technical §7)', () {
+    testWidgets('unresolved route is Connecting, never AUTO; configured '
+        'AUTO still shows', (tester) async {
+      await pumpReady(tester);
+      expect(find.textContaining('Route Connecting'), findsOneWidget);
+      expect(find.textContaining('Configured AUTO'), findsOneWidget);
+      expect(find.textContaining('Route AUTO'), findsNothing);
+    });
+
+    testWidgets('resolved LOCAL renders Route LOCAL', (tester) async {
+      await pumpReady(tester);
+      container
+          .read(radioStateProvider.notifier)
+          .dispatch(const SetMode(RadioMode.local));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Route LOCAL'), findsOneWidget);
+      expect(find.textContaining('Route AUTO'), findsNothing);
+      expect(find.textContaining('Route Connecting'), findsNothing);
+    });
+  });
+
   group('VT-015 — audio truthfulness', () {
     testWidgets('no signal-quality or roster count is presented as a '
         'verified value when unavailable', (tester) async {
       await pumpReady(tester);
-      // LOCAL is the default `RadioState.mode`; roster is verified for
-      // LOCAL, so drive an unavailable case via a LINKED effective route.
+      // Default reducer mode is AUTO; drive unavailable roster via LINKED.
       container.read(radioStateProvider.notifier)
         ..dispatch(const PowerOn())
         ..dispatch(const BootCompleted())
@@ -902,9 +1016,7 @@ void main() {
     ) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       await pumpReady(tester);
-      final size = tester.getSize(
-        find.byKey(const Key('keryx-talk-ptt-disc')),
-      );
+      final size = tester.getSize(find.byKey(const Key('keryx-talk-ptt-disc')));
       expect(size.width, greaterThanOrEqualTo(96));
       expect(size.height, greaterThanOrEqualTo(96));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -983,7 +1095,8 @@ void main() {
             viewport.contains(rect.topLeft) &&
                 viewport.contains(rect.bottomRight),
             isTrue,
-            reason: '$key rect $rect not fully within viewport $viewport '
+            reason:
+                '$key rect $rect not fully within viewport $viewport '
                 '(without scrolling)',
           );
         }
@@ -992,17 +1105,14 @@ void main() {
   });
 
   group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
-    testWidgets(
-      'renders without exception across the full responsive matrix '
-      '(320 lp, larger phone, landscape, text scale 2.0)',
-      (tester) async {
-        await expectResponsiveMatrix(tester, (t, size) async {
-          t.view.physicalSize = size;
-          t.view.devicePixelRatio = 1.0;
-          await pumpReady(t);
-        });
-      },
-    );
+    testWidgets('renders without exception across the full responsive matrix '
+        '(320 lp, larger phone, landscape, text scale 2.0)', (tester) async {
+      await expectResponsiveMatrix(tester, (t, size) async {
+        t.view.physicalSize = size;
+        t.view.devicePixelRatio = 1.0;
+        await pumpReady(t);
+      });
+    });
 
     testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
         '(dark)', (tester) async {
@@ -1033,10 +1143,8 @@ void main() {
     // callback fires via a real tap on the real button *after* this
     // screen's own internal layout has shifted — not merely that the
     // button renders.
-    Widget wrapWithExtraHeaderPadding(Widget talkScreen) => Padding(
-      padding: const EdgeInsets.only(top: 137),
-      child: talkScreen,
-    );
+    Widget wrapWithExtraHeaderPadding(Widget talkScreen) =>
+        Padding(padding: const EdgeInsets.only(top: 137), child: talkScreen);
 
     testWidgets(
       'onOpenPicker fires from a real tap even after the header is wrapped '
@@ -1057,24 +1165,23 @@ void main() {
       },
     );
 
-    testWidgets(
-      'onOpenStations fires from a real tap even after the header is '
-      'wrapped in extra padding (simulated future layout drift)',
-      (tester) async {
-        var stationsTaps = 0;
-        await tester.pumpWidget(
-          build(
-            onOpenStations: () => stationsTaps++,
-            wrapHome: wrapWithExtraHeaderPadding,
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgets('onOpenStations fires from a real tap even after the header is '
+        'wrapped in extra padding (simulated future layout drift)', (
+      tester,
+    ) async {
+      var stationsTaps = 0;
+      await tester.pumpWidget(
+        build(
+          onOpenStations: () => stationsTaps++,
+          wrapHome: wrapWithExtraHeaderPadding,
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.byKey(const Key('keryx-talk-stations')));
-        await tester.pump();
-        expect(stationsTaps, 1);
-      },
-    );
+      await tester.tap(find.byKey(const Key('keryx-talk-stations')));
+      await tester.pump();
+      expect(stationsTaps, 1);
+    });
 
     testWidgets(
       'onOpenRadioControls fires from a real tap even after the header is '

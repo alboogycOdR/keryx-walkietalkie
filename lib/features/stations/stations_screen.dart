@@ -6,7 +6,6 @@ import 'package:keryx/app_shell/radio_host_provider.dart';
 import 'package:keryx/core/presentation/presentation.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
-import 'package:keryx/core/state/radio_state.dart' show RadioMode;
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/services/session/session.dart' show StationInfo;
@@ -233,7 +232,7 @@ class StationsView extends StatelessWidget {
             else
               _CountRow(
                 rosterCount: view.rosterCount,
-                effectiveRoute: view.connection.effectiveRoute,
+                connection: view.connection,
                 tokens: tokens,
               ),
             const SizedBox(height: KeryxUxSpacing.controlGap),
@@ -320,12 +319,12 @@ class _EmbeddedQrActions extends StatelessWidget {
 class _CountRow extends StatelessWidget {
   const _CountRow({
     required this.rosterCount,
-    required this.effectiveRoute,
+    required this.connection,
     required this.tokens,
   });
 
   final RosterCount rosterCount;
-  final RadioMode effectiveRoute;
+  final ConnectionCondition connection;
   final KeryxUxTokens tokens;
 
   @override
@@ -340,9 +339,9 @@ class _CountRow extends StatelessWidget {
         ),
       ),
       UnavailableRosterCount() => Semantics(
-        label: StationsCopy.incompleteRoster(effectiveRoute),
+        label: StationsCopy.incompleteRoster(connection),
         child: Text(
-          StationsCopy.incompleteRoster(effectiveRoute),
+          StationsCopy.incompleteRoster(connection),
           key: StationsScreenKeys.linkedCount,
           style: KeryxUxTypography.body.copyWith(color: tokens.stateWarning),
         ),

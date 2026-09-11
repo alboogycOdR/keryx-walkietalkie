@@ -80,8 +80,8 @@ void main() {
             confirm: useProductionConfirm
                 ? null
                 : confirm ??
-                    ({required String title, required String body}) async =>
-                        true,
+                      ({required String title, required String body}) async =>
+                          true,
           ),
         ),
       ),
@@ -119,54 +119,53 @@ void main() {
     expect(find.text(SettingsCopy.appVersion), findsWidgets);
   });
 
-  testWidgets('session-affecting rows carry reconnect copy; appearance does not', (
-    tester,
-  ) async {
-    await pumpSettings(tester);
-    expect(
-      find.descendant(
-        of: find.byKey(SettingsKeys.tot),
-        matching: find.text(SettingsCopy.reconnectsRadio),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(SettingsKeys.mode),
-        matching: find.text(SettingsCopy.reconnectsRadio),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(SettingsKeys.dim),
-        matching: find.text(SettingsCopy.reconnectsRadio),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(SettingsKeys.theme),
-        matching: find.text(SettingsCopy.reconnectsRadio),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.descendant(
-        of: find.byKey(SettingsKeys.squelch),
-        matching: find.text(SettingsCopy.reconnectsRadio),
-      ),
-      findsNothing,
-    );
-  });
+  testWidgets(
+    'session-affecting rows carry reconnect copy; appearance does not',
+    (tester) async {
+      await pumpSettings(tester);
+      expect(
+        find.descendant(
+          of: find.byKey(SettingsKeys.tot),
+          matching: find.text(SettingsCopy.reconnectsRadio),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(SettingsKeys.mode),
+          matching: find.text(SettingsCopy.reconnectsRadio),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(SettingsKeys.dim),
+          matching: find.text(SettingsCopy.reconnectsRadio),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(SettingsKeys.theme),
+          matching: find.text(SettingsCopy.reconnectsRadio),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(SettingsKeys.squelch),
+          matching: find.text(SettingsCopy.reconnectsRadio),
+        ),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('squelch persists without reconstructing the session', (
     tester,
   ) async {
     await pumpSettings(tester);
-    await tester.tap(
-      rowChild(SettingsKeys.squelch, find.byIcon(Icons.add)),
-    );
+    await tester.tap(rowChild(SettingsKeys.squelch, find.byIcon(Icons.add)));
     await tester.pumpAndSettle();
     final KeryxSettings persisted = await SettingsRepository(store).load();
     expect(persisted.squelchLevel, 6);
@@ -220,9 +219,7 @@ void main() {
     expect(host.applySettingsCalls, isEmpty);
     expect(find.byKey(SettingsKeys.deferredBanner), findsOneWidget);
 
-    radio.seed(
-      const RadioState(phase: RadioPhase.idle, mode: RadioMode.local),
-    );
+    radio.seed(const RadioState(phase: RadioPhase.idle, mode: RadioMode.local));
     await tester.pumpAndSettle();
     expect(host.reconstructions, 1);
     expect(host.applied.mode, RadioMode.linked);
@@ -243,10 +240,7 @@ void main() {
           mode: RadioMode.local,
         ),
       );
-      expect(
-        rowChild(SettingsKeys.mode, find.text('Auto')),
-        findsOneWidget,
-      );
+      expect(rowChild(SettingsKeys.mode, find.text('Auto')), findsOneWidget);
       expect(
         rowChild(SettingsKeys.effectiveRoute, find.text('Local')),
         findsOneWidget,
@@ -259,6 +253,34 @@ void main() {
       expect(host.methodLog, isNot(contains('joinEvent')));
       expect(host.applied.forceLocalOnly, isTrue);
       expect(host.applied.mode, RadioMode.linked);
+    },
+  );
+
+  testWidgets(
+    'unresolved effective route is Connecting, never AUTO; configured '
+    'preference still shows Auto (Technical §7)',
+    (tester) async {
+      await pumpSettings(
+        tester,
+        settings: const KeryxSettings(mode: RadioMode.auto),
+        radioState: const RadioState(
+          phase: RadioPhase.idle,
+          mode: RadioMode.auto,
+        ),
+      );
+      expect(rowChild(SettingsKeys.mode, find.text('Auto')), findsOneWidget);
+      expect(
+        rowChild(SettingsKeys.effectiveRoute, find.text('Connecting')),
+        findsOneWidget,
+      );
+      expect(
+        rowChild(SettingsKeys.effectiveRoute, find.text('AUTO')),
+        findsNothing,
+      );
+      expect(
+        rowChild(SettingsKeys.effectiveRoute, find.text('Auto')),
+        findsNothing,
+      );
     },
   );
 
@@ -296,8 +318,9 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     expect(find.text(SettingsCopy.callsignInvalid), findsOneWidget);
-    final DeviceIdentity identity =
-        await IdentityRepository(identityStore).loadOrCreate();
+    final DeviceIdentity identity = await IdentityRepository(
+      identityStore,
+    ).loadOrCreate();
     expect(identity.callsign.value, 'BRAVO-7');
   });
 
@@ -328,10 +351,7 @@ void main() {
     final KeryxSettings loaded = KeryxSettings.fromJson(legacy);
     host = ReconstructingFakeHost(loaded);
     store = InMemorySettingsStore();
-    await store.write(
-      SettingsRepository.storageKey,
-      jsonEncode(legacy),
-    );
+    await store.write(SettingsRepository.storageKey, jsonEncode(legacy));
     identityStore = MemoryIdentityStore(<String, String>{
       IdentityRepository.uuidKey: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
       IdentityRepository.callsignKey: 'BRAVO-7',
@@ -385,10 +405,12 @@ void main() {
       (tester) async {
         await pumpSettings(tester);
         final Semantics semantics = tester.widget<Semantics>(
-          find.descendant(
-            of: find.byKey(SettingsKeys.callsign),
-            matching: find.byWidgetPredicate((w) => w is Semantics),
-          ).first,
+          find
+              .descendant(
+                of: find.byKey(SettingsKeys.callsign),
+                matching: find.byWidgetPredicate((w) => w is Semantics),
+              )
+              .first,
         );
         expect(semantics.properties.label, contains('Callsign'));
       },
@@ -402,7 +424,9 @@ void main() {
           find.descendant(
             of: find.byKey(SettingsKeys.squelch),
             matching: find.byWidgetPredicate(
-              (w) => w is Semantics && (w.properties.label ?? '').contains('Squelch,'),
+              (w) =>
+                  w is Semantics &&
+                  (w.properties.label ?? '').contains('Squelch,'),
             ),
           ),
         );
@@ -412,16 +436,13 @@ void main() {
   });
 
   group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
-    testWidgets(
-      'renders without exception across the full responsive matrix '
-      '(320 lp, larger phone, landscape, text scale 2.0)',
-      (tester) async {
-        await expectResponsiveMatrix(tester, (t, size) async {
-          await t.pumpWidget(const SizedBox.shrink());
-          await pumpSettings(t, surface: size);
-        });
-      },
-    );
+    testWidgets('renders without exception across the full responsive matrix '
+        '(320 lp, larger phone, landscape, text scale 2.0)', (tester) async {
+      await expectResponsiveMatrix(tester, (t, size) async {
+        await t.pumpWidget(const SizedBox.shrink());
+        await pumpSettings(t, surface: size);
+      });
+    });
 
     testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
         '(dark)', (tester) async {

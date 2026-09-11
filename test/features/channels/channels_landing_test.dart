@@ -174,6 +174,28 @@ void main() {
   );
 
   testWidgets(
+    'unresolved effective route renders Connecting, never AUTO as the '
+    'effective route; configured AUTO still shows (Technical §7)',
+    (WidgetTester tester) async {
+      await pumpLanding(
+        tester,
+        radio: const RadioState(
+          phase: RadioPhase.idle,
+          mode: RadioMode.auto,
+          channel: 7,
+          privacyCode: 3,
+        ),
+        settings: const KeryxSettings(mode: RadioMode.auto),
+      );
+
+      expect(find.text('Configured AUTO'), findsOneWidget);
+      expect(find.text('Effective Connecting'), findsOneWidget);
+      expect(find.text('Effective AUTO'), findsNothing);
+      expect(find.textContaining('Effective AUTO'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'embedded mode omits the app bar and brand while default mode retains '
     'the existing keyed structure (ADR-002 A1)',
     (WidgetTester tester) async {

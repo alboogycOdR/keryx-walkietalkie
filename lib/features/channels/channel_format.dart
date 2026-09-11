@@ -21,10 +21,10 @@ String radioModeLabel(RadioMode mode) {
 
 /// Concise *actual* connection copy for the header indicator — effective
 /// route, or Design §5's "Connection lost" when degraded. Never the
-/// configured preference.
+/// configured preference, and never AUTO as a live route (Technical §7).
 String actualConnectionLabel(ConnectionCondition connection) {
   if (connection.degraded) {
     return 'Connection lost';
   }
-  return radioModeLabel(connection.effectiveRoute);
+  return connection.routeLabel;
 }
