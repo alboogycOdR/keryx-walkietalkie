@@ -100,8 +100,9 @@ void main() {
 
   testWidgets(
     'the real KeryxApp boots through the real radioHostProvider/'
-    'KeryxRadioHost/FloorEngine wiring and lands on Channels with no '
-    'construction error (Verification §9 real-composition requirement)',
+    'KeryxRadioHost/FloorEngine wiring and lands on Talk with no '
+    'construction error (Verification §9 real-composition requirement; '
+    'ADR-002 §2 O1: Talk is the default destination on every launch)',
     (tester) async {
       final harness = _RealCompositionHarness();
       await tester.pumpWidget(buildRealApp(harness: harness));
@@ -115,7 +116,8 @@ void main() {
         isNull,
         reason: 'the real composition must not throw during boot',
       );
-      expect(find.byType(ChannelsLanding), findsOneWidget);
+      expect(find.byType(talkui.TalkScreen), findsOneWidget);
+      expect(find.byType(ChannelsLanding), findsNothing);
       expect(
         harness.sessionHostsCreated,
         1,
@@ -126,7 +128,7 @@ void main() {
   );
 
   testWidgets(
-    'navigating Channels -> Talk -> Settings -> Talk through the real '
+    'navigating Talk -> Channels -> Settings -> Talk through the real '
     'composition performs exactly one real session start and zero real '
     'retunes/disposals (VT-001, real KeryxRadioHost)',
     (tester) async {
@@ -138,27 +140,23 @@ void main() {
 
       expect(harness.sessionHostsCreated, 1);
       expect(harness.session!.startCalled, isTrue);
-
-      await tester.tap(find.byKey(ChannelsLandingKeys.openTalk));
-      await tester.pumpAndSettle();
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
 
-      await tester.pageBack();
+      await tester.tap(find.byKey(ShellKeys.tabChannels));
       await tester.pumpAndSettle();
+      expect(find.byType(ChannelsLanding), findsOneWidget);
 
-      await tester.tap(find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('Settings'),
-      ));
+      await tester.tap(find.byKey(ShellKeys.overflowMenu));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ShellKeys.overflowSettings));
       await tester.pumpAndSettle();
       expect(find.byType(SettingsScreen), findsOneWidget);
 
-      await tester.tap(find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('Channels'),
-      ));
+      await tester.pageBack();
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(ChannelsLandingKeys.openTalk));
+      expect(find.byType(ChannelsLanding), findsOneWidget);
+
+      await tester.tap(find.byKey(ShellKeys.tabTalk));
       await tester.pumpAndSettle();
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
 
@@ -214,8 +212,8 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(ChannelsLandingKeys.openTalk));
-      await tester.pumpAndSettle();
+      // Talk is the default landing tab (ADR-002 §2 O1) — no navigation
+      // needed to reach it.
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
 
       final FloorEngine engine = harness.session!.floorEngine;
@@ -257,8 +255,8 @@ void main() {
   );
 
   testWidgets(
-    'navigating away from Talk does not stop the native radio service '
-    '(notification PTT action stays reachable) — VT-014',
+    'switching away from the Talk tab does not stop the native radio '
+    'service (notification PTT action stays reachable) — VT-014',
     (tester) async {
       final harness = _RealCompositionHarness();
       await tester.pumpWidget(buildRealApp(harness: harness));
@@ -266,19 +264,22 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(ChannelsLandingKeys.openTalk));
-      await tester.pumpAndSettle();
+      // Talk is the default landing tab (ADR-002 §2 O1).
+      expect(find.byType(talkui.TalkScreen), findsOneWidget);
       expect(harness.serviceController!.isRunning, isTrue);
 
-      await tester.pageBack();
+      await tester.tap(find.byKey(ShellKeys.tabChannels));
       await tester.pumpAndSettle();
+      expect(find.byType(ChannelsLanding), findsOneWidget);
 
       expect(
         harness.serviceController!.isRunning,
         isTrue,
         reason:
-            'leaving Talk must not stop the foreground service/notification '
-            '— its PTT action must remain reachable while off-screen',
+            'leaving the Talk tab must not stop the foreground '
+            'service/notification — its PTT action must remain reachable '
+            'while off-screen (IndexedStack keeps Talk mounted, not '
+            'disposed)',
       );
     },
   );
