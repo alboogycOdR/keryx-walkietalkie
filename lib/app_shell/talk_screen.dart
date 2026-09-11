@@ -21,12 +21,24 @@ import 'shell_routes.dart';
 /// (TASK-068), so this wrapper just wires them the normal way — no geometry,
 /// no overlay, nothing that a future Talk layout change can silently break.
 ///
+/// TASK-077 (ADR-002 §3 A1): Talk is now the shell's default tab, and
+/// Stations is a sibling tab rather than a pushed screen, so the station
+/// chip's tap switches tabs instead of pushing [ShellRoutes.openStations]
+/// (which this task removes — nothing else called it). Radio controls moved
+/// into the app bar's overflow menu, so `onOpenRadioControls` is omitted
+/// entirely here — ADR-002 §3 A2: "rendered **only when non-null**".
+///
 /// Optional [host] keeps `const TalkScreen()` constructing (the TASK-048
 /// stand-in signature); production always passes the app-scoped host.
 class TalkScreen extends ConsumerWidget {
-  const TalkScreen({super.key, this.host});
+  const TalkScreen({super.key, this.host, required this.onSwitchToStations});
 
   final RadioHost? host;
+
+  /// Invoked when the channel card's Stations affordance is tapped — the
+  /// shell switches to the Stations tab (ADR-002 §3 A1) rather than pushing
+  /// a screen.
+  final VoidCallback onSwitchToStations;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,9 +48,7 @@ class TalkScreen extends ConsumerWidget {
       key: ShellKeys.talk,
       host: resolved,
       onOpenPicker: () => ShellRoutes.openSelector(context, resolved),
-      onOpenStations: () => ShellRoutes.openStations(context, resolved),
-      onOpenRadioControls: () =>
-          ShellRoutes.openRadioControls(context, resolved),
+      onOpenStations: onSwitchToStations,
     );
   }
 }
