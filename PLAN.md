@@ -5487,7 +5487,7 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 
 ### TASK-091
 **Title:** v2 Groups tab — list, detail with members and presence, invites, admin actions, join with a code
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.3, §4 (key rotated / removed states); PRD V2-FR-020..025; Technical §5.2 (invite link); Verification V2-VT-026, V2-VT-030 (groups goldens)
@@ -5500,9 +5500,10 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 - [ ] Admin actions are hidden for non-admins; Remove member rotates the key and the removed member's row disappears; last-admin leave promotes the oldest member in the UI state (V2-FR-023/024)
 - [ ] Rotation and removal toasts appear per Design §4
 - [ ] Goldens: empty, populated, detail, dark and light (V2-VT-030); `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-091-s5
+**Started_At:** 2026-09-11T20:10:00Z
+**Progress_Notes:**
+- [2026-09-11T20:10:00Z] [S5] Claimed TASK-091. Resume check: no S5 in_progress/claimed task other than blocked TASK-088 (left blocked, untouched further). Depends_On TASK-086, TASK-087 both done; description says 'no shell dependencies' so this is safely independent of TASK-088's blocker. Branch task/TASK-091-s5 to be created from master. Next: preflight_paths.py TASK-091, then read Design §2.3/§4, Technical §5.2, TASK-086 groups store API, TASK-087 room derivation, and event_link.dart's expiry presets before writing.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
