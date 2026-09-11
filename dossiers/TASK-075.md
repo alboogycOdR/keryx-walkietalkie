@@ -19,3 +19,12 @@ Make `ChannelsLanding` embeddable under the new shell (no app bar or brand, opti
 5. Run test/app_shell and real_composition_test untouched to prove compatibility.
 
 ## Work Log
+
+- Implemented `embedded` (default false), nullable `onOpenTalk`, and optional
+  `onTuneSucceeded` without changing existing callers.
+- Restyled the pinned current row with an accent marker and label, and recent
+  entries with 64 dp channel tiles and chevrons. Regenerated all four owned
+  `channels_*` golden fixtures.
+- Added focused coverage for default/embedded structure, nullable Talk
+  affordances, success-only recall notification, current-row placement, and
+  64 dp recent rows.

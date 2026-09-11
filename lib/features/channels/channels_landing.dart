@@ -47,19 +47,28 @@ abstract final class ChannelsLandingKeys {
 class ChannelsLanding extends ConsumerStatefulWidget {
   const ChannelsLanding({
     super.key,
-    required this.onOpenTalk,
+    this.onOpenTalk,
     required this.onSelectChannel,
+    this.embedded = false,
+    this.onTuneSucceeded,
     this.persistentNavigation,
     this.watchChannel,
   });
 
   /// One-tap shortcut onto the current channel (Design §2.1). Must not
   /// retune (UX-FR-005).
-  final VoidCallback onOpenTalk;
+  final VoidCallback? onOpenTalk;
 
   /// Launches TASK-050's selector / direct-tune flow. Must not retune
   /// itself — Cancel/Apply live on that screen.
   final VoidCallback onSelectChannel;
+
+  /// Omits the standalone landing app bar when this body is hosted by the
+  /// shell's app bar and tab strip.
+  final bool embedded;
+
+  /// Called once after a recent-channel recall has successfully retuned.
+  final VoidCallback? onTuneSucceeded;
 
   /// Optional bottom bar so content-order tests can include persistent
   /// nav. Production leaves this null; [MobileAppShell] already paints
@@ -116,6 +125,9 @@ class _ChannelsLandingState extends ConsumerState<ChannelsLanding> {
     _outcomeSub = _coordinator.outcomes.listen((TuneOutcome outcome) {
       if (!mounted) return;
       setState(() => _lastOutcome = outcome);
+      if (outcome.kind == TuneOutcomeKind.success) {
+        widget.onTuneSucceeded?.call();
+      }
     });
   }
 
@@ -174,19 +186,23 @@ class _ChannelsLandingState extends ConsumerState<ChannelsLanding> {
 
     return Scaffold(
       backgroundColor: tokens.surfaceBase,
-      appBar: AppBar(
-        backgroundColor: tokens.surfaceBase,
-        foregroundColor: tokens.textPrimary,
-        elevation: 0,
-        title: Text(
-          'KERYX',
-          key: ChannelsLandingKeys.brand,
-          style: KeryxUxTypography.screenTitle.copyWith(
-            color: tokens.textPrimary,
-          ),
-        ),
-        actions: <Widget>[_ConnectionIndicator(view: view, tokens: tokens)],
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              backgroundColor: tokens.surfaceBase,
+              foregroundColor: tokens.textPrimary,
+              elevation: 0,
+              title: Text(
+                'KERYX',
+                key: ChannelsLandingKeys.brand,
+                style: KeryxUxTypography.screenTitle.copyWith(
+                  color: tokens.textPrimary,
+                ),
+              ),
+              actions: <Widget>[
+                _ConnectionIndicator(view: view, tokens: tokens),
+              ],
+            ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           KeryxUxSpacing.pageMargin,
@@ -201,14 +217,16 @@ class _ChannelsLandingState extends ConsumerState<ChannelsLanding> {
             onOpenTalk: widget.onOpenTalk,
           ),
           const SizedBox(height: KeryxUxSpacing.cardSpacing),
-          _PrimaryActionButton(
-            key: ChannelsLandingKeys.openTalk,
-            label: 'Open Talk',
-            icon: Icons.chat_bubble_outline,
-            tokens: tokens,
-            onPressed: widget.onOpenTalk,
-          ),
-          const SizedBox(height: KeryxUxSpacing.cardSpacing),
+          if (widget.onOpenTalk != null) ...<Widget>[
+            _PrimaryActionButton(
+              key: ChannelsLandingKeys.openTalk,
+              label: 'Open Talk',
+              icon: Icons.chat_bubble_outline,
+              tokens: tokens,
+              onPressed: widget.onOpenTalk!,
+            ),
+            const SizedBox(height: KeryxUxSpacing.cardSpacing),
+          ],
           if (_coordinator.isBusy)
             Padding(
               key: ChannelsLandingKeys.recallProgress,
@@ -306,7 +324,7 @@ class _CurrentChannelCard extends StatelessWidget {
 
   final RadioViewState view;
   final KeryxUxTokens tokens;
-  final VoidCallback onOpenTalk;
+  final VoidCallback? onOpenTalk;
 
   @override
   Widget build(BuildContext context) {
@@ -343,8 +361,10 @@ class _CurrentChannelCard extends StatelessWidget {
         // screen reader has no other cue that tapping this whole card does
         // the same thing (Design §5; TASK-057).
         child: Semantics(
-          button: true,
-          label: 'Current channel $channelLabel, open Talk',
+          button: onOpenTalk != null,
+          label: onOpenTalk == null
+              ? 'Current channel $channelLabel'
+              : 'Current channel $channelLabel, open Talk',
           // TASK-057 round 2 (non-blocking finding 4): without this the
           // card's own child text (channel label, configured/effective
           // mode, status) is still individually announced after the
@@ -357,49 +377,70 @@ class _CurrentChannelCard extends StatelessWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.all(KeryxUxSpacing.cardSpacing),
-              child: Column(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(
-                    channelLabel,
-                    style: KeryxUxTypography.sectionTitle.copyWith(
-                      color: tokens.textPrimary,
+                  Container(
+                    width: 4,
+                    height: KeryxUxSpacing.minTarget,
+                    decoration: BoxDecoration(
+                      color: tokens.actionPrimary,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(height: KeryxUxSpacing.controlGap),
-                  Text(
-                    configured,
-                    key: ChannelsLandingKeys.configuredMode,
-                    style: KeryxUxTypography.body.copyWith(
-                      color: tokens.textPrimary,
-                    ),
-                  ),
-                  Text(
-                    effective,
-                    key: ChannelsLandingKeys.effectiveRoute,
-                    style: KeryxUxTypography.body.copyWith(
-                      color: tokens.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: KeryxUxSpacing.controlGap),
-                  Row(
-                    children: <Widget>[
-                      Icon(
-                        iconForPresentation(view.phaseCue.iconId),
-                        color: statusColor,
-                        size: 20,
-                      ),
-                      const SizedBox(width: KeryxUxSpacing.controlGap),
-                      Expanded(
-                        child: Text(
-                          status,
-                          key: ChannelsLandingKeys.actualStatus,
+                  const SizedBox(width: KeryxUxSpacing.cardSpacing),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'Current',
+                          style: KeryxUxTypography.secondary.copyWith(
+                            color: tokens.actionPrimary,
+                          ),
+                        ),
+                        Text(
+                          channelLabel,
+                          style: KeryxUxTypography.sectionTitle.copyWith(
+                            color: tokens.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          configured,
+                          key: ChannelsLandingKeys.configuredMode,
                           style: KeryxUxTypography.secondary.copyWith(
                             color: tokens.textSecondary,
                           ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          effective,
+                          key: ChannelsLandingKeys.effectiveRoute,
+                          style: KeryxUxTypography.secondary.copyWith(
+                            color: tokens.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: KeryxUxSpacing.controlGap),
+                        Row(
+                          children: <Widget>[
+                            Icon(
+                              iconForPresentation(view.phaseCue.iconId),
+                              color: statusColor,
+                              size: 20,
+                            ),
+                            const SizedBox(width: KeryxUxSpacing.controlGap),
+                            Expanded(
+                              child: Text(
+                                status,
+                                key: ChannelsLandingKeys.actualStatus,
+                                style: KeryxUxTypography.secondary.copyWith(
+                                  color: tokens.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -477,17 +518,42 @@ class _RecentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final String label = formatChannelCode(entry.channel, entry.privacyCode);
     return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: KeryxUxSpacing.minTarget),
+      constraints: const BoxConstraints(minHeight: 64),
       child: ListTile(
         key: ChannelsLandingKeys.recentEntry(entry.channel, entry.privacyCode),
         contentPadding: EdgeInsets.zero,
         enabled: !busy,
-        leading: Icon(Icons.history, color: tokens.textSecondary),
+        leading: _ChannelTile(channel: entry.channel, tokens: tokens),
         title: Text(
           label,
           style: KeryxUxTypography.body.copyWith(color: tokens.textPrimary),
         ),
+        trailing: Icon(Icons.chevron_right, color: tokens.textSecondary),
         onTap: busy ? null : () => onTune(entry),
+      ),
+    );
+  }
+}
+
+class _ChannelTile extends StatelessWidget {
+  const _ChannelTile({required this.channel, required this.tokens});
+
+  final int channel;
+  final KeryxUxTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: KeryxUxSpacing.minTarget,
+      height: KeryxUxSpacing.minTarget,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: tokens.surfaceRaised,
+        borderRadius: BorderRadius.circular(KeryxUxSpacing.controlGap),
+      ),
+      child: Text(
+        channel.toString().padLeft(2, '0'),
+        style: KeryxUxTypography.body.copyWith(color: tokens.textPrimary),
       ),
     );
   }
