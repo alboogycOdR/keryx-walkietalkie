@@ -5168,7 +5168,7 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 
 ### TASK-085
 **Title:** v2 directory service II — groups, invites, rotation, alerts, membership-gated /token
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §4.2 (groups/alerts/token rows), §5.2 (invite), §5.3 (rotation); PRD V2-FR-020..025, V2-FR-050; Verification V2-VT-011, 012, 014, 015
@@ -5176,14 +5176,14 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 **Depends_On:** TASK-084
 **Description:** Second half of the directory. Groups: create (creator's sealed secret copy stored), invites with expiry (token hash stored, secret never seen by the server), join (cap 25, refuse the 26th), member list with roles and presence, admin actions (make admin, rename, remove — server requires the sealed secrets for every remaining member in the same call, then bumps `key_version`), leave with last-admin succession. Presence fan-out extended to co-members; rotation notice pushed over the presence socket. Alerts: `POST /v2/alerts` delivered over the target's presence socket, rate-limited 1 per sender per target per 10 min. `/token`: verify the signed caller is a current member of `room_id` (room IDs are derived client-side; the server stores the expected room ID per group at create/rotate time and per 1:1 pair on demand). Update `openapi-v2.yaml`.
 **Acceptance_Criteria:**
-- [ ] Groups lifecycle passes V2-VT-011 including the 26th-join refusal, last-admin succession, remove-requires-rotate, and `key_version` bump storing only supplied sealed copies (V2-FR-020..024)
-- [ ] A table scan after the lifecycle finds no plaintext group secret, private key or audio (V2-VT-012; V2-NFR-004/007)
-- [ ] `/token` refuses a non-member and an unsigned caller and accepts a member (V2-VT-014)
-- [ ] Second alert to the same target inside 10 min is refused; the first is delivered over the presence socket (V2-VT-015; V2-FR-050)
-- [ ] Co-members receive presence changes and rotation notices within 5 s (V2-FR-025; Technical §5.3)
-- [ ] **Carried from TASK-084 review (interop):** `X-Keryx-Key` is accepted as unpadded base64url OR standard base64 (padded, `+`/`/`); a test feeds the exact standard-base64 form the Dart client (`lib/core/identity/signing.dart`) emits and is accepted; the contract documents base64url as canonical and standard as accepted (Technical §3.3)
-- [ ] **Carried from TASK-084 review:** a periodic stale-presence sweep (≤60 s) marks silent identities Offline without waiting for another socket's message; the Redis presence bus has a subscriber so a second process receives fan-out (V2-FR-030; Technical §4.3)
-- [ ] `openapi-v2.yaml` updated; `pytest` green
+- [x] Groups lifecycle passes V2-VT-011 including the 26th-join refusal, last-admin succession, remove-requires-rotate, and `key_version` bump storing only supplied sealed copies (V2-FR-020..024)
+- [x] A table scan after the lifecycle finds no plaintext group secret, private key or audio (V2-VT-012; V2-NFR-004/007)
+- [x] `/token` refuses a non-member and an unsigned caller and accepts a member (V2-VT-014)
+- [x] Second alert to the same target inside 10 min is refused; the first is delivered over the presence socket (V2-VT-015; V2-FR-050)
+- [x] Co-members receive presence changes and rotation notices within 5 s (V2-FR-025; Technical §5.3)
+- [x] **Carried from TASK-084 review (interop):** `X-Keryx-Key` is accepted as unpadded base64url OR standard base64 (padded, `+`/`/`); a test feeds the exact standard-base64 form the Dart client (`lib/core/identity/signing.dart`) emits and is accepted; the contract documents base64url as canonical and standard as accepted (Technical §3.3)
+- [x] **Carried from TASK-084 review:** a periodic stale-presence sweep (≤60 s) marks silent identities Offline without waiting for another socket's message; the Redis presence bus has a subscriber so a second process receives fan-out (V2-FR-030; Technical §4.3)
+- [x] `openapi-v2.yaml` updated; `pytest` green
 **Branch:** task/TASK-085-gb
 **Started_At:** 2026-09-11T18:22:09Z
 **Progress_Notes:**
@@ -5210,12 +5210,21 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Territory is existing token-svc (grow, do not replace). Implementing groups/invites/rotation/alerts, membership-gated signed /token, X-Keryx-Key dual encoding, periodic presence sweep, Redis presence subscriber.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-11T18:42:58Z] [GB] Directory II complete on `task/TASK-085-gb` (`0cc8b64`). Groups/invites/rotation/alerts, membership-gated signed `/token` (group room_id at create/rotate; 1:1 via `peer_pk` on demand), X-Keryx-Key accepts Dart standard base64, 60s presence sweep, Redis presence subscriber. → needs_review.
+**Artifacts:**
+- token-svc/app/groups.py
+- token-svc/app/{encoding,errors,orm,presence,signing,v2_api,main,models,directory}.py
+- token-svc/alembic/versions/0002_rooms_alerts.py
+- token-svc/openapi-v2.yaml
+- token-svc/README.md
+- token-svc/tests/test_v2_{groups,alerts,token_gate,key_encoding,presence_sweep}.py
+- dossiers/TASK-085.md
+**Test_Evidence:**
+- [2026-09-11T18:42:58Z] [GB] `cd token-svc; python -m pytest --tb=short -q` — 64 passed in ~50 s (existing token + V2-VT-011/012/014/015 + encoding interop + sweep + Redis bus).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-11T18:24:00Z
+**Updated_At:** 2026-09-11T18:42:58Z
 
 
 ### TASK-086
