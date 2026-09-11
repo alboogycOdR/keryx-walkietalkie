@@ -12,16 +12,17 @@ void main() {
     final repo = IdentityRepository(store, random: Random(3));
     final id = await repo.loadOrCreate();
 
-    expect(id.keyPair.seed.length, identityKeyLength);
-    expect(id.keyPair.publicKey.length, identityKeyLength);
+    expect(isCanonicalUuid(id.installUuid), isTrue);
+    expect(id.keyPair!.seed.length, identityKeyLength);
+    expect(id.keyPair!.publicKey.length, identityKeyLength);
     expect(isPeerId(id.peerId), isTrue);
-    expect(id.peerId, derivePeerId(id.keyPair.publicKey));
-    expect(id.shortCode, deriveShortCode(id.keyPair.publicKey));
+    expect(id.peerId, derivePeerId(id.keyPair!.publicKey));
+    expect(id.shortCode, deriveShortCode(id.keyPair!.publicKey));
     expect(Callsign.pattern.hasMatch(id.callsign.value), isTrue);
     final storedSeed = base64Decode(
       store.snapshot[IdentityRepository.privateKeySeedKey]!,
     );
-    expect(storedSeed, id.keyPair.seed);
+    expect(storedSeed, id.keyPair!.seed);
     expect(store.snapshot[IdentityRepository.callsignKey], id.callsign.value);
   });
 
@@ -36,8 +37,8 @@ void main() {
       random: Random(99),
     ).loadOrCreate();
 
-    expect(second.keyPair.seed, first.keyPair.seed);
-    expect(second.keyPair.publicKey, first.keyPair.publicKey);
+    expect(second.keyPair!.seed, first.keyPair!.seed);
+    expect(second.keyPair!.publicKey, first.keyPair!.publicKey);
     expect(second.peerId, first.peerId);
     expect(second.callsign, first.callsign);
   });
@@ -50,7 +51,7 @@ void main() {
 
     expect(edited.callsign.value, 'SIERRA-19');
     expect(edited.peerId, first.peerId);
-    expect(edited.keyPair.seed, first.keyPair.seed);
+    expect(edited.keyPair!.seed, first.keyPair!.seed);
   });
 
   test('setCallsign rejects an illegal name and leaves storage alone', () async {
@@ -70,7 +71,7 @@ void main() {
       IdentityRepository.callsignKey: 'BRAVO-7',
     });
     final id = await IdentityRepository(store, random: Random(1)).loadOrCreate();
-    expect(id.keyPair.seed, seed);
+    expect(id.keyPair!.seed, seed);
     expect(id.callsign.value, 'BRAVO-7');
   });
 
@@ -80,7 +81,7 @@ void main() {
       IdentityRepository.callsignKey: 'BRAVO-7',
     });
     final id = await IdentityRepository(store, random: Random(8)).loadOrCreate();
-    expect(id.keyPair.seed.length, identityKeyLength);
+    expect(id.keyPair!.seed.length, identityKeyLength);
     expect(id.callsign.value, 'BRAVO-7');
   });
 
@@ -89,7 +90,7 @@ void main() {
     'keeps the callsign (Technical §8)',
     () async {
       final store = MemoryIdentityStore({
-        IdentityRepository.legacyUuidKey:
+        IdentityRepository.uuidKey:
             '00112233-4455-4677-8899-aabbccddeeff',
         IdentityRepository.callsignKey: 'BRAVO-7',
       });
@@ -99,7 +100,7 @@ void main() {
       ).loadOrCreate();
 
       expect(id.callsign.value, 'BRAVO-7');
-      expect(id.keyPair.seed.length, identityKeyLength);
+      expect(id.keyPair!.seed.length, identityKeyLength);
       expect(isPeerId(id.peerId), isTrue);
       expect(
         store.snapshot.containsKey(IdentityRepository.privateKeySeedKey),
@@ -118,7 +119,7 @@ void main() {
     await repo.restoreKeyPair(restored);
 
     final afterRestore = await repo.loadOrCreate();
-    expect(afterRestore.keyPair.publicKey, restored.publicKey);
+    expect(afterRestore.keyPair!.publicKey, restored.publicKey);
     expect(afterRestore.peerId, isNot(original.peerId));
   });
 }

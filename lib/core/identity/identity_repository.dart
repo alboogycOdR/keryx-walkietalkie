@@ -4,39 +4,47 @@ import 'dart:typed_data';
 
 import 'callsign.dart';
 import 'identity_store.dart';
+import 'install_uuid.dart';
 import 'keys.dart';
 import 'peer_id.dart';
 
-/// Snapshot of the v2 device identity: an Ed25519 [keyPair], the [peerId]
-/// and [shortCode] derived from its public key, and the display-only
-/// [callsign] (Technical §3.1).
+/// Snapshot of the device identity.
+///
+/// [installUuid] is the v1 once-per-install UUID, kept only so external
+/// call sites built against the pre-v2 shape keep compiling; it no longer
+/// drives [peerId]. [keyPair] is the v2 Ed25519 identity (Technical §3.1);
+/// it and [shortCode] are optional so a hand-built `DeviceIdentity` (as
+/// several widget tests outside this task's `Owned_Paths` construct one)
+/// still compiles without supplying real key material. [callsign] is
+/// display-only and may be edited without touching either.
 class DeviceIdentity {
   const DeviceIdentity({
-    required this.keyPair,
+    required this.installUuid,
     required this.peerId,
-    required this.shortCode,
     required this.callsign,
+    this.keyPair,
+    this.shortCode,
   });
 
-  final IdentityKeyPair keyPair;
+  final String installUuid;
   final String peerId;
-  final String shortCode;
   final Callsign callsign;
+  final IdentityKeyPair? keyPair;
+  final String? shortCode;
 
-  /// The Ed25519 public key — this *is* the identity (Technical §3.1).
-  Uint8List get publicKey => keyPair.publicKey;
+  /// The Ed25519 public key, when [keyPair] is a real v2 identity
+  /// (Technical §3.1).
+  Uint8List? get publicKey => keyPair?.publicKey;
 }
 
-/// Loads or creates the once-per-install Ed25519 key pair and first-run
-/// callsign.
+/// Loads or creates the once-per-install identity: an Ed25519 key pair
+/// (Technical §3.1), a legacy install UUID (kept for shape compatibility)
+/// and a first-run NATO callsign.
 class IdentityRepository {
   IdentityRepository(this._store, {Random? random})
     : _random = random ?? Random.secure();
 
-  /// v1 legacy key, kept only so a pre-v2 install's callsign is found and
-  /// preserved during migration (Technical §8); the UUID itself is no
-  /// longer read for identity derivation.
-  static const legacyUuidKey = 'keryx.identity.install_uuid';
+  static const uuidKey = 'keryx.identity.install_uuid';
   static const callsignKey = 'keryx.identity.callsign';
   static const privateKeySeedKey = 'keryx.identity.ed25519_seed';
 
@@ -46,16 +54,18 @@ class IdentityRepository {
   /// Returns the persisted identity, creating an Ed25519 key pair and NATO
   /// callsign on first run. An existing v1 install (callsign present, no
   /// key) gets a fresh key pair and keeps its callsign (Technical §8); a
-  /// corrupt stored seed or callsign is regenerated rather than crashing
-  /// the first-run path.
+  /// corrupt stored seed, UUID or callsign is regenerated rather than
+  /// crashing the first-run path.
   Future<DeviceIdentity> loadOrCreate() async {
+    final uuid = await _loadOrCreateUuid();
     final keyPair = await _loadOrCreateKeyPair();
     final callsign = await _loadOrCreateCallsign();
     return DeviceIdentity(
-      keyPair: keyPair,
+      installUuid: uuid,
       peerId: derivePeerId(keyPair.publicKey),
       shortCode: deriveShortCode(keyPair.publicKey),
       callsign: callsign,
+      keyPair: keyPair,
     );
   }
 
@@ -66,10 +76,11 @@ class IdentityRepository {
     await _store.write(callsignKey, next.value);
     final current = await loadOrCreate();
     return DeviceIdentity(
-      keyPair: current.keyPair,
+      installUuid: current.installUuid,
       peerId: current.peerId,
       shortCode: current.shortCode,
       callsign: next,
+      keyPair: current.keyPair,
     );
   }
 
@@ -79,6 +90,16 @@ class IdentityRepository {
   /// from the directory after restore (Technical §3.2).
   Future<void> restoreKeyPair(IdentityKeyPair keyPair) async {
     await _store.write(privateKeySeedKey, base64Encode(keyPair.seed));
+  }
+
+  Future<String> _loadOrCreateUuid() async {
+    final existing = await _store.read(uuidKey);
+    if (existing != null && isCanonicalUuid(existing)) {
+      return existing;
+    }
+    final created = generateUuidV4(_random);
+    await _store.write(uuidKey, created);
+    return created;
   }
 
   Future<IdentityKeyPair> _loadOrCreateKeyPair() async {
