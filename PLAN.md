@@ -1,6 +1,6 @@
 ---
 plan_version: 15.2
-last_updated: 2026-09-11T15:45:00Z
+last_updated: 2026-09-11T16:21:41Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4946,7 +4946,7 @@ Territory matches expectation: all listed UI files exist; goldens are existing P
 
 ### TASK-082
 **Title:** Owner review fixes — denied flash auto-clears back to Ready, honest "no other stations" deny copy, PTT centred vertically
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A7 (owner on-device review 2026-09-11: vertical centring; denied flash transient ~1.5 s then Ready with no further event; "No other stations on this channel" when a refused press meets a known-empty roster), A3 (ring treatments; denied flash never overrides granted TX), A2 (content order); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 ("Denied/busy — Amber transient + reason — No false TX"; "A denied flash cannot override a currently granted TX"), §5 (plain-language copy); Verification §6 (small-phone / text-scale / landscape reachability)
@@ -5024,7 +5024,20 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 - [2026-09-11T16:17:00Z] [GB] Goldens regenerated then re-run without `--update-goldens` — 20/20 pass (18 talk_* + 2 shell_frame_*).
 - [2026-09-11T16:17:00Z] [GB] `flutter test --no-pub` (full suite, foreground) — **1526 passed / 0 failed / 40 skipped** (parked FR-025 soak seeds). Baseline 1519 (UX R2) + 7 A7 tests = 1526.
 - [2026-09-11T16:17:00Z] [GB] `git diff master...HEAD --name-only` — 25 files, all inside Owned_Paths; zero `lib/core/**`.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T16:21:41Z] [ORCH] **APPROVED first-pass**, merged `59cc18a`. Reviewed on claude-fable-5-1 (AUTOPILOT follow-up).
+- **Territory:** clean. 25 files, all inside Owned_Paths; zero `lib/core/**`. Commit tagged.
+- **Tests:** run independently in the worktree by a subagent. `flutter analyze` 0 issues; talk + regression 139/139; full suite 1526 passed / 0 failed / 40 skipped.
+- **Criteria:** all six verified in source.
+  - `_syncDeniedFlashTimer` runs off `ref.listen`'s previous/next edge: rising edge starts a 1500 ms `Timer` that sets `_flashExpired`; falling edge cancels. `_treatmentFor` and the cue list both gate on `deniedFlash && !_flashExpired`. Timer cancelled in dispose. GB's revert-mutation turned the expiry test red.
+  - Precedence unchanged: latched > tx > rx > requesting > flash > ready.
+  - `_denyCopy` returns "No other stations on this channel" for `KnownRosterCount(0)`, else "Channel busy"; overlay chip re-labelled accordingly.
+  - `_RenderTalkBody` pins the top group and centres the PTT group in `max(minHeight, content)`, so the scroll fallback survives at text scale 2.0/landscape. Layout-matrix diff is reformat plus one centring assertion.
+  - Dossier gives the concrete solo-deny path (join-guard `_denyBusy`, `_linkPaused` never clears with no inbound, `_publishRoster` never runs for `{self}`) and the self-grant conditions. Correct against `floor_engine.dart`/`arbiter.dart` as read by ORCH.
+- **Non-blocking:**
+  - (a) If Talk remounts while `isTransmitDenied` is already true, `ref.listen` sees no edge, so the flash shows until the next radio event rather than expiring. Rare; fix by seeding the timer from `initState` when the initial state is denied.
+  - (b) `_RenderTalkBody` implements no intrinsic/dry-layout overrides; fine under `SingleChildScrollView`, but document that it must not be placed under an intrinsic-measuring parent.
+  - (c) The layout-matrix test file carries `dart format` churn that hides the one-assertion change.
+- **Product finding for the owner (not a defect of this task):** a station that is genuinely alone can never self-grant on the current floor policy; it needs a successor task or, better, a v2 product decision (transmit anyway / store-and-forward).
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-11T16:17:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T16:21:41Z
