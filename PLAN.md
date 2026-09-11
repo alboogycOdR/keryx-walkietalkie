@@ -4519,7 +4519,7 @@ Reading rtc_adapter.dart (readAudioLevel/audioLevelFromInboundRtpStats), mesh_co
 
 ### TASK-080
 **Title:** Effective route shows "AUTO" — diagnose and fix the configured-vs-effective route projection
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; lib/core/presentation/connection_condition.dart dartdoc (effective route "is never `auto` in practice"); owner screenshot 2026-09-11 ("Configured LOCAL · Route AUTO" on a real phone), also noted in orchestrator_notes after the 2026-09-08 hardware attempt
@@ -4544,9 +4544,10 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 **Started_At:** 2026-09-11T11:56:14Z
 **Progress_Notes:**
 - [2026-09-11T11:56:14Z] [CX] Claimed TASK-080. TASK-079 is done; task branch created from integration tip cceef4d. Next: preflight owned paths, reproduce the effective-route defect, then document and fix its verified cause.
+- [2026-09-11T11:58:00Z] [CX] Preflight passed: all eight Owned_Paths inspected; `test/core/presentation/connection_condition_test.dart` is an authorised new file. Reading the controller/reducer pipeline and writing the pre-fix reproduction next.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-09-11T11:56:14Z
+**Updated_At:** 2026-09-11T11:58:00Z
