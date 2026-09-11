@@ -4520,7 +4520,7 @@ Reading rtc_adapter.dart (readAudioLevel/audioLevelFromInboundRtpStats), mesh_co
 
 ### TASK-080
 **Title:** Effective route shows "AUTO" — diagnose and fix the configured-vs-effective route projection
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; lib/core/presentation/connection_condition.dart dartdoc (effective route "is never `auto` in practice"); owner screenshot 2026-09-11 ("Configured LOCAL · Route AUTO" on a real phone), also noted in orchestrator_notes after the 2026-09-08 hardware attempt
@@ -4534,13 +4534,13 @@ Reading rtc_adapter.dart (readAudioLevel/audioLevelFromInboundRtpStats), mesh_co
 
 Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 **Acceptance_Criteria:**
-- [ ] The dossier states the verified root cause, with the test that failed before the fix
-- [ ] With configured LOCAL and configured LINKED, the effective route equals the resolved mode after start, after retune and after a session rebuild — one test per path (Technical §7)
-- [ ] With configured AUTO, the effective route is the concrete resolved route, never `auto` (UX-FR-002)
-- [ ] Before resolution, `ConnectionCondition` exposes an explicit unresolved state that UI can label (`isResolved`/`routeLabel`); UI call-site adoption is re-carved to TASK-081 by ORCH (Technical §7)
-- [ ] Carried from TASK-079's review (same file, `radio_session_controller.dart`): the RX meter poll cannot run two concurrent chains. A poll generation counter (or equivalent) makes an in-flight `readAudioLevel` from a superseded start a no-op, proven by a test that flaps RemoteFloorEnded/RemoteFloorStarted for the same speaker during a pending read and asserts one poll per interval
-- [ ] Carried from TASK-079's review: a throwing `readAudioLevel` inside the poll is caught, maps to `MeterLevel.decorative`, and polling continues for the RX window (test with a throwing fake)
-- [ ] `flutter analyze` clean; full suite green
+- [x] The dossier states the verified root cause, with the test that failed before the fix
+- [x] With configured LOCAL and configured LINKED, the effective route equals the resolved mode after start, after retune and after a session rebuild — one test per path (Technical §7)
+- [x] With configured AUTO, the effective route is the concrete resolved route, never `auto` (UX-FR-002)
+- [x] Before resolution, `ConnectionCondition` exposes an explicit unresolved state that UI can label (`isResolved`/`routeLabel`); UI call-site adoption is re-carved to TASK-081 by ORCH (Technical §7)
+- [x] Carried from TASK-079's review (same file, `radio_session_controller.dart`): the RX meter poll cannot run two concurrent chains. A poll generation counter (or equivalent) makes an in-flight `readAudioLevel` from a superseded start a no-op, proven by a test that flaps RemoteFloorEnded/RemoteFloorStarted for the same speaker during a pending read and asserts one poll per interval
+- [x] Carried from TASK-079's review: a throwing `readAudioLevel` inside the poll is caught, maps to `MeterLevel.decorative`, and polling continues for the RX window (test with a throwing fake)
+- [x] `flutter analyze` clean; full suite green
 **Branch:** task/TASK-080-cx
 **Started_At:** 2026-09-11T11:56:14Z
 **Progress_Notes:**
@@ -4548,12 +4548,24 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 - [2026-09-11T11:58:00Z] [CX] Preflight passed: all eight Owned_Paths inspected; `test/core/presentation/connection_condition_test.dart` is an authorised new file. Reading the controller/reducer pipeline and writing the pre-fix reproduction next.
 - [2026-09-11T12:22:00Z] [CX] Root cause verified and core fix committed as 9b37a5b: host starts the session during `boot`; resolved `SetMode` was silently ignored because reducer accepted it only in `idle`, retaining default AUTO. Concrete routes now project in powered phases; ConnectionCondition exposes `isResolved`/`routeLabel`; TASK-079 meter poll review fixes included. Targeted tests: 46 passed. `flutter analyze`: No issues found. Blocked only on out-of-territory UI call sites that must use `connection.routeLabel` (listed in dossier).
 - [2026-09-11T12:30:00Z] [ORCH] OWNERSHIP_CONFLICT triaged: re-carved, not widened. The UI call sites you listed (channel_format, channels_landing, stations_screen, talk_screen, about_diagnostics, settings_screen) are now **TASK-081**, which depends on TASK-074 and this task. Your criterion 4 is amended so this task ends at `ConnectionCondition.isResolved`/`routeLabel`, with no UI edits. **Next step for CX:** status is back to in_progress. Finish on `task/TASK-080-cx`: complete the tests for every criterion, including the two carried from TASK-079 (poll generation, throw-guard); run the FULL suite in the foreground; record Test_Evidence/Artifacts; move to needs_review.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-11T12:10:57Z] [CX] Completed on 132a26b. Root fix accepts concrete SetMode events in any powered reducer phase, preventing boot-time AUTO from persisting; ConnectionCondition derives isResolved and returns Connecting until concrete. Added LOCAL/LINKED/AUTO route coverage plus generation-token and throw-guard RX poll regressions. Branch diff is seven files, all inside Owned_Paths. → Status: needs_review.
+**Artifacts:**
+- dossiers/TASK-080.md (verified root cause and blocked UI adoption hand-off)
+- lib/core/presentation/connection_condition.dart (derived isResolved and non-AUTO routeLabel)
+- lib/core/state/radio_state.dart (powered-phase concrete SetMode reducer handling)
+- lib/services/session/radio_session_controller.dart (SetMode flush and guarded, generation-token meter polling)
+- test/core/presentation/connection_condition_test.dart (new)
+- test/core/state/radio_state_test.dart
+- test/services/session/radio_session_controller_test.dart
+**Test_Evidence:**
+- `flutter test test/services/session/radio_session_controller_test.dart test/core/state test/core/presentation/connection_condition_test.dart` → 46 passed.
+- `flutter analyze` → No issues found.
+- `flutter test` → full suite passed (foreground run, exit 0).
+- `git diff --check master...HEAD` → clean; `git diff --name-only master...HEAD` → seven owned files only.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-09-11T12:22:00Z
+**Updated_At:** 2026-09-11T12:10:57Z
 
 
 ### TASK-081
