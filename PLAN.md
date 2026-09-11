@@ -5246,7 +5246,7 @@ Territory is existing token-svc (grow, do not replace). Implementing groups/invi
 
 ### TASK-086
 **Title:** v2 directory client and local stores — signed REST client, presence socket, contacts and groups stores
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §4.2 (contract), §4.3 (presence), §6.1 (modules); token-svc/openapi-v2.yaml (TASK-084's contract); PRD V2-FR-010..014, V2-FR-020..025, V2-FR-030..033; Verification V2-VT-013 (client side), V2-VT-025/026 (store behaviour)
@@ -5265,12 +5265,25 @@ Territory is existing token-svc (grow, do not replace). Implementing groups/invi
 **Started_At:** 2026-09-11T18:58:20Z
 **Progress_Notes:**
 - [2026-09-11T18:58:20Z] [S5] Claimed TASK-086. Resume check: no S5 in_progress/claimed task found in PLAN.md (TASK-077 was already done, checkpoint was stale). Depends_On TASK-083, TASK-084 both done. Branch task/TASK-086-s5 to be created from master in the worktree. Next: preflight_paths.py TASK-086, then read openapi-v2.yaml + TASK-083's signing helper + TASK-084/085's server contract before writing anything.
+- [2026-09-11T19:05:00Z] [S5] Status: in_progress. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-086 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx
+[preflight] 7 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/services/directory/**  -> matches nothing yet (new territory)
+  GLOB   lib/core/contacts/**  -> matches nothing yet (new territory)
+  GLOB   lib/core/groups/**  -> matches nothing yet (new territory)
+  GLOB   test/services/directory/**  -> matches nothing yet (new territory)
+  GLOB   test/core/contacts/**  -> matches nothing yet (new territory)
+  GLOB   test/core/groups/**  -> matches nothing yet (new territory)
+  FILE   dossiers/TASK-086.md  -> exists, 13 line(s), 1729 bytes
+```
+Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/identity/**), and TASK-084/085's server contract (groups/contacts/presence/token endpoints, error codes, X-Keryx-Key encoding) before writing any client code.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-09-11T18:58:20Z
+**Updated_At:** 2026-09-11T19:05:00Z
 
 
 ### TASK-087
