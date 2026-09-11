@@ -1,6 +1,6 @@
 ---
 plan_version: 16.0
-last_updated: 2026-09-11T17:20:00Z
+last_updated: 2026-09-11T18:12:01Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -5047,7 +5047,7 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 
 ### TASK-083
 **Title:** v2 identity core — Ed25519 key pair, peer ID from public key, 12-word recovery phrase, sealed-box helpers
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §3 (keys, ID, phrase, signing), §7 (peer_id.dart re-point); specs/KERYX_v2.0_PRD_v1.0.md V2-FR-001..004; specs/KERYX_v2.0_Verification_v1.0.md V2-VT-001..004; Product Model D1, D9, D10
@@ -5060,18 +5060,36 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 - [x] Signing helper produces headers the Technical §3.3 verifier accepts; tampered body, stale timestamp and wrong key each fail a local verifier test (V2-VT-004)
 - [x] `sealToPublicKey`/`openSealed` round-trip; opening with the wrong key fails (Technical §5.3)
 - [x] Existing `IdentityRepository` consumers compile unchanged; a UUID-only store migrates to a key and keeps the callsign (Technical §8)
-- [x] `flutter analyze` clean; full suite green except one known out-of-territory frozen-pubspec guard (see Test_Evidence); `pubspec.lock` committed
+- [x] `flutter analyze` clean; full suite green after ORCH extended the out-of-territory pubspec guard (b2be1db); `pubspec.lock` committed
 **Branch:** task/TASK-083-s5
 **Started_At:** 2026-09-11T18:00:00Z
 **Progress_Notes:**
 - [2026-09-11T18:00:00Z] [S5] Claimed TASK-083. Resume check: no S5 in_progress/claimed task found in PLAN.md (TASK-077 is done/merged). Depends_On: none. Branch task/TASK-083-s5 to be created from master. Next: preflight_paths.py TASK-083, read dossier + specs/KERYX_v2.0_Technical_v1.0.md §3/§7, PRD V2-FR-001..004, Verification V2-VT-001..004 before touching code.
 - [2026-09-11T19:10:00Z] [S5] Completed. Preflight output pasted in dossier work log. Added `cryptography: ^2.7.0` to pubspec.yaml (resolved 2.9.0, pure Dart, 1 new transitive dep). Pinned the canonical BIP-39 English wordlist in-repo (`bip39_wordlist.dart`, 2048 words from `bitcoin/bips`) instead of adding a second package. Implemented `keys.dart` (Ed25519 keypair/sign/verify + the Ed25519->X25519 birational map via BigInt field arithmetic, needed for sealed-box), `recovery_phrase.dart` (BIP-39 encode/decode with checksum; deriveKeyPair() via HKDF-SHA256(entropy, info keryx-id-v1) per Technical S3.2's non-standard-PBKDF2 instruction), `signing.dart` (X-Keryx-Sig/Key/Ts, 120s window, Technical S3.3), `sealed_box.dart` (ephemeral X25519 ECDH + HKDF + AES-256-GCM - a KERYX-internal construction since the server never opens a sealed box and every sealer/opener is this Dart client, so libsodium wire-format compatibility isn't required). Re-pointed `peer_id.dart` at the public key while keeping a legacy-UUID String code path so test/simulation/sim_peer.dart (outside Owned_Paths, kept-as-is per Technical S1) keeps compiling unchanged. DeviceIdentity gained optional keyPair/shortCode fields (keeping installUuid/peerId/callsign exactly as before) so every out-of-territory hand-built DeviceIdentity in test/core/radio_host/**, test/features/face/**, test/features/settings/**, test/regression/real_composition_test.dart keeps compiling unchanged - verified via a clean repo-wide flutter analyze. Migration is automatic: _loadOrCreateKeyPair mints a key whenever none is stored, so a v1 install (UUID+callsign, no key) keeps its callsign and gains a key on first v2 run (Technical S8); added an explicit test for this. flutter analyze --no-pub (identity dir, then repo-wide): No issues found both times. flutter test --no-pub test/core/identity/: 62/62 pass. Full flutter test --no-pub: 1558 passed / 1 failed / 40 skipped (same pre-existing PARKED FR-025 soak-seed skips). The 1 failure is test/core/audio/device_audio_sink_test.dart's 'pubspec unfreeze adds exactly flutter_soloud and permission_handler' - a frozen-dependency-list guard test outside this task's Owned_Paths, now correctly detecting the cryptography addition this task's own Description explicitly authorizes (reopens frozen pubspec.yaml for this task only). Not fixed here (out of territory); needs that test's expected package set updated to add cryptography at/before merge - this is the single, intended side effect of the authorized pubspec reopen, not a regression. git diff against the pre-claim base is 17 files, all inside Owned_Paths. -> Status: needs_review.
-**Artifacts:** —
+**Artifacts:**
+- lib/core/identity/{keys,recovery_phrase,signing,sealed_box,bip39_wordlist}.dart (new), peer_id.dart, identity_repository.dart, identity.dart
+- test/core/identity/** (5 new, 2 rewritten)
+- pubspec.yaml (+cryptography), pubspec.lock
 **Test_Evidence:** flutter analyze --no-pub (lib/core/identity/ and repo-wide): No issues found. flutter test --no-pub test/core/identity/: 62/62 pass (5 new test files + 2 rewritten). Full flutter test --no-pub: 1558 passed / 1 failed / 40 skipped. The 1 failure is test/core/audio/device_audio_sink_test.dart's frozen-pubspec-list guard (outside Owned_Paths) - expected fallout of this task's authorized cryptography addition to pubspec.yaml; needs that test's expected set updated at merge, not a functional regression. pubspec.lock committed on branch task/TASK-083-s5.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T18:12:01Z] [ORCH] **APPROVED first-pass**, merged `b5f0cad`. Reviewed on claude-fable-5-1 (AUTOPILOT v2.0 wave).
+- **Territory:** clean. 18 files: `lib/core/identity/**` (5 new modules + 3 edited), `test/core/identity/**` (5 new + 2 rewritten), `pubspec.yaml` (+1 dep, authorised), `pubspec.lock`, dossier. All three commits tagged.
+- **Tests:** independent run in the worktree: analyze 0; identity 62/62; full suite 1559 passed / **1 failed** / 40 skipped. The single failure is `test/core/audio/device_audio_sink_test.dart`'s pubspec dependency-set guard, outside S5's territory, failing only because `cryptography` was added as this task's Description authorises. S5 flagged it rather than editing out of territory, which was correct. **ORCH updated the guard's expected set in `b2be1db` immediately after the merge and re-ran that file green**, so master is green.
+- **Crypto reviewed in source:**
+  - Ed25519 via `package:cryptography` 2.9.0; seed = the 32-byte private seed; `peerId`/`shortCode` from sha256(publicKey) with the original base32 shape (Technical §3.1).
+  - Ed25519→X25519: scalar = clamp(sha512(seed)[:32]) (correct); public key via Edwards point decompression and the birational map u=(1+y)/(1−y) with the p≡5 mod 8 sqrt and sqrt(−1) correction (correct). Round-trip tests prove the two sides agree.
+  - Sealed box: ephemeral X25519 + HKDF-SHA256 + AES-256-GCM, KERYX-internal format (server never opens it — Technical §4.1). Acceptable.
+  - Signing: sha256(`METHOD|path|body|ts`) signed with Ed25519, `X-Keryx-Sig/Key/Ts`, 120 s window; verifier returns typed rejections.
+  - Recovery phrase: BIP-39 English list pinned in-repo, 4-bit checksum, HKDF(entropy, `keryx-id-v1`) → seed per Technical §3.2.
+- **Criteria:** all six verified. The 10,000-key collision test uses random 32-byte inputs rather than real key pairs, which is the right property to test (the digest input) and keeps it fast.
+- **Non-blocking:**
+  - (a) `derivePeerId(Object)` accepts a legacy UUID `String` to keep `test/simulation/sim_peer.dart` compiling. Replace with an explicit `derivePeerIdFromLegacyUuid` or migrate `sim_peer.dart` in TASK-088/094.
+  - (b) The sealed-box HKDF binds neither the ephemeral nor the recipient public key (libsodium's `crypto_box_seal` derives its nonce from both). Add `epk || rpk` as HKDF salt in a follow-up before any sealed box crosses a version boundary.
+  - (c) PLAN.md Test_Evidence and Artifacts were left `—` (evidence lives in the dossier), and the block gained duplicated `Branch`/criterion lines from an edit slip; ORCH cleaned the block. Evidence belongs in PLAN.md too.
+  - (d) An existing v1 install's `peerId` changes (UUID→key); acceptable per Technical §8 and noted here so field testers are not surprised.
+- **Unlocks:** TASK-087 (rooms/transport keys). TASK-086 still needs TASK-084.
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T19:10:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T18:12:01Z
 
 
 ### TASK-084
@@ -5183,7 +5201,7 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 ### TASK-087
 **Title:** v2 rooms and transport keys — group and 1:1 room derivation, LAN room prefix, LiveKit E2EE, signed token client
 **Status:** pending
-**Assigned_To:** GB
+**Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §1 (rooms/discovery/relay rows), §5.1, §5.4, §5.5, §7 (derivation.dart, token_client.dart); Verification V2-VT-020, V2-VT-023 (prefix half); PRD V2-NFR-004
 **Owned_Paths:** lib/core/rooms/**, lib/services/discovery/**, lib/services/linked/**, test/core/rooms/**, test/services/discovery/**, test/services/linked/**, dossiers/TASK-087.md
