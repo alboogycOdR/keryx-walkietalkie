@@ -4653,7 +4653,7 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 
 ### TASK-081
 **Title:** Adopt ConnectionCondition's resolved route label in every UI call site (no literal AUTO as an effective route)
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; TASK-080 (adds `ConnectionCondition.isResolved`/`routeLabel` and fixes the reducer root cause — this task is the UI half it could not reach, re-carved by ORCH from TASK-080's OWNERSHIP_CONFLICT block 2026-09-11)
@@ -4669,18 +4669,105 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 
 Route each one through `ConnectionCondition.routeLabel` (or `isResolved`) so an unresolved route reads as connecting, and the literal AUTO never appears as an *effective* route. The configured-preference labels may still say AUTO; that is correct. Regenerate only the goldens whose pixels actually change, and list them in the dossier.
 **Acceptance_Criteria:**
-- [ ] No UI code formats `effectiveRoute` directly any more; a repo-wide grep of `lib/features/**` for `effectiveRoute` shows only `routeLabel`/`isResolved` consumers (TASK-080 dartdoc; Technical §7)
-- [ ] For each call site, a widget test proves that an unresolved condition renders the connecting/unresolved label and never "AUTO" as the effective route, and that a resolved LOCAL/LINKED renders that route (UX-FR-002)
-- [ ] Configured-preference labels still show AUTO when configured AUTO (Technical §7: configured and effective stay distinct)
-- [ ] **Carried from TASK-074 review (mandatory, same file `talk_screen.dart`):** the Lock control can no longer latch after the finger has lifted. `canLatch` and `_engageLatch` both require `_holding && !_latched && phase == tx` (drop `_lastBuiltPhase`), and a latch can never leave the red latched treatment or "Transmission locked" showing once TX is not granted. A test covers grant → lift → tap Lock in the same frame: no latch engaged, no red ring, no `releaseLatch` needed (VT-010; ADR-002 A5)
-- [ ] Changed goldens regenerated and listed; `flutter analyze` clean; full suite green
+- [x] No UI code formats `effectiveRoute` directly any more; a repo-wide grep of `lib/features/**` for `effectiveRoute` shows only `routeLabel`/`isResolved` consumers (TASK-080 dartdoc; Technical §7)
+- [x] For each call site, a widget test proves that an unresolved condition renders the connecting/unresolved label and never "AUTO" as the effective route, and that a resolved LOCAL/LINKED renders that route (UX-FR-002)
+- [x] Configured-preference labels still show AUTO when configured AUTO (Technical §7: configured and effective stay distinct)
+- [x] **Carried from TASK-074 review (mandatory, same file `talk_screen.dart`):** the Lock control can no longer latch after the finger has lifted. `canLatch` and `_engageLatch` both require `_holding && !_latched && phase == tx` (drop `_lastBuiltPhase`), and a latch can never leave the red latched treatment or "Transmission locked" showing once TX is not granted. A test covers grant → lift → tap Lock in the same frame: no latch engaged, no red ring, no `releaseLatch` needed (VT-010; ADR-002 A5)
+- [x] Changed goldens regenerated and listed; `flutter analyze` clean; full suite green
 **Branch:** task/TASK-081-gb
 **Started_At:** 2026-09-11T12:50:48Z
 **Progress_Notes:**
 - [2026-09-11T12:50:48Z] [GB] Claimed TASK-081. Resume check: no GB in_progress/claimed task. Depends_On TASK-074 and TASK-080 both done. Branch task/TASK-081-gb from master. Next: preflight_paths.py TASK-081, then route every listed UI call site through ConnectionCondition.routeLabel/isResolved and apply the carried TASK-074 latch-after-lift fix.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-11T12:52:00Z] [GB] Status: in_progress. Preflight (python scripts/preflight_paths.py TASK-081) confirmed territory:
+```
+[preflight] TASK-081 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 18 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  FILE   lib/features/channels/channel_format.dart  -> exists, 30 line(s), 1107 bytes
+  FILE   lib/features/channels/channels_landing.dart  -> exists, 681 line(s), 24298 bytes
+  FILE   lib/features/stations/stations_screen.dart  -> exists, 642 line(s), 20574 bytes
+  FILE   lib/features/stations/station_copy.dart  -> exists, 69 line(s), 2981 bytes
+  FILE   lib/features/settings/about_diagnostics.dart  -> exists, 101 line(s), 2922 bytes
+  FILE   lib/features/settings/settings_screen.dart  -> exists, 645 line(s), 24032 bytes
+  FILE   lib/features/talk/talk_screen.dart  -> exists, 565 line(s), 23764 bytes
+  FILE   lib/features/talk/talk_channel_card.dart  -> exists, 182 line(s), 6961 bytes
+  GLOB   test/features/channels/**  -> 4 file(s):
+           test/features/channels/channel_format_test.dart
+           test/features/channels/channel_memory_test.dart
+           test/features/channels/channels_landing_test.dart
+           test/features/channels/fake_radio_host.dart
+  GLOB   test/features/stations/**  -> 3 file(s):
+           test/features/stations/fake_radio_host.dart
+           test/features/stations/station_identity_test.dart
+           test/features/stations/stations_screen_test.dart
+  GLOB   test/features/settings/**  -> 6 file(s):
+           test/features/settings/about_diagnostics_test.dart
+           test/features/settings/fake_radio_host.dart
+           test/features/settings/settings_apply_test.dart
+           test/features/settings/settings_inventory_test.dart
+           test/features/settings/settings_persistence_test.dart
+           test/features/settings/settings_screen_test.dart
+  FILE   test/features/talk/talk_screen_test.dart  -> exists, 1128 line(s), 43775 bytes
+  FILE   test/features/talk/talk_channel_card_test.dart  -> exists, 160 line(s), 5167 bytes
+  GLOB   test/regression/goldens/goldens/channels_*.png  -> 4 file(s):
+           test/regression/goldens/goldens/channels_empty_dark.png
+           test/regression/goldens/goldens/channels_empty_light.png
+           test/regression/goldens/goldens/channels_populated_dark.png
+           test/regression/goldens/goldens/channels_populated_light.png
+  GLOB   test/regression/goldens/goldens/stations_*.png  -> 4 file(s):
+           test/regression/goldens/goldens/stations_empty_dark.png
+           test/regression/goldens/goldens/stations_empty_light.png
+           test/regression/goldens/goldens/stations_populated_dark.png
+           test/regression/goldens/goldens/stations_populated_light.png
+  GLOB   test/regression/goldens/goldens/settings_*.png  -> 2 file(s):
+           test/regression/goldens/goldens/settings_dark.png
+           test/regression/goldens/goldens/settings_light.png
+  GLOB   test/regression/goldens/goldens/talk_*.png  -> 16 file(s):
+           test/regression/goldens/goldens/talk_degraded_dark.png
+           test/regression/goldens/goldens/talk_degraded_light.png
+           test/regression/goldens/goldens/talk_emergency_dark.png
+           test/regression/goldens/goldens/talk_emergency_light.png
+           test/regression/goldens/goldens/talk_granted_dark.png
+           test/regression/goldens/goldens/talk_granted_light.png
+           test/regression/goldens/goldens/talk_idle_dark.png
+           test/regression/goldens/goldens/talk_idle_light.png
+           test/regression/goldens/goldens/talk_permission_denied_dark.png
+           test/regression/goldens/goldens/talk_permission_denied_light.png
+           test/regression/goldens/goldens/talk_receiving_dark.png
+           test/regression/goldens/goldens/talk_receiving_light.png
+           ... and 4 more
+  FILE   dossiers/TASK-081.md  -> exists, 23 line(s), 917 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory matches expectation: all listed UI files exist; goldens are existing PNGs; dossier exists. No NEW/empty-glob surprises.
+- [2026-09-11T13:01:46Z] [GB] Complete on task/TASK-081-gb @ fddac58. All six call sites now present `connection.routeLabel` (Connecting while unresolved; LOCAL/LINKED when resolved). Configured AUTO still shown as a preference. Latch-after-lift: `_holding` required on both `canLatch` and `_engageLatch`; `_lastBuiltPhase` dropped; leftover latch flag cleared when phase leaves TX. Leftover `effectiveRoute` grep hits are Keys/copy/inventory field names, event_qr join *logic* (out of territory), and stations README (out of territory) — none format ConnectionCondition.effectiveRoute as an effective-route label. → Status: needs_review.
+**Artifacts:**
+- lib/features/channels/channel_format.dart
+- lib/features/channels/channels_landing.dart
+- lib/features/stations/stations_screen.dart
+- lib/features/stations/station_copy.dart
+- lib/features/settings/about_diagnostics.dart
+- lib/features/settings/settings_screen.dart
+- lib/features/talk/talk_screen.dart
+- lib/features/talk/talk_channel_card.dart
+- test/features/channels/channel_format_test.dart
+- test/features/channels/channels_landing_test.dart
+- test/features/stations/stations_screen_test.dart
+- test/features/settings/about_diagnostics_test.dart
+- test/features/settings/settings_screen_test.dart
+- test/features/talk/talk_screen_test.dart
+- test/features/talk/talk_channel_card_test.dart
+- dossiers/TASK-081.md
+- test/regression/goldens/goldens/settings_{dark,light}.png
+- test/regression/goldens/goldens/stations_{empty,populated}_{dark,light}.png
+- test/regression/goldens/goldens/talk_{idle,requesting,granted,receiving,degraded,emergency,permission_denied,service_fault}_{dark,light}.png (channels_*.png unchanged)
+**Test_Evidence:**
+- [2026-09-11T13:01:46Z] [GB] `python scripts/preflight_paths.py TASK-081` — 18 entries, all FILE/GLOB exist.
+- `flutter analyze` — No issues found (ran in 29.8s).
+- `flutter test test/features/channels test/features/stations test/features/settings test/features/talk/talk_screen_test.dart test/features/talk/talk_channel_card_test.dart` — 157 passed.
+- Latch-after-lift revert-mutation: dropped `_holding` from `_engageLatch`; the same-frame grant→lift→tap Lock test went red (`keryx-talk-unlatch` found); restored; git diff clean of the mutation.
+- `flutter test` (full suite) — **1491 passed / 0 failed / 40 skipped** (parked FR-025 soak seeds).
+- Goldens: channels_*.png unchanged; settings/stations/talk listed above regenerated via `--update-goldens`.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-11T12:50:48Z
+**Updated_At:** 2026-09-11T13:01:46Z
