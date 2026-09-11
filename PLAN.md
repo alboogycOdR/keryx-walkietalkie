@@ -4064,7 +4064,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-073
 **Title:** UX R2 PTT ring widget — dark face, state ring, measured-only glow, press feedback, accessible toggle action
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A3 (face/ring/glyph, no text in disc, diameter clamp, ring treatments, press feedback, measured-only glow, reduced motion), A4 (semantics custom action + Enter/Space as the non-drag alternative); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 ("accessible hold action and a non-drag alternative"), §3.4 ("No continuously animated fake waveform presented as real audio telemetry"), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-011 (duplicate pointer-up/cancel is a no-op), VT-015; lib/core/presentation/telemetry.dart (`MeterLevel` sealed type)
@@ -4096,12 +4096,13 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 **Started_At:** 2026-09-11T10:34:54Z
 **Progress_Notes:**
 - [2026-09-11T10:34:54Z] [CX] Claimed TASK-073. Preflight (`python scripts/preflight_paths.py TASK-073`): `NEW lib/features/talk/talk_ptt_ring.dart -> does not exist; parent lib/features/talk/ exists`; `NEW test/features/talk/talk_ptt_ring_test.dart -> does not exist; parent test/features/talk/ exists`; `FILE dossiers/TASK-073.md -> exists, 22 line(s), 1203 bytes`. Next: read ADR/design/verification and current PTT implementation before building the standalone ring.
+- [2026-09-11T10:39:00Z] [CX] Read ADR-002 A3/A4, Design §2.2/§3.4/§5, Verification VT-011/VT-015, the legacy `TalkPttDisc`, and the typed meter telemetry contract. Implementing the standalone ring without touching existing screen composition.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-09-11T10:34:54Z
+**Updated_At:** 2026-09-11T10:39:00Z
 
 
 ### TASK-074
