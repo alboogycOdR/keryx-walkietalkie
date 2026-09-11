@@ -4407,7 +4407,7 @@ Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
 
 ### TASK-079
 **Title:** RX level telemetry — plumb inbound-rtp audioLevel into RadioViewState as MeasuredMeterLevel
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A6 (RX plumbing authorised; unavailable stays decorative; no TX mic metering); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.3 ("An animation driven by phase is decorative and must not be described as measured RMS"); Verification VT-015; lib/services/mesh/rtc_adapter.dart (`readAudioLevel`, `audioLevelFromInboundRtpStats`, TASK-065); lib/core/presentation/telemetry.dart (`MeasuredMeterLevel`, "reserved for TASK-065's real RX metering")
@@ -4423,11 +4423,11 @@ Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
 
 Files in `Owned_Paths` that turn out not to need changes stay untouched.
 **Acceptance_Criteria:**
-- [ ] During `rxActive` with a fake adapter returning levels, `RadioViewState.meterLevel` is `MeasuredMeterLevel` tracking them (×100) (ADR-002 A6)
-- [ ] Unavailable level, TX, idle and every non-RX phase yield `MeterLevel.decorative`; one test per case (Technical §5.3; VT-015)
-- [ ] Polling starts on RX entry and stops on RX exit, retune and dispose — verified with a fake clock/adapter call count, no leaked timers (ADR-002 A6)
-- [ ] LINKED implemented or explicitly decorative, with the reason recorded in the dossier
-- [ ] No TX/media-source metering added; `flutter analyze` clean; full suite green
+- [x] During `rxActive` with a fake adapter returning levels, `RadioViewState.meterLevel` is `MeasuredMeterLevel` tracking them (×100) (ADR-002 A6)
+- [x] Unavailable level, TX, idle and every non-RX phase yield `MeterLevel.decorative`; one test per case (Technical §5.3; VT-015)
+- [x] Polling starts on RX entry and stops on RX exit, retune and dispose — verified with a fake clock/adapter call count, no leaked timers (ADR-002 A6)
+- [x] LINKED implemented or explicitly decorative, with the reason recorded in the dossier
+- [x] No TX/media-source metering added; `flutter analyze` clean; full suite green
 **Branch:** task/TASK-079-s5
 **Started_At:** 2026-09-11T11:15:00Z
 **Progress_Notes:**
@@ -4450,12 +4450,25 @@ Files in `Owned_Paths` that turn out not to need changes stay untouched.
   FILE   dossiers/TASK-079.md  -> exists, 22 line(s), 899 bytes
 ```
 Reading rtc_adapter.dart (readAudioLevel/audioLevelFromInboundRtpStats), mesh_controller.dart, radio_session_controller.dart, radio_host_snapshot.dart, radio_view_state.dart and telemetry.dart next to trace the active-speaker connection and plan the 10Hz poll + throttle wiring.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-11T12:20:00Z] [S5] Completed. Full pipeline wired: MeshController.readAudioLevel(peerId) (kept a parallel `_peerConnections` map inside mesh_controller.dart itself, rather than widening mesh_connection.dart which is outside Owned_Paths) -> RadioSessionController's new `_onEffectForMeterLevel` (same `engine.effects` stream `_onEffectForIdleTracking` already listens; RemoteFloorStarted starts a self-rescheduling ~10Hz FloorClock poll of `engine.holder`'s level, RemoteFloorEnded/EndTransmit/TransmitGranted stop it) -> new `meterLevel`/`meterLevelChanges` on the controller -> `RadioHostSnapshot.meterLevel` (new field) -> `RadioViewState.project` (measured only while `phase == RadioPhase.rxActive`, re-asserted decorative otherwise even against a stale snapshot). KeryxRadioHost wiring deliberately avoided widening `SessionHost` (outside Owned_Paths, would break every hand-written test double) by reusing the already-public `RadioSessionHostAdapter.debugController` seam instead — that class's own dartdoc literally anticipates this ("lets a production-path integration test reach into the composed chain without widening SessionHost itself"). LINKED intentionally NOT implemented: `LiveKitRoom`/`LiveKitAdapter` expose no per-participant audioLevel at all and `livekit_adapter.dart` is outside Owned_Paths (only `linked_controller.dart` is) — stays `MeterLevel.decorative` unconditionally, matching the task's own documented-reason fallback; recorded in the dossier. Tests: `test/services/mesh/mesh_controller_test.dart` (+4, readAudioLevel unit coverage using the existing joined-peer harness and the public `deliverRemoteAudioTrack` extension — no other-file edits needed), `test/services/session/radio_session_controller_test.dart` (+5 in a new "RX level telemetry" group — two real `RadioSessionController`s joined via a real (in-process) signaling handshake + `FakeRtcAdapter`, with the remote-start/end events injected directly as `FloorCodec`-encoded `TxStart`/`TxEnd` on the fake data channel rather than relying on two independently-faked adapters to relay to each other, which they cannot), `test/core/radio_host/keryx_radio_host_meter_level_test.dart` (new file — the only place the `RadioSessionHostAdapter` cast branch is exercised with a real controller end-to-end into `KeryxRadioHost.current`/`.changes`), `test/core/presentation/radio_view_state_test.dart` (+2, including the "stale snapshot outside rxActive never leaks through" case; the pre-existing decorative-regardless-of-phase test was kept exactly as-is since it remains true for a decorative host snapshot — not weakened, just no longer the whole story). `flutter analyze` (full repo) -> **No issues found**. `flutter test` (full repo) -> **1448 passed, 0 failed, 40 skipped** (same named PARKED FR-025 seeds, untouched), run twice, both clean. `git diff master...HEAD --stat` -> 10 files changed, all inside Owned_Paths. All 5 acceptance criteria met. → Status: needs_review.
+**Artifacts:**
+- lib/services/mesh/mesh_controller.dart (readAudioLevel + _peerConnections)
+- lib/services/session/radio_session_controller.dart (meterLevel/meterLevelChanges + poll)
+- lib/core/radio_host/radio_host_snapshot.dart (meterLevel field)
+- lib/core/radio_host/keryx_radio_host.dart (RadioSessionHostAdapter wiring)
+- lib/core/presentation/radio_view_state.dart (project() meterLevel)
+- test/services/mesh/mesh_controller_test.dart
+- test/services/session/radio_session_controller_test.dart
+- test/core/radio_host/keryx_radio_host_meter_level_test.dart (new)
+- test/core/presentation/radio_view_state_test.dart
+**Test_Evidence:**
+- `flutter analyze` (full repo, commit 991d974) -> No issues found.
+- `flutter test` (full repo, commit 991d974) -> 1448 passed, 0 failed, 40 skipped (same named PARKED FR-025 seeds), run twice clean.
+- `git diff master...HEAD --stat` -> 10 files changed, all inside Owned_Paths.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-09-11T11:15:00Z
+**Updated_At:** 2026-09-11T12:20:00Z
 
 
 ### TASK-080
