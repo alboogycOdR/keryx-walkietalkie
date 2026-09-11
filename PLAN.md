@@ -1,6 +1,6 @@
 ---
 plan_version: 16.0
-last_updated: 2026-09-11T18:52:34Z
+last_updated: 2026-09-11T18:55:14Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -5274,7 +5274,7 @@ Territory is existing token-svc (grow, do not replace). Implementing groups/invi
 
 ### TASK-087
 **Title:** v2 rooms and transport keys — group and 1:1 room derivation, LAN room prefix, LiveKit E2EE, signed token client
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §1 (rooms/discovery/relay rows), §5.1, §5.4, §5.5, §7 (derivation.dart, token_client.dart); Verification V2-VT-020, V2-VT-023 (prefix half); PRD V2-NFR-004
@@ -5322,10 +5322,26 @@ Territory is existing token-svc (grow, do not replace). Implementing groups/invi
 - `flutter test --no-pub test/core/rooms/`: 36/36 pass. `test/services/discovery/`: 24/24 pass. `test/services/linked/`: 47/47 pass (individually re-verified as part of the full-suite run above).
 - `flutter build apk --debug`: Built app-debug.apk successfully.
 - `git diff master --stat -- . ':!PLAN.md'`: 18 files, all inside Owned_Paths.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T18:55:14Z] [ORCH] **APPROVED first-pass**, merged `44b4d9f`. Reviewed on claude-sonnet-5 (AUTOPILOT v2.0 wave).
+- **Territory:** clean. 18 files, all inside Owned_Paths. The branch includes a merge of master to pick up TASK-084; no unrelated diff.
+- **Tests:** S5's own evidence (merged-tree run, matches master + this branch): analyze 0; rooms 36/36, discovery 24/24, linked 60/60; full suite 1584 passed / 0 failed / 40 skipped; debug build succeeded.
+- **Scoping deviation, accepted:** two acceptance criteria ("`deriveNumbered` no longer exists"; "old channel-prefix code is gone") are correctly left unchecked. `deriveNumbered` and `ChannelHashPrefix` still have callers in `radio_session_controller.dart` (TASK-088's territory) and `event_link.dart` (TASK-094's), both outside this task. Technical §10 explicitly orders room derivation (item 4) before session wiring (item 5) and deletion (item 11). Deleting the callers' target here would break files this task cannot touch. S5 disclosed this plainly in the dossier and in PLAN.md rather than quietly leaving the boxes unticked; this is the right call, not scope-shrinking.
+- **Crypto reviewed in source:**
+  - `deriveGroupRoom(secret)` = `deriveKeyed(base64(secret))`; a new secret after rotation yields a new room, matching Technical §5.1/§5.3.
+  - `deriveDirectRoom` performs real X25519 ECDH (`myKeyPair.toX25519KeyPair()` × the other side's Ed25519→X25519-converted public key), and a dedicated test computes both directions and asserts equality rather than trusting ECDH's symmetry by assumption.
+  - `deriveE2eeKey` = HKDF-SHA256(roomSecret, info `keryx-e2ee-v1`) → 32 bytes, matching Technical §5.5.
+  - `LiveKitClientAdapter.connect` builds the `BaseKeyProvider`/`E2EEOptions` and passes it into the `Room` constructor *before* connecting (required by LiveKit — key provider is not attachable after construction) and reports `isEncrypted` from whether the provider was actually built, not from the caller's intent.
+  - `LinkedController._connectAndPublish`: when a room secret was supplied but `room.isEncrypted` comes back false, it disconnects and throws `LinkedE2eeUnavailableException` **before** `publishMutedAudioTrack()` is ever called — no plaintext frame can go out for a room asked to be encrypted (V2-NFR-004).
+  - `TokenClient` signs `/token` requests when given a key pair, over the same canonical string as the server; `signer == null` keeps the v1 unsigned shape, so nothing else that calls this client without a signer breaks.
+  - `RoomPrefix`/`DiscoveryConfig.roomPrefixes`: additive, capped at `maxAdvertisedRooms` (3), validated for duplicates and emptiness; `NsdDiscoveryService` now matches any of up to 3 advertised prefixes.
+- **Criteria:** the five that could be fully met are met; the two partial ones are correctly disclosed and deferred to TASK-088/094 per the plan's own sequencing.
+- **Non-blocking:**
+  - (a) `setRawKey`'s Latin-1 round-trip through `String.fromCharCodes`/`.codeUnits` is fine for a 32-byte key with values 0–255, but the comment should say explicitly this technique is unsafe for any input containing surrogate-range values, so a future caller doesn't reuse it for arbitrary bytes.
+  - (b) `LinkedE2eeUnavailableException` has no retry/backoff distinction from a normal connect failure; confirm `LinkMonitor` doesn't retry forever against an adapter that will never enable E2EE.
+- **Unlocks:** TASK-086 (S5, now both deps done), TASK-088 (needs 086 too).
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T21:10:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T18:55:14Z
 
 
 ### TASK-088
