@@ -4089,7 +4089,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-073
 **Title:** UX R2 PTT ring widget — dark face, state ring, measured-only glow, press feedback, accessible toggle action
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A3 (face/ring/glyph, no text in disc, diameter clamp, ring treatments, press feedback, measured-only glow, reduced motion), A4 (semantics custom action + Enter/Space as the non-drag alternative); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 ("accessible hold action and a non-drag alternative"), §3.4 ("No continuously animated fake waveform presented as real audio telemetry"), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-011 (duplicate pointer-up/cancel is a no-op), VT-015; lib/core/presentation/telemetry.dart (`MeterLevel` sealed type)
@@ -4116,7 +4116,7 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 - [x] Requesting sweep and denied shake run, and both are replaced by static treatments when `reducedMotion` is true (ADR-002 A3)
 - [x] Hold gesture: exactly one `onHoldStart` per press and one `onHoldEnd` per up/cancel; duplicate up/cancel and press-while-disabled are no-ops (VT-011)
 - [x] Semantics custom action and `Enter`/`Space` each toggle start/stop through the same callbacks; tests drive both (ADR-002 A4; Design §5)
-- [ ] Root key `keryx-talk-ptt-disc` present; `flutter analyze` clean; full suite green
+- [x] Root key `keryx-talk-ptt-disc` present; `flutter analyze` clean; full suite green
 **Branch:** task/TASK-073-cx
 **Started_At:** 2026-09-11T10:34:54Z
 **Progress_Notes:**
@@ -4124,6 +4124,7 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 - [2026-09-11T10:39:00Z] [CX] Read ADR-002 A3/A4, Design §2.2/§3.4/§5, Verification VT-011/VT-015, the legacy `TalkPttDisc`, and the typed meter telemetry contract. Implementing the standalone ring without touching existing screen composition.
 - [2026-09-11T10:57:00Z] [CX] Implementation committed as `f08270f` (`feat(talk): add standalone PTT ring [TASK-073]`): new parameter-only `TalkPttRing`, focused tests, and dossier. Focused tests/analyze pass. Full `flutter test` was started but its runner remained stuck after it created the untracked `test/regression/goldens/failures/` artifact; terminated the runner and left it for review/cleanup because that path is outside TASK-073 territory. Task remains in_progress pending a clean full-suite run.
 - [2026-09-11T11:35:00Z] [ORCH] Diagnosis of the stalled full-suite run: your branch is based on `7bf81c6`, which predates TASK-072's merge. Its goldens were rendered on the owner's other machine, and 12 of them (channels/QR export/radio controls/stations/settings, 0.00–0.08% pixel drift) fail on this machine. That is not a TASK-073 regression: the full suite on `f08270f` completed 1416 passed / 12 failed / 40 skipped, and every failure is one of those golden diffs. TASK-072 regenerated all goldens on this machine. **Next step for CX:** run `git merge master` into `task/TASK-073-cx` (no conflicts expected; your files are new), re-run the FULL suite, and if green record Test_Evidence and move to needs_review. Do not update goldens; they are not in your territory.
+- [2026-09-11T11:26:06Z] [CX] Merged current `master` as `d992c77` (including TASK-072’s same-machine golden refresh) with no conflicts. Re-ran the full suite cleanly; TASK-073 is ready for review.
 **Artifacts:**
 - `lib/features/talk/talk_ptt_ring.dart`
 - `test/features/talk/talk_ptt_ring_test.dart`
@@ -4131,10 +4132,11 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 **Test_Evidence:**
 - [2026-09-11T10:53:00Z] [CX] `flutter test test/features/talk/talk_ptt_ring_test.dart` — 6 passed.
 - [2026-09-11T10:54:00Z] [CX] `flutter analyze lib/features/talk/talk_ptt_ring.dart test/features/talk/talk_ptt_ring_test.dart` — No issues found.
+- [2026-09-11T11:26:06Z] [CX] `flutter test --no-pub` after merging current `master` — **1,440 passed / 0 failed / 40 skipped**, exit 0 (the expected PARKED FR-025 skips).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-09-11T10:57:00Z
+**Updated_At:** 2026-09-11T11:26:06Z
 
 
 ### TASK-074
