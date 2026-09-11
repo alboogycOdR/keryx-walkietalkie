@@ -1,6 +1,6 @@
 # KERYX v2 — Product Model
 
-> **Version:** 0.1 (draft for owner approval) | **Date:** 2026-09-11 | **Author:** ORCH from owner decisions of 2026-09-11
+> **Version:** 0.2 (approved model; §10 answered) | **Date:** 2026-09-11 | **Author:** ORCH from owner decisions of 2026-09-11
 > **Supersedes, on approval:** the channel-first information architecture of `KERYX_Mobile_UX_Redesign_Design_v1.0.md` §1 and the numbered-channel model of `KERYX_Product_Technical_Spec_v1.1.md` (FR-001 family, privacy codes, the "Zello-style lobbies are the anti-persona" clause).
 > **Keeps:** the floor engine (one speaker at a time, TOT, emergency pre-emption), the WebRTC/LiveKit voice path, the audio-session fix, the UX R2 Talk surface, and the privacy commitments of Verification §8 (no address-book upload, no analytics without consent).
 
@@ -26,10 +26,16 @@ v2 turns KERYX into a people-first push-to-talk app: contacts, groups, presence,
 | D3 | **The radio layer is dropped.** No numbered channels, no privacy codes, no "tune". People, groups and presence replace them. Direct phone-to-phone talk on the same Wi‑Fi stays as a *transport*, invisible to the user. |
 | D4 | **Host a small database** (identities, contact links, groups, presence, undelivered mailbox) on the existing relay VPS. |
 | D5 | **AI is core**, not a bolt-on: voice-to-text, text-to-voice, real-time translation, and spoken-audio transforms are on the roadmap from the start. |
+| D6 | **Message retention defaults to 7 days** on the phone (user-adjustable). |
+| D7 | **Group size cap is 25** for v2.0. |
+| D8 | **No pricing decisions yet.** Build the full feature set first; decide free vs paid, and paid levels, afterwards. Nothing in the specs may assume a paywall. |
+| D9 | **Callsigns are not unique**; the short code disambiguates. |
+| D10 | **ID backup is a 12-word recovery phrase**, never a cloud copy of the key. |
+| D11 | **Style lens**: AI may rewrite the *words* of a message for the audience (formal for a boss, plain language, generation-appropriate phrasing in both directions), always marked, never altering who is speaking. |
 
 ## 2. Core concepts
 
-**KERYX ID.** Every install generates a key pair on first run. The public key's fingerprint, shown as a callsign plus a short code (`ALISTER·7K3Q`), is the person's identity. It can be shown as a QR code or shared as a link (`keryx.app/c/ALISTER-7K3Q`). Losing the phone loses the ID unless the user has made an encrypted backup (v2.1).
+**KERYX ID.** Every install generates a key pair on first run. The public key's fingerprint, shown as a callsign plus a short code (`ALISTER·7K3Q`), is the person's identity. It can be shown as a QR code or shared as a link (`keryx.app/c/ALISTER-7K3Q`). Losing the phone loses the ID unless the user has written down the 12-word recovery phrase shown at first run (restore is v2.1).
 
 **Contact.** A mutual link between two IDs. Either side can remove it, and removal is silent. Contacts see each other's presence and can talk 1:1.
 
@@ -101,10 +107,11 @@ The principle: on-device first, cloud when quality demands it, and always visibl
 | **What did I miss** | One tap summarises the last hour of a group in three lines | Captions sent to Claude (`claude-opus-5`) with a summarisation prompt; opt-in per group | v2.2 |
 | **Real-time translation** | You speak Afrikaans, they hear English; each listener picks their language | Captions → Claude translation → on-device TTS in the listener's language. Latency target 2 s end-to-end. Cloud speech for accuracy where on-device falls short | v2.3 |
 | **Audio transforms** | Noise cleanup on building sites; "radio voice" and other effects; slow-down replay | Noise suppression on-device (WebRTC + RNNoise); effects as local DSP; no voice cloning of other people | v2.3 |
+| **Style lens** | Send-side: "make this formal" before it goes to your boss; "plain language"; "shorter". Listen-side: hear a teenager's message in adult phrasing, or an adult's in the teenager's own register. The original is always one tap away and the message carries a "restyled" mark | Same pipeline as translation: captions → Claude rewrite with a style prompt → text or on-device TTS. Send-side rewrites are shown for approval before sending | v2.3 |
 | **Voice commands** | "KERYX, call the crew", "KERYX, mute for an hour" | On-device wake word + intent; Claude for free-form requests | v3 |
 | **Keyword alerts** | Get pinged when your name or "help" is said in a busy group | Runs on the caption stream, on-device | v3 |
 
-Cost posture: on-device features cost nothing per use. Cloud features are metered and bundled into a Pro tier, with a free daily allowance so the feature is discoverable.
+Cost posture: on-device features cost nothing per use. Cloud features are metered per use so their cost is known; whether and how they are charged for is decided after the full version ships (D8).
 
 ## 7. Architecture
 
@@ -155,23 +162,19 @@ Kept: the Talk screen and ring, the emergency control, Monitor/Scan where they s
 | Release | Scope | Done when |
 |---|---|---|
 | **v2.0 Contacts & Groups** | KERYX ID, QR/link contact requests, groups with keys and members, presence, 1:1 and group live talk over direct/relay, Talk-first UI with Contacts and Groups tabs | Two strangers can meet, scan, and talk within a minute; a group of five can talk across two networks |
-| **v2.1 Messages** | Store-and-forward voice, mailbox, push notifications, local retention, encrypted backup of the ID | A press with nobody listening is heard later; reinstalling restores contacts |
-| **v2.2 Captions & voice** | Live captions, text-to-voice, "what did I miss" summaries, Pro tier | A user can follow a group with the sound off |
-| **v2.3 Translation & transforms** | Real-time translation, noise cleanup, audio effects | Two people with no common language hold a conversation |
-| **v3** | Voice commands, keyword alerts, hardware PTT buttons, teams/admin for businesses, optional phone-number discovery | First paying business customer |
+| **v2.1 Messages** | Store-and-forward voice, mailbox, push notifications, local retention, restore from the 12-word phrase | A press with nobody listening is heard later; reinstalling restores contacts |
+| **v2.2 Captions & voice** | Live captions, text-to-voice, "what did I miss" summaries | A user can follow a group with the sound off |
+| **v2.3 Translation, style & transforms** | Real-time translation, style lens, noise cleanup, audio effects | Two people with no common language hold a conversation |
+| **v3** | Voice commands, keyword alerts, hardware PTT buttons, teams/admin for businesses, optional phone-number discovery; pricing model decided here | First paying business customer |
 
 Measures on the way to the BHAG: weekly talking users, messages delivered per user, contact requests accepted per new user (the viral loop), and minutes of translated talk.
 
-## 10. Open questions for the owner
+## 10. Owner answers (2026-09-11, recorded as D6–D11)
 
-1. **Message retention default:** 7 days is proposed. Agree?
-2. **Group size cap** for v2.0: 25 members keeps phone-to-phone mesh and relay costs sane. Agree?
-3. **Pro tier** from v2.2: is a paid tier acceptable, and at what price point should the spec assume?
-4. **Callsign uniqueness:** callsigns are not unique (the short code is what disambiguates). Is that acceptable, or should callsigns be reserved?
-5. **Backup of the ID:** encrypted cloud backup (Google Drive) or a 12-word recovery phrase? The phrase is more private; the cloud is easier.
+Retention 7 days; group cap 25; no pricing assumptions until the full version ships; callsigns non-unique; 12-word recovery phrase; style lens added.
 
 ## 11. Next steps
 
-1. Owner approves this model, with answers to §10.
+1. Approved by the owner 2026-09-11.
 2. ORCH writes the v2.0 PRD, Design and Technical specs in the same format as the R1 pack, and an ADR-003 recording the supersession.
 3. Decompose v2.0 into tasks; the first wave is the directory API and the identity/contacts client work, which can run in parallel.
