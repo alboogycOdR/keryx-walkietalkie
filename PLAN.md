@@ -4192,7 +4192,7 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 
 ### TASK-074
 **Title:** UX R2 Talk screen recomposition — channel card, new PTT ring, status below disc, contextual latch
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A2 (content order, channel card, conditional back button), A3 (ring treatments by state, no text in disc), A4 (visible toggle button removed; latch visible only while TX granted/latched); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 ("A disconnected screen must not show 'Ready'", active-speaker copy), §4 (state catalogue labels), §5 (copy); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 (configured vs effective route); Verification VT-010–VT-015
@@ -4228,6 +4228,7 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 - [2026-09-11T12:05:00Z] [ORCH] S5's first TASK-074 session was killed by the headless `claude -p` 600 s background-task ceiling. It had delegated to background sub-agents, which died with it, so nothing was committed. **Uncommitted partial work survives in the worktree**: `talk_ptt_disc.dart` deleted; `talk_screen.dart`, `test/app_shell/mobile_app_shell_test.dart`, `test/app_shell/talk_screen_test.dart` and `test/features/talk/talk_screen_test.dart` modified; new `talk_channel_card.dart` and its test. **Next step for S5:** status is `claimed`, so resume on `task/TASK-074-s5`. Review the diff, continue from it, **do the work directly in this session (do not launch background agents or background shell jobs)**, commit incrementally, run the full suite in the foreground, then go to needs_review. The redispatch sets CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 as a backstop.
 - [2026-09-11T12:40:00Z] [ORCH] The second session committed the implementation (`e10e94a`, `2e1a961`, `b594bac`), then ended its turn while 'waiting for the background test suite', so the status is still `claimed` with no Test_Evidence. A stale `test/regression/goldens/failures/` folder (talk_* diffs from a pre-regeneration run) was removed by ORCH. **Next step for S5:** do not change code unless a test fails. Run `flutter analyze --no-pub` and the FULL `flutter test --no-pub` **in the foreground and wait for its final line**: no background jobs, no scheduled wakeups, never end the turn while a command is running. Record Test_Evidence with exact counts, tick the criteria you verified, and move to needs_review.
 - [2026-09-11T13:05:00Z] [S5] Resumed third session. `flutter analyze --no-pub` showed exactly 2 pre-existing errors, both in `test/app_shell/channels_screen_test.dart` (owned by TASK-048, not this task): it imports the now-deleted `lib/features/talk/talk_ptt_disc.dart` and references `TalkPttDisc` by type — a direct, unavoidable consequence of this task's mandated deletion of `TalkPttDisc` (ADR-002 A4). Not touched (ownership boundary); flagged again below. First full-suite run: 1,451 passed / 18 failed / 40 skipped — 16 of the 18 were `talk_*` golden pixel diffs (0.19% each) despite the dossier's prior same-machine regeneration claim, plus 1 compile failure (`channels_screen_test.dart`) and 1 collateral compiler-crash load failure on `app_theme_test.dart` from that same compile break (its own test later ran and passed). Re-ran `flutter test --no-pub --update-goldens test/regression/goldens/talk_states_golden_test.dart` (16/16 passed), removed the generated `test/regression/goldens/failures/` artifact dir, committed the regenerated PNGs (`3b43497`), and re-ran that file alone (16/16 stable, no further drift). Final full-suite run **in the foreground, waited for completion**: 1,467 passed / 2 failed / 40 skipped (the 40 are the expected PARKED FR-025 soak skips) — the only 2 failures are the pre-existing `channels_screen_test.dart` compile break and its `app_theme_test.dart` load collateral, both TASK-048 territory, not a TASK-074 regression. All Owned_Paths tests, `flutter analyze` (on Owned_Paths), and the goldens are clean. Moving to needs_review; flagging the TASK-048 conflict for ORCH to route (not blocking this task, since the break is inherent to ADR-002 A4's own deletion instruction, already noted in the dossier).
+- [2026-09-11T13:35:00Z] [S5] Rework round 1 fixes on the same branch, foreground only. **BLOCKING 1 fixed:** `test/app_shell/channels_screen_test.dart` (added to Owned_Paths by the round-1 review) now imports `talk_ptt_ring.dart` and asserts `find.byType(TalkPttRing)`, matching the fix already applied in the sibling shell tests — no more compile break. **BLOCKING 2 fixed:** added a widget test at `Size(360, 640)`, text scale 1.0, asserting `keryx-talk-channel-card`, `keryx-talk-ptt-disc` and `keryx-talk-status-line` all lie fully within the viewport at zero scroll offset; passed first run, no layout change needed. **Non-blocking (a) fixed:** `_engageLatch`'s precondition now matches the Lock control's own `canLatch` visibility (`_latched || phase != tx`) instead of also requiring `_holding`, via a new `_lastBuiltPhase` field set at the end of `build()` — the control can no longer be visible yet inert. (b)/(c)/(d) left as the review scoped them (TASK-078/081 or accepted). Committed as `8024f74` + dossier note `63bfba5`. Full suite re-run in the foreground, waited for completion: **1472 passed / 0 failed / 40 skipped** (the 40 are the parked FR-025 soak skips — same set as before, zero new). `flutter analyze --no-pub` — **0 issues** (the previous 2 TASK-048-adjacent errors are gone now that channels_screen_test.dart is fixed). Moving to needs_review.
 **Artifacts:**
 - `lib/features/talk/talk_screen.dart`
 - `lib/features/talk/talk_channel_card.dart`
@@ -4236,11 +4237,13 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 - `test/features/talk/talk_channel_card_test.dart`
 - `test/app_shell/talk_screen_test.dart`
 - `test/app_shell/mobile_app_shell_test.dart`
+- `test/app_shell/channels_screen_test.dart`
 - `test/regression/goldens/talk_states_golden_test.dart` + regenerated `talk_*.png` goldens (dark+light)
 - `dossiers/TASK-074.md`
 **Test_Evidence:**
 - [2026-09-11T13:00:00Z] [S5] `flutter analyze --no-pub` — 2 issues, both pre-existing `test/app_shell/channels_screen_test.dart` (TASK-048 territory) referencing deleted `TalkPttDisc`; zero issues in this task's Owned_Paths.
 - [2026-09-11T13:02:00Z] [S5] `flutter test --no-pub --update-goldens test/regression/goldens/talk_states_golden_test.dart` — 16/16 passed (golden regeneration); re-run without `--update-goldens` — 16/16 passed (stable).
+- [2026-09-11T13:32:00Z] [S5] Rework round 1: `flutter analyze --no-pub` — **0 issues** (repo-wide). `flutter test --no-pub test/features/talk/talk_screen_test.dart` — 54/54 passed (incl. new 360x640 test). `flutter test --no-pub test/features/talk/ test/app_shell/` — 92/92 passed. Full suite `flutter test --no-pub`, foreground, waited for completion — **1472 passed / 0 failed / 40 skipped**.
 - [2026-09-11T13:04:00Z] [S5] `flutter test --no-pub` (full suite, foreground, waited for completion) — **1,467 passed / 2 failed / 40 skipped**, exit non-zero only from the 2 pre-existing `channels_screen_test.dart`/`app_theme_test.dart` collateral failures (TASK-048 territory, `TalkPttDisc` deletion per ADR-002 A4); every test in this task's Owned_Paths passed.
 **Review_Findings:** [2026-09-11T12:36:05Z] [ORCH] **REWORK round 1.** Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave). NOT merged; branch `task/TASK-074-s5` retained.
 
@@ -4273,8 +4276,8 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 
 **Next step for S5:** fix (1) and (2) on the existing branch; run the FULL suite in the foreground (no background jobs) and record exact counts, which must be 0 failed; set needs_review.
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T12:36:05Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-11T13:35:00Z
 
 
 ### TASK-075
