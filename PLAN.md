@@ -4352,7 +4352,7 @@ Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
 
 ### TASK-079
 **Title:** RX level telemetry — plumb inbound-rtp audioLevel into RadioViewState as MeasuredMeterLevel
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A6 (RX plumbing authorised; unavailable stays decorative; no TX mic metering); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.3 ("An animation driven by phase is decorative and must not be described as measured RMS"); Verification VT-015; lib/services/mesh/rtc_adapter.dart (`readAudioLevel`, `audioLevelFromInboundRtpStats`, TASK-065); lib/core/presentation/telemetry.dart (`MeasuredMeterLevel`, "reserved for TASK-065's real RX metering")
@@ -4377,6 +4377,24 @@ Files in `Owned_Paths` that turn out not to need changes stay untouched.
 **Started_At:** 2026-09-11T11:15:00Z
 **Progress_Notes:**
 - [2026-09-11T11:15:00Z] [S5] Claimed TASK-079. Resume check: no S5 in_progress/claimed task found (TASK-058 done). Depends_On: none. Territory disjoint from CX's in_progress TASK-073 (talk_ptt_ring.dart only) and other pending tasks — confirmed no overlap. Branch task/TASK-079-s5 created from master tip 01d0af5. Reading dossiers/TASK-079.md and relevant Owned_Paths files next, then preflight.
+- [2026-09-11T11:20:00Z] [S5] Status: in_progress. Preflight (python scripts/preflight_paths.py TASK-079) confirmed territory, all files exist as expected:
+```
+[preflight] TASK-079 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx
+[preflight] 12 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  FILE   lib/services/mesh/mesh_controller.dart  -> exists, 257 line(s), 9290 bytes
+  FILE   lib/services/session/radio_session_controller.dart  -> exists, 444 line(s), 17181 bytes
+  FILE   lib/services/linked/linked_controller.dart  -> exists, 271 line(s), 10410 bytes
+  GLOB   lib/core/radio_host/**  -> 4 file(s): keryx_radio_host.dart, radio_host.dart, radio_host_contract.dart, radio_host_snapshot.dart
+  FILE   lib/core/presentation/radio_view_state.dart  -> exists, 303 line(s), 13904 bytes
+  FILE   lib/core/presentation/telemetry.dart  -> exists, 153 line(s), 5562 bytes
+  FILE   test/services/mesh/mesh_controller_test.dart  -> exists, 250 line(s), 8523 bytes
+  FILE   test/services/session/radio_session_controller_test.dart  -> exists, 353 line(s), 10918 bytes
+  FILE   test/services/linked/linked_controller_test.dart  -> exists, 300 line(s), 12845 bytes
+  GLOB   test/core/radio_host/**  -> 1 file(s): keryx_radio_host_test.dart
+  FILE   test/core/presentation/radio_view_state_test.dart  -> exists, 481 line(s), 17520 bytes
+  FILE   dossiers/TASK-079.md  -> exists, 22 line(s), 899 bytes
+```
+Reading rtc_adapter.dart (readAudioLevel/audioLevelFromInboundRtpStats), mesh_controller.dart, radio_session_controller.dart, radio_host_snapshot.dart, radio_view_state.dart and telemetry.dart next to trace the active-speaker connection and plan the 10Hz poll + throttle wiring.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
