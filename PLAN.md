@@ -4192,7 +4192,7 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 
 ### TASK-074
 **Title:** UX R2 Talk screen recomposition — channel card, new PTT ring, status below disc, contextual latch
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A2 (content order, channel card, conditional back button), A3 (ring treatments by state, no text in disc), A4 (visible toggle button removed; latch visible only while TX granted/latched); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 ("A disconnected screen must not show 'Ready'", active-speaker copy), §4 (state catalogue labels), §5 (copy); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 (configured vs effective route); Verification VT-010–VT-015
@@ -4222,15 +4222,15 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 - [ ] Every pre-existing VT-010–VT-015 test still passes in intent; any test that drove the removed toggle button now drives the ring's semantics action instead (Verification §4)
 - [ ] At 360×640 dp, text scale 1.0, card, ring and status are all visible without scrolling (widget test at that surface size) (ADR-002 A3)
 - [ ] `talk_*` goldens regenerated (dark + light); `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-074-s5
+**Started_At:** 2026-09-11T11:50:34Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T10:07:46Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-11T11:50:34Z
 
 
 ### TASK-075
