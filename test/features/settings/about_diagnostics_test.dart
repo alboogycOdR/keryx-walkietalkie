@@ -68,7 +68,7 @@ void main() {
     expect(all, isNot(contains('Effective route AUTO')));
   });
 
-  test('resolved LOCAL effective route uses routeLabel LOCAL', () {
+  test('resolved LOCAL effective route matches configured-mode casing', () {
     final AboutDiagnostics about = buildAboutDiagnostics(
       view: view(configured: RadioMode.auto, effective: RadioMode.local),
       settings: const KeryxSettings(mode: RadioMode.auto),
@@ -76,7 +76,8 @@ void main() {
     );
     final String all = [...about.summaryLines, ...about.detailLines].join('\n');
     expect(all, contains('Configured mode Auto'));
-    expect(all, contains('Effective route LOCAL'));
+    expect(all, contains('Effective route Local'));
+    expect(all, isNot(contains('Effective route LOCAL')));
   });
 
   test('sanitizeDiagnosticText strips exceptions and type names', () {

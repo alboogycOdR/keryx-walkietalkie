@@ -96,6 +96,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
 
   FloorEngine? _lastFloorEngine;
   bool _wasPermissionDenied = false;
+  bool _autoReleasePosted = false;
 
   @override
   void initState() {
@@ -177,10 +178,21 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     setState(() => TalkLatchState.engage(widget.host));
   }
 
-  void _releaseLatch(RadioViewIntents intents) {
+  void _releaseLatch([RadioViewIntents? intents]) {
     if (!_latched) return;
-    setState(() => TalkLatchState.release(widget.host));
-    intents.releaseLatch();
+    TalkLatchState.release(widget.host);
+    (intents ?? RadioViewIntents(widget.host)).releaseLatch();
+    if (mounted) setState(() {});
+  }
+
+  /// TASK-081 rework: a leftover latch after the reducer leaves TX (TOT,
+  /// EndTransmit, or LinkDegraded) must also release the floor. Clearing
+  /// only the UI flag left a LINKED latched TX open through reconnect with
+  /// no Release control (`TalkLatchState` dartdoc). Releasing an already
+  /// idle engine is a no-op. Must not run as a mutation inside [build].
+  void _releaseLeftoverLatchIfPhaseLeftTx(RadioPhase phase) {
+    if (phase == RadioPhase.tx) return;
+    _releaseLatch();
   }
 
   @override
@@ -190,22 +202,31 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     final settingsAsync = ref.watch(settingsProvider);
     final settings = settingsAsync.valueOrNull;
 
+    ref.listen(radioStateProvider, (previous, next) {
+      _releaseLeftoverLatchIfPhaseLeftTx(next.phase);
+    });
+
     if (settings == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // A leftover latch flag after the floor has left TX must not keep the
-    // red locked treatment or "Transmission locked" copy on screen.
-    if (_latched && radioState.phase != RadioPhase.tx) {
-      TalkLatchState.release(widget.host);
+    // Remount while already out of TX (e.g. LinkDegraded while Talk was
+    // off-stage) never fires [ref.listen]; catch it after this frame.
+    if (_latched && radioState.phase != RadioPhase.tx && !_autoReleasePosted) {
+      _autoReleasePosted = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _autoReleasePosted = false;
+        if (!mounted) return;
+        _releaseLeftoverLatchIfPhaseLeftTx(ref.read(radioStateProvider).phase);
+      });
     }
 
     final viewState = RadioViewState.project(
       radioState: radioState,
       hostSnapshot: _snapshot,
       settings: settings,
-      latched: TalkLatchState.of(widget.host) &&
-          radioState.phase == RadioPhase.tx,
+      latched:
+          TalkLatchState.of(widget.host) && radioState.phase == RadioPhase.tx,
     );
 
     final tokens = KeryxUxTokens.of(context);
@@ -459,9 +480,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     }
     return switch (treatment) {
       TalkPttRingTreatment.tx || TalkPttRingTreatment.latched => (
-        viewState.latched
-            ? TalkCopy.transmissionLocked
-            : TalkCopy.transmitting,
+        viewState.latched ? TalkCopy.transmissionLocked : TalkCopy.transmitting,
         '',
       ),
       TalkPttRingTreatment.rx => (
@@ -474,10 +493,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
         TalkCopy.channelClear,
         TalkCopy.holdToTalk,
       ),
-      TalkPttRingTreatment.neutral => (
-        _neutralPhaseLabel(viewState.phase),
-        '',
-      ),
+      TalkPttRingTreatment.neutral => (_neutralPhaseLabel(viewState.phase), ''),
     };
   }
 

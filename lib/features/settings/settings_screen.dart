@@ -235,19 +235,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             relayError: _relayError,
             tokenError: _tokenError,
             callsignError: _callsignError,
-            onPropose: (KeryxSettings next) => unawaited(_propose(settings, next)),
+            onPropose: (KeryxSettings next) =>
+                unawaited(_propose(settings, next)),
             onTheme: (AppearanceTheme theme) => unawaited(_setTheme(theme)),
             onCallsign: (String raw) => unawaited(_setCallsign(raw)),
             onCancelDeferred: _cancelDeferred,
             onRegionError: (String? error) =>
                 setState(() => _regionError = error),
-            onRelayError: (String? error) => setState(() => _relayError = error),
-            onTokenError: (String? error) => setState(() => _tokenError = error),
+            onRelayError: (String? error) =>
+                setState(() => _relayError = error),
+            onTokenError: (String? error) =>
+                setState(() => _tokenError = error),
           );
         },
-        loading: () => const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        loading: () =>
+            const Scaffold(body: Center(child: CircularProgressIndicator())),
         error: (Object _, StackTrace _) => Scaffold(
           body: Center(
             child: Padding(
@@ -457,7 +459,11 @@ class _SettingsScaffold extends StatelessWidget {
                   key: SettingsKeys.effectiveRoute,
                   label: SettingsCopy.effectiveRouteLabel,
                   description: SettingsCopy.effectiveRouteDescription,
-                  value: view.connection.routeLabel,
+                  value: view.connection.isResolved
+                      ? SettingsCopy.modeOptionLabel(
+                          view.connection.effectiveRoute.name,
+                        )
+                      : view.connection.routeLabel,
                 ),
                 SettingsToggleRow(
                   key: SettingsKeys.forceLocal,

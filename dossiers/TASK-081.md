@@ -41,6 +41,19 @@ Route them all through the new label so AUTO never shows as an *effective* route
   (idle/requesting/granted/receiving/degraded/emergency/permission_denied/
   service_fault × dark+light). channels_*.png unchanged. talk_granted_* had
   the largest delta because Lock no longer renders on a grant without hold.
+- [2026-09-11T13:15:00Z] [GB] Rework round 1: leftover-latch cleanup now
+  calls `RadioViewIntents.releaseLatch()` exactly once, via `ref.listen`
+  (live tx→other) plus a post-frame callback (remount already out of TX).
+  No mutation inside `build()`. LinkDegraded test: `releaseLatchCalls==1`
+  and no red latched treatment. EndTransmit: at most one call, no stuck
+  "Transmission locked". Mutation-check: dropping the release call made
+  the LinkDegraded test fail (`Expected: <1> Actual: <0>`); restored.
+  Non-blocking: (a) `membersLabel` switches on `isResolved`+`effectiveRoute`;
+  (b) settings/about effective route uses title-case `modeOptionLabel` when
+  resolved so it matches the configured-mode row; (c) blank import in
+  stations_screen.dart removed; (d) `configuredDiffers` compares modes, not
+  label strings. Goldens for settings/talk/stations/channels still match
+  (effective-route row is below the settings golden crop).
 
 ## Changed goldens
 
