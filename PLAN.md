@@ -4096,24 +4096,30 @@ Gesture semantics carry over exactly from `TalkPttDisc`: a `Listener` with a `_h
 
 Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without breaking shell tests that find that key.
 **Acceptance_Criteria:**
-- [ ] `TalkPttRing` renders face + ring + glyph with no text inside the disc; ring colour follows the supplied colour for each `treatment` (ADR-002 A3)
-- [ ] `sizeFor` clamps to [96, 300] at 0.78 × width; tests cover 320, 360, 412 and 800 dp widths (ADR-002 A3)
-- [ ] Glow is present only for `MeasuredMeterLevel` and scales with its value; `DecorativeMeterLevel` produces no glow and no running animation (test asserts no scheduled frame) (Design §3.4; VT-015)
-- [ ] Requesting sweep and denied shake run, and both are replaced by static treatments when `reducedMotion` is true (ADR-002 A3)
-- [ ] Hold gesture: exactly one `onHoldStart` per press and one `onHoldEnd` per up/cancel; duplicate up/cancel and press-while-disabled are no-ops (VT-011)
-- [ ] Semantics custom action and `Enter`/`Space` each toggle start/stop through the same callbacks; tests drive both (ADR-002 A4; Design §5)
+- [x] `TalkPttRing` renders face + ring + glyph with no text inside the disc; ring colour follows the supplied colour for each `treatment` (ADR-002 A3)
+- [x] `sizeFor` clamps to [96, 300] at 0.78 × width; tests cover 320, 360, 412 and 800 dp widths (ADR-002 A3)
+- [x] Glow is present only for `MeasuredMeterLevel` and scales with its value; `DecorativeMeterLevel` produces no glow and no running animation (test asserts no scheduled frame) (Design §3.4; VT-015)
+- [x] Requesting sweep and denied shake run, and both are replaced by static treatments when `reducedMotion` is true (ADR-002 A3)
+- [x] Hold gesture: exactly one `onHoldStart` per press and one `onHoldEnd` per up/cancel; duplicate up/cancel and press-while-disabled are no-ops (VT-011)
+- [x] Semantics custom action and `Enter`/`Space` each toggle start/stop through the same callbacks; tests drive both (ADR-002 A4; Design §5)
 - [ ] Root key `keryx-talk-ptt-disc` present; `flutter analyze` clean; full suite green
 **Branch:** task/TASK-073-cx
 **Started_At:** 2026-09-11T10:34:54Z
 **Progress_Notes:**
 - [2026-09-11T10:34:54Z] [CX] Claimed TASK-073. Preflight (`python scripts/preflight_paths.py TASK-073`): `NEW lib/features/talk/talk_ptt_ring.dart -> does not exist; parent lib/features/talk/ exists`; `NEW test/features/talk/talk_ptt_ring_test.dart -> does not exist; parent test/features/talk/ exists`; `FILE dossiers/TASK-073.md -> exists, 22 line(s), 1203 bytes`. Next: read ADR/design/verification and current PTT implementation before building the standalone ring.
 - [2026-09-11T10:39:00Z] [CX] Read ADR-002 A3/A4, Design §2.2/§3.4/§5, Verification VT-011/VT-015, the legacy `TalkPttDisc`, and the typed meter telemetry contract. Implementing the standalone ring without touching existing screen composition.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-11T10:57:00Z] [CX] Implementation committed as `f08270f` (`feat(talk): add standalone PTT ring [TASK-073]`): new parameter-only `TalkPttRing`, focused tests, and dossier. Focused tests/analyze pass. Full `flutter test` was started but its runner remained stuck after it created the untracked `test/regression/goldens/failures/` artifact; terminated the runner and left it for review/cleanup because that path is outside TASK-073 territory. Task remains in_progress pending a clean full-suite run.
+**Artifacts:**
+- `lib/features/talk/talk_ptt_ring.dart`
+- `test/features/talk/talk_ptt_ring_test.dart`
+- `dossiers/TASK-073.md`
+**Test_Evidence:**
+- [2026-09-11T10:53:00Z] [CX] `flutter test test/features/talk/talk_ptt_ring_test.dart` — 6 passed.
+- [2026-09-11T10:54:00Z] [CX] `flutter analyze lib/features/talk/talk_ptt_ring.dart test/features/talk/talk_ptt_ring_test.dart` — No issues found.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-09-11T10:39:00Z
+**Updated_At:** 2026-09-11T10:57:00Z
 
 
 ### TASK-074
