@@ -1,6 +1,6 @@
 ---
 plan_version: 16.0
-last_updated: 2026-09-11T18:55:14Z
+last_updated: 2026-09-11T19:37:03Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -5246,7 +5246,7 @@ Territory is existing token-svc (grow, do not replace). Implementing groups/invi
 
 ### TASK-086
 **Title:** v2 directory client and local stores — signed REST client, presence socket, contacts and groups stores
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §4.2 (contract), §4.3 (presence), §6.1 (modules); token-svc/openapi-v2.yaml (TASK-084's contract); PRD V2-FR-010..014, V2-FR-020..025, V2-FR-030..033; Verification V2-VT-013 (client side), V2-VT-025/026 (store behaviour)
@@ -5290,10 +5290,25 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
 - Targeted: `test/services/directory/` 18/18, `test/core/contacts/` 12/12, `test/core/groups/` 7/7.
 - `flutter build apk --debug`: Built build/app/outputs/flutter-apk/app-debug.apk successfully.
 - `git diff master --stat -- . ':!PLAN.md'`: 25 files, all inside Owned_Paths.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T19:37:03Z] [ORCH] **APPROVED first-pass**, merged `574509d`. Reviewed on claude-sonnet-5 (AUTOPILOT v2.0 wave).
+- **Territory:** clean. 25 files, all inside Owned_Paths, `lib/core/identity/**` untouched. Two tagged commits.
+- **Tests:** independent run in the worktree: analyze 0; targeted (directory/contacts/groups) 37/37; full suite 1621 passed / 0 failed / 40 skipped (+37 over the 1584 baseline).
+- **Carried key-encoding fix verified:** `directory_signing.dart`'s `unpaddedBase64Url` sends `X-Keryx-Key` as the contract's canonical unpadded base64url, and `lib/core/identity/**` (frozen elsewhere) is untouched — the wrapping approach the task required.
+- **Reviewed in source:**
+  - `PresenceClient`: reconnect with backoff (initial 1 s, max 30 s, 5 attempts before `gaveUp`), 60 s heartbeat, `PresenceUpdate`/`GroupRotationNotice`/`AlertNotice` streams, signed WS handshake over the same helper as REST.
+  - `ContactsController`: server refresh reconciles contacts and both directions of pending requests; `pruneExpired` matches the 7-day rule; a periodic `checkSilence` sweep (parametrised) marks a contact locally Offline after 5 minutes with no presence update, independent of the server's own sweep — a sensible client-side backstop.
+  - `GroupsController.refreshFromServer`: compares local vs server `keyVersion`; unchanged groups only refresh name/role; a version bump calls `openSealed` with the member's own key, re-derives the room via `deriveGroupRoom`, and emits `GroupKeyChanged`; a group absent from the server's list emits `GroupMembershipEnded` — correctly implements "removed member drops the group on notice" without the controller ever seeing the old room again.
+  - `createGroup`/`joinGroup` mint a fresh random secret / accept the invite's secret, derive the room, seal to the caller's own key, and persist before returning — matches Technical §5.1/§5.2.
+  - Contract test loads `openapi-v2.yaml` and checks every path the client calls exists in it.
+- **Criteria:** all seven verified as stated.
+- **Non-blocking:**
+  - (a) `ContactsController`'s local silence sweep and the server's own 5-minute sweep could disagree briefly (e.g. clock skew); not a bug, just worth remembering when TASK-090 renders "last seen".
+  - (b) `_randomSecret()`'s `Random` defaults to `Random.secure()`, good, but confirm no call site ever passes a non-secure override outside tests.
+  - (c) `refreshFromServer`'s `orElse` branch on `firstWhere` builds a throwaway `GroupMembership` with `secret: const []`; harmless since it's immediately checked via `keyVersion == -1`, but a `.where().firstOrNull` would read more directly.
+- **Unlocks:** TASK-088 (S5, both deps now done); TASK-090 still needs 086, already satisfied.
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T22:30:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T19:37:03Z
 
 
 ### TASK-087
