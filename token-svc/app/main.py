@@ -1,26 +1,33 @@
-"""Token mint plus v2 directory (Technical §4). POST /token is unchanged this task."""
+"""Token mint plus v2 directory (Technical §4). POST /token is signed + membership-gated."""
 
 from __future__ import annotations
 
+import asyncio
 import re
 import time
+from contextlib import asynccontextmanager
 from typing import Callable
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 
 from app.config import Settings
 from app.db import make_engine, make_session_factory
-from app.errors import DirectoryError, error_response
+from app.encoding import parse_pubkey
+from app.errors import DirectoryError, UNKNOWN_IDENTITY, error_response
 from app.event_token import EventTokenError, verify_event_token
+from app.groups import assert_room_member, ensure_direct_room
 from app.jwt_mint import mint_livekit_jwt, new_identity
 from app.logging_policy import configure_logging
 from app.models import TokenRequest, TokenResponse
+from app.orm import Identity
 from app.presence import MemoryPresenceHub, RedisPresenceHub
 from app.rate_limit import IpRateLimiter
-from app.signing import MemoryNonceStore, RedisNonceStore
+from app.signing import MemoryNonceStore, RedisNonceStore, verify_headers
 from app.v2_api import router as v2_router
+from app.v2_api import run_presence_sweep
 
 log = configure_logging()
 
@@ -57,10 +64,48 @@ def create_app(
         ttl_seconds=cfg.rate_limit_ttl_seconds,
         clock=now,
     )
-    app = FastAPI(title="keryx-token-svc", docs_url=None, redoc_url=None, openapi_url=None)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        hub = app.state.presence_hub
+        starter = getattr(hub, "start_subscriber", None)
+        if callable(starter):
+            starter()
+        stop = asyncio.Event()
+        app.state.presence_sweep_stop = stop
+
+        async def _loop() -> None:
+            while not stop.is_set():
+                try:
+                    await asyncio.wait_for(stop.wait(), timeout=60)
+                    return
+                except asyncio.TimeoutError:
+                    try:
+                        await run_presence_sweep(app)
+                    except Exception:
+                        log.exception("presence sweep failed")
+
+        task = asyncio.create_task(_loop())
+        try:
+            yield
+        finally:
+            stop.set()
+            task.cancel()
+            stopper = getattr(hub, "stop_subscriber", None)
+            if callable(stopper):
+                stopper()
+
+    app = FastAPI(
+        title="keryx-token-svc",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+        lifespan=lifespan,
+    )
     app.state.settings = cfg
     app.state.limiter = rate
     app.state.clock = now
+    app.state.run_presence_sweep = run_presence_sweep
 
     if session_factory is None:
         engine = make_engine(cfg.database_url)
@@ -106,9 +151,36 @@ def create_app(
         return {"ok": True}
 
     @app.post("/token", response_model=TokenResponse)
-    def mint_token(body: TokenRequest, request: Request) -> TokenResponse:
+    async def mint_token(request: Request) -> TokenResponse:
         if not rate.allow(_client_ip(request)):
             raise HTTPException(status_code=429, detail="rate_limited")
+        raw = await request.body()
+        try:
+            body = TokenRequest.model_validate_json(raw or b"{}")
+        except ValidationError as exc:
+            raise HTTPException(status_code=422, detail="invalid_request") from exc
+
+        pk = verify_headers(
+            {k: v for k, v in request.headers.items()},
+            "POST",
+            request.url.path,
+            raw,
+            request.app.state.clock(),
+            request.app.state.settings.signing_window_s,
+            request.app.state.nonce_store,
+        )
+        session = request.app.state.session_factory()
+        try:
+            if session.get(Identity, pk) is None:
+                raise DirectoryError(401, UNKNOWN_IDENTITY)
+            if body.peer_pk:
+                peer = parse_pubkey(body.peer_pk)
+                ensure_direct_room(session, pk, peer, body.room_id, request.app.state.clock())
+                session.commit()
+            assert_room_member(session, pk, body.room_id)
+        finally:
+            session.close()
+
         if body.event_token:
             try:
                 verify_event_token(
@@ -118,8 +190,7 @@ def create_app(
                     now(),
                 )
             except EventTokenError as exc:
-                status = 403
-                raise HTTPException(status_code=status, detail=exc.code) from exc
+                raise HTTPException(status_code=403, detail=exc.code) from exc
         identity = new_identity(body.callsign)
         token = mint_livekit_jwt(
             api_key=cfg.livekit_api_key,

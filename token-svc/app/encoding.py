@@ -1,4 +1,9 @@
-"""Pubkey and path encoding. Keys on the wire are unpadded base64url of 32 raw bytes."""
+"""Pubkey and path encoding.
+
+Canonical on the wire is unpadded base64url of 32 raw bytes (Technical §3.3).
+The server also accepts standard base64 (padded, ``+``/``/``) for
+``X-Keryx-Key`` — the Dart client in TASK-083 emits that form.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +14,8 @@ from app.errors import DirectoryError, INVALID_KEY, INVALID_REQUEST
 from app.models import CALLSIGN_RE
 
 PUBKEY_LEN = 32
+# Canonical unpadded base64url, plus standard base64 (+ / =) from the Dart client.
+_KEY_RE = re.compile(r"^[A-Za-z0-9_+/=\-]+$")
 _B64URL_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
@@ -18,11 +25,13 @@ def b64url_encode(raw: bytes) -> str:
 
 def b64url_decode(value: str) -> bytes:
     text = (value or "").strip()
-    if not text or not _B64URL_RE.fullmatch(text):
+    if not text or not _KEY_RE.fullmatch(text):
         raise DirectoryError(401, INVALID_KEY)
-    pad = "=" * ((4 - len(text) % 4) % 4)
+    stripped = text.rstrip("=")
+    pad = "=" * ((4 - len(stripped) % 4) % 4)
     try:
-        raw = base64.urlsafe_b64decode(text + pad)
+        # urlsafe decoder also accepts standard +/ after the -/_ translation.
+        raw = base64.urlsafe_b64decode(stripped + pad)
     except Exception as exc:
         raise DirectoryError(401, INVALID_KEY) from exc
     return raw
