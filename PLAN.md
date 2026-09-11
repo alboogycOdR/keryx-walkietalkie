@@ -5168,7 +5168,7 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 
 ### TASK-085
 **Title:** v2 directory service II — groups, invites, rotation, alerts, membership-gated /token
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §4.2 (groups/alerts/token rows), §5.2 (invite), §5.3 (rotation); PRD V2-FR-020..025, V2-FR-050; Verification V2-VT-011, 012, 014, 015
@@ -5184,15 +5184,16 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 - [ ] **Carried from TASK-084 review (interop):** `X-Keryx-Key` is accepted as unpadded base64url OR standard base64 (padded, `+`/`/`); a test feeds the exact standard-base64 form the Dart client (`lib/core/identity/signing.dart`) emits and is accepted; the contract documents base64url as canonical and standard as accepted (Technical §3.3)
 - [ ] **Carried from TASK-084 review:** a periodic stale-presence sweep (≤60 s) marks silent identities Offline without waiting for another socket's message; the Redis presence bus has a subscriber so a second process receives fan-out (V2-FR-030; Technical §4.3)
 - [ ] `openapi-v2.yaml` updated; `pytest` green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-085-gb
+**Started_At:** 2026-09-11T18:22:09Z
+**Progress_Notes:**
+- [2026-09-11T18:22:09Z] [GB] Claimed TASK-085. Resume check: no GB in_progress/claimed task. Depends_On TASK-084 is done (merged 57bcaec). Branch task/TASK-085-gb next; preflight_paths.py then specs before any code.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-11T18:22:09Z
 
 
 ### TASK-086
