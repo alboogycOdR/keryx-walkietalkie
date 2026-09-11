@@ -5226,7 +5226,7 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 
 ### TASK-087
 **Title:** v2 rooms and transport keys — group and 1:1 room derivation, LAN room prefix, LiveKit E2EE, signed token client
-**Status:** pending
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §1 (rooms/discovery/relay rows), §5.1, §5.4, §5.5, §7 (derivation.dart, token_client.dart); Verification V2-VT-020, V2-VT-023 (prefix half); PRD V2-NFR-004
@@ -5243,6 +5243,16 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 **Started_At:** 2026-09-11T20:00:00Z
 **Progress_Notes:**
 - [2026-09-11T20:00:00Z] [S5] Claimed TASK-087. Resume check: no S5 in_progress/claimed task found in PLAN.md (TASK-077/079/083 all done). Depends_On TASK-083 is done (merged). Branch task/TASK-087-s5 created from master tip. Next: preflight_paths.py TASK-087, then read specs/KERYX_v2.0_Technical_v1.0.md §1/§5.1/§5.4/§5.5/§7 and the current derivation.dart/discovery/linked files before touching code.
+- [2026-09-11T20:05:00Z] [S5] Status: in_progress (correcting a claim-commit slip — Branch/Started_At were set in the prior commit but Status was left at `pending`). Preflight (`python scripts/preflight_paths.py TASK-087`) confirmed territory:
+```
+[preflight] TASK-087 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx
+  GLOB   lib/core/rooms/**            -> 5 files (README.md, derivation.dart, rfc4648_base32.dart, rooms.dart, scrypt_stretch.dart)
+  GLOB   lib/services/discovery/**    -> 12 files (README.md, broadcast_fallback.dart, channel_hash_prefix.dart, discovered_peer.dart, discovery.dart, discovery_config.dart, discovery_constants.dart, discovery_scheduler.dart, discovery_service.dart, discovery_state.dart, nsd_events.dart, nsd_platform.dart)
+  GLOB   lib/services/linked/**       -> 7 files (link_monitor.dart, linked.dart, linked_controller.dart, linked_floor_transport.dart, livekit_adapter.dart, livekit_client_adapter.dart, token_client.dart)
+  GLOB   test/core/rooms/**           -> 3 files; test/services/discovery/** -> 3 files; test/services/linked/** -> 6 files
+  FILE   dossiers/TASK-087.md exists
+```
+**Scoping decision (cross-task dependency ordering, Technical §10 item 4 vs items 5/11):** `deriveNumbered` (`lib/core/rooms/derivation.dart`) is still called by `lib/services/session/radio_session_controller.dart` (TASK-088's `Owned_Paths`) and `lib/features/event_qr/event_link.dart` (TASK-094's `Owned_Paths`); `ChannelHashPrefix`/`DiscoveryConfig.channelHashPrefix` are likewise still called by `radio_session_controller.dart`. Technical §10 orders "Room derivation" (item 4, this task, deps on 1 only) strictly before "Session/host changes" (item 5, deps on 4) and "Deletions" (item 11, "after 10") — so the callers this task's own AC phrasing asks to be gone are, by the spec's own dependency graph, migrated/deleted by later tasks, not this one. Deleting them here would break `flutter analyze`/the full suite in files outside this task's `Owned_Paths`, which the territory firewall (and AGENTS.md commandment 4) forbids touching. Proceeding **additively**: new `deriveGroupRoom`/`deriveDirectRoom`/`RoomPrefix`/multi-room `DiscoveryConfig`/signed `TokenClient`/E2EE `LiveKitAdapter` land alongside the legacy numbered/channel-hash path, which stays wired exactly as-is for its existing out-of-territory callers. The two "no longer exists"/"is gone" AC boxes will stay unchecked with this note as the reason; TASK-088 (session/host) and TASK-094 (deletions) are where those callers actually move off the legacy path and the dead code can then be removed. Flagging for ORCH visibility rather than silently declaring them done. Next: implement `lib/core/rooms/derivation.dart` additions + tests.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
