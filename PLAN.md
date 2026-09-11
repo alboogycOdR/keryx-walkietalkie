@@ -1,6 +1,6 @@
 ---
 plan_version: 15.1
-last_updated: 2026-09-11T11:55:21Z
+last_updated: 2026-09-11T12:16:23Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4520,7 +4520,7 @@ Reading rtc_adapter.dart (readAudioLevel/audioLevelFromInboundRtpStats), mesh_co
 
 ### TASK-080
 **Title:** Effective route shows "AUTO" — diagnose and fix the configured-vs-effective route projection
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; lib/core/presentation/connection_condition.dart dartdoc (effective route "is never `auto` in practice"); owner screenshot 2026-09-11 ("Configured LOCAL · Route AUTO" on a real phone), also noted in orchestrator_notes after the 2026-09-08 hardware attempt
@@ -4562,10 +4562,23 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 - `flutter analyze` → No issues found.
 - `flutter test` → full suite passed (foreground run, exit 0).
 - `git diff --check master...HEAD` → clean; `git diff --name-only master...HEAD` → seven owned files only.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T12:16:23Z] [ORCH] **APPROVED first-pass** (after one ORCH-triaged OWNERSHIP_CONFLICT block, which was not a rework), merged `6dcf3e8`. Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave).
+- **Territory:** clean. 7 files, all inside Owned_Paths, and the single commit `132a26b` is tagged. An earlier draft touched `radio_view_state.dart`, which is outside TASK-080 territory; CX removed that before resubmitting.
+- **Tests:** run independently in the worktree by a subagent. `flutter analyze` 0 issues; session/state/presentation/host/app_shell/regression subset 160/160; full suite 1467 passed / 0 failed / 40 skipped, 500 soak seeds run.
+- **Root cause (ORCH confirmed in source):** `KeryxRadioHost` starts the session between `PowerOn` and `BootCompleted`. The controller resolves LOCAL/LINKED and dispatches `SetMode` while the reducer is in `boot`, but `RadioReducer` accepted `SetMode` only in `idle`, so the concrete route was silently dropped and the default `auto` stayed visible. That matches the owner's "Configured LOCAL · Route AUTO" screenshot.
+- **Fix:** the reducer now accepts a concrete `SetMode` in any powered phase and rejects `SetMode(auto)` as an effective-route event. ORCH checked the safety of this. `RadioState.mode` is consumed only by the view projection (`effectiveRoute`, the LOCAL roster-count gate) and by host service-sync diffing, never by floor or transport logic, and no spec sentence restricts route projection to idle (grep of PTS/Technical). Widening the accepted phases therefore has no floor side effect.
+- **Oracle update:** the exhaustive transition-matrix oracle in `radio_state_test.dart` moved in lockstep with the new semantics (legal 139→145, illegal no-op 93→87). The old "permits AUTO" assertion is replaced by an explicit "AUTO is rejected" one, and a boot-phase acceptance test was added. That is a deliberate spec-level change, not a weakened test.
+- **Criteria:** all seven verified.
+  - `ConnectionCondition.isResolved`/`routeLabel` return 'Connecting' while unresolved.
+  - The carried TASK-079 findings are fixed: a `_meterPollGeneration` token makes superseded polls no-ops, and the `readAudioLevel` try/catch maps a throw to unavailable and keeps polling. Both have targeted tests.
+- **Non-blocking:**
+  - (a) The controller's `_queueSetMode`/`_flushPendingSetMode` idle-queue is now largely redundant with the reducer accepting boot-phase modes. Consider simplifying it when that file next opens.
+  - (b) The literal 'Connecting' lives in core presentation rather than a copy file.
+  - (c) Test_Evidence records the full suite as "passed, exit 0" without counts; ORCH's run supplies them (1467/0/40).
+- **Unlocks:** TASK-081 (still needs TASK-074).
 **Blocked_Reason:** —
-**Updated_By:** CX
-**Updated_At:** 2026-09-11T12:10:57Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T12:16:23Z
 
 
 ### TASK-081
