@@ -5047,7 +5047,7 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 
 ### TASK-083
 **Title:** v2 identity core — Ed25519 key pair, peer ID from public key, 12-word recovery phrase, sealed-box helpers
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §3 (keys, ID, phrase, signing), §7 (peer_id.dart re-point); specs/KERYX_v2.0_PRD_v1.0.md V2-FR-001..004; specs/KERYX_v2.0_Verification_v1.0.md V2-VT-001..004; Product Model D1, D9, D10
@@ -5061,15 +5061,16 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 - [ ] `sealToPublicKey`/`openSealed` round-trip; opening with the wrong key fails (Technical §5.3)
 - [ ] Existing `IdentityRepository` consumers compile unchanged; a UUID-only store migrates to a key and keeps the callsign (Technical §8)
 - [ ] `flutter analyze` clean; full suite green; `pubspec.lock` committed
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-083-s5
+**Started_At:** 2026-09-11T18:00:00Z
+**Progress_Notes:**
+- [2026-09-11T18:00:00Z] [S5] Claimed TASK-083. Resume check: no S5 in_progress/claimed task found in PLAN.md (TASK-077 is done/merged). Depends_On: none. Branch task/TASK-083-s5 to be created from master. Next: preflight_paths.py TASK-083, read dossier + specs/KERYX_v2.0_Technical_v1.0.md §3/§7, PRD V2-FR-001..004, Verification V2-VT-001..004 before touching code.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-11T18:00:00Z
 
 
 ### TASK-084
