@@ -4649,7 +4649,7 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 
 ### TASK-081
 **Title:** Adopt ConnectionCondition's resolved route label in every UI call site (no literal AUTO as an effective route)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; TASK-080 (adds `ConnectionCondition.isResolved`/`routeLabel` and fixes the reducer root cause — this task is the UI half it could not reach, re-carved by ORCH from TASK-080's OWNERSHIP_CONFLICT block 2026-09-11)
@@ -4670,12 +4670,13 @@ Route each one through `ConnectionCondition.routeLabel` (or `isResolved`) so an 
 - [ ] Configured-preference labels still show AUTO when configured AUTO (Technical §7: configured and effective stay distinct)
 - [ ] **Carried from TASK-074 review (mandatory, same file `talk_screen.dart`):** the Lock control can no longer latch after the finger has lifted. `canLatch` and `_engageLatch` both require `_holding && !_latched && phase == tx` (drop `_lastBuiltPhase`), and a latch can never leave the red latched treatment or "Transmission locked" showing once TX is not granted. A test covers grant → lift → tap Lock in the same frame: no latch engaged, no red ring, no `releaseLatch` needed (VT-010; ADR-002 A5)
 - [ ] Changed goldens regenerated and listed; `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-081-gb
+**Started_At:** 2026-09-11T12:50:48Z
+**Progress_Notes:**
+- [2026-09-11T12:50:48Z] [GB] Claimed TASK-081. Resume check: no GB in_progress/claimed task. Depends_On TASK-074 and TASK-080 both done. Branch task/TASK-081-gb from master. Next: preflight_paths.py TASK-081, then route every listed UI call site through ConnectionCondition.routeLabel/isResolved and apply the carried TASK-074 latch-after-lift fix.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T12:30:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-11T12:50:48Z
