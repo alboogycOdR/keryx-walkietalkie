@@ -1,6 +1,6 @@
 ---
 plan_version: 15.1
-last_updated: 2026-09-11T13:43:53Z
+last_updated: 2026-09-11T14:03:50Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4431,7 +4431,7 @@ In embedded mode, the Event QR actions ("Scan QR" / "Share QR") render as a comp
 
 ### TASK-077
 **Title:** UX R2 shell — Talk-first launch, top app bar, icon tab strip (Talk · Channels · Stations), overflow menu
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §2 O1/O2 and §3 A1 (Talk default on every launch including first; icon-only tab strip with accent underline; swipe disabled; Settings + Radio controls in overflow; back on a non-Talk tab returns to Talk; bottom nav removed); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §1 ("its presentation lifecycle must not own the radio session. Secondary screens and sheets return to the previous context without changing the current channel"); Verification VT-001–VT-005; Technical §9
@@ -4511,9 +4511,30 @@ The host is still constructed and started exactly once above all routes, and no 
 - (d) The ADR's "back on the Talk root leaves the app" still holds; keep that test.
 
 **Next step for S5:** fix (1) and (2) on the existing branch; run analyze, the FULL suite and `flutter build apk --debug` in the **foreground** with exact counts; tick the verified criteria; set needs_review.
+[2026-09-11T14:03:50Z] [ORCH] **APPROVED round 2**, merged `329a3d3`. Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave).
+- **Territory:** clean. The fix is `f99ac19` plus the dossier commit `2e8b7d3`, both tagged, touching 3 files inside Owned_Paths.
+- **Merged-tree verification:** done in a disposable worktree by ORCH's subagent. Master + branch merge with no conflict; `flutter analyze` 0 issues; full suite 1506 passed / 0 failed / 40 skipped.
+- **BLOCKING (1) fixed (verified in source + independent real-back probe):**
+  - `PopScope.canPop` is now `_index == 0 && !_activeBranchCanPop`, reading the active branch's live `NavigatorState.canPop()`.
+  - `onPopInvokedWithResult` pops the active branch when it can, and otherwise returns to Talk.
+  - A per-branch `_BranchPopObserver` rebuilds the shell on push/pop/remove/replace.
+  - The ORCH probe, all via `tester.binding.handlePopRoute()`, passed every case:
+    - (a) Talk → picker → back: true, picker closed, Talk shown.
+    - (b) Stations → export → back: true, Stations root. Back again: true, Talk.
+    - (c) Channels → selector → back: true, Channels root.
+    - (d) Talk root → back: false, falls through to the platform.
+    - (e) overflow Settings → back: true, previous tab kept.
+  - S5 added 4 real-back tests to the suite.
+- **BLOCKING (2) fixed:** the connection dot is `stateRx` (healthy), `stateWarning` (degraded) or `pttNeutralRing` (unresolved/connecting), with matching semantic labels and 3 colour tests.
+- **Criteria:** all seven are now ticked and verified.
+- **Non-blocking:**
+  - (a) `_BranchPopObserver` defers `setState` via `scheduleMicrotask` without a `mounted` guard. If the shell is ever disposed with a navigation in flight, that would throw "setState() called after dispose". Harmless for the app-root shell today, but add `if (mounted)`.
+  - (b) System back from overflow routes (probe case (e)) isn't in the committed suite. TASK-078's regression pass should add it.
+  - (c) The indicator still builds its own `ConnectionCondition` rather than using the `RadioViewState` projection.
+- **Unlocks:** TASK-078 (GB), the final regression + owner review APK.
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T14:20:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T14:03:50Z
 
 
 ### TASK-078
@@ -4535,6 +4556,7 @@ Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
 - [ ] Shell-frame goldens (dark/light) and a measured-glow RX golden exist; every other golden confirmed current (Verification §6)
 - [ ] Layout tests at 320×568, 360×640, 412×915, text scale 1.0/2.0 and landscape pass with no overflow and a reachable PTT (Verification §6)
 - [ ] Full suite, analyzer, debug build and split-per-ABI release build pass; counts reconciled against R1 with every delta explained (Verification §9 G4)
+- [ ] Carried from TASK-077's review: a regression test drives real Android system back (`tester.binding.handlePopRoute()`) from the overflow Settings and Radio controls routes and asserts the previous tab is kept (ADR-002 A1)
 - [ ] `ops/REGRESSION_UX_R2.md` records the arm64-v8a release APK path, byte size and sha256
 **Branch:** —
 **Started_At:** —
