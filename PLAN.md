@@ -4037,7 +4037,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-072
 **Title:** UX R2 tokens — amber accent, PTT ring/face tokens, tab indicator, golden refresh
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A5 (accent becomes amber/radio-yellow; `state/warning` off the PTT ring; emergency hue separation ≥ 20°), A3 (`ptt/face` token, ring treatments), A1 (tab accent underline); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §3.2 ("Color values must pass contrast verification… do not scatter literal color values across widgets"), §3.4
@@ -4050,15 +4050,16 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 - [ ] New tokens `pttFace`, `pttNeutralRing`, `pttRingWidthFraction`, `pttWidthFraction`, `pttMaxDiameter`, `tabIndicatorThickness` exist with dartdoc citing ADR-002; no existing token is renamed or removed
 - [ ] Every golden under `test/regression/goldens/goldens/` regenerated; the dossier lists changed files and confirms colour-only diffs
 - [ ] `flutter analyze` clean repo-wide; full `flutter test` green with no count regression
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-072-s5
+**Started_At:** 2026-09-11T00:00:00Z
+**Progress_Notes:**
+- [2026-09-11T00:00:00Z] [S5] Claimed TASK-072. Resume check: no S5 in_progress/claimed task found (all prior S5 tasks are done; TASK-072 is the only unblocked pending S5 task, Depends_On: —). Preflight (`python scripts/preflight_paths.py TASK-072`): lib/core/theme/ux_tokens.dart exists 587 lines; test/core/theme/ux_tokens_test.dart exists 426 lines; test/regression/goldens/goldens/** = 36 files; dossiers/TASK-072.md exists 21 lines. Branch task/TASK-072-s5 to be created from master. Next: pick amber accent hexes for both palettes, verify contrast + hue separation, add new tokens, update tests, regenerate goldens.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T10:07:46Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-11T00:00:00Z
 
 
 ### TASK-073
