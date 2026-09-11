@@ -79,3 +79,45 @@ only churn — the state machine itself (VT-010–VT-015) is untouched.
   instruction to delete `TalkPttDisc` (ADR-002 A4), not by anything else
   in this task. Reported to PLAN.md as `blocked`/`OWNERSHIP_CONFLICT`
   rather than edited directly.
+
+## Work Log — 2026-09-11T13:30Z [S5] Rework round 1 fixes
+
+Resumed on existing branch `task/TASK-074-s5` after ORCH round-1 review
+(REWORK, 2 blocking findings). Fixed both directly in this session,
+foreground only, no background jobs:
+
+1. **BLOCKING 1** — ORCH added `test/app_shell/channels_screen_test.dart`
+   to this task's `Owned_Paths` (it referenced the deleted `TalkPttDisc`,
+   a direct consequence of this task's own ADR-002 A4 deletion). Switched
+   its import and `find.byType` assertion to `TalkPttRing`, mirroring the
+   equivalent fix already made in `talk_screen_test.dart` /
+   `mobile_app_shell_test.dart`.
+2. **BLOCKING 2** — added a widget test at `Size(360, 640)`, text scale
+   1.0, asserting `keryx-talk-channel-card`, `keryx-talk-ptt-disc` and
+   `keryx-talk-status-line` all have their full rect contained within the
+   360x640 viewport with zero scroll offset. Passed on first run — no
+   layout change was needed for this criterion.
+3. **Non-blocking (a)** — `_engageLatch`'s precondition previously
+   required `_holding`, so the visible Lock control could go inert in a
+   window where TX was granted but the finger had already lifted. Added a
+   `_lastBuiltPhase` field set at the end of `build()` and changed the
+   guard to `_latched || _lastBuiltPhase != RadioPhase.tx`, matching the
+   `canLatch` visibility condition exactly. (b)/(c)/(d) left as recorded —
+   correctly scoped to TASK-078/081 or accepted as-is per the review.
+
+Worktree's local `PLAN.md` copy was stale from claim time (missing the
+Owned_Paths expansion) — the territory-firewall hook initially blocked the
+channels_screen_test.dart edit on that stale copy; refreshed it from
+master's PLAN.md (content only, no commit from this worktree) before
+retrying, which then succeeded.
+
+Verification (foreground, waited for completion each time):
+- `flutter analyze --no-pub` — No issues found.
+- `flutter test --no-pub test/features/talk/talk_screen_test.dart` — 54/54
+  passed, including the new 360x640 test.
+- `flutter test --no-pub test/features/talk/ test/app_shell/` — 92/92
+  passed.
+- `flutter test --no-pub` (full suite) — **1472 passed / 0 failed / 40
+  skipped** (the 40 are the pre-existing parked FR-025 soak skips).
+
+Committed as `8024f74` on `task/TASK-074-s5`. Moving to `needs_review`.
