@@ -4946,7 +4946,7 @@ Territory matches expectation: all listed UI files exist; goldens are existing P
 
 ### TASK-082
 **Title:** Owner review fixes — denied flash auto-clears back to Ready, honest "no other stations" deny copy, PTT centred vertically
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A7 (owner on-device review 2026-09-11: vertical centring; denied flash transient ~1.5 s then Ready with no further event; "No other stations on this channel" when a refused press meets a known-empty roster), A3 (ring treatments; denied flash never overrides granted TX), A2 (content order); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 ("Denied/busy — Amber transient + reason — No false TX"; "A denied flash cannot override a currently granted TX"), §5 (plain-language copy); Verification §6 (small-phone / text-scale / landscape reachability)
@@ -4969,12 +4969,12 @@ Fix all three in the Talk presentation layer only. **Do not touch `lib/core/**`*
 4. Regenerate the `talk_*` and `shell_frame_*` goldens whose pixels change, and keep `layout_matrix_test.dart` green. Adjust it only if the centring legitimately changes an assertion, and explain why in the dossier.
 5. **Dossier:** record *why* a solo press is refused on the current floor engine: which path in `floor_engine.dart`/`arbiter.dart` fires (join-guard, TX_REQ give-up, or lockout) and after how long a solo station may self-grant (`Arbiter.maySelfGrant`: `presenceHeartbeat`). This is diagnosis only, with no floor changes; ORCH decides whether the floor policy needs a successor task.
 **Acceptance_Criteria:**
-- [ ] A refused press shows the denied treatment and cue, then returns to the Ready ring (accent) and hides the cue ~1.5 s later with **no further radio event**. Test: pump a deny with no follow-up event, advance 1600 ms, assert Ready treatment and no cue (ADR-002 A7)
-- [ ] A second refusal after expiry shows the flash again, and a granted TX during an active flash shows TX, not the flash — one test each (Design §4 precedence)
-- [ ] With `KnownRosterCount(0)` the deny cue and status read "No other stations on this channel"; with stations present or an unavailable roster it reads "Channel busy" — tests for both (ADR-002 A7; Design §5)
-- [ ] At 360×640, text scale 1.0, the PTT ring's vertical centre lies within ±10% of the viewport height of the midpoint of the space below the channel card, and the card, ring and status are all visible without scrolling. At 320×568 @ 2.0 and landscape 640×360, the PTT is still reachable by scrolling with no overflow (ADR-002 A7; Verification §6)
-- [ ] The dossier states the concrete floor-engine reason a solo press is refused and when a solo station can self-grant (diagnosis only; no `lib/core/**` changes)
-- [ ] Changed goldens regenerated and listed; `flutter analyze` clean; full suite green, run in the foreground
+- [x] A refused press shows the denied treatment and cue, then returns to the Ready ring (accent) and hides the cue ~1.5 s later with **no further radio event**. Test: pump a deny with no follow-up event, advance 1600 ms, assert Ready treatment and no cue (ADR-002 A7)
+- [x] A second refusal after expiry shows the flash again, and a granted TX during an active flash shows TX, not the flash — one test each (Design §4 precedence)
+- [x] With `KnownRosterCount(0)` the deny cue and status read "No other stations on this channel"; with stations present or an unavailable roster it reads "Channel busy" — tests for both (ADR-002 A7; Design §5)
+- [x] At 360×640, text scale 1.0, the PTT ring's vertical centre lies within ±10% of the viewport height of the midpoint of the space below the channel card, and the card, ring and status are all visible without scrolling. At 320×568 @ 2.0 and landscape 640×360, the PTT is still reachable by scrolling with no overflow (ADR-002 A7; Verification §6)
+- [x] The dossier states the concrete floor-engine reason a solo press is refused and when a solo station can self-grant (diagnosis only; no `lib/core/**` changes)
+- [x] Changed goldens regenerated and listed; `flutter analyze` clean; full suite green, run in the foreground
 **Branch:** task/TASK-082-gb
 **Started_At:** 2026-09-11T15:57:13Z
 **Progress_Notes:**
@@ -5008,9 +5008,23 @@ Fix all three in the Talk presentation layer only. **Do not touch `lib/core/**`*
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib/core/**. Implementing next.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-11T16:17:00Z] [GB] Complete on `20b2659`. Presentation-only 1500 ms denied-flash timer; empty LOCAL roster copy; PTT centred via `_TalkBody` in the existing scroll fallback (SliverFillRemaining rejected — TalkPttRing LayoutBuilder cannot report intrinsics). Solo-press diagnosis in dossier: join-guard `_denyBusy(busy)`, not lockout/TX_REQ give-up; production never `updateRoster({self})` so a lone station cannot self-grant. layout_matrix 360×640 @ 1.0 gained a remaining-mid assertion. → needs_review.
+**Artifacts:**
+- lib/features/talk/talk_screen.dart
+- lib/features/talk/talk_copy.dart
+- test/features/talk/talk_screen_test.dart
+- test/regression/layout_matrix_test.dart
+- dossiers/TASK-082.md
+- test/regression/goldens/goldens/talk_{idle,requesting,granted,receiving,receiving_glow,degraded,emergency,permission_denied,service_fault}_{dark,light}.png
+- test/regression/goldens/goldens/shell_frame_{dark,light}.png
+**Test_Evidence:**
+- [2026-09-11T16:17:00Z] [GB] `flutter analyze --no-pub` — No issues found (ran in 32.1s).
+- [2026-09-11T16:17:00Z] [GB] `flutter test --no-pub test/features/talk/talk_screen_test.dart test/regression/layout_matrix_test.dart` — **73 passed**.
+- [2026-09-11T16:17:00Z] [GB] Revert-mutation: dropped `setState(() => _flashExpired = true)` from the 1500 ms timer; expiry test failed `Expected: ready Actual: deniedFlash`; restored; `git diff` clean of the mutation.
+- [2026-09-11T16:17:00Z] [GB] Goldens regenerated then re-run without `--update-goldens` — 20/20 pass (18 talk_* + 2 shell_frame_*).
+- [2026-09-11T16:17:00Z] [GB] `flutter test --no-pub` (full suite, foreground) — **1526 passed / 0 failed / 40 skipped** (parked FR-025 soak seeds). Baseline 1519 (UX R2) + 7 A7 tests = 1526.
+- [2026-09-11T16:17:00Z] [GB] `git diff master...HEAD --name-only` — 25 files, all inside Owned_Paths; zero `lib/core/**`.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-11T15:57:13Z
+**Updated_At:** 2026-09-11T16:17:00Z
