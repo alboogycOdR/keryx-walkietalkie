@@ -5075,7 +5075,7 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 
 ### TASK-084
 **Title:** v2 directory service I — Postgres, signed-request auth, identity + contacts + presence WebSocket
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §3.3 (signature verification), §4.1 (schema), §4.2 (identity/contacts/presence endpoints), §4.3 (presence protocol), §9 (compose, backups); PRD V2-FR-010..014, V2-FR-030..033, V2-NFR-002/003/004/007; Verification V2-VT-010, 013, 016; existing token-svc/app/** (grow, do not replace)
@@ -5090,15 +5090,39 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 - [ ] Storage per user < 4 KB after the V2-VT-016 load (V2-NFR-007)
 - [ ] Logs contain no key, callsign or room ID under a test that exercises every endpoint (Verification §7)
 - [ ] `openapi-v2.yaml` describes every endpoint above; `pytest` green; existing token tests still pass
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-084-gb
+**Started_At:** 2026-09-11T17:38:00Z
+**Progress_Notes:**
+- [2026-09-11T17:38:00Z] [GB] Claimed TASK-084. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-084 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 4 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   token-svc/**  -> 20 file(s):
+           token-svc/Dockerfile
+           token-svc/README.md
+           token-svc/app/__init__.py
+           token-svc/app/config.py
+           token-svc/app/event_token.py
+           token-svc/app/jwt_mint.py
+           token-svc/app/logging_policy.py
+           token-svc/app/main.py
+           token-svc/app/models.py
+           token-svc/app/rate_limit.py
+           token-svc/pytest.ini
+           token-svc/requirements-dev.txt
+           ... and 8 more
+  FILE   relay/docker-compose.yml  -> exists, 113 line(s), 3442 bytes
+  FILE   relay/README.md  -> exists, 246 line(s), 10274 bytes
+  FILE   dossiers/TASK-084.md  -> exists, 13 line(s), 1812 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Growing token-svc under /v2/; postgres added to compose with `:-` defaults so relay `.env.example` (out of territory) is not required. Groups tables created now; group endpoints left to TASK-085. Existing POST /token left unsigned.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-11T17:38:00Z
 
 
 ### TASK-085
