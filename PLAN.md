@@ -1,6 +1,6 @@
 ---
 plan_version: 15.1
-last_updated: 2026-09-11T13:34:47Z
+last_updated: 2026-09-11T13:43:53Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4431,7 +4431,7 @@ In embedded mode, the Event QR actions ("Scan QR" / "Share QR") render as a comp
 
 ### TASK-077
 **Title:** UX R2 shell — Talk-first launch, top app bar, icon tab strip (Talk · Channels · Stations), overflow menu
-**Status:** needs_review
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §2 O1/O2 and §3 A1 (Talk default on every launch including first; icon-only tab strip with accent underline; swipe disabled; Settings + Radio controls in overflow; back on a non-Talk tab returns to Talk; bottom nav removed); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §1 ("its presentation lifecycle must not own the radio session. Secondary screens and sheets return to the previous context without changing the current channel"); Verification VT-001–VT-005; Technical §9
@@ -4471,10 +4471,46 @@ The host is still constructed and started exactly once above all routes, and no 
 - [2026-09-11T13:50:00Z] [S5] Resumed. Discarded a stale local-only PLAN.md diff in the worktree (never edit PLAN.md there; this master copy is the source of truth). Reviewed the uncommitted test edits from the prior session -- consistent with the shipped implementation -- and committed them (`1c4bbba`). Ran all three gates in the foreground, waiting on each to completion: `flutter analyze --no-pub` -> No issues found (74.9s). `flutter test --no-pub` -> All tests passed: 1487 passed, 40 skipped (pre-existing PARKED FR-025 soak seeds, 2026-08-21T17:05Z owner decision, untouched by this task), 0 failed. `flutter build apk --debug` -> built `build/app/outputs/flutter-apk/app-debug.apk` successfully. Dossier updated (`5c8587c`). Status: needs_review.
 **Artifacts:** build/app/outputs/flutter-apk/app-debug.apk (debug build, local to worktree, not committed)
 **Test_Evidence:** `flutter analyze --no-pub`: No issues found! (74.9s). `flutter test --no-pub`: All tests passed! 1487 passed, 40 skipped (parked FR-025 soak seeds only), 0 failed. `flutter build apk --debug`: Built build/app/outputs/flutter-apk/app-debug.apk.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T13:43:53Z] [ORCH] **REWORK round 1.** Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave). NOT merged; branch `task/TASK-077-s5` retained.
+
+**What's clean:**
+- **Territory:** clean. 13 files, all under `lib/app_shell/**`, `test/app_shell/**`, `real_composition_test.dart` and the dossier.
+- **Merged-tree verification:** done in a disposable worktree by ORCH's subagent. Master + this branch merge with no conflict; `flutter analyze` 0 issues; full suite 1499 passed / 0 failed / 40 skipped.
+- **Implementation (verified in source):**
+  - Talk is index 0 on every launch.
+  - The top app bar has the wordmark, a connection dot and a `PopupMenuButton` with Radio controls and Settings, pushed on the root navigator.
+  - The icon-only tab strip (Talk/Channels/Stations) has semantic labels, 48 dp targets and an accent underline.
+  - There is no `TabBarView`/`PageView`, so there is no swipe.
+  - The per-branch navigators inside an `IndexedStack` preserve state.
+  - Channels is embedded, with `onTuneSucceeded` and selector `onApplied` switching to Talk; Stations is embedded, with QR routes; the Talk station chip switches tabs.
+  - The host is still started once.
+
+**BLOCKING (1) — Android system back is broken for any screen pushed inside a tab.** Proven with a real `tester.binding.handlePopRoute()` probe on the merged tree:
+- **(a)** Talk tab → channel picker (`ChannelSelectorScreen`) → system back: `handlePopRoute()` returns **false**. The platform receives back, so on a phone **the app closes or backgrounds instead of closing the picker**.
+- **(b)** Stations tab → Event QR export → system back: returns true, but the shell's `PopScope` switches to Talk and **leaves the export screen stacked on the Stations branch**. It does not return to the Stations root.
+- **Root cause:** system back is delivered to the root `Navigator` only; the per-branch nested `Navigator`s never see it. The dartdoc claim that "a pushed route on the active branch still pops first — its own Navigator reports it can pop and the back-button notification never reaches this PopScope" is false. The existing test "a pushed screen on the active branch pops via its own Navigator" passes only because `popScreen` calls `Navigator.pop` directly; it never sends a real back.
+- **Fix:** route back into the active branch first. When `_branchKeys[_index].currentState?.canPop()` is true, pop that branch; otherwise switch a non-Talk tab to Talk; otherwise let the platform have it (Talk root). Use `NavigatorPopHandler` on each branch, or a `PopScope` with `canPop: false` whenever a branch can pop or index != 0, recomputed via a per-branch `NavigatorObserver`.
+- **Tests (all using `tester.binding.handlePopRoute()`, never `popScreen`):**
+  - (i) Talk → picker → back closes the picker, stays on Talk, returns true;
+  - (ii) Stations → export → back returns to the Stations root;
+  - (iii) Channels → selector → back returns to the Channels root;
+  - (iv) the existing root cases still hold (Channels root → Talk, Talk root → false).
+
+**BLOCKING (2) — the connection indicator cannot show its one piece of information:**
+- **Problem:** healthy renders `tokens.actionPrimary` (dark `#FFD54F`) and degraded renders `tokens.stateWarning` (dark `#F0B44C`). Their hues are ~8° apart at the same size, so the colours are visually indistinguishable. ADR-002 A1 requires a "healthy vs degraded" dot; Design §3.2 says colour must be a redundant cue, but here it carries no cue at all.
+- **Fix:** healthy → `tokens.stateRx`; degraded → `tokens.stateWarning`; unresolved/connecting (`!connection.isResolved`) → `tokens.pttNeutralRing`.
+- **Test:** each state yields a distinct colour and the matching semantic label.
+
+**Non-blocking:**
+- (a) Commits `1c4bbba` and `5c8587c` lack the `[TASK-077]` tag.
+- (b) The acceptance-criteria boxes were never ticked; tick only what is verified.
+- (c) `_ConnectionIndicator` rebuilds its own `ConnectionCondition` (the degraded rule) instead of using the `RadioViewState` projection, so the two could drift.
+- (d) The ADR's "back on the Talk root leaves the app" still holds; keep that test.
+
+**Next step for S5:** fix (1) and (2) on the existing branch; run analyze, the FULL suite and `flutter build apk --debug` in the **foreground** with exact counts; tick the verified criteria; set needs_review.
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T13:50:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T13:43:53Z
 
 
 ### TASK-078
