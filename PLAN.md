@@ -1,6 +1,6 @@
 ---
 plan_version: 15.0
-last_updated: 2026-09-11T11:46:09Z
+last_updated: 2026-09-11T11:55:21Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4235,7 +4235,7 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 
 ### TASK-075
 **Title:** UX R2 Channels as a tab body — embedded mode, polished list rows, tune-success callback
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** CX
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A1 (Channels becomes a tab under a shell-owned app bar; Talk is default; recent channels stay here); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.1 ("Recent entries show their actual channel/code values and remain selectable. Empty memory uses a neutral explanatory message and a direct tune action. Do not show a fake online count"), §2.3, §3.3
@@ -4279,10 +4279,26 @@ No fake presence counts. Regenerate `channels_*` goldens.
 - [2026-09-11T11:48:08Z] [CX] `flutter test --no-pub --update-goldens test/regression/goldens/channels_golden_test.dart` and a repeat without `--update-goldens` -> 4/4 passed; all four `channels_*` fixtures regenerated and verified.
 - [2026-09-11T11:48:08Z] [CX] `flutter test --no-pub test/app_shell/ test/regression/real_composition_test.dart` -> passed, with zero edits under either protected path.
 - [2026-09-11T11:48:08Z] [CX] `flutter test --no-pub` -> 1447 passed / 0 failed / 40 skipped (the existing PARKED FR-025 soak skips).
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T11:55:21Z] [ORCH] **APPROVED first-pass**, merged `ff0994e`. Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave).
+- **Territory:** clean. 8 files: `channels_landing.dart`, the feature README, its test, 4 `channels_*` goldens and the dossier, all inside Owned_Paths. The single commit `57b3d61` is tagged, and the PLAN.md edits are in-block only.
+- **Tests:** run independently in the worktree by a subagent. `flutter analyze` 0 issues; channels + app_shell + regression 91/91 without `--update-goldens`, which proves the additive-API rule; full suite 1447 passed / 0 failed / 40 skipped.
+- **Test-integrity audit (ORCH, scripted):** all 17 pre-existing test names survive; 3 were added (20). Every one of master's 71 `expect(...)` calls still exists verbatim, whitespace-normalised, except one `recentEntry(7,3)` assertion that only lost a trailing comma to reformatting. There are 88 expects now. No assertion was weakened.
+- **Criteria:** all five verified in source.
+  - `embedded` defaults to `false`, and `appBar` is null only when embedded.
+  - `onOpenTalk` is nullable. When null, the Open Talk button is not built, and the card's Semantics drops `button` and ", open Talk".
+  - `onTuneSucceeded` fires only on `TuneOutcomeKind.success` from the recall coordinator.
+  - The Current card has a 4 dp accent bar and a "Current" label.
+  - Recent rows are 64 dp with a leading channel tile and a trailing chevron.
+  - The keys are unchanged.
+- **Golden:** ORCH viewed `channels_populated_dark`, consistent with ADR-002 (flat, single amber accent).
+- **Non-blocking:**
+  - (a) The card-level tap-to-talk wiring should be double-checked as inert when null at TASK-077 integration. The Semantics change implies it, and the InkWell `onTap` receives the nullable callback.
+  - (b) The "Current" label renders in accent text at secondary size; light-theme contrast is ~4.9:1, fine but close.
+  - (c) The recent tiles' channel number is duplicated in the tile and the title, which is acceptable but redundant for screen readers.
+- **Unlocks:** TASK-077 still needs TASK-074.
 **Blocked_Reason:** —
-**Updated_By:** CX
-**Updated_At:** 2026-09-11T11:48:08Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T11:55:21Z
 
 
 ### TASK-076
