@@ -248,7 +248,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        rowChild(SettingsKeys.effectiveRoute, find.text('Local')),
+        rowChild(SettingsKeys.effectiveRoute, find.text('LOCAL')),
         findsOneWidget,
       );
       expect(find.byKey(SettingsKeys.forceLocalNote), findsOneWidget);
@@ -259,6 +259,37 @@ void main() {
       expect(host.methodLog, isNot(contains('joinEvent')));
       expect(host.applied.forceLocalOnly, isTrue);
       expect(host.applied.mode, RadioMode.linked);
+    },
+  );
+
+  testWidgets(
+    'unresolved effective route is Connecting, never AUTO; configured '
+    'preference still shows Auto (Technical §7)',
+    (tester) async {
+      await pumpSettings(
+        tester,
+        settings: const KeryxSettings(mode: RadioMode.auto),
+        radioState: const RadioState(
+          phase: RadioPhase.idle,
+          mode: RadioMode.auto,
+        ),
+      );
+      expect(
+        rowChild(SettingsKeys.mode, find.text('Auto')),
+        findsOneWidget,
+      );
+      expect(
+        rowChild(SettingsKeys.effectiveRoute, find.text('Connecting')),
+        findsOneWidget,
+      );
+      expect(
+        rowChild(SettingsKeys.effectiveRoute, find.text('AUTO')),
+        findsNothing,
+      );
+      expect(
+        rowChild(SettingsKeys.effectiveRoute, find.text('Auto')),
+        findsNothing,
+      );
     },
   );
 

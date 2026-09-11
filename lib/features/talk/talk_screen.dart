@@ -75,7 +75,6 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   /// `RadioPhase` — only governs whether *this* screen still owes the host
   /// a release call.
   bool _holding = false;
-  RadioPhase? _lastBuiltPhase;
 
   /// A deliberate latch is UI-owned (Technical §4's dartdoc on
   /// `RadioHost.releaseLatch`) — there is no `RadioHost` operation to
@@ -169,11 +168,12 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   }
 
   void _engageLatch() {
-    // Precondition matches the control's own visibility (`canLatch` below):
-    // granted TX, not already latched. Do not also require `_holding` — the
-    // finger may already have lifted while TX is still granted, and the
-    // visible Lock control must not go inert in that window.
-    if (_latched || _lastBuiltPhase != RadioPhase.tx) return;
+    // TASK-074 carry: a latch after pointer-up is a false TX — the
+    // ordinary release has already gone, so locking would paint
+    // "Transmission locked" without a live grant. Both the control and
+    // this handler require an in-progress hold plus a current TX phase.
+    final RadioPhase phase = ref.read(radioStateProvider).phase;
+    if (!_holding || _latched || phase != RadioPhase.tx) return;
     setState(() => TalkLatchState.engage(widget.host));
   }
 
@@ -194,13 +194,19 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    // A leftover latch flag after the floor has left TX must not keep the
+    // red locked treatment or "Transmission locked" copy on screen.
+    if (_latched && radioState.phase != RadioPhase.tx) {
+      TalkLatchState.release(widget.host);
+    }
+
     final viewState = RadioViewState.project(
       radioState: radioState,
       hostSnapshot: _snapshot,
       settings: settings,
-      latched: _latched,
+      latched: TalkLatchState.of(widget.host) &&
+          radioState.phase == RadioPhase.tx,
     );
-    _lastBuiltPhase = viewState.phase;
 
     final tokens = KeryxUxTokens.of(context);
 
@@ -222,12 +228,11 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
         ? primaryLine
         : '$primaryLine $secondaryLine';
 
-    // ADR-002 A4: the lock control tracks TX being granted, not this
-    // screen's own transient hold bookkeeping — a real grant can outlive
-    // the physical hold that requested it (that is the whole point of a
-    // latch), so gating on `_holding` here hid the control the instant the
-    // finger lifted, before the user had a chance to tap it.
-    final bool canLatch = !_latched && viewState.phase == RadioPhase.tx;
+    // Latch may be engaged only while this screen still owes the hold
+    // *and* TX is granted. After pointer-up the ordinary release has
+    // already been sent; showing Lock then lets a tap paint a false TX.
+    final bool canLatch =
+        _holding && !_latched && viewState.phase == RadioPhase.tx;
 
     // Design §2.2 wants the primary content (card/banners) pinned to the
     // top and the PTT controls pinned toward the bottom with the remaining
@@ -348,7 +353,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
                           ),
                         const SizedBox(height: 16),
                         _ContextualLatchRow(
-                          latched: _latched,
+                          latched: viewState.latched,
                           canLatch: canLatch,
                           onLatch: _engageLatch,
                           onUnlatch: () => _releaseLatch(intents),

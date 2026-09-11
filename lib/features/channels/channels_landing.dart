@@ -334,8 +334,7 @@ class _CurrentChannelCard extends StatelessWidget {
     );
     final String configured =
         'Configured ${radioModeLabel(view.connection.configuredMode)}';
-    final String effective =
-        'Effective ${radioModeLabel(view.connection.effectiveRoute)}';
+    final String effective = 'Effective ${view.connection.routeLabel}';
     final String status = view.connection.degraded
         ? 'Status Connection lost'
         : 'Status ${view.phaseCue.label}';

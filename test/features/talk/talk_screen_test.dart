@@ -351,7 +351,9 @@ void main() {
         await tester.tap(find.byKey(const Key('keryx-talk-unlatch')));
         await tester.pumpAndSettle();
         expect(host.releaseLatchCalls, 1);
-        expect(find.byKey(const Key('keryx-talk-latch')), findsOneWidget);
+        // Remounted State is not holding, so Lock must not reappear even
+        // while the reducer is still in TX (TASK-074 latch-after-lift).
+        expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
       },
     );
   });
@@ -382,8 +384,43 @@ void main() {
       await tester.tap(find.byKey(const Key('keryx-talk-unlatch')));
       await tester.pumpAndSettle();
       expect(host.releaseLatchCalls, 1);
-      expect(find.byKey(const Key('keryx-talk-latch')), findsOneWidget);
+      // Finger already lifted; Lock requires an in-progress hold.
+      expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
     });
+
+    testWidgets(
+      'grant then lift then tap Lock in the same frame does not latch '
+      '(TASK-074 carry; VT-010; ADR-002 A5)',
+      (tester) async {
+        await pumpReady(tester);
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
+        );
+        await tester.pump();
+        container.read(radioStateProvider.notifier)
+          ..dispatch(const PowerOn())
+          ..dispatch(const BootCompleted())
+          ..dispatch(const RequestTransmit())
+          ..dispatch(const TransmitGranted());
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('keryx-talk-latch')), findsOneWidget);
+
+        await gesture.up();
+        // Same frame: the previous build still has the Lock control.
+        await tester.tap(find.byKey(const Key('keryx-talk-latch')));
+        await tester.pumpAndSettle();
+
+        expect(host.releasePttCalls, 1);
+        expect(host.releaseLatchCalls, 0);
+        expect(find.byKey(const Key('keryx-talk-unlatch')), findsNothing);
+        expect(find.text('Transmission locked'), findsNothing);
+        expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
+        final TalkPttRing ring = tester.widget<TalkPttRing>(
+          find.byType(TalkPttRing),
+        );
+        expect(ring.treatment, isNot(TalkPttRingTreatment.latched));
+      },
+    );
 
     testWidgets('the latch control is unavailable before a real grant', (
       tester,
@@ -881,12 +918,32 @@ void main() {
     });
   });
 
+  group('effective route label (Technical §7)', () {
+    testWidgets('unresolved route is Connecting, never AUTO; configured '
+        'AUTO still shows', (tester) async {
+      await pumpReady(tester);
+      expect(find.textContaining('Route Connecting'), findsOneWidget);
+      expect(find.textContaining('Configured AUTO'), findsOneWidget);
+      expect(find.textContaining('Route AUTO'), findsNothing);
+    });
+
+    testWidgets('resolved LOCAL renders Route LOCAL', (tester) async {
+      await pumpReady(tester);
+      container.read(radioStateProvider.notifier).dispatch(
+        const SetMode(RadioMode.local),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Route LOCAL'), findsOneWidget);
+      expect(find.textContaining('Route AUTO'), findsNothing);
+      expect(find.textContaining('Route Connecting'), findsNothing);
+    });
+  });
+
   group('VT-015 — audio truthfulness', () {
     testWidgets('no signal-quality or roster count is presented as a '
         'verified value when unavailable', (tester) async {
       await pumpReady(tester);
-      // LOCAL is the default `RadioState.mode`; roster is verified for
-      // LOCAL, so drive an unavailable case via a LINKED effective route.
+      // Default reducer mode is AUTO; drive unavailable roster via LINKED.
       container.read(radioStateProvider.notifier)
         ..dispatch(const PowerOn())
         ..dispatch(const BootCompleted())

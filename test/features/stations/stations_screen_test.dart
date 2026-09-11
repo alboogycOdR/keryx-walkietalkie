@@ -36,6 +36,12 @@ class StationsHarness {
   int exportCalls = 0;
 }
 
+ConnectionCondition routeCondition(RadioMode route) => ConnectionCondition(
+  configuredMode: route,
+  effectiveRoute: route,
+  degraded: false,
+);
+
 RadioViewState makeView({
   List<StationInfo> stations = const <StationInfo>[],
   RosterCount? rosterCount,
@@ -287,7 +293,9 @@ void main() {
       );
 
       expect(
-        find.text(StationsCopy.incompleteRoster(RadioMode.linked)),
+        find.text(
+          StationsCopy.incompleteRoster(routeCondition(RadioMode.linked)),
+        ),
         findsOneWidget,
       );
       expect(find.byKey(StationsScreenKeys.linkedCount), findsOneWidget);
@@ -301,8 +309,10 @@ void main() {
     },
   );
 
-  testWidgets('AUTO incomplete roster is labelled AUTO, not LINKED '
-      '(UX-FR-046; review finding 3)', (WidgetTester tester) async {
+  testWidgets('unresolved incomplete roster is labelled Connecting, never '
+      'AUTO as an effective route (Technical §7; UX-FR-002)', (
+    WidgetTester tester,
+  ) async {
     await pumpStations(
       tester,
       radio: const RadioState(phase: RadioPhase.idle, mode: RadioMode.auto),
@@ -310,9 +320,13 @@ void main() {
     );
 
     expect(
-      find.text(StationsCopy.incompleteRoster(RadioMode.auto)),
+      find.text(
+        StationsCopy.incompleteRoster(routeCondition(RadioMode.auto)),
+      ),
       findsOneWidget,
     );
+    expect(find.textContaining('Connecting'), findsOneWidget);
+    expect(find.textContaining('AUTO'), findsNothing);
     expect(find.textContaining(StationsCopy.linkedCountLabel), findsNothing);
     expect(find.textContaining('LINKED'), findsNothing);
     expect(find.text(StationsCopy.localCount(0)), findsNothing);
@@ -338,7 +352,9 @@ void main() {
       expect(find.text('ALPHA-1'), findsOneWidget);
       expect(find.text('BRAVO-2'), findsOneWidget);
       expect(
-        find.text(StationsCopy.incompleteRoster(RadioMode.linked)),
+        find.text(
+          StationsCopy.incompleteRoster(routeCondition(RadioMode.linked)),
+        ),
         findsOneWidget,
       );
       expect(find.byKey(StationsScreenKeys.linkedCount), findsOneWidget);
@@ -463,7 +479,9 @@ void main() {
     );
 
     expect(
-      find.text(StationsCopy.incompleteRoster(RadioMode.linked)),
+      find.text(
+        StationsCopy.incompleteRoster(routeCondition(RadioMode.linked)),
+      ),
       findsOneWidget,
     );
     expect(find.text(StationsCopy.localCount(0)), findsNothing);

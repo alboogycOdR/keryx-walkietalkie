@@ -62,9 +62,7 @@ AboutDiagnostics buildAboutDiagnostics({
   final String configured = SettingsCopy.modeOptionLabel(
     connection.configuredMode.name,
   );
-  final String effective = SettingsCopy.modeOptionLabel(
-    connection.effectiveRoute.name,
-  );
+  final String effective = connection.routeLabel;
   final String localOnly = settings.forceLocalOnly ? 'On' : 'Off';
   final String mic = view.permissionDenied
       ? SettingsCopy.microphoneRequired

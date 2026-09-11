@@ -60,6 +60,50 @@ void main() {
     expect(find.textContaining('Configured AUTO'), findsOneWidget);
   });
 
+  testWidgets('unresolved effective route is Connecting, never AUTO; '
+      'configured AUTO still shows (Technical §7)', (tester) async {
+    await tester.pumpWidget(
+      wrap(
+        TalkChannelCard(
+          channel: 1,
+          privacyCode: 0,
+          connection: const ConnectionCondition(
+            configuredMode: RadioMode.auto,
+            effectiveRoute: RadioMode.auto,
+            degraded: false,
+          ),
+          stationCountLabel: '0 stations',
+        ),
+      ),
+    );
+
+    expect(find.textContaining('Route Connecting'), findsOneWidget);
+    expect(find.textContaining('Configured AUTO'), findsOneWidget);
+    expect(find.textContaining('Route AUTO'), findsNothing);
+  });
+
+  testWidgets('resolved LOCAL with configured AUTO keeps both labels', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      wrap(
+        TalkChannelCard(
+          channel: 1,
+          privacyCode: 0,
+          connection: const ConnectionCondition(
+            configuredMode: RadioMode.auto,
+            effectiveRoute: RadioMode.local,
+            degraded: false,
+          ),
+          stationCountLabel: '0 stations',
+        ),
+      ),
+    );
+
+    expect(find.textContaining('Route LOCAL'), findsOneWidget);
+    expect(find.textContaining('Configured AUTO'), findsOneWidget);
+  });
+
   testWidgets('the station-count chip fires onOpenStations and the picker '
       'button fires onOpenPicker', (tester) async {
     var stationsTaps = 0;

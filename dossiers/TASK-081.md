@@ -21,3 +21,49 @@ Route them all through the new label so AUTO never shows as an *effective* route
 4. Regenerate only the goldens that actually change.
 
 ## Work Log
+
+- [2026-09-11T12:50:48Z] [GB] Claimed. Preflight confirmed all 18 Owned_Paths exist.
+- [2026-09-11T13:01:46Z] [GB] Routed every listed UI call site through
+  `ConnectionCondition.routeLabel`. Configured-preference labels still use
+  `radioModeLabel` / `SettingsCopy.modeOptionLabel` so AUTO remains valid as
+  a preference. Latch-after-lift: `canLatch` and `_engageLatch` require
+  `_holding && !_latched && phase == tx`; `_lastBuiltPhase` removed; leftover
+  latch flag is cleared when phase leaves TX so red/"Transmission locked"
+  cannot outlive a grant.
+- [2026-09-11T13:01:46Z] [GB] Leftover `effectiveRoute` grep hits in
+  `lib/features/**` that this task did **not** touch (outside Owned_Paths or
+  not a display of `ConnectionCondition.effectiveRoute`): widget Keys
+  (`ChannelsLandingKeys.effectiveRoute`, `SettingsKeys.effectiveRoute`),
+  Settings copy/inventory field names, `event_qr_ui` join-route *logic*
+  (parameter, not a label), and `lib/features/stations/README.md`.
+- [2026-09-11T13:01:46Z] [GB] Goldens regenerated (pixels actually changed):
+  settings_dark/light; stations_empty/populated dark+light; all 16 talk_*.png
+  (idle/requesting/granted/receiving/degraded/emergency/permission_denied/
+  service_fault × dark+light). channels_*.png unchanged. talk_granted_* had
+  the largest delta because Lock no longer renders on a grant without hold.
+
+## Changed goldens
+
+- test/regression/goldens/goldens/settings_dark.png
+- test/regression/goldens/goldens/settings_light.png
+- test/regression/goldens/goldens/stations_empty_dark.png
+- test/regression/goldens/goldens/stations_empty_light.png
+- test/regression/goldens/goldens/stations_populated_dark.png
+- test/regression/goldens/goldens/stations_populated_light.png
+- test/regression/goldens/goldens/talk_idle_dark.png
+- test/regression/goldens/goldens/talk_idle_light.png
+- test/regression/goldens/goldens/talk_requesting_dark.png
+- test/regression/goldens/goldens/talk_requesting_light.png
+- test/regression/goldens/goldens/talk_granted_dark.png
+- test/regression/goldens/goldens/talk_granted_light.png
+- test/regression/goldens/goldens/talk_receiving_dark.png
+- test/regression/goldens/goldens/talk_receiving_light.png
+- test/regression/goldens/goldens/talk_degraded_dark.png
+- test/regression/goldens/goldens/talk_degraded_light.png
+- test/regression/goldens/goldens/talk_emergency_dark.png
+- test/regression/goldens/goldens/talk_emergency_light.png
+- test/regression/goldens/goldens/talk_permission_denied_dark.png
+- test/regression/goldens/goldens/talk_permission_denied_light.png
+- test/regression/goldens/goldens/talk_service_fault_dark.png
+- test/regression/goldens/goldens/talk_service_fault_light.png
+

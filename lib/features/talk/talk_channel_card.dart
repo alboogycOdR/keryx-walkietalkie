@@ -61,9 +61,9 @@ class TalkChannelCard extends StatelessWidget {
     final tokens = KeryxUxTokens.of(context);
     final String channelLabel = channel.toString().padLeft(2, '0');
     final String codeLabel = privacyCode.toString().padLeft(2, '0');
-    final String routeLabel = _modeLabel(connection.effectiveRoute);
+    final String routeLabel = connection.routeLabel;
     final bool configuredDiffers =
-        connection.configuredMode != connection.effectiveRoute;
+        _modeLabel(connection.configuredMode) != routeLabel;
     final String routeLine = configuredDiffers
         ? 'Route $routeLabel · Configured ${_modeLabel(connection.configuredMode)}'
         : 'Route $routeLabel';

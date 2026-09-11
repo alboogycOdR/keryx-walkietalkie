@@ -457,9 +457,7 @@ class _SettingsScaffold extends StatelessWidget {
                   key: SettingsKeys.effectiveRoute,
                   label: SettingsCopy.effectiveRouteLabel,
                   description: SettingsCopy.effectiveRouteDescription,
-                  value: SettingsCopy.modeOptionLabel(
-                    view.connection.effectiveRoute.name,
-                  ),
+                  value: view.connection.routeLabel,
                 ),
                 SettingsToggleRow(
                   key: SettingsKeys.forceLocal,

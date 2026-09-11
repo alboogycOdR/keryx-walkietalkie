@@ -1,5 +1,5 @@
+import 'package:keryx/core/presentation/connection_condition.dart';
 import 'package:keryx/core/presentation/telemetry.dart';
-import 'package:keryx/core/state/radio_state.dart' show RadioMode;
 
 /// User-facing copy for the Stations screen (Design §2.4 / §5).
 abstract final class StationsCopy {
@@ -36,22 +36,25 @@ abstract final class StationsCopy {
   /// Semantic label for the LINKED member-count field.
   static const String linkedCountLabel = 'LINKED members';
 
-  /// Semantic label for an AUTO-route incomplete roster. Must not reuse
-  /// [linkedCountLabel] — an AUTO session is not LINKED (review finding 3).
-  static const String autoCountLabel = 'AUTO members';
+  /// Semantic label while the effective route is still unresolved.
+  /// AUTO is a configured preference, never an effective-route members
+  /// heading (Technical §7).
+  static const String connectingCountLabel = 'Connecting';
 
   static String localCount(int count) => '$localCountLabel: $count';
 
-  /// Incomplete-roster field label follows [RadioMode] effective route,
-  /// never a hardcoded LINKED string.
-  static String membersLabel(RadioMode route) => switch (route) {
-    RadioMode.local => localCountLabel,
-    RadioMode.auto => autoCountLabel,
-    RadioMode.linked => linkedCountLabel,
-  };
+  /// Incomplete-roster field label follows the presented effective route
+  /// (`ConnectionCondition.routeLabel`), never a hardcoded LINKED string
+  /// and never AUTO.
+  static String membersLabel(ConnectionCondition connection) =>
+      switch (connection.routeLabel) {
+        'LOCAL' => localCountLabel,
+        'LINKED' => linkedCountLabel,
+        _ => connectingCountLabel,
+      };
 
-  static String incompleteRoster(RadioMode route) =>
-      '${membersLabel(route)}: $linkedUnavailable';
+  static String incompleteRoster(ConnectionCondition connection) =>
+      '${membersLabel(connection)}: $linkedUnavailable';
 
   /// Real S-meter text (1–9). Never a bar widget (UX-FR-045).
   static String qualityMeasured(int sMeter) => 'Quality: S$sMeter';
