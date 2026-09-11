@@ -9,6 +9,7 @@ import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
+import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/talk/talk_screen.dart';
 
@@ -152,6 +153,27 @@ void main() {
           container.read(radioStateProvider.notifier).dispatch(
                 const RemoteFloorStarted(),
               );
+        },
+      );
+    });
+
+    testWidgets('Talk — receiving with measured glow ($suffix)', (
+      tester,
+    ) async {
+      await pumpAndGolden(
+        tester,
+        name: 'receiving_glow_$suffix',
+        brightness: brightness,
+        arrange: (host, container, engine) {
+          container.read(radioStateProvider.notifier).dispatch(
+                const RemoteFloorStarted(),
+              );
+          host.emit(
+            RadioHostSnapshot(
+              floorEngine: engine,
+              meterLevel: const MeasuredMeterLevel(80),
+            ),
+          );
         },
       );
     });

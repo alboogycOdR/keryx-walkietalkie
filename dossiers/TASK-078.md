@@ -18,3 +18,30 @@ This is the evidence gate for UX R2: audit the goldens, add small-phone, large-t
 4. Write ops/REGRESSION_UX_R2.md with the counts reconciliation and the arm64 APK size and sha256.
 
 ## Work Log
+
+- [2026-09-11T14:12:00Z] [GB] Claimed TASK-078. Resume check: no GB in_progress/claimed. Depends_On TASK-077/079/080/081 all done. Branch `task/TASK-078-gb` from master `1707a42`. Preflight:
+
+```
+[preflight] TASK-078 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   test/regression/**  -> 44 file(s):
+           test/regression/goldens/channels_golden_test.dart
+           test/regression/goldens/event_qr_golden_test.dart
+           test/regression/goldens/goldens/channels_empty_dark.png
+           test/regression/goldens/goldens/channels_empty_light.png
+           test/regression/goldens/goldens/channels_populated_dark.png
+           test/regression/goldens/goldens/channels_populated_light.png
+           test/regression/goldens/goldens/qr_export_dark.png
+           test/regression/goldens/goldens/qr_export_light.png
+           test/regression/goldens/goldens/qr_scan_denied_dark.png
+           test/regression/goldens/goldens/qr_scan_denied_light.png
+           test/regression/goldens/goldens/qr_scan_granted_dark.png
+           test/regression/goldens/goldens/qr_scan_granted_light.png
+           ... and 32 more
+  NEW    ops/REGRESSION_UX_R2.md  -> does not exist; parent ops/ exists
+  FILE   dossiers/TASK-078.md  -> exists, 20 line(s), 739 bytes
+```
+
+  Implementing: shell-frame goldens (dark/light), measured-glow RX goldens, layout matrix (320×568 / 360×640 / 412×915 × scale 1.0/2.0 + landscape 640×360), overflow Settings/Radio-controls `handlePopRoute()` tests. No production files — territory is test/regression/** + ops/REGRESSION_UX_R2.md + this dossier.
+
+- [2026-09-11T14:34:45Z] [GB] Complete. Commit `3037f3b` (tests + goldens). Existing 36 goldens still match without regeneration. New: shell_frame_{dark,light}.png, talk_receiving_glow_{dark,light}.png (glow SHA differs from decorative receiving). Layout 7/7, overflow handlePopRoute 2/2. `flutter analyze --no-pub` No issues found. `flutter test --no-pub` 1519 passed / 0 failed / 40 skipped (= TASK-077's 1506 + 13). Split-per-abi release SUCCESS; arm64-v8a 44484200 bytes sha256 `95812C338435299784D1590F353B420389B3378BAFEE4CBBA817A255A409060B`. Fat debug APK failed three times on C: disk-full during mergeDebugNativeLibs — not a compile defect. Report: ops/REGRESSION_UX_R2.md. → needs_review.
