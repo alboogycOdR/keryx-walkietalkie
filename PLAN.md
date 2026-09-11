@@ -5385,7 +5385,7 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
 
 ### TASK-088
 **Title:** v2 session and host — target switching, roster-at-start, automatic direct/relay transport, v2 state and settings model
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §1.1, §6.3, §6.4, §7 (settings_model, radio_state, radio_session_controller); PRD V2-FR-040..045; Verification V2-VT-021, 022 (projection half), 023, 024; TASK-079 (e), TASK-082 (a) carried debt
@@ -5404,6 +5404,25 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
 **Started_At:** 2026-09-11T19:10:00Z
 **Progress_Notes:**
 - [2026-09-11T19:10:00Z] [S5] Claimed TASK-088. Resume check: no S5 in_progress/claimed task found. Depends_On TASK-086, TASK-087 both done. Branch task/TASK-088-s5 to be created from master. Next: preflight_paths.py TASK-088, then read Technical §1.1/§6.3/§6.4/§7, current lib/services/session/**, lib/core/state/**, lib/core/settings/**, lib/core/presentation/**, and TASK-079/TASK-082 carried debt before writing.
+- [2026-09-11T19:14:00Z] [S5] Status: in_progress. Branch task/TASK-088-s5 created off master. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-088 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx
+[preflight] 13 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/services/session/**  -> 4 file(s): linked_proxy_floor_transport.dart, radio_session_controller.dart, session.dart, station_info.dart
+  GLOB   lib/services/mesh/**  -> 9 file(s): floor_data_channel_transport.dart, mesh.dart, mesh_config.dart, mesh_connection.dart, mesh_controller.dart, opus_sdp.dart, rtc_adapter.dart, rtc_adapter_flutter_webrtc.dart, rx_gate.dart
+  GLOB   lib/core/radio_host/**  -> 4 file(s): keryx_radio_host.dart, radio_host.dart, radio_host_contract.dart, radio_host_snapshot.dart
+  GLOB   lib/core/state/**  -> 4 file(s): README.md, radio_state.dart, radio_state_bridge.dart, radio_state_controller.dart
+  GLOB   lib/core/settings/**  -> 4 file(s): README.md, settings_model.dart, settings_repository.dart, settings_store.dart
+  GLOB   lib/core/presentation/**  -> 8 file(s): connection_condition.dart, presentation.dart, presentation_cue.dart, radio_phase_presentation.dart, radio_view_intents.dart, radio_view_state.dart, telemetry.dart, tuning_target.dart
+  GLOB   test/services/session/**  -> 1 file(s): radio_session_controller_test.dart
+  GLOB   test/services/mesh/**  -> 8 file(s)
+  GLOB   test/core/radio_host/**  -> 2 file(s)
+  GLOB   test/core/state/**  -> 1 file(s): radio_state_test.dart
+  GLOB   test/core/settings/**  -> 2 file(s): resolved_token_uri_test.dart, settings_repository_test.dart
+  GLOB   test/core/presentation/**  -> 3 file(s): connection_condition_test.dart, radio_view_intents_test.dart, radio_view_state_test.dart
+  FILE   dossiers/TASK-088.md  -> exists, 13 line(s), 2013 bytes
+```
+Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (directory client, contacts/groups controllers, room derivation), and the existing radio_state/settings_model/radio_session_controller/radio_view_state/radio_host before writing any code. Also pulling forward TASK-079(e) meter-snapshot-throttle and TASK-082(a) remount-flash-timer carried debt.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
