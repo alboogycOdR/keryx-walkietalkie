@@ -1,6 +1,6 @@
 ---
 plan_version: 15.1
-last_updated: 2026-09-11T12:16:23Z
+last_updated: 2026-09-11T12:36:05Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4192,11 +4192,11 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 
 ### TASK-074
 **Title:** UX R2 Talk screen recomposition — channel card, new PTT ring, status below disc, contextual latch
-**Status:** needs_review
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A2 (content order, channel card, conditional back button), A3 (ring treatments by state, no text in disc), A4 (visible toggle button removed; latch visible only while TX granted/latched); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 ("A disconnected screen must not show 'Ready'", active-speaker copy), §4 (state catalogue labels), §5 (copy); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 (configured vs effective route); Verification VT-010–VT-015
-**Owned_Paths:** lib/features/talk/talk_screen.dart, lib/features/talk/talk_copy.dart, lib/features/talk/talk_ptt_disc.dart, lib/features/talk/talk_channel_card.dart, test/features/talk/talk_screen_test.dart, test/features/talk/a11y_matrix_support.dart, test/features/talk/talk_channel_card_test.dart, test/app_shell/talk_screen_test.dart, test/app_shell/mobile_app_shell_test.dart, test/regression/real_composition_test.dart, test/regression/goldens/talk_states_golden_test.dart, test/regression/goldens/goldens/talk_*.png, dossiers/TASK-074.md
+**Owned_Paths:** lib/features/talk/talk_screen.dart, lib/features/talk/talk_copy.dart, lib/features/talk/talk_ptt_disc.dart, lib/features/talk/talk_channel_card.dart, test/features/talk/talk_screen_test.dart, test/features/talk/a11y_matrix_support.dart, test/features/talk/talk_channel_card_test.dart, test/app_shell/talk_screen_test.dart, test/app_shell/mobile_app_shell_test.dart, test/app_shell/channels_screen_test.dart, test/regression/real_composition_test.dart, test/regression/goldens/talk_states_golden_test.dart, test/regression/goldens/goldens/talk_*.png, dossiers/TASK-074.md
 **Depends_On:** TASK-072, TASK-073
 **Description:** Recompose `TalkScreen` to ADR-002 A2, top to bottom:
 1. New `TalkChannelCard` in `talk_channel_card.dart`: `surfaceCard`, radius 16, 48 dp targets.
@@ -4242,10 +4242,39 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 - [2026-09-11T13:00:00Z] [S5] `flutter analyze --no-pub` — 2 issues, both pre-existing `test/app_shell/channels_screen_test.dart` (TASK-048 territory) referencing deleted `TalkPttDisc`; zero issues in this task's Owned_Paths.
 - [2026-09-11T13:02:00Z] [S5] `flutter test --no-pub --update-goldens test/regression/goldens/talk_states_golden_test.dart` — 16/16 passed (golden regeneration); re-run without `--update-goldens` — 16/16 passed (stable).
 - [2026-09-11T13:04:00Z] [S5] `flutter test --no-pub` (full suite, foreground, waited for completion) — **1,467 passed / 2 failed / 40 skipped**, exit non-zero only from the 2 pre-existing `channels_screen_test.dart`/`app_theme_test.dart` collateral failures (TASK-048 territory, `TalkPttDisc` deletion per ADR-002 A4); every test in this task's Owned_Paths passed.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T12:36:05Z] [ORCH] **REWORK round 1.** Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave). NOT merged; branch `task/TASK-074-s5` retained.
+
+**What's clean:**
+- **Territory:** clean. All commits are tagged, and every changed file is inside Owned_Paths.
+- **Tests:** run independently in the worktree by a subagent. Full suite 1467 passed / **2 failed** / 40 skipped; `flutter analyze` 2 errors. talk + goldens + app_shell passed apart from one load failure.
+- **Implementation (verified in source):**
+  - Hold/latch/lifecycle safety logic in `_TalkScreenState` is byte-for-byte unchanged.
+  - The ring treatment mapping follows Design §4 precedence: latched > tx > rx > requesting > deniedFlash > ready > neutral, so a denied flash can never override a granted TX.
+  - The colour mapping keeps `stateWarning` off the ring, and emergency stays an overlay that never recolours it.
+  - `TalkChannelCard` shows `CH NN · CC`, the effective route, and the configured mode only when different; the radio-controls icon is omitted when its callback is null; targets are 48 dp.
+  - The back button shows only when the route can pop. `TalkPttToggleAlternative`/`TalkPttDisc` are deleted, and the old catalogue tests are replaced one-for-one by per-row ring-treatment tests (scripted name audit: 12 renamed/replaced, 19 added, none dropped without an equivalent).
+
+**BLOCKING (1) — master would go red. ORCH carving error, not charged to S5:**
+- **Problem:** `test/app_shell/channels_screen_test.dart` imports the deleted `talk_ptt_disc.dart` and asserts `find.byType(TalkPttDisc)` (lines 8, 79), so it no longer compiles. When ORCH carved TASK-074 it listed the other shell tests that reference Talk types but missed this one.
+- **Consequence:** the second failure, `app_theme_test.dart` "Dart compiler exited unexpectedly", is knock-on damage; it passes on its own.
+- **Territory:** `test/app_shell/channels_screen_test.dart` is now added to this task's Owned_Paths. No active task owns it, and TASK-077 is still pending.
+- **Fix:** switch the import to `talk_ptt_ring.dart` and the type to `TalkPttRing`, exactly as you did in `talk_screen_test.dart`/`mobile_app_shell_test.dart`.
+
+**BLOCKING (2) — criterion 6 is ticked but untested:**
+- **Problem:** no test sets a 360×640 surface at text scale 1.0 and proves the channel card, the PTT ring and the status line are all on screen without scrolling. The sizing group only has 320×640 no-overflow, 320×640 at 2.0 scrolls, and landscape. "No overflow" is not the same as "visible without scrolling".
+- **Fix:** add a test at `Size(360, 640)`, textScale 1.0. Assert that the rects of `keryx-talk-channel-card`, `keryx-talk-ptt-disc` and `keryx-talk-status-line` all lie fully within the viewport with the scroll offset at 0 (e.g. `tester.getRect(...)` is contained in `Offset.zero & const Size(360, 640)`).
+- **If it fails:** adjust layout until it passes, rather than weakening the test.
+
+**Non-blocking:**
+- (a) **Latch control:** it now shows whenever `phase == tx && !latched`, but `_engageLatch` still returns early unless `_holding`. In any window where TX is granted and the finger has already lifted, the Lock button is visible but inert. Make visibility and the engage precondition agree (e.g. `canLatch = _holding && !_latched && phase == tx`), or document why an inert state is unreachable.
+- (b) Emergency still renders as a small `_OverlayCueChip`, not a banner as ADR-002 A3 says. Acceptable for now; revisit visually at the TASK-078 review build.
+- (c) The route line still formats `effectiveRoute` directly ('AUTO' while unresolved). Leave it: TASK-081 owns switching `talk_channel_card.dart` to `routeLabel`.
+- (d) The golden harness now uses `pump()` + 500 ms instead of `pumpAndSettle`, needed because the requesting sweep never settles. That is correct; keep the comment.
+
+**Next step for S5:** fix (1) and (2) on the existing branch; run the FULL suite in the foreground (no background jobs) and record exact counts, which must be 0 failed; set needs_review.
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T13:05:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T12:36:05Z
 
 
 ### TASK-075
