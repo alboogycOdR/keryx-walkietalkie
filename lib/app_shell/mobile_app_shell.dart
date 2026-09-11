@@ -48,6 +48,23 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
     GlobalKey<NavigatorState>(debugLabel: 'stations-branch'),
   ];
 
+  /// One observer per branch so a push/pop *inside* any nested [Navigator]
+  /// triggers a rebuild here — otherwise the outer [PopScope]'s `canPop`
+  /// would only ever reflect the tree's state as of the last tab switch,
+  /// not the branch's live back-stack depth (round-1 rework finding: system
+  /// back on a screen pushed inside a tab never reached the branch).
+  late final List<_BranchPopObserver> _branchObservers =
+      List<_BranchPopObserver>.generate(
+    3,
+    (_) => _BranchPopObserver(onChanged: () => setState(() {})),
+  );
+
+  /// Whether the *active* branch's own back stack has something to pop.
+  /// Queried directly from its [NavigatorState] rather than cached, so it
+  /// is always current at build time.
+  bool get _activeBranchCanPop =>
+      _branchKeys[_index].currentState?.canPop() ?? false;
+
   @override
   void initState() {
     super.initState();
@@ -82,16 +99,22 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
     final KeryxUxTokens tokens = KeryxUxTokens.of(context);
 
     return PopScope(
-      // Talk (index 0) falls through to the platform as normal; a non-Talk
-      // tab whose own branch is already at its root intercepts back and
-      // returns to Talk instead of leaving the app (ADR-002 §3 A1). A
-      // pushed route on the active branch still pops first — its own
-      // `Navigator` reports it can pop and the back-button notification
-      // never reaches this `PopScope`.
-      canPop: _index == 0,
+      // System back is delivered to the *root* Navigator only — the
+      // branches' nested `Navigator`s never see it on their own. So the
+      // root `canPop` decision must first defer to whatever the active
+      // branch can do: if it has a pushed route, this `PopScope` claims the
+      // pop (`canPop: false`) and pops that branch itself; only when the
+      // active branch is already at its root does tab logic apply — switch
+      // a non-Talk tab back to Talk, or (on the Talk root) let the platform
+      // have it (ADR-002 §3 A1).
+      canPop: _index == 0 && !_activeBranchCanPop,
       onPopInvokedWithResult: (bool didPop, void result) {
         if (didPop) return;
-        setState(() => _index = 0);
+        if (_activeBranchCanPop) {
+          _branchKeys[_index].currentState?.pop();
+        } else {
+          setState(() => _index = 0);
+        }
       },
       child: Scaffold(
         appBar: AppBar(
@@ -126,18 +149,21 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
           children: <Widget>[
             _BranchNavigator(
               navigatorKey: _branchKeys[0],
+              observer: _branchObservers[0],
               builder: (_) => TalkScreen(
                 onSwitchToStations: () => _switchTo(2),
               ),
             ),
             _BranchNavigator(
               navigatorKey: _branchKeys[1],
+              observer: _branchObservers[1],
               builder: (_) => ChannelsScreen(
                 onSwitchToTalk: () => _switchTo(0),
               ),
             ),
             _BranchNavigator(
               navigatorKey: _branchKeys[2],
+              observer: _branchObservers[2],
               builder: (_) => const StationsScreen(),
             ),
           ],
@@ -157,19 +183,58 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
 /// including one that starts on the PTT — has no swipe gesture to be
 /// recognised as (ADR-002 §3 A1).
 class _BranchNavigator extends StatelessWidget {
-  const _BranchNavigator({required this.navigatorKey, required this.builder});
+  const _BranchNavigator({
+    required this.navigatorKey,
+    required this.builder,
+    required this.observer,
+  });
 
   final GlobalKey<NavigatorState> navigatorKey;
   final WidgetBuilder builder;
+  final NavigatorObserver observer;
 
   @override
   Widget build(BuildContext context) {
     return Navigator(
       key: navigatorKey,
+      observers: <NavigatorObserver>[observer],
       onGenerateRoute: (settings) =>
           MaterialPageRoute<void>(builder: builder, settings: settings),
     );
   }
+}
+
+/// Notifies [MobileAppShell] whenever its branch's back stack depth might
+/// have changed, so the outer [PopScope]'s `canPop` (which depends on
+/// [_MobileAppShellState._activeBranchCanPop]) is recomputed on the next
+/// frame rather than staying pinned to the depth at the last tab switch.
+class _BranchPopObserver extends NavigatorObserver {
+  _BranchPopObserver({required this.onChanged});
+
+  final VoidCallback onChanged;
+
+  void _notify() {
+    // Observer callbacks fire mid-navigation transition; defer the
+    // `setState` to the next microtask so it never collides with the
+    // framework's own build/layout pass for the same frame.
+    scheduleMicrotask(onChanged);
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _notify();
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _notify();
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _notify();
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      _notify();
 }
 
 /// Icon-only tab strip under the app bar (ADR-002 §3 A1): Talk (mic),
@@ -260,8 +325,24 @@ class _ConnectionIndicator extends ConsumerWidget {
           radioState.isNoLink || radioState.phase == RadioPhase.linkDegraded,
     );
     final bool healthy = !connection.degraded;
-    final Color color = healthy ? tokens.actionPrimary : tokens.stateWarning;
-    final String status = healthy ? 'healthy' : 'degraded';
+    // Healthy vs degraded must be visually distinguishable on its own —
+    // colour is a redundant cue (Design §3.2), not the only one, but it
+    // must still actually carry it. `stateRx`/`stateWarning` are the
+    // palette's own "receiving" (green) and "warning" (amber) tokens, far
+    // enough apart in hue to read as distinct at 10 dp (round-1 rework
+    // finding: `actionPrimary` vs `stateWarning` were ~8° apart and
+    // indistinguishable). Unresolved/connecting state is neither yet —
+    // it renders the neutral PTT-ring colour instead of claiming healthy.
+    final Color color = !connection.isResolved
+        ? tokens.pttNeutralRing
+        : healthy
+            ? tokens.stateRx
+            : tokens.stateWarning;
+    final String status = !connection.isResolved
+        ? 'connecting'
+        : healthy
+            ? 'healthy'
+            : 'degraded';
 
     return Semantics(
       label: 'Connection $status, ${connection.routeLabel}',

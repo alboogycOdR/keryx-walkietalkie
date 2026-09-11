@@ -256,6 +256,113 @@ void main() {
     },
   );
 
+  group('real Android system back (tester.binding.handlePopRoute)', () {
+    // Round-1 rework finding: `popScreen` above calls `Navigator.pop`
+    // directly, which only proves the branch's own Navigator *can* pop —
+    // it never proves the platform back button actually reaches it. These
+    // four use the real `handlePopRoute()` dispatch path instead.
+
+    testWidgets(
+      'Talk -> picker -> back closes the picker, stays on Talk, and the '
+      'shell reports it handled the pop',
+      (tester) async {
+        givePhoneSurface(tester);
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('keryx-talk-picker')));
+        await tester.pumpAndSettle();
+        expect(find.byType(ChannelSelectorScreen), findsOneWidget);
+
+        final bool popped = await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(
+          popped,
+          isTrue,
+          reason: 'system back on a screen pushed inside the Talk branch '
+              'must be consumed by that branch, not fall through and '
+              'background/close the app',
+        );
+        expect(find.byType(ChannelSelectorScreen), findsNothing);
+        expect(find.byKey(ShellKeys.talk), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Stations -> Export -> back returns to the Stations root, not Talk',
+      (tester) async {
+        givePhoneSurface(tester);
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+
+        await tester.tap(navDestination('Stations'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(StationsScreenKeys.export));
+        await tester.pumpAndSettle();
+        expect(find.byType(EventQrUiExportScreen), findsOneWidget);
+
+        final bool popped = await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(popped, isTrue);
+        expect(find.byType(EventQrUiExportScreen), findsNothing);
+        expect(
+          find.byType(StationsScreen),
+          findsOneWidget,
+          reason: 'back must pop the Export screen off the Stations '
+              'branch, not switch the shell to Talk',
+        );
+      },
+    );
+
+    testWidgets(
+      'Channels -> selector -> back returns to the Channels root',
+      (tester) async {
+        givePhoneSurface(tester);
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+
+        await tester.tap(navDestination('Channels'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(ChannelsLandingKeys.selectChannel),
+        );
+        await tester.tap(find.byKey(ChannelsLandingKeys.selectChannel));
+        await tester.pumpAndSettle();
+        expect(find.byType(ChannelSelectorScreen), findsOneWidget);
+
+        final bool popped = await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(popped, isTrue);
+        expect(find.byType(ChannelSelectorScreen), findsNothing);
+        expect(find.byType(ChannelsLanding), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'root cases still hold: Channels root -> Talk; Talk root -> platform',
+      (tester) async {
+        givePhoneSurface(tester);
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+
+        await tester.tap(navDestination('Channels'));
+        await tester.pumpAndSettle();
+
+        final bool poppedFromChannels = await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(poppedFromChannels, isTrue);
+        expect(find.byKey(ShellKeys.talk), findsOneWidget);
+
+        final bool poppedFromTalk = await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(poppedFromTalk, isFalse);
+      },
+    );
+  });
+
   testWidgets('overflow menu opens Radio controls and Settings full-screen '
       'with back; returning keeps the current tab and channel', (
     tester,
@@ -553,6 +660,112 @@ void main() {
       );
     },
   );
+
+  group('connection indicator dot colour (ADR-002 §3 A1 "healthy vs '
+      'degraded")', () {
+    // Round-1 rework finding: healthy (`actionPrimary`) and degraded
+    // (`stateWarning`) were ~8° apart in hue and effectively
+    // indistinguishable at 10 dp, so the dot carried no cue at all. These
+    // assert the three states now resolve to visibly distinct tokens.
+
+    Future<Color> pumpAndReadDotColor(
+      WidgetTester tester,
+      RadioState seed,
+    ) async {
+      givePhoneSurface(tester);
+      final FakeRadioHost seededHost = FakeRadioHost();
+      final ProviderContainer container = ProviderContainer(
+        overrides: <Override>[
+          radioHostProvider.overrideWithValue(seededHost),
+          settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
+          radioStateProvider.overrideWith(
+            () => _SeededRadioStateController(seed),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: keryxUxThemeData(),
+            home: const MobileAppShell(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final Container dot = tester.widget<Container>(
+        find.descendant(
+          of: find.byKey(ShellKeys.connectionIndicator),
+          matching: find.byType(Container),
+        ),
+      );
+      return (dot.decoration! as BoxDecoration).color!;
+    }
+
+    final KeryxUxTokens tokens = keryxUxThemeData().extension<KeryxUxTokens>()!;
+
+    testWidgets('healthy resolves to stateRx and is labelled healthy', (
+      tester,
+    ) async {
+      final Color color = await pumpAndReadDotColor(
+        tester,
+        const RadioState(
+          phase: RadioPhase.idle,
+          mode: RadioMode.local,
+          isNoLink: false,
+        ),
+      );
+      expect(color, tokens.stateRx);
+      expect(
+        find.bySemanticsLabel(RegExp('Connection healthy')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('degraded resolves to stateWarning, distinct from healthy', (
+      tester,
+    ) async {
+      final Color color = await pumpAndReadDotColor(
+        tester,
+        const RadioState(
+          phase: RadioPhase.linkDegraded,
+          mode: RadioMode.local,
+          isNoLink: false,
+        ),
+      );
+      expect(color, tokens.stateWarning);
+      expect(color, isNot(tokens.stateRx));
+      expect(
+        find.bySemanticsLabel(RegExp('Connection degraded')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'unresolved/connecting resolves to pttNeutralRing, distinct from '
+      'both healthy and degraded',
+      (tester) async {
+        final Color color = await pumpAndReadDotColor(
+          tester,
+          const RadioState(
+            phase: RadioPhase.idle,
+            mode: RadioMode.auto,
+            isNoLink: false,
+          ),
+        );
+        expect(color, tokens.pttNeutralRing);
+        expect(color, isNot(tokens.stateRx));
+        expect(color, isNot(tokens.stateWarning));
+        expect(
+          find.bySemanticsLabel(RegExp('Connection connecting')),
+          findsOneWidget,
+        );
+      },
+    );
+  });
 
   test('new shell wiring does not import transport/floor/audio/platform APIs', () {
     const List<String> wiring = <String>[
