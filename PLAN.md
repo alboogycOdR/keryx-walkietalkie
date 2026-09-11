@@ -1,6 +1,6 @@
 ---
 plan_version: 15.0
-last_updated: 2026-09-11T10:49:45Z
+last_updated: 2026-09-11T11:04:46Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4218,7 +4218,7 @@ No fake presence counts. Regenerate `channels_*` goldens.
 
 ### TASK-076
 **Title:** UX R2 Stations as a tab body — embedded mode, avatar rows, speaking state, QR action row
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A1 (Stations is a tab); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.4 ("known callsigns and actual presence… update while open… empty state, current-channel context and existing Event QR actions… Quality information is omitted or marked unavailable unless a real metric exists… explicitly state that a complete member list is unavailable rather than displaying zero")
@@ -4257,10 +4257,25 @@ In embedded mode, the Event QR actions ("Scan QR" / "Share QR") render as a comp
 - [2026-09-11T12:00:00Z] [S5] `flutter test --no-pub --update-goldens test/regression/goldens/stations_golden_test.dart` -> 4/4 pass; only `stations_populated_{dark,light}.png` changed, `stations_empty_*` byte-identical.
 - [2026-09-11T12:00:00Z] [S5] `flutter test --no-pub` (full suite) -> **1434 passed / 0 failed / 40 skipped**, exit 0 (baseline 1429 + this task's 5 new tests; same 40 PARKED FR-025 soak-seed skips, reason string unchanged).
 - [2026-09-11T12:00:00Z] [S5] `git diff master...HEAD --stat` -> `lib/features/stations/stations_screen.dart`, `test/features/stations/stations_screen_test.dart`, 2 golden PNGs under `test/regression/goldens/goldens/`, `dossiers/TASK-076.md` — all inside `Owned_Paths`; zero PLAN.md commits on the branch.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T11:04:46Z] [ORCH] **APPROVED first-pass**, merged `4cfa78d`. Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave).
+- **Territory:** clean. 5 files (`stations_screen.dart`, its test, 2 `stations_populated_*` goldens, the dossier), all inside Owned_Paths. The single commit `c3d674a` is tagged, and the PLAN.md commits touched only S5's own block. The worktree PLAN.md working-copy diff is the known copy workflow, not stray work.
+- **Tests:** run independently in the worktree by a subagent. `flutter analyze` 0 issues; full suite 1434 passed / 0 failed / 40 skipped (+5 new); `test/app_shell` + `test/regression` 64/64 without `--update-goldens`, which proves the additive-API rule held.
+- **Criteria:** all six verified in source.
+  - `embedded` defaults to `false`, and `appBar` is null only when embedded.
+  - The current-channel context and the compact QR row (`stations.embedded-actions`, which reuses the `.scan`/`.export` keys) render at the top of the body only when embedded.
+  - `_StationAvatar` builds 1–2 letter initials from the display name (never the raw peer ID), with a '?' fallback.
+  - The row min-height is 64 dp.
+  - `_SpeakingIndicator` (a `stateRx` dot + label) appears only where `peerId == activeSpeakerPeerId`, and the semantics label adds ", speaking".
+  - The pre-existing test file had one line removed (`activeSpeakerPeerId: null` in a helper, now parameterised), so no existing assertion was weakened.
+- **Golden:** ORCH viewed `stations_populated_dark`: avatar rows with a two-line title/presence layout, consistent with ADR-002.
+- **Non-blocking:**
+  - (a) The literals 'Speaking' and ', speaking' are hardcoded in the widget rather than `StationsCopy`, inconsistent with the rest of the file's copy discipline.
+  - (b) The avatar uses `textPrimary` on `surfaceRaised` at compact size; that is fine for contrast, but its initials semantics are not excluded, so TalkBack may read the initials before the row label.
+  - (c) Note timestamps are again clock-rounded (11:00Z/12:00Z) rather than real.
+- **Unlocks:** nothing alone; TASK-077 still needs 074/075.
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T12:00:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T11:04:46Z
 
 
 ### TASK-077
