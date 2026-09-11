@@ -182,7 +182,7 @@ void main() {
     engine.dispose();
   });
 
-  test('pubspec unfreeze adds exactly flutter_soloud and permission_handler',
+  test('pubspec dependency set is exactly the authorised list',
       () {
     final yaml = File('pubspec.yaml').readAsStringSync();
     final depsBlock = yaml
@@ -204,6 +204,7 @@ void main() {
         'flutter_secure_storage',
         'shared_preferences',
         'crypto',
+        'cryptography', // TASK-083 (v2 identity), authorised pubspec reopen
         'qr_flutter',
         'mobile_scanner',
         'vibration',
