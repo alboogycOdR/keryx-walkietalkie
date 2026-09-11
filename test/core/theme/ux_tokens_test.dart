@@ -43,7 +43,7 @@ void main() {
       expect(p.textPrimary, const Color(0xFFF4F6F8));
       expect(p.textSecondary, const Color(0xFFA7B0BD));
       expect(p.borderDefault, const Color(0xFF343D49));
-      expect(p.actionPrimary, const Color(0xFF4D8DFF));
+      expect(p.actionPrimary, const Color(0xFFFFD54F));
       expect(p.stateTx, const Color(0xFFE45A52));
       expect(p.stateRx, const Color(0xFF55C39A));
       expect(p.stateWarning, const Color(0xFFF0B44C));
@@ -60,7 +60,7 @@ void main() {
         expect(p.textPrimary, const Color(0xFF18202A));
         expect(p.textSecondary, const Color(0xFF566272));
         expect(p.borderDefault, const Color(0xFFD5DCE5));
-        expect(p.actionPrimary, const Color(0xFF2467D9));
+        expect(p.actionPrimary, const Color(0xFF8A6D00));
         expect(p.stateTx, const Color(0xFFB52F2B));
         expect(p.stateRx, const Color(0xFF167D58));
         expect(p.stateWarning, const Color(0xFF936000));
@@ -102,7 +102,7 @@ void main() {
       }
     });
 
-    test('does not silently ship the four spec body-text misses', () {
+    test('does not silently ship the documented spec body-text misses', () {
       for (final (
             Brightness brightness,
             KeryxUxColorName fg,
@@ -133,19 +133,11 @@ void main() {
       }
     });
 
-    test('records measured ratios for the four body-text misses', () {
+    test('records measured ratios for the documented body-text misses', () {
       double ratio(KeryxUxPalette p, KeryxUxColorName fg, KeryxUxColorName bg) {
         return keryxContrastRatio(p[fg], p[bg]);
       }
 
-      expect(
-        ratio(
-          KeryxUxPalette.dark,
-          KeryxUxColorName.actionPrimary,
-          KeryxUxColorName.surfaceRaised,
-        ),
-        closeTo(4.40, 0.02),
-      );
       expect(
         ratio(
           KeryxUxPalette.dark,
@@ -160,7 +152,7 @@ void main() {
           KeryxUxColorName.actionPrimary,
           KeryxUxColorName.surfaceRaised,
         ),
-        closeTo(4.45, 0.02),
+        closeTo(4.19, 0.02),
       );
       expect(
         ratio(
@@ -192,6 +184,87 @@ void main() {
           );
         }
       }
+    });
+  });
+
+  group('Amber accent — ADR-002 §3 A5', () {
+    test('emergency and accent hues separate by at least 20 degrees', () {
+      for (final KeryxUxPalette p in <KeryxUxPalette>[
+        KeryxUxPalette.dark,
+        KeryxUxPalette.light,
+      ]) {
+        final double delta = keryxHueDelta(p.stateEmergency, p.actionPrimary);
+        expect(delta, greaterThanOrEqualTo(20), reason: 'hue delta was $delta');
+      }
+    });
+
+    test('state/tx stays red-family and distinct from the amber accent', () {
+      for (final KeryxUxPalette p in <KeryxUxPalette>[
+        KeryxUxPalette.dark,
+        KeryxUxPalette.light,
+      ]) {
+        final double txHue = keryxHueDegrees(p.stateTx);
+        // Red family: hue near 0/360, well clear of amber's ~40-50.
+        expect(txHue, anyOf(lessThan(15), greaterThan(345)));
+        expect(keryxHueDelta(p.stateTx, p.actionPrimary), greaterThan(20));
+      }
+    });
+
+    test('state/warning is never used for the PTT ring', () {
+      // Regression guard: warning and the ring's neutral treatment must stay
+      // visually distinguishable from each other and from the accent.
+      for (final KeryxUxPalette p in <KeryxUxPalette>[
+        KeryxUxPalette.dark,
+        KeryxUxPalette.light,
+      ]) {
+        expect(p.pttNeutralRing, isNot(p.stateWarning));
+        expect(p.pttNeutralRing, isNot(p.actionPrimary));
+      }
+    });
+  });
+
+  group('PTT ring / tab tokens (ADR-002 §3 A3, A1)', () {
+    test('pttFace is a dark disc face, identical in both themes', () {
+      expect(KeryxUxPalette.dark.pttFace, KeryxUxPalette.light.pttFace);
+      expect(KeryxUxPalette.dark.pttFace.computeLuminance(), lessThan(0.05));
+    });
+
+    test('pttNeutralRing exists per theme and differs from state colours', () {
+      for (final KeryxUxPalette p in <KeryxUxPalette>[
+        KeryxUxPalette.dark,
+        KeryxUxPalette.light,
+      ]) {
+        expect(p.pttNeutralRing, isNot(p.stateTx));
+        expect(p.pttNeutralRing, isNot(p.stateRx));
+        expect(p.pttNeutralRing, isNot(p.stateEmergency));
+      }
+    });
+
+    test('geometry fractions and dp constants', () {
+      expect(KeryxUxPttTokens.ringWidthFraction, 0.08);
+      expect(KeryxUxPttTokens.widthFraction, 0.78);
+      expect(KeryxUxPttTokens.maxDiameter, 300);
+      expect(KeryxUxPttTokens.tabIndicatorThickness, 3);
+
+      expect(KeryxUxTokens.dark.pttRingWidthFraction, 0.08);
+      expect(KeryxUxTokens.dark.pttWidthFraction, 0.78);
+      expect(KeryxUxTokens.dark.pttMaxDiameter, 300);
+      expect(KeryxUxTokens.dark.tabIndicatorThickness, 3);
+      expect(KeryxUxTokens.dark.pttFace, KeryxUxPalette.dark.pttFace);
+      expect(
+        KeryxUxTokens.light.pttNeutralRing,
+        KeryxUxPalette.light.pttNeutralRing,
+      );
+    });
+
+    test('lerp interpolates the new palette fields too', () {
+      final KeryxUxPalette mid = KeryxUxPalette.dark.lerp(
+        KeryxUxPalette.light,
+        0.5,
+      );
+      expect(mid.pttFace, KeryxUxPalette.dark.pttFace); // identical in both
+      expect(mid.pttNeutralRing, isNot(KeryxUxPalette.dark.pttNeutralRing));
+      expect(mid.pttNeutralRing, isNot(KeryxUxPalette.light.pttNeutralRing));
     });
   });
 

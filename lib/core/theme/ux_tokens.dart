@@ -18,6 +18,17 @@ double keryxContrastRatio(Color a, Color b) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+/// Hue (0-360, degrees) of [color] in HSL space. Used for the ADR-002 §3 A5
+/// "emergency hue separation ≥ 20°" check and for confirming `state/tx`
+/// stays in the red family once `action/primary` moves to amber.
+double keryxHueDegrees(Color color) => HSLColor.fromColor(color).hue;
+
+/// Smallest angular distance between two hues on the 360° colour wheel.
+double keryxHueDelta(Color a, Color b) {
+  final double raw = (keryxHueDegrees(a) - keryxHueDegrees(b)).abs();
+  return raw > 180 ? 360 - raw : raw;
+}
+
 /// Design §3.2 token names. Eleven entries; names match the spec table
 /// character-for-character (slash form), so tests can enumerate them.
 enum KeryxUxColorName {
@@ -55,6 +66,8 @@ class KeryxUxPalette {
     required this.stateRx,
     required this.stateWarning,
     required this.stateEmergency,
+    required this.pttFace,
+    required this.pttNeutralRing,
   });
 
   final Color surfaceBase;
@@ -69,7 +82,19 @@ class KeryxUxPalette {
   final Color stateWarning;
   final Color stateEmergency;
 
-  /// Design §3.2 dark column, verbatim.
+  /// PTT disc face — ADR-002 §3 A3: a dark radio-face disc, the same colour
+  /// in dark and light theme (it does not repaint with the surrounding UI).
+  final Color pttFace;
+
+  /// PTT ring colour for the neutral treatments — Off/Boot/No link/Tuning/
+  /// denied flash (ADR-002 §3 A3). Deliberately distinct from every
+  /// `state/*` token so a neutral ring can never be mistaken for tx/rx/
+  /// warning/emergency.
+  final Color pttNeutralRing;
+
+  /// Design §3.2 dark column. `action/primary` is amber/radio-yellow per
+  /// ADR-002 §3 A5 (owner decision, 2026-09-11); every other value is
+  /// verbatim.
   static const KeryxUxPalette dark = KeryxUxPalette(
     surfaceBase: Color(0xFF101318),
     surfaceCard: Color(0xFF1B2028),
@@ -77,14 +102,18 @@ class KeryxUxPalette {
     textPrimary: Color(0xFFF4F6F8),
     textSecondary: Color(0xFFA7B0BD),
     borderDefault: Color(0xFF343D49),
-    actionPrimary: Color(0xFF4D8DFF),
+    actionPrimary: Color(0xFFFFD54F),
     stateTx: Color(0xFFE45A52),
     stateRx: Color(0xFF55C39A),
     stateWarning: Color(0xFFF0B44C),
     stateEmergency: Color(0xFFF28C45),
+    pttFace: Color(0xFF14181D),
+    pttNeutralRing: Color(0xFF4A525E),
   );
 
-  /// Design §3.2 light column, verbatim.
+  /// Design §3.2 light column. `action/primary` is amber/radio-yellow per
+  /// ADR-002 §3 A5 (owner decision, 2026-09-11); every other value is
+  /// verbatim.
   static const KeryxUxPalette light = KeryxUxPalette(
     surfaceBase: Color(0xFFF7F8FA),
     surfaceCard: Color(0xFFFFFFFF),
@@ -92,11 +121,13 @@ class KeryxUxPalette {
     textPrimary: Color(0xFF18202A),
     textSecondary: Color(0xFF566272),
     borderDefault: Color(0xFFD5DCE5),
-    actionPrimary: Color(0xFF2467D9),
+    actionPrimary: Color(0xFF8A6D00),
     stateTx: Color(0xFFB52F2B),
     stateRx: Color(0xFF167D58),
     stateWarning: Color(0xFF936000),
     stateEmergency: Color(0xFFA94A09),
+    pttFace: Color(0xFF14181D),
+    pttNeutralRing: Color(0xFF8D95A1),
   );
 
   Color operator [](KeryxUxColorName name) {
@@ -182,6 +213,8 @@ class KeryxUxPalette {
       stateRx: l(stateRx, other.stateRx),
       stateWarning: l(stateWarning, other.stateWarning),
       stateEmergency: l(stateEmergency, other.stateEmergency),
+      pttFace: l(pttFace, other.pttFace),
+      pttNeutralRing: l(pttNeutralRing, other.pttNeutralRing),
     );
   }
 }
@@ -310,6 +343,24 @@ abstract final class KeryxUxMotion {
   }
 }
 
+/// Design §3.4 / ADR-002 §3 A3, A1 PTT-ring and tab-strip geometry. Pure
+/// dimensionless fractions and dp constants — no colour lives here (colours
+/// come from [KeryxUxPalette.pttFace]/[KeryxUxPalette.pttNeutralRing] and the
+/// existing `state/*`/`action/primary` tokens).
+abstract final class KeryxUxPttTokens {
+  /// Ring stroke width as a fraction of the disc diameter (ADR-002 §3 A3).
+  static const double ringWidthFraction = 0.08;
+
+  /// Disc diameter as a fraction of the available width (ADR-002 §3 A3).
+  static const double widthFraction = 0.78;
+
+  /// Disc diameter clamp ceiling, in logical pixels (ADR-002 §3 A3).
+  static const double maxDiameter = 300;
+
+  /// Tab-strip accent-underline thickness, in dp (ADR-002 §3 A1).
+  static const double tabIndicatorThickness = 3;
+}
+
 /// A sanctioned foreground/background pairing and the WCAG floor it must meet.
 @immutable
 class KeryxUxContrastPair {
@@ -392,18 +443,17 @@ abstract final class KeryxUxContrast {
   /// Spec-table pairings that miss 4.5:1 as body text. Not sanctioned;
   /// hexes are left verbatim. Minimal corrections (not applied):
   ///
-  /// * dark `action/primary` on `surface/raised` 4.40 → `#5090FF` (~4.54)
   /// * dark `state/tx` on `surface/raised` 3.94 → `#F0665E` (~4.54)
-  /// * light `action/primary` on `surface/raised` 4.45 → `#2366D8` (~4.51)
+  /// * light `action/primary` on `surface/raised` 4.19 → `#7C6100` (~4.55)
   /// * light `state/rx` on `surface/raised` 4.35 → `#137A55` (~4.53)
+  ///
+  /// Dark `action/primary` on `surface/raised` was a documented miss (4.40)
+  /// before the ADR-002 §3 A5 amber retune; the new amber (`#FFD54F`, ~9.97
+  /// on `surface/raised`) clears 4.5:1 with margin, so that pairing is no
+  /// longer listed here.
   static List<(Brightness, KeryxUxColorName, KeryxUxColorName)>
   get specBodyTextMisses =>
       const <(Brightness, KeryxUxColorName, KeryxUxColorName)>[
-        (
-          Brightness.dark,
-          KeryxUxColorName.actionPrimary,
-          KeryxUxColorName.surfaceRaised,
-        ),
         (
           Brightness.dark,
           KeryxUxColorName.stateTx,
@@ -465,6 +515,20 @@ class KeryxUxTokens extends ThemeExtension<KeryxUxTokens> {
   Color get stateRx => palette.stateRx;
   Color get stateWarning => palette.stateWarning;
   Color get stateEmergency => palette.stateEmergency;
+  Color get pttFace => palette.pttFace;
+  Color get pttNeutralRing => palette.pttNeutralRing;
+
+  /// Ring stroke width as a fraction of the disc diameter (ADR-002 §3 A3).
+  double get pttRingWidthFraction => KeryxUxPttTokens.ringWidthFraction;
+
+  /// Disc diameter as a fraction of the available width (ADR-002 §3 A3).
+  double get pttWidthFraction => KeryxUxPttTokens.widthFraction;
+
+  /// Disc diameter clamp ceiling, in logical pixels (ADR-002 §3 A3).
+  double get pttMaxDiameter => KeryxUxPttTokens.maxDiameter;
+
+  /// Tab-strip accent-underline thickness, in dp (ADR-002 §3 A1).
+  double get tabIndicatorThickness => KeryxUxPttTokens.tabIndicatorThickness;
 
   /// Ready / interactive action — colour plus text plus icon.
   KeryxUxStateCue get actionCue => KeryxUxStateCue(
