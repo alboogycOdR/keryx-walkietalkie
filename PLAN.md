@@ -1,6 +1,6 @@
 ---
 plan_version: 15.1
-last_updated: 2026-09-11T12:47:49Z
+last_updated: 2026-09-11T13:07:44Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4653,7 +4653,7 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 
 ### TASK-081
 **Title:** Adopt ConnectionCondition's resolved route label in every UI call site (no literal AUTO as an effective route)
-**Status:** needs_review
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; TASK-080 (adds `ConnectionCondition.isResolved`/`routeLabel` and fixes the reducer root cause — this task is the UI half it could not reach, re-carved by ORCH from TASK-080's OWNERSHIP_CONFLICT block 2026-09-11)
@@ -4767,7 +4767,32 @@ Territory matches expectation: all listed UI files exist; goldens are existing P
 - Latch-after-lift revert-mutation: dropped `_holding` from `_engageLatch`; the same-frame grant→lift→tap Lock test went red (`keryx-talk-unlatch` found); restored; git diff clean of the mutation.
 - `flutter test` (full suite) — **1491 passed / 0 failed / 40 skipped** (parked FR-025 soak seeds).
 - Goldens: channels_*.png unchanged; settings/stations/talk listed above regenerated via `--update-goldens`.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T13:07:44Z] [ORCH] **REWORK round 1.** Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave). NOT merged; branch `task/TASK-081-gb` retained.
+
+**What's clean:**
+- **Territory:** clean. 38 files, all inside Owned_Paths, and the commit `fddac58` is tagged.
+- **Tests:** run independently in the worktree by a subagent. `flutter analyze` 0 issues; targeted 231/231; full suite 1491 passed / 0 failed / 40 skipped.
+- **Route labels:** all six call sites now present `connection.routeLabel`; configured-AUTO labels are kept, and per-call-site unresolved/resolved tests were added.
+- **Carried latch-after-lift fix:** correct. `canLatch` and `_engageLatch` both require `_holding && !_latched && phase == tx`, `_lastBuiltPhase` is gone, and a revert-mutation proved the new same-frame test bites.
+
+**BLOCKING (1) — new hot-mic regression in the "leftover latch" cleanup:**
+- **Change:** `build()` now does `if (_latched && radioState.phase != RadioPhase.tx) TalkLatchState.release(widget.host);`, and projects `latched` as false outside tx. It clears the UI latch flag **without releasing the floor**.
+- **Where phase leaves tx while the engine still transmits:** `LinkDegraded`. `LinkMonitor._onLost` dispatches it straight into the reducer (tx → linkDegraded), and the floor engine is never told (`RadioStateBridge` ignores LinkDegraded).
+- **Failure path:** a latched LINKED transmission hits a reconnect, so phase becomes linkDegraded. The latch flag is cleared, the Release control disappears, and `_releaseOrdinaryHoldIfOwed` does nothing because `_holding` is false. `releaseLatch()` is never called, so the engine keeps the floor and the mic stays open with **no UI release affordance** until TOT cuts it. This is exactly the defect class `TalkLatchState` was created to prevent (see its dartdoc: a latched TX surviving at the engine with its only release affordance lost).
+- **On master (post-074):** the latch stays true through linkDegraded, so Release stays visible.
+- **Fix:** whenever a latch is auto-cleared because the phase has left tx, also call the release, `RadioViewIntents(widget.host).releaseLatch()`, exactly once. Releasing on an already-idle engine is a no-op, so this is safe for the TOT/EndTransmit paths too. Do this side effect **outside `build()`** (e.g. `ref.listen(radioStateProvider, …)` in build, or a post-frame callback), not as a mutation during build.
+- **Tests:**
+  - latched TX → dispatch `LinkDegraded` → `host.releaseLatchCalls == 1` and no red latched treatment;
+  - latched TX → `EndTransmit` → at most one `releaseLatch` call and no stuck "Transmission locked".
+  - Mutation-check the first by removing the release call.
+
+**Non-blocking:**
+- (a) `StationsCopy.membersLabel` switches on the `routeLabel` *strings* `'LOCAL'`/`'LINKED'`, which is brittle. Switch on `connection.isResolved` + `connection.effectiveRoute` instead.
+- (b) `about_diagnostics`/settings effective route changed from `SettingsCopy.modeOptionLabel(...)` casing to the raw `routeLabel` casing ("LOCAL"), which may be inconsistent with the configured-mode row on the same screen. Check it and align.
+- (c) Leftover blank import line in `stations_screen.dart`.
+- (d) `talk_channel_card.dart`'s `configuredDiffers` compares label strings. That works, but prefer comparing `configuredMode` against `isResolved ? effectiveRoute : null`.
+
+**Next step for GB:** fix (1) on the existing branch; run the FULL suite in the foreground with exact counts; set needs_review.
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-11T13:01:46Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T13:07:44Z
