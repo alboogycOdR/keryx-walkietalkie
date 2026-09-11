@@ -4235,7 +4235,7 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 
 ### TASK-075
 **Title:** UX R2 Channels as a tab body — embedded mode, polished list rows, tune-success callback
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** CX
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A1 (Channels becomes a tab under a shell-owned app bar; Talk is default; recent channels stay here); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.1 ("Recent entries show their actual channel/code values and remain selectable. Empty memory uses a neutral explanatory message and a direct tune action. Do not show a fake online count"), §2.3, §3.3
@@ -4261,13 +4261,14 @@ No fake presence counts. Regenerate `channels_*` goldens.
 - [ ] `channels_*` goldens regenerated; `flutter analyze` clean; full suite green
 **Branch:** task/TASK-075-cx
 **Started_At:** 2026-09-11T11:37:39Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-09-11T11:38:37Z] [CX] Claimed and started TASK-075 on `task/TASK-075-cx`. TASK-072 is done; territory is limited to Channels, its tests/goldens, and the dossier. Read ADR-002, the UX design spec, existing task dossier, and current landing/test coverage. Next: preflight the owned paths and implement the additive embedded/callback API plus row polish without touching shell tests.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** CX
-**Updated_At:** 2026-09-11T11:37:39Z
+**Updated_At:** 2026-09-11T11:38:37Z
 
 
 ### TASK-076
