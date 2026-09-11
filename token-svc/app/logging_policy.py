@@ -6,8 +6,11 @@ import logging
 import re
 
 # Field names that would constitute a room-join history or identity leak.
+# v2: also drop keys, pubkeys, sealed secrets (Verification §7).
 _FORBIDDEN = re.compile(
-    r"(callsign|room[_-]?id|roomJoin|joined room|event_token)",
+    r"(callsign|room[_-]?id|roomJoin|joined room|event_token|"
+    r"pubkey|public.?key|private.?key|secret_enc|x-keryx-key|"
+    r"peer_id|peerId|from_pk|to_pk)",
     re.IGNORECASE,
 )
 

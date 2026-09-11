@@ -53,7 +53,7 @@ RadioHost                                         ├─ /token (existing, now a
 - Restore: words → seed → same key → `GET /v2/identity/me` (signed) returns contacts and groups; group secrets are re-fetched from the member-encrypted store (§5.3).
 
 ### 3.3 Signing
-- Every mutating directory call carries `X-Keryx-Sig: base64(ed25519(sha256(method|path|body|timestamp)))` and `X-Keryx-Key`, `X-Keryx-Ts`. The server rejects timestamps more than 120 s old and replays within that window (Redis nonce set).
+- Every mutating directory call carries `X-Keryx-Sig: base64(ed25519(sha256(method|path|body|timestamp)))` and `X-Keryx-Key`, `X-Keryx-Ts`. Encodings (amended 2026-09-11 after TASK-083/084): `X-Keryx-Sig` is standard base64; `X-Keryx-Key` is canonically unpadded base64url, and the server also accepts standard base64; `path` is the URL path without query; `body` is the raw request bytes (empty for GET). The server rejects timestamps more than 120 s old and replays within that window (Redis nonce set).
 
 ## 4. Directory service
 

@@ -8,6 +8,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+COPY alembic.ini ./alembic.ini
+COPY alembic ./alembic
+COPY scripts ./scripts
+COPY openapi-v2.yaml ./openapi-v2.yaml
 
 RUN useradd --system --uid 10001 --no-create-home tokensvc
 USER tokensvc

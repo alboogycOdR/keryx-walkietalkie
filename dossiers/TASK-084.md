@@ -11,3 +11,7 @@ Grow `token-svc` into the directory service under `/v2/`. Add Postgres 16 to the
 - Depends_On: —
 
 ## Work Log
+
+- [2026-09-11T17:45:00Z] [GB] Claimed. Preflight pasted in PLAN.md. Approach: grow token-svc `/v2/` on the existing FastAPI app; SQLite+memory nonce for tests; Postgres 16 in relay compose with `${VAR:-default}` so `.env.example` (out of territory) is untouched; token-svc stays out of compose (relay tests forbid `token-svc:`). Groups tables via Alembic now; group HTTP left to TASK-085. `/token` remains unsigned. Caddyfile is out of territory — README notes the `/v2/` matcher follow-up.
+- [2026-09-11T18:20:00Z] [GB] Implementation complete. `python -m pytest` in token-svc: 48 passed. `python relay/tests/test_relay_config.py`: 19/19 OK. V2-VT-010/013/016 covered. Ready for needs_review.
+
