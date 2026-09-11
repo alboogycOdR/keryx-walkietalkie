@@ -89,7 +89,6 @@ void main() {
         characterDspIntensity: CharacterDspIntensity.light,
         dimMode: DimMode.auto,
       );
-
     });
 
     // Criterion 2: Composed floor engine — verify engine exists and is accessible
@@ -123,10 +122,7 @@ void main() {
           initialCode: 0,
         );
 
-        expect(
-          () => controller.floorEngine,
-          throwsStateError,
-        );
+        expect(() => controller.floorEngine, throwsStateError);
       });
     });
 
@@ -167,7 +163,8 @@ void main() {
         expect(
           controller.debugMeshTransport != null,
           equals(expectLocalBuilt),
-          reason: 'mode=$mode, forceLocalOnly=$forceLocalOnly, relayUrl=$relayUrl',
+          reason:
+              'mode=$mode, forceLocalOnly=$forceLocalOnly, relayUrl=$relayUrl',
         );
 
         // Criterion 3b: verify LINKED never built when forceLocalOnly=true
@@ -245,7 +242,11 @@ void main() {
         await controller.start();
 
         final setModes = dispatchedEvents.whereType<SetMode>().toList();
-        expect(setModes, isNotEmpty, reason: 'SetMode must be dispatched on start');
+        expect(
+          setModes,
+          isNotEmpty,
+          reason: 'SetMode must be dispatched on start',
+        );
         expect(setModes.first.mode, equals(RadioMode.local));
 
         await controller.dispose();
@@ -279,8 +280,11 @@ void main() {
 
         final setModes = dispatchedEvents.whereType<SetMode>().toList();
         // Even though mode=linked in settings, forceLocalOnly forces LOCAL
-        expect(setModes.last.mode, equals(RadioMode.local),
-            reason: 'SetMode must reflect forceLocalOnly override');
+        expect(
+          setModes.last.mode,
+          equals(RadioMode.local),
+          reason: 'SetMode must reflect forceLocalOnly override',
+        );
 
         await controller.dispose();
       });
@@ -531,76 +535,73 @@ void main() {
         expect(controllerA.meterLevel, MeterLevel.decorative);
       });
 
-      test(
-        'starts polling on RemoteFloorStarted; measured value flows through '
-        'at ~10 Hz; stops on RemoteFloorEnded',
-        () async {
-          var level = 0.1;
-          adapterA.connectionsCreated.single.deliverRemoteAudioTrack(
-            RtcRemoteAudioTrack(
-              id: 'bravo-remote',
-              readAudioLevel: () async => RtcMeasuredAudioLevel(level),
-            ),
-          );
+      test('starts polling on RemoteFloorStarted; measured value flows through '
+          'at ~10 Hz; stops on RemoteFloorEnded', () async {
+        var level = 0.1;
+        adapterA.connectionsCreated.single.deliverRemoteAudioTrack(
+          RtcRemoteAudioTrack(
+            id: 'bravo-remote',
+            readAudioLevel: () async => RtcMeasuredAudioLevel(level),
+          ),
+        );
 
-          final seen = <MeterLevel>[];
-          final sub = controllerA.meterLevelChanges.listen(seen.add);
+        final seen = <MeterLevel>[];
+        final sub = controllerA.meterLevelChanges.listen(seen.add);
 
-          deliverRemoteStart('BRAVO-7');
-          expect(
-            controllerA.floorEngine.holder,
-            'BRAVO-7',
-            reason: 'sanity: TxStart must have installed BRAVO-7 as holder',
-          );
-          await _flush();
-          // First poll tick fires 100ms after RemoteFloorStarted scheduled it.
-          clockA.elapse(const Duration(milliseconds: 100));
-          await _flush();
+        deliverRemoteStart('BRAVO-7');
+        expect(
+          controllerA.floorEngine.holder,
+          'BRAVO-7',
+          reason: 'sanity: TxStart must have installed BRAVO-7 as holder',
+        );
+        await _flush();
+        // First poll tick fires 100ms after RemoteFloorStarted scheduled it.
+        clockA.elapse(const Duration(milliseconds: 100));
+        await _flush();
 
-          expect(
-            controllerA.meterLevel,
-            isA<MeasuredMeterLevel>(),
-            reason: 'RemoteFloorStarted on A must begin polling BRAVO-7',
-          );
-          expect(
-            (controllerA.meterLevel as MeasuredMeterLevel).value,
-            closeTo(10, 0.001),
-          );
+        expect(
+          controllerA.meterLevel,
+          isA<MeasuredMeterLevel>(),
+          reason: 'RemoteFloorStarted on A must begin polling BRAVO-7',
+        );
+        expect(
+          (controllerA.meterLevel as MeasuredMeterLevel).value,
+          closeTo(10, 0.001),
+        );
 
-          // Advance one more poll tick with a different level to confirm
-          // the ~10 Hz self-reschedule is actually live, not a one-shot.
-          level = 0.5;
-          clockA.elapse(const Duration(milliseconds: 100));
-          await _flush();
-          expect(
-            (controllerA.meterLevel as MeasuredMeterLevel).value,
-            closeTo(50, 0.001),
-          );
+        // Advance one more poll tick with a different level to confirm
+        // the ~10 Hz self-reschedule is actually live, not a one-shot.
+        level = 0.5;
+        clockA.elapse(const Duration(milliseconds: 100));
+        await _flush();
+        expect(
+          (controllerA.meterLevel as MeasuredMeterLevel).value,
+          closeTo(50, 0.001),
+        );
 
-          deliverRemoteEnd('BRAVO-7');
-          await _flush();
+        deliverRemoteEnd('BRAVO-7');
+        await _flush();
 
-          expect(
-            controllerA.meterLevel,
-            MeterLevel.decorative,
-            reason: 'RemoteFloorEnded must stop polling and go decorative',
-          );
+        expect(
+          controllerA.meterLevel,
+          MeterLevel.decorative,
+          reason: 'RemoteFloorEnded must stop polling and go decorative',
+        );
 
-          // No leaked timer: further clock elapses must not resurrect a
-          // measured value now that polling has stopped.
-          level = 0.9;
-          clockA.elapse(const Duration(seconds: 5));
-          await _flush();
-          expect(controllerA.meterLevel, MeterLevel.decorative);
+        // No leaked timer: further clock elapses must not resurrect a
+        // measured value now that polling has stopped.
+        level = 0.9;
+        clockA.elapse(const Duration(seconds: 5));
+        await _flush();
+        expect(controllerA.meterLevel, MeterLevel.decorative);
 
-          expect(
-            seen.any((l) => l is MeasuredMeterLevel),
-            isTrue,
-            reason: 'meterLevelChanges must have emitted the measured value',
-          );
-          await sub.cancel();
-        },
-      );
+        expect(
+          seen.any((l) => l is MeasuredMeterLevel),
+          isTrue,
+          reason: 'meterLevelChanges must have emitted the measured value',
+        );
+        await sub.cancel();
+      });
 
       test('unavailable sample projects as decorative, not measured', () async {
         // No remote track delivered on purpose — MeshController.readAudioLevel
@@ -613,6 +614,76 @@ void main() {
         deliverRemoteEnd('BRAVO-7');
         await _flush();
       });
+
+      test(
+        'a superseded pending poll cannot create a second polling chain',
+        () async {
+          var reads = 0;
+          final firstRead = Completer<RtcAudioLevel>();
+          adapterA.connectionsCreated.single.deliverRemoteAudioTrack(
+            RtcRemoteAudioTrack(
+              id: 'bravo-remote',
+              readAudioLevel: () {
+                reads++;
+                return reads == 1
+                    ? firstRead.future
+                    : Future.value(const RtcMeasuredAudioLevel(0.4));
+              },
+            ),
+          );
+
+          deliverRemoteStart('BRAVO-7');
+          clockA.elapse(const Duration(milliseconds: 100));
+          await _flush();
+          expect(reads, 1, reason: 'the first poll is intentionally pending');
+
+          deliverRemoteEnd('BRAVO-7');
+          deliverRemoteStart('BRAVO-7');
+          firstRead.complete(const RtcMeasuredAudioLevel(0.2));
+          await _flush();
+
+          clockA.elapse(const Duration(milliseconds: 100));
+          await _flush();
+          expect(reads, 2, reason: 'only the replacement generation polls');
+          expect(controllerA.meterLevel, isA<MeasuredMeterLevel>());
+
+          clockA.elapse(const Duration(milliseconds: 100));
+          await _flush();
+          expect(reads, 3, reason: 'there is exactly one poll per interval');
+        },
+      );
+
+      test(
+        'a throwing audio-level read stays decorative and polling continues',
+        () async {
+          var reads = 0;
+          adapterA.connectionsCreated.single.deliverRemoteAudioTrack(
+            RtcRemoteAudioTrack(
+              id: 'bravo-remote',
+              readAudioLevel: () {
+                reads++;
+                if (reads == 1) {
+                  return Future<RtcAudioLevel>.error(StateError('closing'));
+                }
+                return Future.value(const RtcMeasuredAudioLevel(0.6));
+              },
+            ),
+          );
+
+          deliverRemoteStart('BRAVO-7');
+          clockA.elapse(const Duration(milliseconds: 100));
+          await _flush();
+          expect(controllerA.meterLevel, MeterLevel.decorative);
+
+          clockA.elapse(const Duration(milliseconds: 100));
+          await _flush();
+          expect(reads, 2);
+          expect(
+            (controllerA.meterLevel as MeasuredMeterLevel).value,
+            closeTo(60, 0.001),
+          );
+        },
+      );
 
       test('retune stops polling and does not leak a timer', () async {
         adapterA.connectionsCreated.single.deliverRemoteAudioTrack(
