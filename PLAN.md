@@ -1,6 +1,6 @@
 ---
 plan_version: 15.1
-last_updated: 2026-09-11T14:03:50Z
+last_updated: 2026-09-11T14:46:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4539,7 +4539,7 @@ The host is still constructed and started exactly once above all routes, and no 
 
 ### TASK-078
 **Title:** UX R2 regression + owner review build — goldens audit, small-phone/landscape checks, split release APKs
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §2 O4 (owner reviews the built APK instead of a mockup), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (golden fixtures for every significant state, dark and light; 320 lp width; text scale 2.0; landscape), §9 G4; ops/REGRESSION_UX_R1.md (the R1 baseline this extends)
@@ -4605,10 +4605,23 @@ Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
 - [2026-09-11T14:34:45Z] [GB] `flutter build apk --release --split-per-abi` → SUCCESS. arm64-v8a 44484200 bytes, sha256 95812C338435299784D1590F353B420389B3378BAFEE4CBBA817A255A409060B.
 - [2026-09-11T14:34:45Z] [GB] `flutter build apk --debug` → FAILED (disk full, mergeDebugNativeLibs). Retry after freeing C: space. Not a source defect.
 - [2026-09-11T14:34:45Z] [GB] `git diff --name-only master...HEAD` → 11 owned files only.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T14:46:00Z] [ORCH] **APPROVED first-pass**, merged `0b8a725`. Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave).
+- **Territory:** clean. 11 files: `test/regression/**` (new shell-frame and measured-glow goldens, layout matrix, overflow system-back test, harness, golden test additions), `ops/REGRESSION_UX_R2.md` and the dossier. Both commits are tagged. There are no production changes.
+- **Tests:** run independently in the worktree by a subagent. `flutter analyze` 0 issues; `test/regression` 55/55; full suite 1519 passed / 0 failed / 40 skipped.
+- **Debug build:** `flutter build apk --debug --target-platform android-arm64` succeeded (156,238,690 bytes, then deleted to save disk). GB's own debug build failed three times with "not enough space on the disk"; ORCH freed ~2.8 GB by deleting the regenerable `wt-s5-walkietalkie-keryx/build` and re-ran it successfully. The criterion is met on ORCH's evidence. GB ticked it while its own run had failed, but GB's report records that failure honestly, so this is not charged.
+- **Release APK:** ORCH verified the arm64-v8a release APK on disk. It is 44,484,200 bytes, sha256 `95812C338435299784D1590F353B420389B3378BAFEE4CBBA817A255A409060B`, matching the report byte for byte. A copy was preserved for owner hand-off.
+- **Criteria:** all five verified.
+  - ORCH viewed the goldens: `shell_frame_dark` shows the app bar, icon tabs with an accent underline, the Talk card and the ring; `talk_receiving_glow_dark` shows the green ring with a measured glow.
+  - The layout matrix pumps the assembled `MobileAppShell` at 7 sizes/scales and asserts no exception, tabs ≥ 48 dp, the overflow menu reachable, and the PTT reachable and ≥ 96 dp.
+  - The overflow system-back test uses a real `handlePopRoute()`, closing the TASK-077 carry.
+  - The count reconciliation is R1 1413 → TASK-077 1506 → 1519, with the +13 itemised.
+- **Non-blocking, for the owner:**
+  - (a) At phone size the Talk layout leaves a large empty band between the channel card and the PTT, which is pinned to the bottom (Design §2.2 bottom placement). Zello centres its disc higher. This is a visual-polish judgement for the owner's on-device review, not a defect.
+  - (b) The flutter toolchain on this machine is 3.41.6 vs 3.47.2 recorded on the owner's other machine. Goldens are machine-specific, so expect drift if the suite is run there.
+  - (c) C: has only ~2.6 GB free, which blocks future Gradle builds. The main checkout's `build/` (3.9 GB of stale August artefacts) is a candidate for `flutter clean`, subject to owner consent.
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-11T14:34:45Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T14:46:00Z
 
 
 ### TASK-079
