@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:keryx/core/identity/keys.dart' show IdentityKeyPair;
+import 'package:keryx/core/identity/signing.dart' show signRequest;
+
 const _logName = 'keryx.linked';
 
 /// HTTP client for the token service's `POST /token` contract
@@ -16,14 +19,28 @@ const _logName = 'keryx.linked';
 ///
 /// Never logs `callsign`, `roomId`, or the returned token — mirrors the
 /// token service's own logging policy (TS §8.7).
+///
+/// v2 (Technical §4.2): when [signer] is supplied, every request carries
+/// the `X-Keryx-Sig`/`X-Keryx-Key`/`X-Keryx-Ts` headers TASK-083's
+/// `signRequest` computes, so the directory's membership check
+/// (`POST /token` — "now checks the signed caller is a member of room_id")
+/// has a caller identity to check. `signer == null` keeps the v1,
+/// unsigned request shape — callers not yet carrying an identity key
+/// (pre-TASK-088 wiring) are unaffected.
 class TokenClient {
-  TokenClient({required Uri baseUrl, HttpClient? client, Duration? requestTimeout})
-    : _baseUrl = baseUrl,
-      _client = client ?? HttpClient(),
-      _requestTimeout = requestTimeout ?? const Duration(seconds: 10);
+  TokenClient({
+    required Uri baseUrl,
+    HttpClient? client,
+    Duration? requestTimeout,
+    IdentityKeyPair? signer,
+  }) : _baseUrl = baseUrl,
+       _client = client ?? HttpClient(),
+       _requestTimeout = requestTimeout ?? const Duration(seconds: 10),
+       _signer = signer;
 
   final Uri _baseUrl;
   final HttpClient _client;
+  final IdentityKeyPair? _signer;
 
   /// Bounds the whole request/response round trip. FR-045's "relay
   /// unreachable" covers "reachable but wedged", not just outright
@@ -44,19 +61,30 @@ class TokenClient {
     String? eventToken,
   }) async {
     final uri = resolveTokenUri();
-    final body = utf8.encode(
-      jsonEncode({
-        'room_id': roomId,
-        'callsign': callsign,
-        'event_token': eventToken,
-      }),
-    );
+    final bodyJson = jsonEncode({
+      'room_id': roomId,
+      'callsign': callsign,
+      'event_token': eventToken,
+    });
+    final body = utf8.encode(bodyJson);
 
     late final HttpClientRequest request;
     late final HttpClientResponse response;
     try {
       request = await _client.postUrl(uri).timeout(_requestTimeout);
       request.headers.contentType = ContentType('application', 'json', charset: 'utf-8');
+      final signer = _signer;
+      if (signer != null) {
+        final signed = await signRequest(
+          keyPair: signer,
+          method: 'POST',
+          path: uri.path,
+          body: bodyJson,
+        );
+        for (final entry in signed.toHeaders().entries) {
+          request.headers.set(entry.key, entry.value);
+        }
+      }
       request.add(body);
       response = await request.close().timeout(_requestTimeout);
     } on TimeoutException catch (error, stack) {

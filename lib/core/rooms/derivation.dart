@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:cryptography/cryptography.dart' show KeyPairType, SimplePublicKey, X25519;
+import 'package:keryx/core/identity/keys.dart' show IdentityKeyPair, edwardsPublicKeyToX25519;
 
 import 'rfc4648_base32.dart';
 import 'scrypt_stretch.dart';
@@ -37,6 +39,14 @@ const maxPrivacyCode = 38;
 ///
 /// HMAC key is UTF-8 `"KERYX.v1"`. Digest is RFC 4648 uppercase
 /// unpadded base32, first 16 characters.
+///
+/// **v2 (Technical §6.2) marks this for deletion** — numbered channels are
+/// replaced by [deriveGroupRoom]/[deriveDirectRoom]. It is *retained* here
+/// only because `lib/services/session/radio_session_controller.dart`
+/// (TASK-088's `Owned_Paths`) and `lib/features/event_qr/event_link.dart`
+/// (TASK-094's `Owned_Paths`) still call it and are outside this task's
+/// territory (Technical §10: item 4, this task, precedes items 5/11 which
+/// migrate/delete those callers). Do not add new callers.
 String deriveNumbered({
   required String region,
   required int channel,
@@ -87,6 +97,46 @@ String deriveKeyed({required String passphrase}) {
 
 /// True when [value] is a 16-character RFC 4648 uppercase roomId.
 bool isRoomId(String value) => roomIdPattern.hasMatch(value);
+
+/// v2 group room (Technical §5.1): `roomId = deriveKeyed(base64(groupSecret))`.
+///
+/// [groupSecret] is the group's 32 random bytes (minted once by the
+/// creator, Technical §5.1); the same secret always yields the same
+/// roomId, and a rotated secret (Technical §5.3) yields a different one.
+/// The secret never appears in the room ID — it goes through [deriveKeyed]'s
+/// scrypt stretch exactly like a passphrase.
+String deriveGroupRoom(List<int> groupSecret) {
+  if (groupSecret.isEmpty) {
+    throw ArgumentError.value(groupSecret, 'groupSecret', 'must be non-empty');
+  }
+  return deriveKeyed(passphrase: base64Encode(groupSecret));
+}
+
+/// v2 1:1 room (Technical §5.4): `roomId = deriveKeyed(base64(x25519(myPriv, theirPub)))`.
+///
+/// [myKeyPair] is the caller's own identity key pair; [theirEdwardsPublicKey]
+/// is the other party's 32-byte Ed25519 identity public key. X25519 ECDH is
+/// symmetric — `sharedSecret(A.priv, B.pub) == sharedSecret(B.priv, A.pub)` —
+/// so both participants derive the identical roomId regardless of which
+/// side computes it first; a dedicated test proves this rather than relying
+/// on the property of the underlying primitive alone. No server state is
+/// needed (Technical §5.4).
+Future<String> deriveDirectRoom({
+  required IdentityKeyPair myKeyPair,
+  required List<int> theirEdwardsPublicKey,
+}) async {
+  final myX25519 = await myKeyPair.toX25519KeyPair();
+  final theirX25519PublicKey = edwardsPublicKeyToX25519(theirEdwardsPublicKey);
+  final shared = await X25519().sharedSecretKey(
+    keyPair: myX25519,
+    remotePublicKey: SimplePublicKey(
+      theirX25519PublicKey,
+      type: KeyPairType.x25519,
+    ),
+  );
+  final sharedBytes = await shared.extractBytes();
+  return deriveKeyed(passphrase: base64Encode(sharedBytes));
+}
 
 String _roomIdFromHmac(List<int> message) {
   final digest = Hmac(sha256, utf8.encode(keryxContext)).convert(message);

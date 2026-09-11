@@ -162,7 +162,7 @@ void main() {
 
     test('publish failure during join disconnects the room and rethrows, leaving controller unjoined', () async {
       adapter = FakeLiveKitAdapter(
-        onConnect: (url, jwt) => FakeLiveKitRoom()..publishFailure = StateError('mic denied'),
+        onConnect: (url, jwt, e2eeKey) => FakeLiveKitRoom()..publishFailure = StateError("mic denied"),
       );
       controller = LinkedController(
         adapter: adapter,
@@ -222,7 +222,7 @@ void main() {
         // still exercised by the constructor default-argument values.
         var relayReachable = true;
         adapter = FakeLiveKitAdapter(
-          onConnect: (url, jwt) {
+          onConnect: (url, jwt, e2eeKey) {
             if (!relayReachable) throw StateError('relay unreachable');
             return FakeLiveKitRoom();
           },
@@ -295,6 +295,95 @@ void main() {
       expect(dispatched, contains(const LinkDegraded()));
       expect(dispatched.last, const LinkResolved());
       expect(firstRoom.disconnected, isTrue); // stale room torn down, not leaked
+    });
+
+    group('v2 E2EE (Technical §5.5 / V2-NFR-004)', () {
+      test('joinRoomId without a roomSecret connects with no e2ee key', () async {
+        await controller.joinRoomId(
+          roomId: 'ABCDEFGHIJKLMNOP',
+          forceLocalOnly: false,
+        );
+
+        expect(adapter.connectCalls.single.e2eeKey, isNull);
+        expect(adapter.lastRoom!.isEncrypted, isFalse);
+        expect(controller.isJoined, isTrue);
+      });
+
+      test('joinRoomId with a roomSecret connects with the HKDF-derived key and encrypts', () async {
+        final secret = List<int>.generate(32, (i) => i);
+
+        await controller.joinRoomId(
+          roomId: 'ABCDEFGHIJKLMNOP',
+          forceLocalOnly: false,
+          roomSecret: secret,
+        );
+
+        final key = adapter.connectCalls.single.e2eeKey;
+        expect(key, isNotNull);
+        expect(key!.length, 32);
+        expect(adapter.lastRoom!.isEncrypted, isTrue);
+        expect(controller.isJoined, isTrue);
+      });
+
+      test('the derived key is deterministic for the same secret and differs for a different one', () async {
+        final secretA = List<int>.generate(32, (i) => i);
+        final secretB = List<int>.generate(32, (i) => i + 1);
+
+        await controller.joinRoomId(
+          roomId: 'ABCDEFGHIJKLMNOP',
+          forceLocalOnly: false,
+          roomSecret: secretA,
+        );
+        final keyA1 = adapter.connectCalls[0].e2eeKey;
+
+        await controller.joinRoomId(
+          roomId: 'ABCDEFGHIJKLMNOP',
+          forceLocalOnly: false,
+          roomSecret: secretA,
+        );
+        final keyA2 = adapter.connectCalls[1].e2eeKey;
+
+        await controller.joinRoomId(
+          roomId: 'ABCDEFGHIJKLMNOP',
+          forceLocalOnly: false,
+          roomSecret: secretB,
+        );
+        final keyB = adapter.connectCalls[2].e2eeKey;
+
+        expect(keyA1, keyA2);
+        expect(keyA1, isNot(keyB));
+      });
+
+      test(
+        'refuses to publish when a key provider was requested but the adapter did not encrypt '
+        '(V2-NFR-004)',
+        () async {
+          adapter = FakeLiveKitAdapter(
+            onConnect: (url, jwt, e2eeKey) => FakeLiveKitRoom(isEncrypted: false),
+          );
+          controller = LinkedController(
+            adapter: adapter,
+            tokenClient: tokenClient,
+            relayUrl: Uri.parse('wss://relay.example/rtc'),
+            callsign: 'BRAVO-7',
+            floorEngine: engine,
+            dispatch: dispatched.add,
+          );
+
+          await expectLater(
+            controller.joinRoomId(
+              roomId: 'ABCDEFGHIJKLMNOP',
+              forceLocalOnly: false,
+              roomSecret: List<int>.generate(32, (i) => i),
+            ),
+            throwsA(isA<LinkedE2eeUnavailableException>()),
+          );
+
+          expect(adapter.lastRoom!.disconnected, isTrue);
+          expect(adapter.lastRoom!.publishedTrack, isNull);
+          expect(controller.isJoined, isFalse);
+        },
+      );
     });
   });
 }

@@ -200,6 +200,108 @@ void main() {
     );
   });
 
+  test('a phone listening on 3 rooms advertises 3 room prefixes in one start call', () async {
+    final threeRoomConfig = DiscoveryConfig(
+      peerId: config.peerId,
+      callsign: config.callsign,
+      channelHashPrefix: config.channelHashPrefix,
+      signalingPort: config.signalingPort,
+      roomPrefixes: const ['11111111', '22222222'],
+    );
+    await svc.start(threeRoomConfig);
+    expect(nsd.startedArgs, hasLength(1));
+    final roomPrefixes = nsd.startedArgs.single['roomPrefixes'] as List;
+    expect(roomPrefixes, ['11111111', '22222222']);
+    expect(threeRoomConfig.allRoomPrefixes, [
+      config.channelHashPrefix,
+      '11111111',
+      '22222222',
+    ]);
+  });
+
+  test('config rejects more than maxAdvertisedRooms total prefixes', () {
+    expect(
+      () => DiscoveryConfig(
+        peerId: 'X',
+        callsign: 'YY',
+        channelHashPrefix: 'aaaaaaaa',
+        signalingPort: 1,
+        roomPrefixes: const ['bbbbbbbb', 'cccccccc', 'dddddddd'],
+      ).validate(),
+      throwsArgumentError,
+    );
+  });
+
+  test('config rejects a duplicate room prefix', () {
+    expect(
+      () => DiscoveryConfig(
+        peerId: 'X',
+        callsign: 'YY',
+        channelHashPrefix: 'aaaaaaaa',
+        signalingPort: 1,
+        roomPrefixes: const ['aaaaaaaa'],
+      ).validate(),
+      throwsArgumentError,
+    );
+    expect(
+      () => DiscoveryConfig(
+        peerId: 'X',
+        callsign: 'YY',
+        channelHashPrefix: 'aaaaaaaa',
+        signalingPort: 1,
+        roomPrefixes: const ['bbbbbbbb', 'bbbbbbbb'],
+      ).validate(),
+      throwsArgumentError,
+    );
+  });
+
+  test('config rejects an empty entry in roomPrefixes', () {
+    expect(
+      () => DiscoveryConfig(
+        peerId: 'X',
+        callsign: 'YY',
+        channelHashPrefix: 'aaaaaaaa',
+        signalingPort: 1,
+        roomPrefixes: const [''],
+      ).validate(),
+      throwsArgumentError,
+    );
+  });
+
+  test('a peer on a secondary room prefix is found, not just the primary', () async {
+    final threeRoomConfig = DiscoveryConfig(
+      peerId: config.peerId,
+      callsign: config.callsign,
+      channelHashPrefix: config.channelHashPrefix,
+      signalingPort: config.signalingPort,
+      roomPrefixes: const ['11111111'],
+    );
+    final found = <DiscoveredPeer>[];
+    svc.peersFound.listen(found.add);
+    await svc.start(threeRoomConfig);
+    nsd.emit(const NsdLockChanged(held: true));
+    nsd.emit(const NsdRegistered(serviceName: 'ABCDEF23GH', port: 41234));
+    nsd.emit(const NsdBrowseStarted());
+    await flush();
+
+    nsd.emit(
+      NsdPeerFound(
+        DiscoveredPeer(
+          peerId: 'PEER000002',
+          callsign: 'SECONDARY-ROOM',
+          channelHashPrefix: '11111111',
+          version: 1,
+          host: '10.0.0.9',
+          port: 40003,
+        ),
+      ),
+    );
+    await flush();
+
+    expect(found, hasLength(1));
+    expect(found.single.peerId, 'PEER000002');
+  });
+
   test('ChannelNsdPlatform start/stop hit the method channel', () async {
     const methods = MethodChannel(DiscoveryConstants.methodChannel);
     const events = EventChannel(DiscoveryConstants.eventChannel);
