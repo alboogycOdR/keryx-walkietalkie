@@ -4037,7 +4037,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-072
 **Title:** UX R2 tokens — amber accent, PTT ring/face tokens, tab indicator, golden refresh
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A5 (accent becomes amber/radio-yellow; `state/warning` off the PTT ring; emergency hue separation ≥ 20°), A3 (`ptt/face` token, ring treatments), A1 (tab accent underline); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §3.2 ("Color values must pass contrast verification… do not scatter literal color values across widgets"), §3.4
@@ -4045,21 +4045,32 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 **Depends_On:** —
 **Description:** Reopens frozen `lib/core/theme` for `ux_tokens.dart` only (the legacy `theme.dart` stays frozen). Change `actionPrimary` in both palettes to an amber/radio-yellow that passes the existing contrast checks against `surfaceBase`/`surfaceCard` and yields a legible `contrastingOn` foreground. Add the tokens UX R2 needs so no widget invents literals: `pttFace` (dark disc face, both themes), `pttNeutralRing` (Off/Boot/No link/Tuning/denied flash), `pttRingWidthFraction` (ring stroke as a fraction of diameter, ~0.08), `pttWidthFraction` = 0.78, `pttMaxDiameter` = 300, `tabIndicatorThickness` (~3 dp). Keep every existing token name so no consumer breaks. Add tests: accent contrast in both themes; `stateEmergency` vs `actionPrimary` hue separation ≥ 20° in both themes; `stateTx` stays red-family and distinct from the accent. The accent change repaints existing surfaces, so regenerate every golden PNG under `test/regression/goldens/goldens/` (`flutter test --update-goldens test/regression/goldens`). Record in the dossier which goldens changed, and confirm by visual spot-check that the diff is colour-only.
 **Acceptance_Criteria:**
-- [ ] `actionPrimary` is amber/radio-yellow in dark and light palettes; contrast tests pass in both themes (ADR-002 A5; Design §3.2)
-- [ ] A test proves `stateEmergency` and `actionPrimary` differ by ≥ 20° hue in both themes (ADR-002 A5)
-- [ ] New tokens `pttFace`, `pttNeutralRing`, `pttRingWidthFraction`, `pttWidthFraction`, `pttMaxDiameter`, `tabIndicatorThickness` exist with dartdoc citing ADR-002; no existing token is renamed or removed
-- [ ] Every golden under `test/regression/goldens/goldens/` regenerated; the dossier lists changed files and confirms colour-only diffs
-- [ ] `flutter analyze` clean repo-wide; full `flutter test` green with no count regression
+- [x] `actionPrimary` is amber/radio-yellow in dark and light palettes; contrast tests pass in both themes (ADR-002 A5; Design §3.2)
+- [x] A test proves `stateEmergency` and `actionPrimary` differ by ≥ 20° hue in both themes (ADR-002 A5)
+- [x] New tokens `pttFace`, `pttNeutralRing`, `pttRingWidthFraction`, `pttWidthFraction`, `pttMaxDiameter`, `tabIndicatorThickness` exist with dartdoc citing ADR-002; no existing token is renamed or removed
+- [x] Every golden under `test/regression/goldens/goldens/` regenerated; the dossier lists changed files and confirms colour-only diffs
+- [x] `flutter analyze` clean repo-wide; full `flutter test` green with no count regression
 **Branch:** task/TASK-072-s5
 **Started_At:** 2026-09-11T00:00:00Z
 **Progress_Notes:**
 - [2026-09-11T00:00:00Z] [S5] Claimed TASK-072. Resume check: no S5 in_progress/claimed task found (all prior S5 tasks are done; TASK-072 is the only unblocked pending S5 task, Depends_On: —). Preflight (`python scripts/preflight_paths.py TASK-072`): lib/core/theme/ux_tokens.dart exists 587 lines; test/core/theme/ux_tokens_test.dart exists 426 lines; test/regression/goldens/goldens/** = 36 files; dossiers/TASK-072.md exists 21 lines. Branch task/TASK-072-s5 to be created from master. Next: pick amber accent hexes for both palettes, verify contrast + hue separation, add new tokens, update tests, regenerate goldens.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-11T02:15:00Z] [S5] Completed. `actionPrimary` retuned amber/radio-yellow: dark `#FFD54F` (hue 45.7°), light `#8A6D00` (hue 47.4°) — chosen so each clears the graphical 3:1 floor against all 3 surfaces in its theme with margin, and is ≥20° hue-separated from `stateEmergency` (dark 21.1°, light 23.0°), both proven by new tests using new `keryxHueDegrees`/`keryxHueDelta` helpers rather than eyeballed. Added new tokens with no rename/removal of any existing one: `KeryxUxPalette.pttFace` (single dark disc-face colour, identical in both themes, luminance <0.05), `KeryxUxPalette.pttNeutralRing` (per-theme neutral gray distinct from every `state/*` token and the new accent), and `abstract final class KeryxUxPttTokens` (`ringWidthFraction=0.08`, `widthFraction=0.78`, `maxDiameter=300`, `tabIndicatorThickness=3`), each mirrored as a `KeryxUxTokens` passthrough getter; `KeryxUxPalette.lerp` extended for the two new colour fields. `specBodyTextMisses` updated: dark `action/primary` vs `surface/raised` was a documented miss (4.40) pre-retune, now clears 4.5:1 (9.97) with the new amber, so removed from the list (dartdoc comment updated to match); light `action/primary` vs `surface/raised` is still a miss, value corrected 4.45→4.19; unrelated `state/tx`/`state/rx` misses untouched. Test file updated in lockstep (verbatim-column hexes, the two affected miss-ratio assertions) plus 7 new tests across two new groups: hue-separation, `stateTx` red-family distinctness, `pttNeutralRing`-vs-`stateWarning` guard, and PTT/tab-token existence/values/theme-passthrough/lerp. Regenerated every golden via `flutter test --no-pub --update-goldens test/regression/goldens` (37/37 pass); 30/36 PNGs changed (the accent-touching screens), 6 byte-identical (screens that don't read the accent token). Spot-checked `talk_idle_dark.png` visually via the Read tool: PTT disc is amber, every other surface/text/border colour and the layout are unchanged — confirms colour-only diff. `dart format` applied to both owned Dart files. Full test evidence in Test_Evidence below and in `dossiers/TASK-072.md`. → Status: needs_review.
+**Artifacts:**
+- lib/core/theme/ux_tokens.dart
+- test/core/theme/ux_tokens_test.dart
+- test/regression/goldens/goldens/** (30 PNGs regenerated)
+- dossiers/TASK-072.md
+**Test_Evidence:**
+- [2026-09-11T02:15:00Z] [S5] `flutter analyze lib/core/theme/ux_tokens.dart test/core/theme/ux_tokens_test.dart` -> No issues found.
+- [2026-09-11T02:15:00Z] [S5] `flutter analyze --no-pub` (repo-wide) -> No issues found.
+- [2026-09-11T02:15:00Z] [S5] `flutter test --no-pub test/core/theme/ux_tokens_test.dart` -> **24/24 pass** (was 17, +7 new).
+- [2026-09-11T02:15:00Z] [S5] `flutter test --no-pub --update-goldens test/regression/goldens` -> **37/37 pass**, 30/36 PNGs changed (colour-only, spot-checked).
+- [2026-09-11T02:15:00Z] [S5] `flutter test --no-pub` (full suite) -> **1429 passed / 0 failed / 40 skipped**, exit 0 (baseline 1422 + this task's 7 new unit tests; same 40 PARKED FR-025 soak-seed skips, reason string unchanged).
+- [2026-09-11T02:15:00Z] [S5] `git diff master...HEAD --stat` -> `lib/core/theme/ux_tokens.dart`, `test/core/theme/ux_tokens_test.dart`, 30 golden PNGs under `test/regression/goldens/goldens/`, `dossiers/TASK-072.md` — all inside `Owned_Paths`; zero PLAN.md commits on the branch.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-09-11T00:00:00Z
+**Updated_At:** 2026-09-11T02:15:00Z
 
 
 ### TASK-073
