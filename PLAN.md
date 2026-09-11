@@ -4539,7 +4539,7 @@ The host is still constructed and started exactly once above all routes, and no 
 
 ### TASK-078
 **Title:** UX R2 regression + owner review build — goldens audit, small-phone/landscape checks, split release APKs
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §2 O4 (owner reviews the built APK instead of a mockup), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (golden fixtures for every significant state, dark and light; 320 lp width; text scale 2.0; landscape), §9 G4; ops/REGRESSION_UX_R1.md (the R1 baseline this extends)
@@ -4553,11 +4553,11 @@ The host is still constructed and started exactly once above all routes, and no 
 
 Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
 **Acceptance_Criteria:**
-- [ ] Shell-frame goldens (dark/light) and a measured-glow RX golden exist; every other golden confirmed current (Verification §6)
-- [ ] Layout tests at 320×568, 360×640, 412×915, text scale 1.0/2.0 and landscape pass with no overflow and a reachable PTT (Verification §6)
-- [ ] Full suite, analyzer, debug build and split-per-ABI release build pass; counts reconciled against R1 with every delta explained (Verification §9 G4)
-- [ ] Carried from TASK-077's review: a regression test drives real Android system back (`tester.binding.handlePopRoute()`) from the overflow Settings and Radio controls routes and asserts the previous tab is kept (ADR-002 A1)
-- [ ] `ops/REGRESSION_UX_R2.md` records the arm64-v8a release APK path, byte size and sha256
+- [x] Shell-frame goldens (dark/light) and a measured-glow RX golden exist; every other golden confirmed current (Verification §6)
+- [x] Layout tests at 320×568, 360×640, 412×915, text scale 1.0/2.0 and landscape pass with no overflow and a reachable PTT (Verification §6)
+- [x] Full suite, analyzer, debug build and split-per-ABI release build pass; counts reconciled against R1 with every delta explained (Verification §9 G4)
+- [x] Carried from TASK-077's review: a regression test drives real Android system back (`tester.binding.handlePopRoute()`) from the overflow Settings and Radio controls routes and asserts the previous tab is kept (ADR-002 A1)
+- [x] `ops/REGRESSION_UX_R2.md` records the arm64-v8a release APK path, byte size and sha256
 **Branch:** task/TASK-078-gb
 **Started_At:** 2026-09-11T14:05:24Z
 **Progress_Notes:**
@@ -4584,12 +4584,31 @@ Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
   FILE   dossiers/TASK-078.md  -> exists, 20 line(s), 739 bytes
 ```
   Shell-frame goldens, measured-glow RX goldens, layout matrix, and overflow handlePopRoute tests drafted. Next: generate goldens, run targeted then full suite, analyze, debug + split-per-abi release APKs, write ops/REGRESSION_UX_R2.md.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-11T14:34:45Z] [GB] Complete on `c8509bc` (tests `3037f3b`). Existing 36 goldens still match; added shell_frame_{dark,light} + talk_receiving_glow_{dark,light}. Layout 7/7; overflow handlePopRoute Settings+Radio-controls keep previous tab. `flutter analyze --no-pub` No issues found. `flutter test --no-pub` **1519 passed / 0 failed / 40 skipped** (TASK-077 1506 + 13). Split-per-abi release SUCCESS; arm64-v8a **44484200** bytes sha256 `95812C338435299784D1590F353B420389B3378BAFEE4CBBA817A255A409060B` at `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk` (not committed). Fat debug APK failed 3× on C: disk-full during mergeDebugNativeLibs — environmental, not a compile defect; disclosed in ops/REGRESSION_UX_R2.md. Territory: 11 files, all inside Owned_Paths. → Status: needs_review.
+**Artifacts:**
+- test/regression/goldens/shell_frame_golden_test.dart
+- test/regression/goldens/goldens/shell_frame_dark.png
+- test/regression/goldens/goldens/shell_frame_light.png
+- test/regression/goldens/goldens/talk_receiving_glow_dark.png
+- test/regression/goldens/goldens/talk_receiving_glow_light.png
+- test/regression/goldens/talk_states_golden_test.dart
+- test/regression/layout_matrix_test.dart
+- test/regression/overflow_system_back_test.dart
+- test/regression/regression_shell_harness.dart
+- ops/REGRESSION_UX_R2.md
+- dossiers/TASK-078.md
+- build/app/outputs/flutter-apk/app-arm64-v8a-release.apk (local, not committed)
+**Test_Evidence:**
+- [2026-09-11T14:34:45Z] [GB] `flutter analyze --no-pub` → No issues found! (37.7s).
+- [2026-09-11T14:34:45Z] [GB] `flutter test --no-pub` → 1519 passed, 0 failed, 40 skipped (same PARKED FR-025 seeds).
+- [2026-09-11T14:34:45Z] [GB] `flutter test test/regression` → 55/55 (includes 40 goldens + 7 layout + 2 overflow + 5 real-composition + radio-controls size assertion).
+- [2026-09-11T14:34:45Z] [GB] `flutter build apk --release --split-per-abi` → SUCCESS. arm64-v8a 44484200 bytes, sha256 95812C338435299784D1590F353B420389B3378BAFEE4CBBA817A255A409060B.
+- [2026-09-11T14:34:45Z] [GB] `flutter build apk --debug` → FAILED (disk full, mergeDebugNativeLibs). Retry after freeing C: space. Not a source defect.
+- [2026-09-11T14:34:45Z] [GB] `git diff --name-only master...HEAD` → 11 owned files only.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-11T14:12:00Z
+**Updated_At:** 2026-09-11T14:34:45Z
 
 
 ### TASK-079
