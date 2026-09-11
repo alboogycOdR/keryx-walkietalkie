@@ -8,6 +8,12 @@ current-channel card (two-digit channel/code, **configured** mode and
 Talk, six-entry recent recall, Select channel. It reads TASK-046's
 `RadioViewState` projection and dispatches only `RadioViewIntents.tune`.
 
+TASK-075 adds additive shell composition controls: `embedded: true` removes
+the landing app bar/brand, `onOpenTalk: null` removes its Talk shortcuts, and
+`onTuneSucceeded` reports only a completed recent-channel recall. The current
+row is pinned and marked with the accent; recent rows retain their actual
+channel/code values in 64 dp selectable tiles.
+
 Open Talk and Select channel are callbacks. Talk is TASK-051; the selector
 flow is TASK-050. This screen only launches them. Persistent navigation stays
 on the TASK-048 shell (`MobileAppShell`); pass `persistentNavigation` only in
