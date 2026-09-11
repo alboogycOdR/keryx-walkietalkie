@@ -4653,7 +4653,7 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 
 ### TASK-081
 **Title:** Adopt ConnectionCondition's resolved route label in every UI call site (no literal AUTO as an effective route)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; TASK-080 (adds `ConnectionCondition.isResolved`/`routeLabel` and fixes the reducer root cause — this task is the UI half it could not reach, re-carved by ORCH from TASK-080's OWNERSHIP_CONFLICT block 2026-09-11)
@@ -4740,6 +4740,7 @@ Route each one through `ConnectionCondition.routeLabel` (or `isResolved`) so an 
 ```
 Territory matches expectation: all listed UI files exist; goldens are existing PNGs; dossier exists. No NEW/empty-glob surprises.
 - [2026-09-11T13:01:46Z] [GB] Complete on task/TASK-081-gb @ fddac58. All six call sites now present `connection.routeLabel` (Connecting while unresolved; LOCAL/LINKED when resolved). Configured AUTO still shown as a preference. Latch-after-lift: `_holding` required on both `canLatch` and `_engageLatch`; `_lastBuiltPhase` dropped; leftover latch flag cleared when phase leaves TX. Leftover `effectiveRoute` grep hits are Keys/copy/inventory field names, event_qr join *logic* (out of territory), and stations README (out of territory) — none format ConnectionCondition.effectiveRoute as an effective-route label. → Status: needs_review.
+- [2026-09-11T13:23:46Z] [GB] Rework round 1 on task/TASK-081-gb @ 92d7ec8. Blocking hot-mic: leftover-latch cleanup now calls `RadioViewIntents.releaseLatch()` exactly once, outside `build()` (`ref.listen` on live tx→other, post-frame on remount already out of TX). LinkDegraded → `releaseLatchCalls==1` and no red latched treatment; EndTransmit → exactly one call, no stuck "Transmission locked". Mutation-check: removing the release call made the LinkDegraded test fail (`Expected: <1> Actual: <0>`); restored. Non-blocking (a)(b)(c)(d) also landed. → Status: needs_review.
 **Artifacts:**
 - lib/features/channels/channel_format.dart
 - lib/features/channels/channels_landing.dart
@@ -4767,6 +4768,10 @@ Territory matches expectation: all listed UI files exist; goldens are existing P
 - Latch-after-lift revert-mutation: dropped `_holding` from `_engageLatch`; the same-frame grant→lift→tap Lock test went red (`keryx-talk-unlatch` found); restored; git diff clean of the mutation.
 - `flutter test` (full suite) — **1491 passed / 0 failed / 40 skipped** (parked FR-025 soak seeds).
 - Goldens: channels_*.png unchanged; settings/stations/talk listed above regenerated via `--update-goldens`.
+- [2026-09-11T13:23:46Z] [GB] Rework: `flutter analyze` — No issues found (ran in 159.3s).
+- Rework: LinkDegraded revert-mutation — dropped `releaseLatch()` from `_releaseLeftoverLatchIfPhaseLeftTx`; test failed `Expected: <1> Actual: <0>`; restored; commit 92d7ec8 has the release call.
+- Rework: `flutter test` (full suite) — **1493 passed / 0 failed / 40 skipped** (parked FR-025 soak seeds; +2 rework tests vs 1491).
+- Rework goldens: settings/talk/stations/channels still match without regeneration (settings effective-route row is below the golden crop).
 **Review_Findings:** [2026-09-11T13:07:44Z] [ORCH] **REWORK round 1.** Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave). NOT merged; branch `task/TASK-081-gb` retained.
 
 **What's clean:**
@@ -4794,5 +4799,5 @@ Territory matches expectation: all listed UI files exist; goldens are existing P
 
 **Next step for GB:** fix (1) on the existing branch; run the FULL suite in the foreground with exact counts; set needs_review.
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T13:07:44Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-11T13:23:46Z
