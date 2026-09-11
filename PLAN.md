@@ -1,6 +1,6 @@
 ---
 plan_version: 16.0
-last_updated: 2026-09-11T18:12:01Z
+last_updated: 2026-09-11T18:21:05Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -5094,7 +5094,7 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 
 ### TASK-084
 **Title:** v2 directory service I — Postgres, signed-request auth, identity + contacts + presence WebSocket
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §3.3 (signature verification), §4.1 (schema), §4.2 (identity/contacts/presence endpoints), §4.3 (presence protocol), §9 (compose, backups); PRD V2-FR-010..014, V2-FR-030..033, V2-NFR-002/003/004/007; Verification V2-VT-010, 013, 016; existing token-svc/app/** (grow, do not replace)
@@ -5149,10 +5149,21 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 **Test_Evidence:**
 - [2026-09-11T18:14:39Z] [GB] `cd token-svc; python -m pytest --tb=no` — 48 passed in 10.31s (existing token tests + V2-VT-004/010/013/016 + logging + openapi + compose).
 - [2026-09-11T18:14:39Z] [GB] `python relay/tests/test_relay_config.py` — 19/19 OK, including `docker compose --env-file .env.example config` with postgres in the service set. `.env.example` unchanged (`${VAR:-default}` interpolation).
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T18:21:05Z] [ORCH] **APPROVED first-pass**, merged `57bcaec`. Reviewed on claude-fable-5-1 (AUTOPILOT v2.0 wave).
+- **Territory:** clean. 33 files, all under `token-svc/**`, `relay/docker-compose.yml`, `relay/README.md` and the dossier; single tagged commit.
+- **Tests:** independent run in a fresh venv: `pytest` 48/48; `relay/tests/test_relay_config.py` 19/19; `docker compose config` with the example env succeeds. Note for the owner: `test_v2_storage.py` uses testcontainers and starts a throwaway Postgres container, so `pytest` needs Docker on the machine.
+- **Verified in source:** Ed25519 verification over sha256(`METHOD|path|body|ts`) with a 120 s window and a sha256(sig) replay nonce in Redis (memory in tests); `/v2` identity, contacts (accept/decline/block/remove, 7-day expiry, 20 outstanding) and presence WS with heartbeat, 5-minute stale sweep and contact-only fan-out; Alembic migration for the full §4.1 schema; Postgres 16.10 on host networking bound to 127.0.0.1 with `:-` defaults so `.env.example` did not have to change; `PrivacyFilter` and access-log path redaction; `openapi-v2.yaml` with the error-code enumeration in the README; nightly `pg_dump` script.
+- **BLOCKING-CLASS INTEROP GAP, carried to TASK-085 (same territory, same builder) rather than reworked:** the server accepts `X-Keryx-Key` only as **unpadded base64url** (`encoding.py` regex rejects `+`, `/`, `=`), while the Dart client merged in TASK-083 emits **standard base64**. Neither builder is wrong; the Technical spec §3.3 never stated the encoding. Resolution: TASK-085 must accept both encodings for `X-Keryx-Key` (and keep emitting base64url), with a test that feeds the Dart client's exact standard-base64 form; TASK-086's client emits base64url per the contract; Technical §3.3 is amended to say so.
+- **Non-blocking:**
+  - (a) The stale-to-Offline sweep runs only when some socket sends a message; with every client silent, nobody is marked Offline. Add a periodic sweep task (e.g. every 60 s) in TASK-085.
+  - (b) `RedisPresenceHub.publish_bus` publishes but nothing subscribes; single-process only until TASK-085 wires the subscriber.
+  - (c) `MemoryPresenceHub.send_to` (sync) never awaits `ws.send_json`; the WS route uses the async path, so it is dead code. Remove or make it schedule.
+  - (d) `IdentityBody.callsign` is length-checked but not run through `CALLSIGN_RE` in the API model (`validate_callsign` exists; ensure `register_identity`/`patch_callsign` use it).
+  - (e) Nonce `seen`/`remember` is two calls, a tiny TOCTOU on Redis; use `SET NX EX`.
+- **Unlocks:** TASK-085 (GB), TASK-086 (S5, after 087).
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-11T18:14:39Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T18:21:05Z
 
 
 ### TASK-085
@@ -5170,6 +5181,8 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 - [ ] `/token` refuses a non-member and an unsigned caller and accepts a member (V2-VT-014)
 - [ ] Second alert to the same target inside 10 min is refused; the first is delivered over the presence socket (V2-VT-015; V2-FR-050)
 - [ ] Co-members receive presence changes and rotation notices within 5 s (V2-FR-025; Technical §5.3)
+- [ ] **Carried from TASK-084 review (interop):** `X-Keryx-Key` is accepted as unpadded base64url OR standard base64 (padded, `+`/`/`); a test feeds the exact standard-base64 form the Dart client (`lib/core/identity/signing.dart`) emits and is accepted; the contract documents base64url as canonical and standard as accepted (Technical §3.3)
+- [ ] **Carried from TASK-084 review:** a periodic stale-presence sweep (≤60 s) marks silent identities Offline without waiting for another socket's message; the Redis presence bus has a subscriber so a second process receives fan-out (V2-FR-030; Technical §4.3)
 - [ ] `openapi-v2.yaml` updated; `pytest` green
 **Branch:** —
 **Started_At:** —
@@ -5196,6 +5209,7 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 - [ ] Presence client reconnects with backoff, sends a heartbeat every 60 s, and surfaces `PresenceUpdate`s; a simulated 5-min silence marks the peer Offline locally too (V2-FR-030; V2-VT-013)
 - [ ] Contact request state machine covers accept, decline, block, expiry and the 20-outstanding cap with one test per transition (V2-FR-010..013)
 - [ ] Groups store handles join, leave, admin changes and rotation (fetch sealed copy, open with my key, emit `GroupKeyChanged`); a removed member's store drops the group on notice (V2-FR-020..024; Technical §5.3)
+- [ ] `X-Keryx-Key` is sent as unpadded base64url per the contract (the TASK-083 helper emits standard base64; wrap or extend it inside `lib/services/directory/**` without editing `lib/core/identity/**`) (Technical §3.3)
 - [ ] Contract test: every path the client calls exists in `openapi-v2.yaml`
 - [ ] `flutter analyze` clean; full suite green
 **Branch:** —
