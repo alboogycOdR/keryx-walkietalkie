@@ -75,6 +75,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   /// `RadioPhase` — only governs whether *this* screen still owes the host
   /// a release call.
   bool _holding = false;
+  RadioPhase? _lastBuiltPhase;
 
   /// A deliberate latch is UI-owned (Technical §4's dartdoc on
   /// `RadioHost.releaseLatch`) — there is no `RadioHost` operation to
@@ -168,7 +169,11 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   }
 
   void _engageLatch() {
-    if (!_holding || _latched) return;
+    // Precondition matches the control's own visibility (`canLatch` below):
+    // granted TX, not already latched. Do not also require `_holding` — the
+    // finger may already have lifted while TX is still granted, and the
+    // visible Lock control must not go inert in that window.
+    if (_latched || _lastBuiltPhase != RadioPhase.tx) return;
     setState(() => TalkLatchState.engage(widget.host));
   }
 
@@ -195,6 +200,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
       settings: settings,
       latched: _latched,
     );
+    _lastBuiltPhase = viewState.phase;
 
     final tokens = KeryxUxTokens.of(context);
 

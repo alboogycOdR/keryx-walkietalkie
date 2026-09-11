@@ -5,7 +5,7 @@ import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart' show TunedChannel;
 import 'package:keryx/features/channel_selector/channel_selector_screen.dart';
 import 'package:keryx/features/channels/channels_landing.dart';
-import 'package:keryx/features/talk/talk_ptt_disc.dart';
+import 'package:keryx/features/talk/talk_ptt_ring.dart';
 import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 
 import 'fake_radio_host.dart';
@@ -76,7 +76,7 @@ void main() {
     expect(host.tuneCalls, isEmpty);
     expect(find.byKey(ShellKeys.talk), findsOneWidget);
     expect(find.byType(talkui.TalkScreen), findsOneWidget);
-    expect(find.byType(TalkPttDisc), findsOneWidget);
+    expect(find.byType(TalkPttRing), findsOneWidget);
   });
 
   testWidgets('Select channel pushes TASK-050 ChannelSelectorScreen', (

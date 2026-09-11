@@ -955,6 +955,40 @@ void main() {
         addTearDown(() => tester.binding.setSurfaceSize(null));
       },
     );
+
+    testWidgets(
+      'TASK-074: at 360x640 dp and text scale 1.0, the channel card, PTT '
+      'ring and status line are all visible without scrolling (ADR-002 A3)',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        tester.platformDispatcher.textScaleFactorTestValue = 1.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+        await pumpReady(tester);
+        expect(tester.takeException(), isNull);
+
+        const viewport = Rect.fromLTWH(0, 0, 360, 640);
+        for (final key in const [
+          'keryx-talk-channel-card',
+          'keryx-talk-ptt-disc',
+          'keryx-talk-status-line',
+        ]) {
+          final finder = find.byKey(Key(key));
+          expect(finder, findsOneWidget, reason: 'missing $key');
+          final rect = tester.getRect(finder);
+          expect(
+            viewport.contains(rect.topLeft) &&
+                viewport.contains(rect.bottomRight),
+            isTrue,
+            reason: '$key rect $rect not fully within viewport $viewport '
+                '(without scrolling)',
+          );
+        }
+      },
+    );
   });
 
   group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
