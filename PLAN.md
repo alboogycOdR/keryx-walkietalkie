@@ -1,6 +1,6 @@
 ---
-plan_version: 15.2
-last_updated: 2026-09-11T16:21:41Z
+plan_version: 16.0
+last_updated: 2026-09-11T17:20:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -71,6 +71,8 @@ TICK 4 / WAVE END (2026-09-06T07:04Z): TASK-043 reviewed on claude-opus-5, APPRO
 **First dispatch wave: TASK-045 (S5), TASK-047 (GB), TASK-063 (S5), TASK-064 (GB), TASK-065 (GB)** — the five zero-dependency tasks; every W2+ task stays `Assigned_To: TBD` until its dependencies close, per this plan's established pattern. Roster read fresh from `autopilot.json`: `builders.active` is still `[GB, S5]`, so assignments use GB and S5 only — CX's 2026-09-06 live health probe is recorded above but the config was never updated, and ORCH is not flipping dispatch config as a side effect of a planning pass; if CX is reactivated, 065 is the natural first hand-off. TASK-063 is deliberately early so TASK-060's LINKED hardware test can use real default settings instead of the `ops/TWO_PHONE_TEST.md` §6 bare-origin workaround. Known disclosed cost (ADR-001 §7 item 2): TASK-043's hero-PTT/roster/emergency-band widgets become throwaway at TASK-061 — an informed owner choice, not an oversight. `validate_plan.py` 0 warnings at v12.0.
 
 **AUTOPILOT WAVE RUNNING (2026-09-07T19:00Z onward, project-owner instruction to run continuously until all 20 tasks done).** W1+W2+W3 CLOSED: TASK-045/046/047/048/063/064/065 all done — 045 first-pass, 046 first-pass, 047 first-pass, 048 REWORK round 1 (theme not wired into app.dart) then approved round 2, 063 first-pass, 064 first-pass, 065 first-pass. **8/20 done at this note.** W4 (seven parallel screens) dispatched: GB owns 049/053/055, S5 owns 050/051/054/056; 049 already first-pass merged. **PLAN CORRECTION superseding the "no TASK-052, do not renumber" line above: TASK-052 now EXISTS, created 2026-09-07T21:20Z after TASK-049's review surfaced a real gap — TASK-048 froze `lib/app_shell/**` with placeholder screens, and none of the seven W4 tasks could ever touch that territory to mount their own real widget.** TASK-052 is the single-owner convergence task (`lib/app_shell/**` only) that swaps every placeholder for the real screen once all seven land; `Depends_On` all seven; TASK-057 (a11y polish) now also `Depends_On: TASK-052` (polishing an unwired screen can't verify real device rendering). This is the TASK-032/033→035→037 pattern a third time. `validate_plan.py` 0 warnings after the insertion. Next: continue W4 reviews/dispatch; TASK-052 becomes eligible once all seven screens are done, assign whichever builder frees up last.
+
+**V2.0 WAVE PLANNED 2026-09-11T17:20Z (plan v16.0, ADR-003, specs/KERYX_v2.0_*):** owner pivoted KERYX to a people-first PTT app (KERYX ID, contacts, groups, presence; channels deleted). 13 tasks TASK-083..095. Waves: (1) 083 identity core [S5] + 084 directory I [GB]; (2) 085 directory II [GB], 086 directory client/stores [S5], 087 rooms/transport keys [GB after 085]; (3) 088 session/host [S5], 089 onboarding/my-code/restore [GB], 090 contacts UI [GB]; (4) 091 groups UI [S5], 092 talk [S5]; (5) 093 shell+settings [S5]; (6) 094 deletions [GB]; (7) 095 regression + runbook + release build [GB]. TASK-059/060/061/062 are blocked SUPERSEDED. Roster: S5 + GB on this machine; CX re-probe after 15:33Z; CX9 only on the owner's other machine. pubspec.yaml reopens for TASK-083 only. `lib/core/floor/**` stays frozen through the whole wave.
 
 **UX R2 WAVE COMPLETE 2026-09-11T14:55Z (AUTOPILOT L1, plan v15.1): 10/10 merged (TASK-072..081).** First-pass: 072, 075, 076, 079, 080, 078. Round 2: 073, 074, 077, 081. Zero MAX_REWORK freezes. TASK-081 was an ORCH re-carve of TASK-080's OWNERSHIP_CONFLICT. Roster on this machine: S5 + GB active. CX hit its usage limit (resets 15:33Z). CX9 is unusable here (its CODEX_HOME exists only on the owner's other machine). Owner review APK = arm64-v8a release, 44,484,200 bytes, sha256 95812C33…409060B, delivered via Telegram/Gofile (expires ~10 days). Master suite 1519/0/40, analyze clean. Open for owner: (1) on-device review of the R2 UI; the large gap above the bottom-pinned PTT is a known visual question; (2) TASK-059 remaining rows + TASK-060 LINKED need both phones; (3) C: has ~2.6 GB free, and the main checkout's build/ holds 3.9 GB of stale artefacts, deletable with owner consent. Next ORCH wave candidates: whatever owner feedback the review APK produces; then 059/060 → 061 → 062.
 
@@ -3532,7 +3534,7 @@ Territory matches expectation: new `test/regression/**` + new report file; dossi
 
 ### TASK-059
 **Title:** Physical-device LOCAL acceptance — discovery, bidirectional voice, contention, routing, background
-**Status:** pending
+**Status:** blocked
 **Assigned_To:** TBD
 **Priority:** critical
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §7 (real-device release matrix — LOCAL discovery, LOCAL voice A→B and B→A, busy and contention, channel change, network failure, audio routing, background, long running, upgrade; "The current baseline's WebRTC routing fix must receive explicit physical-device confirmation. Review remote-track handling if voice remains absent. Do not claim a release candidate is audio-verified based only on emulator, fake adapter or compile success"), §9 gate G5, §0 ("A passing mocked UI test does not establish that real audio, discovery, routing or relay communication works"); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §0 and §12 (unverified real-device audio correction and remote-track gap — "Confirm bidirectional audio before declaring backend preservation successful"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md §7 (product acceptance — "bidirectional voice on two real devices"); ADR-001 §5 (TASK-044's Android audio-session/routing fix is carried forward unchanged and is what this test finally confirms or refutes).
@@ -3560,14 +3562,14 @@ Territory matches expectation: new `test/regression/**` + new report file; dossi
 **Test_Evidence:**
 - [2026-09-11T09:16:38Z] [ORCH] Owner-observed two-phone LOCAL run, confirmed row by row via a direct question in the interactive session. Device A read via adb. The pulled on-device APK's libapp.so contains TASK-044's setSpeakerphoneOn and the successor-shell sources, matching origin/master f412dbd.
 **Review_Findings:** —
-**Blocked_Reason:** —
+**Blocked_Reason:** OTHER: SUPERSEDED by ADR-003 (v2.0 people-first) — TASK-095's v2 device matrix (rows A–I) replaces the remaining LOCAL rows
 **Updated_By:** ORCH
-**Updated_At:** 2026-09-11T09:16:38Z
+**Updated_At:** 2026-09-11T17:20:00Z
 
 
 ### TASK-060
 **Title:** Physical-device LINKED acceptance — relay join, bidirectional voice, fallback, QR transition
-**Status:** pending
+**Status:** blocked
 **Assigned_To:** TBD
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §7 (LINKED row — "Supported relay join and bidirectional voice succeed using the existing backend"; network failure, audio routing, background and upgrade rows), §9 gate G5, VT-022 (mode matrix incl. force-LOCAL override), VT-023 (QR transition); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 (configured preference vs effective route; existing AUTO policy; "Any change to mode policy requires a separate ADR"), §8 (QR join coordinator, force-LOCAL prohibition on WAN traffic), §12 (verify LINKED presence, telemetry, keyed channels and entitlements individually); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D07, UX-FR-046, UX-FR-062, §7 (product acceptance — "supported LINKED operation"); ADR-001 §5 (LiveKit/`LinkedController`/`TokenClient` contracts NOT superseded).
@@ -3590,18 +3592,18 @@ Territory matches expectation: new `test/regression/**` + new report file; dossi
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
-**Blocked_Reason:** —
+**Blocked_Reason:** OTHER: SUPERSEDED by ADR-003 (v2.0 people-first) — TASK-095's v2 device matrix row C/H replaces the LINKED run
 **Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_At:** 2026-09-11T17:20:00Z
 
 
 ### TASK-061
 **Title:** Legacy retirement — delete the hardware-radio face, PTT, display and settings-panel widget trees
-**Status:** pending
+**Status:** blocked
 **Assigned_To:** TBD
 **Priority:** high
 **Spec_References:** ADR-001 §3 item 4 and §7 item 1 (owner decision — "the legacy hardware-radio face… is deleted outright once the new shell passes its own tests and real-device acceptance — no dormant 'classic theme' flag is being built"), ADR-001 §6 (retirement list: `lib/features/face/face_view.dart`, `roster_screen.dart`, `lib/features/ptt/**`, `lib/features/display/**`, `lib/features/settings_panel/**` — widget layer only); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §10 ("Retire the old route, assets and tests only through an explicit cleanup task after successor golden tests and real-device acceptance pass"), §9 ("Do not delete the old face and its tests until the new host and new presentation are independently verified and the owner approves retirement"), §1 (Face row — "Retire the hardware presentation after successor tests pass"); specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §0 ("Retired visual goldens may be replaced only after the corresponding successor screen/state tests and owner approval are in place"), §6 ("Existing hardware-face goldens are retained until explicit retirement"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md UX-D04, §2.3 ("R1 does not require a legacy hardware-face toggle").
-**Owned_Paths:** lib/features/face/**, lib/features/ptt/**, lib/features/display/**, lib/features/settings_panel/**, lib/features/event_qr/**, test/features/face/**, test/features/ptt/**, test/features/display/**, test/features/settings_panel/**, test/features/event_qr/**, dossiers/TASK-061.md
+**Owned_Paths:** dossiers/TASK-061.md
 **Depends_On:** TASK-059, TASK-060
 **Description:** The explicit cleanup task Technical §10 requires, gated behind both hardware acceptance runs exactly as ADR-001 §7 item 1 and Technical §9 demand — it may not start before TASK-059 and TASK-060 are `done`. Delete the legacy hardware presentation outright: the face widget tree (including `face_view.dart`, `roster_screen.dart`, `housing.dart`, `status_strip.dart` and whatever remains of `face_screen.dart` after TASK-045 hollowed it — TASK-045 owned that one file earlier in the wave and is long since merged by the time this runs, so there is no concurrency between them), `lib/features/ptt/**`, `lib/features/display/**`, `lib/features/settings_panel/**`, the superseded `lib/features/event_qr/**` screens, TASK-048's development-only compat route, and every hardware-face golden and test that exists solely to assert the retired presentation. **No dormant classic-theme flag is left behind** (ADR-001 §7 item 1, PRD §2.3) — if a classic theme is ever wanted it is a fresh task against this ADR's git history. The discipline that makes this safe rather than destructive: any **behavioural** logic still consumed by the successor screens (gesture/latch/TOT semantics, tuning validation, QR payload/validation/scan/export logic) must have been migrated or re-homed before its file is deleted, and the dossier must list, file by file, what was deleted, what was migrated and where it went. A historical test that asserted real behaviour rather than the retired look gets an equivalent successor test, not a silent deletion (Verification §0, Technical §1's Tests row). If any successor screen still imports a retired path when this task starts, that is a finding for the owning task, not a licence to widen this territory.
 **Acceptance_Criteria:**
@@ -3619,18 +3621,18 @@ Territory matches expectation: new `test/regression/**` + new report file; dossi
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
-**Blocked_Reason:** —
+**Blocked_Reason:** OTHER: SUPERSEDED by ADR-003 (v2.0 people-first) — the legacy retirement folds into TASK-094
 **Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_At:** 2026-09-11T17:20:00Z
 
 
 ### TASK-062
 **Title:** R1 release acceptance — final regression, release APK, G6 evidence
-**Status:** pending
+**Status:** blocked
 **Assigned_To:** TBD
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §9 gates G4/G5/G6 ("Owner acceptance of final UI and explicit release decision"), §2 ("release build evidence is also required before release"), §8 (non-functional and safety regression — original performance budgets, battery bench, "Verify microphone is muted before publish and after release, floor exclusivity, no recording persistence, LOCAL-only traffic isolation, privacy-code semantics, secret handling, and no unexpected network calls from the new UI"; "No new analytics, contacts permissions, address-book upload or message storage is introduced in R1"), §7 (upgrade row — "Install old release, save settings, upgrade, and verify no data loss or mandatory account introduction"); specs/KERYX_Mobile_UX_Redesign_PRD_v1.0.md §7 (product acceptance list, all nine gates), §2.3 (out-of-scope list); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §10 (legacy compatibility — identity, callsign, settings, channel memory and network configuration survive the update); specs/KERYX_Product_Technical_Spec_v1.1.md NFR-11 (app size ≤ 60 MB installed — the target TASK-064 addresses and this gate verifies).
-**Owned_Paths:** pubspec.yaml, ops/RELEASE_ACCEPTANCE_R1.md, dossiers/TASK-062.md
+**Owned_Paths:** dossiers/TASK-062.md
 **Depends_On:** TASK-061, TASK-064
 **Description:** The final gate. Bump the app version in `pubspec.yaml` (Flutter's version source — deliberately chosen over `android/**` so this task never contends with TASK-064's gradle territory), build the release APK, and assemble the G6 evidence package in `ops/RELEASE_ACCEPTANCE_R1.md`. Re-run the complete regression suite, analyzer and both debug and release Android builds on the retired-legacy tree (Verification §9 G4) — the count must reconcile against TASK-058's report and TASK-061's deletion accounting, with every difference explained. Run the Verification §8 non-functional and safety sweep against baseline rather than invented targets: mic muted before publish and after release, floor exclusivity, no recording persistence, LOCAL-only traffic isolation, privacy-code semantics, secret handling, and **no unexpected network calls from the new UI** — the last is a real risk in a screen rewrite and deserves an explicit check, not an assumption. Confirm R1 introduced no analytics, contacts permission, address-book upload or message storage (Verification §8, PRD §2.3). Execute the §7 upgrade row on hardware: install the previous release, save settings, upgrade, verify no data loss and no mandatory account (Technical §10, VT-005 on a real device this time). Verify NFR-11 app size against the split-per-ABI artifact TASK-064 produced — hence the dependency on it — and report the actual figure rather than a target. Finish by walking PRD §7's nine acceptance items one by one with the evidence for each, and hand the owner an explicit release decision to make; the decision itself is the owner's, not this task's.
 **Acceptance_Criteria:**
@@ -3649,9 +3651,9 @@ Territory matches expectation: new `test/regression/**` + new report file; dossi
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
-**Blocked_Reason:** —
+**Blocked_Reason:** OTHER: SUPERSEDED by ADR-003 (v2.0 people-first) — re-baselined to v2.0; a successor release-acceptance task is created after TASK-095
 **Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_At:** 2026-09-11T17:20:00Z
 
 
 ### TASK-063
@@ -5041,3 +5043,349 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-11T16:21:41Z
+
+
+### TASK-083
+**Title:** v2 identity core — Ed25519 key pair, peer ID from public key, 12-word recovery phrase, sealed-box helpers
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** critical
+**Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §3 (keys, ID, phrase, signing), §7 (peer_id.dart re-point); specs/KERYX_v2.0_PRD_v1.0.md V2-FR-001..004; specs/KERYX_v2.0_Verification_v1.0.md V2-VT-001..004; Product Model D1, D9, D10
+**Owned_Paths:** pubspec.yaml, pubspec.lock, lib/core/identity/**, test/core/identity/**, dossiers/TASK-083.md
+**Depends_On:** —
+**Description:** First v2.0 task; reopens frozen `pubspec.yaml` for this task only (add `cryptography` and a BIP-39 word list; pin versions; no other dependency changes). Replace the install-UUID identity with an Ed25519 key pair generated on first run and stored in `flutter_secure_storage` via the existing `IdentityStore` seam. `derivePeerId` keeps its output shape (base32(sha256(x))[:10]) but takes the public key; add `deriveShortCode` = chars [10:14] of the same digest. Add `RecoveryPhrase` (128-bit entropy → 12 English BIP-39 words; seed → key via HKDF-SHA256 info `keryx-id-v1`; restore = phrase → same key). Add request signing (`X-Keryx-Sig/Key/Ts` over sha256(method|path|body|ts)) and sealed-box helpers (Ed25519→X25519 conversion, seal to a public key / open with the private key) for group secrets. Keep `callsign.dart` and its validation; keep `IdentityRepository`'s public API so existing consumers compile. Migration: an existing install with a UUID but no key gets a key generated and keeps its callsign (Technical §8). Nothing in this task touches UI or the network.
+**Acceptance_Criteria:**
+- [ ] Fresh identity yields a valid Ed25519 pair; `peerId`/`shortCode` derive deterministically from the public key; 10,000 random keys produce no `peerId` collision in a test (V2-FR-001; V2-VT-001)
+- [ ] Phrase → seed → the same key on every run; changing one word yields a different key; invalid words are rejected with a typed error (V2-FR-002/003; V2-VT-002)
+- [ ] Signing helper produces headers the Technical §3.3 verifier accepts; tampered body, stale timestamp and wrong key each fail a local verifier test (V2-VT-004)
+- [ ] `sealToPublicKey`/`openSealed` round-trip; opening with the wrong key fails (Technical §5.3)
+- [ ] Existing `IdentityRepository` consumers compile unchanged; a UUID-only store migrates to a key and keeps the callsign (Technical §8)
+- [ ] `flutter analyze` clean; full suite green; `pubspec.lock` committed
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-084
+**Title:** v2 directory service I — Postgres, signed-request auth, identity + contacts + presence WebSocket
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** critical
+**Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §3.3 (signature verification), §4.1 (schema), §4.2 (identity/contacts/presence endpoints), §4.3 (presence protocol), §9 (compose, backups); PRD V2-FR-010..014, V2-FR-030..033, V2-NFR-002/003/004/007; Verification V2-VT-010, 013, 016; existing token-svc/app/** (grow, do not replace)
+**Owned_Paths:** token-svc/**, relay/docker-compose.yml, relay/README.md, dossiers/TASK-084.md
+**Depends_On:** —
+**Description:** Grow `token-svc` into the directory service under `/v2/`. Add Postgres 16 to the compose file (named volume, healthcheck, `DATABASE_URL`), SQLAlchemy + Alembic with the §4.1 schema (identities, contact_requests, contacts, blocks, groups, group_members, invites — create all tables now, implement identity/contacts/presence in this task; groups endpoints are TASK-085). Implement Ed25519 signature verification middleware (`X-Keryx-Sig/Key/Ts`, 120 s window, Redis nonce replay set). Endpoints: `POST /v2/identity`, `GET /v2/identity/me`, `PATCH /v2/identity/callsign`, `POST /v2/contacts/requests`, `POST /v2/contacts/requests/{from_pk}:accept|decline|block`, `DELETE /v2/contacts/{pk}`. Presence: `WS /v2/presence` with signed hello, `{status}` messages, 60 s heartbeat, Offline after 5 min, fan-out via Redis pub/sub to contacts (co-members come in TASK-085). Enumerate error codes in `token-svc/README.md`. Extend `PrivacyFilter` so logs carry no keys, callsigns or room IDs. Publish `token-svc/openapi-v2.yaml` (hand-written or generated) as the contract TASK-086 codes against; keep it in sync with the code. Existing `/token` behaviour is unchanged in this task (the membership gate is TASK-085).
+**Acceptance_Criteria:**
+- [ ] `docker compose up` brings up postgres alongside redis/livekit/coturn/caddy; Alembic migrates the §4.1 schema; nightly `pg_dump` script documented (Technical §9)
+- [ ] Signature middleware accepts a valid signed request and rejects stale (>120 s), replayed and wrongly-signed ones with enumerated error codes (Technical §3.3; V2-VT-004 server side)
+- [ ] Contacts lifecycle passes V2-VT-010: accept creates a symmetric link, decline creates nothing, block prevents re-request, expiry at 7 days, 21st outstanding request refused (V2-FR-010..013)
+- [ ] Presence passes V2-VT-013: heartbeat keeps Online, 5 min silence → Offline, a status change reaches a connected contact within 5 s, non-contacts receive nothing (V2-FR-030..032)
+- [ ] Storage per user < 4 KB after the V2-VT-016 load (V2-NFR-007)
+- [ ] Logs contain no key, callsign or room ID under a test that exercises every endpoint (Verification §7)
+- [ ] `openapi-v2.yaml` describes every endpoint above; `pytest` green; existing token tests still pass
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-085
+**Title:** v2 directory service II — groups, invites, rotation, alerts, membership-gated /token
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** high
+**Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §4.2 (groups/alerts/token rows), §5.2 (invite), §5.3 (rotation); PRD V2-FR-020..025, V2-FR-050; Verification V2-VT-011, 012, 014, 015
+**Owned_Paths:** token-svc/**, dossiers/TASK-085.md
+**Depends_On:** TASK-084
+**Description:** Second half of the directory. Groups: create (creator's sealed secret copy stored), invites with expiry (token hash stored, secret never seen by the server), join (cap 25, refuse the 26th), member list with roles and presence, admin actions (make admin, rename, remove — server requires the sealed secrets for every remaining member in the same call, then bumps `key_version`), leave with last-admin succession. Presence fan-out extended to co-members; rotation notice pushed over the presence socket. Alerts: `POST /v2/alerts` delivered over the target's presence socket, rate-limited 1 per sender per target per 10 min. `/token`: verify the signed caller is a current member of `room_id` (room IDs are derived client-side; the server stores the expected room ID per group at create/rotate time and per 1:1 pair on demand). Update `openapi-v2.yaml`.
+**Acceptance_Criteria:**
+- [ ] Groups lifecycle passes V2-VT-011 including the 26th-join refusal, last-admin succession, remove-requires-rotate, and `key_version` bump storing only supplied sealed copies (V2-FR-020..024)
+- [ ] A table scan after the lifecycle finds no plaintext group secret, private key or audio (V2-VT-012; V2-NFR-004/007)
+- [ ] `/token` refuses a non-member and an unsigned caller and accepts a member (V2-VT-014)
+- [ ] Second alert to the same target inside 10 min is refused; the first is delivered over the presence socket (V2-VT-015; V2-FR-050)
+- [ ] Co-members receive presence changes and rotation notices within 5 s (V2-FR-025; Technical §5.3)
+- [ ] `openapi-v2.yaml` updated; `pytest` green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-086
+**Title:** v2 directory client and local stores — signed REST client, presence socket, contacts and groups stores
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** critical
+**Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §4.2 (contract), §4.3 (presence), §6.1 (modules); token-svc/openapi-v2.yaml (TASK-084's contract); PRD V2-FR-010..014, V2-FR-020..025, V2-FR-030..033; Verification V2-VT-013 (client side), V2-VT-025/026 (store behaviour)
+**Owned_Paths:** lib/services/directory/**, lib/core/contacts/**, lib/core/groups/**, test/services/directory/**, test/core/contacts/**, test/core/groups/**, dossiers/TASK-086.md
+**Depends_On:** TASK-083, TASK-084
+**Description:** Client half of the directory. `lib/services/directory/`: a REST client that signs every call with TASK-083's helper, typed models generated by hand from `openapi-v2.yaml`, typed errors for every enumerated code, and a presence WebSocket client with reconnect/backoff, heartbeat, and a `Stream<PresenceUpdate>`. `lib/core/contacts/`: a SQLite-backed store (`sqflite` is NOT in pubspec and pubspec is frozen after TASK-083 — use `shared_preferences` JSON with a 500-entry cap and a typed repository so the storage can be swapped later), the request state machine (pending-in, pending-out, accepted, blocked, expired), and a `ContactsController` exposing `Stream<List<Contact>>` with presence merged in. `lib/core/groups/`: group store, sealed-secret handling via TASK-083's helpers, rotation handling (fetch my sealed copy on notice, replace, emit a `GroupKeyChanged` event), admin/member role model. No UI, no session wiring. Test everything against a fake HTTP/WS layer; include one contract test that loads `openapi-v2.yaml` and checks every path this client calls exists in it.
+**Acceptance_Criteria:**
+- [ ] Every REST call carries valid signature headers; a 401/409/429 maps to the typed error the contract enumerates (Technical §3.3, §4.2)
+- [ ] Presence client reconnects with backoff, sends a heartbeat every 60 s, and surfaces `PresenceUpdate`s; a simulated 5-min silence marks the peer Offline locally too (V2-FR-030; V2-VT-013)
+- [ ] Contact request state machine covers accept, decline, block, expiry and the 20-outstanding cap with one test per transition (V2-FR-010..013)
+- [ ] Groups store handles join, leave, admin changes and rotation (fetch sealed copy, open with my key, emit `GroupKeyChanged`); a removed member's store drops the group on notice (V2-FR-020..024; Technical §5.3)
+- [ ] Contract test: every path the client calls exists in `openapi-v2.yaml`
+- [ ] `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-087
+**Title:** v2 rooms and transport keys — group and 1:1 room derivation, LAN room prefix, LiveKit E2EE, signed token client
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** high
+**Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §1 (rooms/discovery/relay rows), §5.1, §5.4, §5.5, §7 (derivation.dart, token_client.dart); Verification V2-VT-020, V2-VT-023 (prefix half); PRD V2-NFR-004
+**Owned_Paths:** lib/core/rooms/**, lib/services/discovery/**, lib/services/linked/**, test/core/rooms/**, test/services/discovery/**, test/services/linked/**, dossiers/TASK-087.md
+**Depends_On:** TASK-083
+**Description:** Room identity for v2. In `lib/core/rooms/`: delete `deriveNumbered` and its channel/code constants; add `deriveGroupRoom(secret)` = `deriveKeyed(base64(secret))` and `deriveDirectRoom(myPriv, theirPub)` = `deriveKeyed(base64(x25519 shared secret))` (both sides must agree — test it); keep `deriveKeyed` and the scrypt path. In `lib/services/discovery/`: replace `channel_hash_prefix.dart` with `room_prefix.dart` (first 8 chars of the room ID) and let the service advertise up to 3 rooms; keep NSD plumbing. In `lib/services/linked/`: `token_client.dart` signs requests with TASK-083's helper; `livekit_adapter.dart` enables LiveKit E2EE with a `BaseKeyProvider` whose key is HKDF(roomSecret, info `keryx-e2ee-v1`); `LinkedController` takes the room secret alongside the room ID. Migrate the existing derivation/vector tests that still apply; delete only the numbered-channel ones.
+**Acceptance_Criteria:**
+- [ ] `deriveGroupRoom` is stable for a secret and changes after rotation; `deriveDirectRoom(A,B) == deriveDirectRoom(B,A)`; `deriveNumbered` no longer exists (V2-VT-020; Technical §5)
+- [ ] Discovery advertises and resolves by room prefix; a phone listening on 3 rooms advertises 3 services; old channel-prefix code is gone (Technical §1)
+- [ ] `/token` requests carry signature headers; a fake server that rejects unsigned calls is satisfied (Technical §4.2)
+- [ ] LiveKit E2EE is enabled with the HKDF-derived key; a test proves the adapter refuses to publish without a key provider (V2-NFR-004; Technical §5.5)
+- [ ] Migrated vector tests pass; `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-088
+**Title:** v2 session and host — target switching, roster-at-start, automatic direct/relay transport, v2 state and settings model
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** critical
+**Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §1.1, §6.3, §6.4, §7 (settings_model, radio_state, radio_session_controller); PRD V2-FR-040..045; Verification V2-VT-021, 022 (projection half), 023, 024; TASK-079 (e), TASK-082 (a) carried debt
+**Owned_Paths:** lib/services/session/**, lib/services/mesh/**, lib/core/radio_host/**, lib/core/state/**, lib/core/settings/**, lib/core/presentation/**, test/services/session/**, test/services/mesh/**, test/core/radio_host/**, test/core/state/**, test/core/settings/**, test/core/presentation/**, dossiers/TASK-088.md
+**Depends_On:** TASK-086, TASK-087
+**Description:** The engine-facing half of v2. `RadioState`: remove `channel`, `privacyCode`, `mode`; add `roomId`, `transport (none|direct|relay|both)`; `SetMode` → `SetTransport`; update the reducer and its transition-matrix oracle in lockstep. `KeryxSettings`: remove `mode/region/channel/privacyCode`; add `preferDirectOnWifi` (default true), `messageRetention` (default 7 d), keep the relay URL. `RadioSessionController`: `retune` → `switchTarget(TalkTarget)` which tears down and rebuilds the chain for the target's room, calls `FloorEngine.updateRoster(members)` immediately from the directory member list (closes the solo join-guard, Technical §1.1), and runs LAN mesh and relay together, with the mesh only attaching listeners discovered on the LAN. `KeryxRadioHost.start`: load identity → directory `me` → presence socket → current target (last used, else first group, else none) → session. `RadioViewState`: add `target` and `audience {canHear, reason}`; `ConnectionCondition` becomes `{transport, degraded}`; audience ready rule per V2-FR-041. Fold in the carried debt: throttle meter snapshots (TASK-079 e) and seed the denied-flash timer on remount (TASK-082 a). `lib/core/floor/**` is not in this task and must not change.
+**Acceptance_Criteria:**
+- [ ] `switchTarget` rebuilds within 1 s in the fake and calls `updateRoster` with the full member list before any press; a solo target yields `audience.canHear == 0` and the projection reason 'Nobody is listening' (V2-VT-021; V2-FR-044)
+- [ ] Audience matrix over {online, offline, DND, busy} × {contact, group} yields the correct `canHear`/reason (V2-VT-022; V2-FR-041)
+- [ ] Transport: LAN-discovered listener → direct, others → relay, mixed group → both; `ConnectionCondition.transport` reflects it (V2-VT-023; V2-FR-043)
+- [ ] The v1 VT-010..VT-015 floor tests pass unmodified in intent against v2 targets; no file under `lib/core/floor/` changes (V2-VT-024; V2-FR-042)
+- [ ] Reducer transition-matrix oracle updated with the removed/added fields and green; settings model round-trips the new fields and migrates old JSON without crashing (Technical §7, §8)
+- [ ] Carried debt closed: meter snapshot throttle test; remount-while-denied starts the flash timer (TASK-079 e, TASK-082 a)
+- [ ] `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-089
+**Title:** v2 onboarding, My code and Restore screens
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** high
+**Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.4 (My code), §2.6 (first run), §2.7 Identity section wiring hooks; PRD V2-FR-001..004; Verification V2-VT-003, V2-VT-027, V2-VT-030 (My code, phrase goldens)
+**Owned_Paths:** lib/features/onboarding/**, lib/features/my_code/**, lib/features/restore/**, test/features/onboarding/**, test/features/my_code/**, test/features/restore/**, dossiers/TASK-089.md
+**Depends_On:** TASK-083, TASK-086
+**Description:** Three screens, each a standalone widget with injected callbacks so the shell (TASK-093) can mount them. Onboarding: callsign entry (reuse `callsign.dart` validation) → recovery-phrase screen (12 words in a 3×4 numbered mono grid, no copy control, `FLAG_SECURE` on Android via the existing platform channel or a small new one under this territory, 'I've written it down' as the only exit) → `onDone`. My code: full-screen QR of `keryx://id?...`, callsign·code beneath, 'Share link' (`https://keryx.app/c/...`), brightness raised while shown. Restore: 12-word entry with per-word validation and suggestions, `onRestored(identity)`. Do not wire navigation; do not touch `lib/app_shell/**`.
+**Acceptance_Criteria:**
+- [ ] Onboarding cannot be left without the confirmation tap; the phrase grid is TalkBack-readable word by word; no copy affordance exists (Design §2.6, §6; V2-FR-002)
+- [ ] My code's QR decodes to a payload carrying the public key, and the share link matches Technical §3.1 (V2-FR-004; V2-VT-003)
+- [ ] Restore rejects an invalid word inline and, with a valid phrase, reproduces the same ID as the original install in a test (V2-FR-003; V2-VT-027)
+- [ ] Goldens for the phrase screen and My code in dark and light (V2-VT-030)
+- [ ] `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-090
+**Title:** v2 Contacts tab — requests, contacts list with presence, add-contact sheet, Alert/Remove/Block
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** high
+**Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.2, §2.5, §3 (presence visuals), §4 (request/alert states), §5 copy; PRD V2-FR-010..014, V2-FR-030..033, V2-FR-050; Verification V2-VT-025, V2-VT-030 (contacts goldens)
+**Owned_Paths:** lib/features/contacts/**, test/features/contacts/**, dossiers/TASK-090.md
+**Depends_On:** TASK-086
+**Description:** The Contacts tab body, `embedded`-style like TASK-075/076: no app bar of its own. Sections: Requests (Accept / Decline / Block on the row) then Contacts alphabetical with the presence dot + word, callsign, mono short code, derived Nearby/Talking text. Row tap → `onSelectTarget(contact)`; long-press sheet → Alert (calls the directory client), Remove, Block (second-tap confirm). Floating 'Add contact' → sheet with Scan a code (use `mobile_scanner`), Show my code (`onShowMyCode` callback), Paste an ID. Incoming request modal per Design §2.5. Reads `ContactsController` from TASK-086; no session or shell dependencies.
+**Acceptance_Criteria:**
+- [ ] Requests section renders pending-in requests with working Accept/Decline/Block; accepted contacts move to the list (V2-FR-011; V2-VT-025)
+- [ ] Presence dot and word match Design §3 for all four statuses plus Nearby/Talking; colour is never the only cue (V2-FR-030/031)
+- [ ] Scan and paste both produce a request through the client; a tampered QR is refused locally (V2-FR-010; V2-VT-003)
+- [ ] Alert is rate-limited in the UI to match the server (disabled for 10 min after use) and Block requires a second tap (V2-FR-050; Design §2.5)
+- [ ] Goldens: empty, populated, with requests, dark and light (V2-VT-030); `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-091
+**Title:** v2 Groups tab — list, detail with members and presence, invites, admin actions, join with a code
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** high
+**Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.3, §4 (key rotated / removed states); PRD V2-FR-020..025; Technical §5.2 (invite link); Verification V2-VT-026, V2-VT-030 (groups goldens)
+**Owned_Paths:** lib/features/groups/**, test/features/groups/**, dossiers/TASK-091.md
+**Depends_On:** TASK-086, TASK-087
+**Description:** The Groups tab body and the group detail screen. List rows: glyph, name, `n online · m members`; tap → `onSelectTarget(group)`; chevron → detail. Detail: member list with presence and admin marks, invite (QR + link per Technical §5.2 with the expiry presets reused from `event_link.dart`), Leave, and admin-only Rename, Remove member (which triggers rotation through the groups store), Rotate key, Make admin. Floating: New group (name → create → invite screen) and Join with a code (scan or paste). Toasts for 'key changed' and 'you were removed'. Uses the TASK-086 groups store and TASK-087 room derivation; no shell dependencies.
+**Acceptance_Criteria:**
+- [ ] List counts and detail member list track the store's stream; the 26th join shows the cap message (V2-FR-022/025; V2-VT-026)
+- [ ] Invite QR/link matches Technical §5.2 and honours the expiry preset; Join with a code accepts a valid link and refuses an expired one (V2-FR-021)
+- [ ] Admin actions are hidden for non-admins; Remove member rotates the key and the removed member's row disappears; last-admin leave promotes the oldest member in the UI state (V2-FR-023/024)
+- [ ] Rotation and removal toasts appear per Design §4
+- [ ] Goldens: empty, populated, detail, dark and light (V2-VT-030); `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-092
+**Title:** v2 Talk — target card, audience-aware ready ring, honest lone-press refusal, status control, Alert banner
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** critical
+**Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.1, §4; PRD V2-FR-040..045, V2-FR-033; Verification V2-VT-022 (UI half), V2-VT-024, V2-VT-030 (talk goldens); ADR-002 A3/A7 (ring and flash carried)
+**Owned_Paths:** lib/features/talk/**, test/features/talk/**, test/regression/goldens/goldens/talk_*.png, test/regression/goldens/talk_states_golden_test.dart, dossiers/TASK-092.md
+**Depends_On:** TASK-088
+**Description:** Rework the Talk screen for v2 targets. `TalkChannelCard` → `TalkTargetCard`: avatar/glyph, name, presence line (`Ben · Available · Nearby` / `Site crew · 4 of 12 online`), own-status control (Available/Busy/DND/appear offline) on the right, chevron → `onOpenTarget`. No-target state replaces the ring with the 'Add your first contact / Create a group' card. Ring ready rule from `RadioViewState.audience` (V2-FR-041); a press with `canHear == 0` is refused locally, never calls `press()`, and reuses the TASK-082 flash with the audience reason as copy (V2-FR-044). Alert-received banner (10 s, Reply). Remove every channel/route string. All VT-010..015 safety logic stays untouched.
+**Acceptance_Criteria:**
+- [ ] Ready ring is accent only when `audience.canHear > 0 && !degraded`; otherwise neutral with the reason as the status line — one test per row of the audience matrix (V2-FR-041; V2-VT-022)
+- [ ] A press with nobody listening never reaches `press()`, flashes for 1.5 s with 'Nobody is listening', then returns to ready (V2-FR-044)
+- [ ] Own-status control changes presence through the directory client; DND on the target shows 'Ben is on Do Not Disturb' with an Alert control (V2-FR-033; Design §4)
+- [ ] No-target state renders the add-contact card instead of the ring (Design §2.1)
+- [ ] The v1 VT-010..VT-015 talk tests pass unmodified in intent (V2-VT-024)
+- [ ] No user-facing string contains channel, tune, station, LOCAL, LINKED or AUTO (V2-VT-028 for this territory); `talk_*` goldens regenerated; `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-093
+**Title:** v2 shell and settings — Talk/Contacts/Groups tabs, My code in overflow, onboarding and restore routes, v2 settings sections
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** critical
+**Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §1, §2.7; Technical §6.4 (host start), §8 (v1 install migration); PRD V2-FR-060/061; Verification V2-VT-027 (shell half), V2-VT-029, V2-VT-030 (shell frame goldens)
+**Owned_Paths:** lib/app_shell/**, lib/app.dart, lib/main.dart, lib/features/settings/**, test/app_shell/**, test/features/settings/**, test/regression/real_composition_test.dart, test/regression/goldens/goldens/shell_frame_*.png, test/regression/goldens/goldens/settings_*.png, test/regression/goldens/shell_frame_golden_test.dart, test/regression/goldens/settings_golden_test.dart, dossiers/TASK-093.md
+**Depends_On:** TASK-089, TASK-090, TASK-091, TASK-092
+**Description:** Rewire the shell for v2: tabs Talk (mic) / Contacts (person) / Groups (groups); ⋮ gains My code above Radio controls and Settings; first launch routes to onboarding before the shell; a 'Restore' entry on the callsign screen. Target selection from Contacts/Groups switches to Talk via `switchTarget`. Settings: replace the Connectivity section with relay address + prefer-direct; add Identity (callsign, Show recovery phrase behind device lock, Restore) and Messages (retention, marked 'used from v2.1'); remove the mode/region rows. Keep the TASK-077 back-button rules and add the new tabs to the real-back tests. Delete the debug legacy-face route registration from `app.dart`. Do not delete feature directories (TASK-094).
+**Acceptance_Criteria:**
+- [ ] Cold launch on a fresh install goes to onboarding and reaches the Talk no-target state only after the phrase gate; a keyed install goes straight to Talk (V2-VT-027; Design §2.6)
+- [ ] Tabs are exactly Talk/Contacts/Groups; ⋮ shows My code, Radio controls, Settings; real `handlePopRoute` tests cover every tab and pushed route (V2-VT-029; TASK-077 rules)
+- [ ] Selecting a contact or group anywhere switches to Talk with that target (Design §1)
+- [ ] Settings show the v2 sections and no mode/region/channel rows; Show recovery phrase requires device authentication (V2-FR-060/061)
+- [ ] `real_composition_test` boots the shell against a stubbed directory and reaches Talk (Verification G3)
+- [ ] Shell-frame and settings goldens regenerated; `flutter analyze` clean; full suite green; `flutter build apk --debug` succeeds
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-094
+**Title:** v2 deletions — channels, selector, stations, numbered Event QR, legacy face/ptt/display/settings_panel
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** high
+**Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
+**Owned_Paths:** lib/features/channels/**, lib/features/channel_selector/**, lib/features/stations/**, lib/features/event_qr/**, lib/features/event_qr_ui/**, lib/features/face/**, lib/features/ptt/**, lib/features/display/**, lib/features/settings_panel/**, lib/features/tuning/**, lib/features/radio_controls/**, lib/features/features.dart, test/features/channels/**, test/features/channel_selector/**, test/features/stations/**, test/features/event_qr/**, test/features/event_qr_ui/**, test/features/face/**, test/features/ptt/**, test/features/display/**, test/features/settings_panel/**, test/features/tuning/**, test/features/radio_controls/**, test/regression/goldens/goldens/channels_*.png, test/regression/goldens/goldens/stations_*.png, test/regression/goldens/goldens/selector_*.png, test/regression/goldens/goldens/qr_*.png, test/regression/goldens/goldens/radio_controls_*.png, test/regression/goldens/channels_golden_test.dart, test/regression/goldens/stations_golden_test.dart, test/regression/goldens/selector_golden_test.dart, test/regression/goldens/event_qr_golden_test.dart, test/regression/goldens/radio_controls_golden_test.dart, dossiers/TASK-094.md
+**Depends_On:** TASK-093
+**Description:** Delete what v2 replaced, after the shell no longer references it. Before deleting each module, list in the dossier every behavioural test it carried and where the surviving behaviour is now tested (Verification §0 rule); only presentation-only tests are dropped. `radio_controls` survives only if the shell still pushes it — if TASK-093 kept it, keep the module and drop it from this task's deletion list in the dossier; `tuning/` haptics that Talk still uses must be moved into `lib/features/talk/` by TASK-092 first (coordinate via the dossier, do not edit talk). Event QR: the keyed invite path now lives in TASK-091's groups feature; delete both `event_qr` directories. Then run V2-VT-028 repo-wide.
+**Acceptance_Criteria:**
+- [ ] Every directory in Owned_Paths that the shell no longer imports is deleted, and a repo-wide grep for `features/channels`, `channel_selector`, `features/stations`, `features/face`, `features/ptt`, `features/display`, `settings_panel`, `event_qr` finds no imports (Technical §6.2; ADR-001 §6)
+- [ ] Repo-wide grep of `lib/` user-facing strings for channel, privacy code, tune, station, LOCAL, LINKED, AUTO returns nothing (V2-VT-028)
+- [ ] The dossier reconciles deleted tests: every behavioural assertion names its successor test; before/after suite counts explained (Verification §0)
+- [ ] Retired goldens removed; `flutter analyze` clean; full suite green; `flutter build apk --debug` succeeds
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-095
+**Title:** v2.0 regression pass, device-matrix runbook and release build
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** high
+**Spec_References:** specs/KERYX_v2.0_Verification_v1.0.md §5 (V2-VT-030 full golden set), §6 (device matrix rows A–I, `ops/FIELD_TEST_V2.md`), §7 (safety regression), §8 gates G1–G3; PRD §5, V2-NFR-005/006
+**Owned_Paths:** test/regression/**, ops/FIELD_TEST_V2.md, ops/REGRESSION_V2.md, dossiers/TASK-095.md
+**Depends_On:** TASK-094
+**Description:** Evidence gate for v2.0. Complete the golden set of V2-VT-030 for every surface in dark and light, extend the layout matrix and real-back tests to the v2 shell, re-run the R1 safety sweep (§7) including the manifest check for no contacts permission and the network-host allowlist, write `ops/FIELD_TEST_V2.md` as the owner's step-by-step runbook for rows A–I with evidence slots, and produce `ops/REGRESSION_V2.md` with counts reconciled against R2 (1526). Build `flutter build apk --release --split-per-abi`; record the arm64 size (must be < 60 MB) and sha256. Do not install or send anything; ORCH hands it to the owner.
+**Acceptance_Criteria:**
+- [ ] Every V2-VT-030 golden exists in dark and light and the layout matrix passes on the v2 shell at all seven sizes (Verification §5, §6 of R1)
+- [ ] Safety sweep recorded: no contacts permission in the manifest, only relay/directory hosts contacted in a network-audit test, mic muted before publish and after release (Verification §7; V2-NFR-005)
+- [ ] `ops/FIELD_TEST_V2.md` gives the owner rows A–I with exact steps and evidence slots (Verification §6)
+- [ ] `ops/REGRESSION_V2.md` reconciles counts against R2's 1526 with every delta explained; full suite green; analyzer clean (Verification G2)
+- [ ] Release APK built; arm64 < 60 MB; path, size and sha256 recorded (V2-NFR-006)
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T17:20:00Z
