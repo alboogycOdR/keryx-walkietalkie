@@ -4539,7 +4539,7 @@ The host is still constructed and started exactly once above all routes, and no 
 
 ### TASK-078
 **Title:** UX R2 regression + owner review build — goldens audit, small-phone/landscape checks, split release APKs
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §2 O4 (owner reviews the built APK instead of a mockup), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (golden fixtures for every significant state, dark and light; 320 lp width; text scale 2.0; landscape), §9 G4; ops/REGRESSION_UX_R1.md (the R1 baseline this extends)
@@ -4558,15 +4558,16 @@ Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
 - [ ] Full suite, analyzer, debug build and split-per-ABI release build pass; counts reconciled against R1 with every delta explained (Verification §9 G4)
 - [ ] Carried from TASK-077's review: a regression test drives real Android system back (`tester.binding.handlePopRoute()`) from the overflow Settings and Radio controls routes and asserts the previous tab is kept (ADR-002 A1)
 - [ ] `ops/REGRESSION_UX_R2.md` records the arm64-v8a release APK path, byte size and sha256
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-078-gb
+**Started_At:** 2026-09-11T14:05:24Z
+**Progress_Notes:**
+- [2026-09-11T14:05:24Z] [GB] Claimed TASK-078. Resume check: no GB in_progress/claimed task. Depends_On TASK-077/079/080/081 all done. Branch task/TASK-078-gb from master. Next: preflight_paths.py TASK-078, then audit goldens, add shell-frame + measured-glow goldens, layout matrix, overflow system-back tests, G4 evidence + split APKs.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T10:07:46Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-11T14:05:24Z
 
 
 ### TASK-079
