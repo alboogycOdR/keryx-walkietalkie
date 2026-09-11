@@ -1,5 +1,5 @@
 ---
-plan_version: 15.0
+plan_version: 15.1
 last_updated: 2026-09-11T11:55:21Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
@@ -4412,7 +4412,7 @@ The host is still constructed and started exactly once above all routes, and no 
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §2 O4 (owner reviews the built APK instead of a mockup), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (golden fixtures for every significant state, dark and light; 320 lp width; text scale 2.0; landscape), §9 G4; ops/REGRESSION_UX_R1.md (the R1 baseline this extends)
 **Owned_Paths:** test/regression/**, ops/REGRESSION_UX_R2.md, dossiers/TASK-078.md
-**Depends_On:** TASK-077, TASK-079, TASK-080
+**Depends_On:** TASK-077, TASK-079, TASK-080, TASK-081
 **Description:** The UX R2 evidence gate before the owner review. On the merged tree:
 1. Audit that every golden under `test/regression/goldens/goldens/` reflects the R2 compositions. Add goldens for the new shell frame (Talk tab with app bar + tab strip, dark and light) and for RX with a measured glow.
 2. Add regression widget tests at 320×568, 360×640 and 412×915 dp, text scale 1.0 and 2.0, and landscape 640×360: no overflow; PTT reachable; tab strip and overflow menu reachable.
@@ -4520,7 +4520,7 @@ Reading rtc_adapter.dart (readAudioLevel/audioLevelFromInboundRtpStats), mesh_co
 
 ### TASK-080
 **Title:** Effective route shows "AUTO" — diagnose and fix the configured-vs-effective route projection
-**Status:** blocked
+**Status:** in_progress
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; lib/core/presentation/connection_condition.dart dartdoc (effective route "is never `auto` in practice"); owner screenshot 2026-09-11 ("Configured LOCAL · Route AUTO" on a real phone), also noted in orchestrator_notes after the 2026-09-08 hardware attempt
@@ -4537,7 +4537,7 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 - [ ] The dossier states the verified root cause, with the test that failed before the fix
 - [ ] With configured LOCAL and configured LINKED, the effective route equals the resolved mode after start, after retune and after a session rebuild — one test per path (Technical §7)
 - [ ] With configured AUTO, the effective route is the concrete resolved route, never `auto` (UX-FR-002)
-- [ ] Before resolution, `ConnectionCondition` exposes an explicit unresolved state that UI can label; `auto` is never presented as an effective route (Technical §7)
+- [ ] Before resolution, `ConnectionCondition` exposes an explicit unresolved state that UI can label (`isResolved`/`routeLabel`); UI call-site adoption is re-carved to TASK-081 by ORCH (Technical §7)
 - [ ] Carried from TASK-079's review (same file, `radio_session_controller.dart`): the RX meter poll cannot run two concurrent chains. A poll generation counter (or equivalent) makes an in-flight `readAudioLevel` from a superseded start a no-op, proven by a test that flaps RemoteFloorEnded/RemoteFloorStarted for the same speaker during a pending read and asserts one poll per interval
 - [ ] Carried from TASK-079's review: a throwing `readAudioLevel` inside the poll is caught, maps to `MeterLevel.decorative`, and polling continues for the RX window (test with a throwing fake)
 - [ ] `flutter analyze` clean; full suite green
@@ -4547,9 +4547,43 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 - [2026-09-11T11:56:14Z] [CX] Claimed TASK-080. TASK-079 is done; task branch created from integration tip cceef4d. Next: preflight owned paths, reproduce the effective-route defect, then document and fix its verified cause.
 - [2026-09-11T11:58:00Z] [CX] Preflight passed: all eight Owned_Paths inspected; `test/core/presentation/connection_condition_test.dart` is an authorised new file. Reading the controller/reducer pipeline and writing the pre-fix reproduction next.
 - [2026-09-11T12:22:00Z] [CX] Root cause verified and core fix committed as 9b37a5b: host starts the session during `boot`; resolved `SetMode` was silently ignored because reducer accepted it only in `idle`, retaining default AUTO. Concrete routes now project in powered phases; ConnectionCondition exposes `isResolved`/`routeLabel`; TASK-079 meter poll review fixes included. Targeted tests: 46 passed. `flutter analyze`: No issues found. Blocked only on out-of-territory UI call sites that must use `connection.routeLabel` (listed in dossier).
+- [2026-09-11T12:30:00Z] [ORCH] OWNERSHIP_CONFLICT triaged: re-carved, not widened. The UI call sites you listed (channel_format, channels_landing, stations_screen, talk_screen, about_diagnostics, settings_screen) are now **TASK-081**, which depends on TASK-074 and this task. Your criterion 4 is amended so this task ends at `ConnectionCondition.isResolved`/`routeLabel`, with no UI edits. **Next step for CX:** status is back to in_progress. Finish on `task/TASK-080-cx`: complete the tests for every criterion, including the two carried from TASK-079 (poll generation, throw-guard); run the FULL suite in the foreground; record Test_Evidence/Artifacts; move to needs_review.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
-**Blocked_Reason:** OWNERSHIP_CONFLICT — literal-AUTO rendering remains in lib/features/channels/channel_format.dart, lib/features/channels/channels_landing.dart, lib/features/stations/stations_screen.dart, lib/features/talk/talk_screen.dart, lib/features/settings/about_diagnostics.dart, and lib/features/settings/settings_screen.dart; all are outside TASK-080 Owned_Paths.
+**Blocked_Reason:** —
 **Updated_By:** CX
 **Updated_At:** 2026-09-11T12:22:00Z
+
+
+### TASK-081
+**Title:** Adopt ConnectionCondition's resolved route label in every UI call site (no literal AUTO as an effective route)
+**Status:** pending
+**Assigned_To:** CX
+**Priority:** medium
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; TASK-080 (adds `ConnectionCondition.isResolved`/`routeLabel` and fixes the reducer root cause — this task is the UI half it could not reach, re-carved by ORCH from TASK-080's OWNERSHIP_CONFLICT block 2026-09-11)
+**Owned_Paths:** lib/features/channels/channel_format.dart, lib/features/channels/channels_landing.dart, lib/features/stations/stations_screen.dart, lib/features/stations/station_copy.dart, lib/features/settings/about_diagnostics.dart, lib/features/settings/settings_screen.dart, lib/features/talk/talk_screen.dart, lib/features/talk/talk_channel_card.dart, test/features/channels/**, test/features/stations/**, test/features/settings/**, test/features/talk/talk_screen_test.dart, test/features/talk/talk_channel_card_test.dart, test/regression/goldens/goldens/channels_*.png, test/regression/goldens/goldens/stations_*.png, test/regression/goldens/goldens/settings_*.png, test/regression/goldens/goldens/talk_*.png, dossiers/TASK-081.md
+**Depends_On:** TASK-074, TASK-080
+**Description:** **ORCH re-carve 2026-09-11.** TASK-080 fixed the root cause (a resolved `SetMode` was ignored during `boot`, leaving the reducer default `auto`). It also gave `ConnectionCondition` an explicit unresolved state (`isResolved`/`routeLabel`). Six UI call sites still format `connection.effectiveRoute` themselves and can print "AUTO" as an effective route before resolution. Every one sits outside TASK-080's territory:
+- `channel_format.dart` (`radioModeLabel(connection.effectiveRoute)`)
+- `channels_landing.dart` ("Effective …")
+- `stations_screen.dart` / `station_copy.dart` (`incompleteRoster(effectiveRoute)`)
+- `talk_screen.dart` / `talk_channel_card.dart` (the Talk route line, reworked by TASK-074)
+- `about_diagnostics.dart`
+- `settings_screen.dart` (`effectiveRoute.name`)
+
+Route each one through `ConnectionCondition.routeLabel` (or `isResolved`) so an unresolved route reads as connecting, and the literal AUTO never appears as an *effective* route. The configured-preference labels may still say AUTO; that is correct. Regenerate only the goldens whose pixels actually change, and list them in the dossier.
+**Acceptance_Criteria:**
+- [ ] No UI code formats `effectiveRoute` directly any more; a repo-wide grep of `lib/features/**` for `effectiveRoute` shows only `routeLabel`/`isResolved` consumers (TASK-080 dartdoc; Technical §7)
+- [ ] For each call site, a widget test proves that an unresolved condition renders the connecting/unresolved label and never "AUTO" as the effective route, and that a resolved LOCAL/LINKED renders that route (UX-FR-002)
+- [ ] Configured-preference labels still show AUTO when configured AUTO (Technical §7: configured and effective stay distinct)
+- [ ] Changed goldens regenerated and listed; `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T12:30:00Z
