@@ -4218,7 +4218,7 @@ No fake presence counts. Regenerate `channels_*` goldens.
 
 ### TASK-076
 **Title:** UX R2 Stations as a tab body — embedded mode, avatar rows, speaking state, QR action row
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A1 (Stations is a tab); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.4 ("known callsigns and actual presence… update while open… empty state, current-channel context and existing Event QR actions… Quality information is omitted or marked unavailable unless a real metric exists… explicitly state that a complete member list is unavailable rather than displaying zero")
@@ -4238,15 +4238,16 @@ In embedded mode, the Event QR actions ("Scan QR" / "Share QR") render as a comp
 - [ ] Scan/Share QR callbacks fire from the embedded action row (Design §2.4)
 - [ ] `test/app_shell/**` and `test/regression/real_composition_test.dart` pass with zero edits
 - [ ] `stations_*` goldens regenerated; `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-076-s5
+**Started_At:** 2026-09-11T11:00:00Z
+**Progress_Notes:**
+- [2026-09-11T11:00:00Z] [S5] Claimed TASK-076 (resume check: no S5 claimed/in_progress task found; TASK-072 done/merged unlocked this task). Preflight (`python scripts/preflight_paths.py TASK-076`): lib/features/stations/** = 5 files, test/features/stations/** = 3 files, test/regression/goldens/stations_golden_test.dart exists (74 lines), test/regression/goldens/goldens/stations_*.png = 4 files, dossiers/TASK-076.md exists (21 lines). Branch task/TASK-076-s5 created from master (e6f2f18, post TASK-072 merge). Next: add `embedded` param to StationsScreen, restyle rows with avatar/speaking indicator, add embedded QR action row, regenerate stations_* goldens.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T10:07:46Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-11T11:00:00Z
 
 
 ### TASK-077
