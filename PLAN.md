@@ -4474,7 +4474,7 @@ The host is still constructed and started exactly once above all routes, and no 
 ### TASK-078
 **Title:** UX R2 regression + owner review build — goldens audit, small-phone/landscape checks, split release APKs
 **Status:** pending
-**Assigned_To:** CX
+**Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §2 O4 (owner reviews the built APK instead of a mockup), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (golden fixtures for every significant state, dark and light; 320 lp width; text scale 2.0; landscape), §9 G4; ops/REGRESSION_UX_R1.md (the R1 baseline this extends)
 **Owned_Paths:** test/regression/**, ops/REGRESSION_UX_R2.md, dossiers/TASK-078.md
@@ -4650,7 +4650,7 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 ### TASK-081
 **Title:** Adopt ConnectionCondition's resolved route label in every UI call site (no literal AUTO as an effective route)
 **Status:** pending
-**Assigned_To:** CX
+**Assigned_To:** GB
 **Priority:** medium
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; TASK-080 (adds `ConnectionCondition.isResolved`/`routeLabel` and fixes the reducer root cause — this task is the UI half it could not reach, re-carved by ORCH from TASK-080's OWNERSHIP_CONFLICT block 2026-09-11)
 **Owned_Paths:** lib/features/channels/channel_format.dart, lib/features/channels/channels_landing.dart, lib/features/stations/stations_screen.dart, lib/features/stations/station_copy.dart, lib/features/settings/about_diagnostics.dart, lib/features/settings/settings_screen.dart, lib/features/talk/talk_screen.dart, lib/features/talk/talk_channel_card.dart, test/features/channels/**, test/features/stations/**, test/features/settings/**, test/features/talk/talk_screen_test.dart, test/features/talk/talk_channel_card_test.dart, test/regression/goldens/goldens/channels_*.png, test/regression/goldens/goldens/stations_*.png, test/regression/goldens/goldens/settings_*.png, test/regression/goldens/goldens/talk_*.png, dossiers/TASK-081.md
