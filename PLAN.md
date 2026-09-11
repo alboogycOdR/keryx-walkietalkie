@@ -4225,6 +4225,7 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 **Branch:** task/TASK-074-s5
 **Started_At:** 2026-09-11T11:50:34Z
 **Progress_Notes:** —
+- [2026-09-11T12:05:00Z] [ORCH] S5's first TASK-074 session was killed by the headless `claude -p` 600 s background-task ceiling. It had delegated to background sub-agents, which died with it, so nothing was committed. **Uncommitted partial work survives in the worktree**: `talk_ptt_disc.dart` deleted; `talk_screen.dart`, `test/app_shell/mobile_app_shell_test.dart`, `test/app_shell/talk_screen_test.dart` and `test/features/talk/talk_screen_test.dart` modified; new `talk_channel_card.dart` and its test. **Next step for S5:** status is `claimed`, so resume on `task/TASK-074-s5`. Review the diff, continue from it, **do the work directly in this session (do not launch background agents or background shell jobs)**, commit incrementally, run the full suite in the foreground, then go to needs_review. The redispatch sets CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 as a backstop.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
