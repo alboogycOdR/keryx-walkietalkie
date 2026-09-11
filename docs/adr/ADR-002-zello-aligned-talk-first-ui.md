@@ -97,6 +97,13 @@ A back button appears only when the route can pop.
 - No level is synthesised from energy, jitter or media-source stats.
 - Local TX mic metering is **not** authorised by this ADR.
 
+**A7. On-device review amendments (owner, 2026-09-11 17:36, after installing the R2 review APK).**
+- **PTT placement (supersedes the "bottom portion" placement in A2/A3 and Design §2.2):** the PTT ring and its status text are centred vertically in the space below the channel card and banners. They are no longer pinned to the bottom. At text scale 2.0 and in landscape, the scroll fallback stays and the PTT must still be reachable.
+- **A refused press is transient:**
+  - A denied flash (ring neutral + shake, "Channel busy" cue) lasts about 1.5 s. The ring then returns to its Ready treatment on its own, even when no further radio event arrives. The owner saw it stay grey indefinitely with no second phone connected.
+  - The flash is presentation-only. It never overrides a granted TX (Design §4 precedence unchanged).
+- **Honest deny copy:** when a press is refused and the roster is known to be empty (LOCAL, zero other stations), the cue reads "No other stations on this channel", not "Channel busy". "Channel busy" is kept for a real contention or lockout deny.
+
 ## 4. Not changed
 
 - The floor, audio, session, security and emergency contracts (ADR-001 §5).

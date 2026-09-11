@@ -1,6 +1,6 @@
 ---
-plan_version: 15.1
-last_updated: 2026-09-11T14:55:00Z
+plan_version: 15.2
+last_updated: 2026-09-11T15:45:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4942,3 +4942,45 @@ Territory matches expectation: all listed UI files exist; goldens are existing P
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-11T13:34:47Z
+
+
+### TASK-082
+**Title:** Owner review fixes — denied flash auto-clears back to Ready, honest "no other stations" deny copy, PTT centred vertically
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** high
+**Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A7 (owner on-device review 2026-09-11: vertical centring; denied flash transient ~1.5 s then Ready with no further event; "No other stations on this channel" when a refused press meets a known-empty roster), A3 (ring treatments; denied flash never overrides granted TX), A2 (content order); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §4 ("Denied/busy — Amber transient + reason — No false TX"; "A denied flash cannot override a currently granted TX"), §5 (plain-language copy); Verification §6 (small-phone / text-scale / landscape reachability)
+**Owned_Paths:** lib/features/talk/talk_screen.dart, lib/features/talk/talk_copy.dart, test/features/talk/talk_screen_test.dart, test/regression/goldens/talk_states_golden_test.dart, test/regression/goldens/goldens/talk_*.png, test/regression/goldens/goldens/shell_frame_*.png, test/regression/layout_matrix_test.dart, dossiers/TASK-082.md
+**Depends_On:** —
+**Description:** The owner installed the R2 review APK on one phone, with no second phone on the channel, and found three problems.
+- **Stuck grey ring.** Pressing PTT alone is refused. `RadioState.isTransmitDenied` is then set, and by design it is only cleared by the *next state-changing radio event* (`RadioReducer._clearTransientDenied`; "No Timer lives in this reducer"). With nobody else on the channel no such event arrives, so the ring stays in the neutral denied treatment and the "Channel busy" cue stays forever.
+- **Misleading copy.** "Channel busy" is wrong when there is simply nobody to talk to.
+- **Placement.** The owner wants the PTT centred vertically, not pinned to the bottom.
+
+Fix all three in the Talk presentation layer only. **Do not touch `lib/core/**`**; the floor, reducer and presentation projection stay frozen.
+1. **Transient flash:** when `viewState.deniedFlash` becomes true, `TalkScreen` starts a ~1500 ms timer.
+   - Until it fires, render the deniedFlash ring treatment and cue.
+   - After it fires, treat the flash as expired: ring back to Ready (or whatever the phase dictates) and cue hidden, even though `isTransmitDenied` is still true in state.
+   - A fresh deny (false→true edge again, or a new press that is refused) restarts the flash.
+   - Cancel the timer on dispose.
+   - Precedence is unchanged: granted TX, rx and requesting always win over the flash.
+2. **Deny copy:** when the flash is showing and `viewState.rosterCount` is `KnownRosterCount(0)`, the cue label and the primary status line read `TalkCopy.noOtherStationsOnChannel` ("No other stations on this channel"). Otherwise keep "Channel busy". Put the copy in `talk_copy.dart`.
+3. **Vertical centring:** restructure the Talk body so the card and banners stay at the top, and the ring + status + contextual latch row are centred vertically in the remaining height. Use e.g. an `Expanded` + `Center` inside the existing `LayoutBuilder`/`ConstrainedBox(minHeight)` scroll fallback, so text scale 2.0 and landscape still scroll with the PTT reachable.
+4. Regenerate the `talk_*` and `shell_frame_*` goldens whose pixels change, and keep `layout_matrix_test.dart` green. Adjust it only if the centring legitimately changes an assertion, and explain why in the dossier.
+5. **Dossier:** record *why* a solo press is refused on the current floor engine: which path in `floor_engine.dart`/`arbiter.dart` fires (join-guard, TX_REQ give-up, or lockout) and after how long a solo station may self-grant (`Arbiter.maySelfGrant`: `presenceHeartbeat`). This is diagnosis only, with no floor changes; ORCH decides whether the floor policy needs a successor task.
+**Acceptance_Criteria:**
+- [ ] A refused press shows the denied treatment and cue, then returns to the Ready ring (accent) and hides the cue ~1.5 s later with **no further radio event**. Test: pump a deny with no follow-up event, advance 1600 ms, assert Ready treatment and no cue (ADR-002 A7)
+- [ ] A second refusal after expiry shows the flash again, and a granted TX during an active flash shows TX, not the flash — one test each (Design §4 precedence)
+- [ ] With `KnownRosterCount(0)` the deny cue and status read "No other stations on this channel"; with stations present or an unavailable roster it reads "Channel busy" — tests for both (ADR-002 A7; Design §5)
+- [ ] At 360×640, text scale 1.0, the PTT ring's vertical centre lies within ±10% of the viewport height of the midpoint of the space below the channel card, and the card, ring and status are all visible without scrolling. At 320×568 @ 2.0 and landscape 640×360, the PTT is still reachable by scrolling with no overflow (ADR-002 A7; Verification §6)
+- [ ] The dossier states the concrete floor-engine reason a solo press is refused and when a solo station can self-grant (diagnosis only; no `lib/core/**` changes)
+- [ ] Changed goldens regenerated and listed; `flutter analyze` clean; full suite green, run in the foreground
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T15:45:00Z
