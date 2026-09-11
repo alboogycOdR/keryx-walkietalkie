@@ -95,6 +95,13 @@ class NonceStore:
     def remember(self, nonce: str, now: float, ttl: int) -> None:
         raise NotImplementedError
 
+    def claim(self, nonce: str, now: float, ttl: int) -> bool:
+        """Atomically record the nonce. True if first seen, False if replay."""
+        if self.seen(nonce, now, ttl):
+            return False
+        self.remember(nonce, now, ttl)
+        return True
+
 
 class MemoryNonceStore(NonceStore):
     def __init__(self) -> None:
@@ -113,6 +120,13 @@ class MemoryNonceStore(NonceStore):
         self._purge(now)
         self._items[nonce] = now + ttl
 
+    def claim(self, nonce: str, now: float, ttl: int) -> bool:
+        self._purge(now)
+        if nonce in self._items:
+            return False
+        self._items[nonce] = now + ttl
+        return True
+
 
 class RedisNonceStore(NonceStore):
     def __init__(self, redis_client: object) -> None:
@@ -122,7 +136,11 @@ class RedisNonceStore(NonceStore):
         return bool(self._r.exists(f"keryx:nonce:{nonce}"))  # type: ignore[attr-defined]
 
     def remember(self, nonce: str, now: float, ttl: int) -> None:  # noqa: ARG002
-        self._r.set(f"keryx:nonce:{nonce}", "1", ex=max(ttl, 1))  # type: ignore[attr-defined]
+        self._r.set(f"keryx:nonce:{nonce}", "1", nx=True, ex=max(ttl, 1))  # type: ignore[attr-defined]
+
+    def claim(self, nonce: str, now: float, ttl: int) -> bool:  # noqa: ARG002
+        ok = self._r.set(f"keryx:nonce:{nonce}", "1", nx=True, ex=max(ttl, 1))  # type: ignore[attr-defined]
+        return bool(ok)
 
 
 def verify_headers(
@@ -154,9 +172,14 @@ def verify_headers(
         raise DirectoryError(401, INVALID_SIGNATURE) from exc
 
     nonce = hashlib.sha256(sig).hexdigest()
-    if nonce_store.seen(nonce, now, window_s):
-        raise DirectoryError(401, REPLAYED)
-    nonce_store.remember(nonce, now, window_s)
+    claim = getattr(nonce_store, "claim", None)
+    if callable(claim):
+        if not claim(nonce, now, window_s):
+            raise DirectoryError(401, REPLAYED)
+    else:
+        if nonce_store.seen(nonce, now, window_s):
+            raise DirectoryError(401, REPLAYED)
+        nonce_store.remember(nonce, now, window_s)
     return pubkey
 
 

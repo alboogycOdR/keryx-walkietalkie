@@ -7,6 +7,14 @@ from pathlib import Path
 import jwt
 
 from tests.conftest import CALLSIGN, ROOM_A
+from tests.v2_helpers import Agent, create_group
+
+
+def _member(client, clock, callsign: str = CALLSIGN, room: str = ROOM_A) -> Agent:
+    agent = Agent(client, clock, callsign)
+    assert agent.register().status_code == 200
+    create_group(agent, room)
+    return agent
 
 
 def test_healthz(client) -> None:
@@ -15,8 +23,9 @@ def test_healthz(client) -> None:
     assert res.json() == {"ok": True}
 
 
-def test_mint_returns_short_lived_livekit_jwt(client, settings) -> None:
-    res = client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN})
+def test_mint_returns_short_lived_livekit_jwt(client, settings, clock) -> None:
+    agent = _member(client, clock)
+    res = agent.request("POST", "/token", {"room_id": ROOM_A, "callsign": CALLSIGN})
     assert res.status_code == 200
     body = res.json()
     token = body["token"]
@@ -37,7 +46,7 @@ def test_mint_returns_short_lived_livekit_jwt(client, settings) -> None:
     assert claims["sub"] == identity
     assert claims["name"] == CALLSIGN
     assert claims["exp"] - claims["nbf"] == 300
-    assert claims["nbf"] == 1_700_000_000
+    assert claims["nbf"] == int(clock[0])
     assert claims["video"]["room"] == ROOM_A
     assert claims["video"]["roomJoin"] is True
     assert claims["video"]["canPublish"] is True
@@ -45,15 +54,17 @@ def test_mint_returns_short_lived_livekit_jwt(client, settings) -> None:
     assert claims["video"]["canPublishData"] is True
 
 
-def test_identity_suffix_is_unique_per_mint(client) -> None:
-    a = client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}).json()
-    b = client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN}).json()
+def test_identity_suffix_is_unique_per_mint(client, clock) -> None:
+    agent = _member(client, clock)
+    a = agent.request("POST", "/token", {"room_id": ROOM_A, "callsign": CALLSIGN}).json()
+    b = agent.request("POST", "/token", {"room_id": ROOM_A, "callsign": CALLSIGN}).json()
     assert a["identity"] != b["identity"]
     assert a["token"] != b["token"]
 
 
-def test_room_id_is_normalized_uppercase(client, settings) -> None:
-    res = client.post("/token", json={"room_id": ROOM_A.lower(), "callsign": CALLSIGN})
+def test_room_id_is_normalized_uppercase(client, settings, clock) -> None:
+    agent = _member(client, clock)
+    res = agent.request("POST", "/token", {"room_id": ROOM_A.lower(), "callsign": CALLSIGN})
     assert res.status_code == 200
     claims = jwt.decode(
         res.json()["token"],
@@ -75,7 +86,7 @@ def test_no_committed_sqlite_state_files() -> None:
     assert forbidden == []
 
 
-def test_token_mint_does_not_require_directory_rows(client) -> None:
+def test_unsigned_token_is_refused(client) -> None:
     res = client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN})
-    assert res.status_code == 200
-    assert "token" in res.json()
+    assert res.status_code == 401
+    assert res.json()["error"] == "missing_signature"

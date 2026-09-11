@@ -19,6 +19,10 @@ class TokenRequest(BaseModel):
         default=None,
         description="Optional Event-QR token; expired tokens are refused (FR-044)",
     )
+    peer_pk: str | None = Field(
+        default=None,
+        description="Optional contact public key; binds a 1:1 room_id on demand",
+    )
 
     @field_validator("room_id")
     @classmethod

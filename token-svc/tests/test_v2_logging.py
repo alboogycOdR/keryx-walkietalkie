@@ -48,10 +48,14 @@ def test_every_v2_endpoint_logs_are_clean(client, clock, settings) -> None:
         ws.send_json({"status": "available"})
         ws.send_json({"type": "heartbeat"})
 
+    from tests.v2_helpers import create_group
+
+    create_group(a, SENTINEL_ROOM, name="LOG")
     event = sign_event_token(SENTINEL_ROOM, settings.event_token_secret, exp=int(clock[0]) + 60)
-    client.post(
+    a.request(
+        "POST",
         "/token",
-        json={"room_id": SENTINEL_ROOM, "callsign": SENTINEL_CALLSIGN, "event_token": event},
+        {"room_id": SENTINEL_ROOM, "callsign": SENTINEL_CALLSIGN, "event_token": event},
     )
 
     blob = stream.getvalue()

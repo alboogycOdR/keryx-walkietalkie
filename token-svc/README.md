@@ -2,8 +2,8 @@
 
 FastAPI service that mints short-lived LiveKit JWTs for KERYX LINKED joins
 (KRX-051 / TS §8.1, §8.4, §8.7, FR-044) and, from v2, hosts the directory
-under `/v2/` (identities, contacts, presence). Group write endpoints are
-TASK-085. `POST /token` is unchanged in this task (membership gate is TASK-085).
+under `/v2/` (identities, contacts, groups, alerts, presence). `POST /token`
+is signed and refuses callers who are not a member of `room_id`.
 
 The client derives `roomId` itself (TS §8.7). The process never sees
 passphrases or private keys. Directory rows are public keys, callsigns,
@@ -65,11 +65,16 @@ when `REDIS_URL` is set.
 
 ### `POST /token`
 
+Signed (`X-Keryx-Sig/Key/Ts`). The caller must already be a member of
+`room_id`. Group rooms are stored at create/rotate; a 1:1 room is stored on
+demand when `peer_pk` is a current contact.
+
 ```json
 {
   "room_id": "ABCDEFGHIJKLMNOP",
   "callsign": "BRAVO-7",
-  "event_token": null
+  "event_token": null,
+  "peer_pk": null
 }
 ```
 
@@ -97,21 +102,26 @@ JWT claims (HS256, signed with `LIVEKIT_API_SECRET`):
 
 Errors (stable `detail` codes, no request values echoed):
 
-| Status | `detail` |
-|---|---|
-| 422 | `invalid_request` |
-| 403 | `expired_event_token` |
-| 403 | `invalid_event_token` |
-| 429 | `rate_limited` |
+| Status | Body | When |
+|---|---|---|
+| 401 | `{error: missing_signature}` | Unsigned |
+| 401 | `{error: unknown_identity}` | Signed but never registered |
+| 403 | `{error: not_member}` | Not in that room |
+| 403 | `{detail: expired_event_token}` | Event-QR expired |
+| 403 | `{detail: invalid_event_token}` | Event-QR forged/mismatched |
+| 422 | `{detail: invalid_request}` | Bad room_id / callsign |
+| 429 | `{detail: rate_limited}` | IP limiter |
 
-`/token` keeps `{detail: code}`. Directory `/v2/*` uses `{error: code}` only.
+Directory `/v2/*` uses `{error: code}` only.
 
 ## Directory `/v2` (Technical §4)
 
 Every `/v2/` call carries:
 
 - `X-Keryx-Sig`: standard base64 of Ed25519(`sha256(METHOD|path|body|timestamp)`)
-- `X-Keryx-Key`: unpadded base64url of the 32-byte public key
+- `X-Keryx-Key`: unpadded base64url of the 32-byte public key (canonical).
+  Standard base64 (padded, `+`/`/`) is also accepted — that is what the Dart
+  client currently emits.
 - `X-Keryx-Ts`: Unix seconds
 
 `body` is the raw request bytes (empty string for GET / WS hello). The server
@@ -126,11 +136,23 @@ rejects `|now-ts| > 120` (`stale_timestamp`), a replayed signature nonce
 | POST | `/v2/contacts/requests` | `{to_pk}` |
 | POST | `/v2/contacts/requests/{from_pk}:accept\|decline\|block` | Resolve |
 | DELETE | `/v2/contacts/{pk}` | Remove (not announced) |
+| POST | `/v2/groups` | `{name, my_secret_enc, room_id}` — creator is admin |
+| POST | `/v2/groups/{id}/invites` | `{expires_in}` → `{token}` (hash stored; secret never sent) |
+| POST | `/v2/groups/join` | `{token, my_secret_enc}` — 26th refused `group_full` |
+| GET | `/v2/groups/{id}` | Members + roles + presence |
+| PATCH | `/v2/groups/{id}` | `{name}` — admin |
+| POST | `/v2/groups/{id}/rotate` | `{secrets_enc, room_id}` — exact remaining members |
+| DELETE | `/v2/groups/{id}/members/{pk}` | Same body as rotate; remove + rotate in one call |
+| POST | `/v2/groups/{id}/members/{pk}:admin` | Make admin |
+| DELETE | `/v2/groups/{id}/members/me` | Leave; last-admin succession |
+| POST | `/v2/alerts` | `{to_pk}` — contacts only; 1 / 10 min / target |
 | WS | `/v2/presence` | Signed hello (same headers, GET `/v2/presence`); `{status}` and `{type:heartbeat}` |
 
 Presence statuses: `available`, `busy`, `dnd`, `offline`. Heartbeat every 60 s.
-Offline after 5 minutes without a heartbeat. Fan-out `{pk, status, talking?, since}`
-to contacts only (co-members in TASK-085). Nearby is client-side.
+Offline after 5 minutes without a heartbeat. A sweep every ≤60 s marks silent
+identities Offline without waiting for another socket. Fan-out `{pk, status,
+talking?, since}` to contacts and co-members via Redis pub/sub. Rotation
+`{type:rotation, group_id, key_version}`. Nearby is client-side.
 
 ### Enumerated `/v2` error codes
 
@@ -156,6 +178,17 @@ to contacts only (co-members in TASK-085). Nearby is client-side.
 | `not_found` | 404 | Unknown `to_pk` |
 | `not_contacts` | 404 | DELETE of a pair that does not exist |
 | `invalid_status` | 422 | Presence status not in the enum |
+| `not_member` | 403 | Caller is not in the group / room |
+| `not_admin` | 403 | Admin-only action |
+| `group_not_found` | 404 | Unknown group id |
+| `group_full` | 409 | 26th join |
+| `already_member` | 409 | Join when already in the group |
+| `invalid_name` | 422 | Group name not 1–40 characters |
+| `invite_invalid` | 404 | Unknown invite token |
+| `invite_expired` | 410 | Invite past `expires_at` |
+| `rotate_incomplete` | 422 | `secrets_enc` is not exactly the remaining members |
+| `alert_rate_limited` | 429 | Second alert to the same target inside 10 min |
+| `room_conflict` | 409 | `room_id` already bound to another group or pair |
 
 ## Event-QR token contract (normative for TASK-025)
 
