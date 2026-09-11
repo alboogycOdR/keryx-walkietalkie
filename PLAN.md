@@ -5168,7 +5168,7 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 
 ### TASK-085
 **Title:** v2 directory service II — groups, invites, rotation, alerts, membership-gated /token
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §4.2 (groups/alerts/token rows), §5.2 (invite), §5.3 (rotation); PRD V2-FR-020..025, V2-FR-050; Verification V2-VT-011, 012, 014, 015
@@ -5188,12 +5188,34 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 **Started_At:** 2026-09-11T18:22:09Z
 **Progress_Notes:**
 - [2026-09-11T18:22:09Z] [GB] Claimed TASK-085. Resume check: no GB in_progress/claimed task. Depends_On TASK-084 is done (merged 57bcaec). Branch task/TASK-085-gb next; preflight_paths.py then specs before any code.
+- [2026-09-11T18:24:00Z] [GB] Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-085 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   token-svc/**  -> 42 file(s):
+           token-svc/Dockerfile
+           token-svc/README.md
+           token-svc/alembic.ini
+           token-svc/alembic/env.py
+           token-svc/alembic/script.py.mako
+           token-svc/alembic/versions/0001_v2_schema.py
+           token-svc/app/__init__.py
+           token-svc/app/config.py
+           token-svc/app/db.py
+           token-svc/app/directory.py
+           token-svc/app/encoding.py
+           token-svc/app/errors.py
+           ... and 30 more
+  FILE   dossiers/TASK-085.md  -> exists, 13 line(s), 1258 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Territory is existing token-svc (grow, do not replace). Implementing groups/invites/rotation/alerts, membership-gated signed /token, X-Keryx-Key dual encoding, periodic presence sweep, Redis presence subscriber.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-11T18:22:09Z
+**Updated_At:** 2026-09-11T18:24:00Z
 
 
 ### TASK-086
