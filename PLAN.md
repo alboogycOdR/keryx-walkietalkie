@@ -4089,7 +4089,7 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 
 ### TASK-073
 **Title:** UX R2 PTT ring widget — dark face, state ring, measured-only glow, press feedback, accessible toggle action
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A3 (face/ring/glyph, no text in disc, diameter clamp, ring treatments, press feedback, measured-only glow, reduced motion), A4 (semantics custom action + Enter/Space as the non-drag alternative); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 ("accessible hold action and a non-drag alternative"), §3.4 ("No continuously animated fake waveform presented as real audio telemetry"), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-011 (duplicate pointer-up/cancel is a no-op), VT-015; lib/core/presentation/telemetry.dart (`MeterLevel` sealed type)
@@ -4125,6 +4125,7 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 - [2026-09-11T10:57:00Z] [CX] Implementation committed as `f08270f` (`feat(talk): add standalone PTT ring [TASK-073]`): new parameter-only `TalkPttRing`, focused tests, and dossier. Focused tests/analyze pass. Full `flutter test` was started but its runner remained stuck after it created the untracked `test/regression/goldens/failures/` artifact; terminated the runner and left it for review/cleanup because that path is outside TASK-073 territory. Task remains in_progress pending a clean full-suite run.
 - [2026-09-11T11:35:00Z] [ORCH] Diagnosis of the stalled full-suite run: your branch is based on `7bf81c6`, which predates TASK-072's merge. Its goldens were rendered on the owner's other machine, and 12 of them (channels/QR export/radio controls/stations/settings, 0.00–0.08% pixel drift) fail on this machine. That is not a TASK-073 regression: the full suite on `f08270f` completed 1416 passed / 12 failed / 40 skipped, and every failure is one of those golden diffs. TASK-072 regenerated all goldens on this machine. **Next step for CX:** run `git merge master` into `task/TASK-073-cx` (no conflicts expected; your files are new), re-run the FULL suite, and if green record Test_Evidence and move to needs_review. Do not update goldens; they are not in your territory.
 - [2026-09-11T11:26:06Z] [CX] Merged current `master` as `d992c77` (including TASK-072’s same-machine golden refresh) with no conflicts. Re-ran the full suite cleanly; TASK-073 is ready for review.
+- [2026-09-11T11:31:52Z] [CX] Rework round 1 complete in `f7ad211`: removed mount-time Focus autofocus; added deliberate-focus keyboard safety coverage, full treatment/disabled painter-colour checks, requesting/denied/reduced-motion scheduling checks, decorative-idle no-frame coverage, and disabled pointer/semantics/keyboard rejection. Focused tests, analyzer, and full suite are clean.
 **Artifacts:**
 - `lib/features/talk/talk_ptt_ring.dart`
 - `test/features/talk/talk_ptt_ring_test.dart`
@@ -4133,6 +4134,9 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 - [2026-09-11T10:53:00Z] [CX] `flutter test test/features/talk/talk_ptt_ring_test.dart` — 6 passed.
 - [2026-09-11T10:54:00Z] [CX] `flutter analyze lib/features/talk/talk_ptt_ring.dart test/features/talk/talk_ptt_ring_test.dart` — No issues found.
 - [2026-09-11T11:26:06Z] [CX] `flutter test --no-pub` after merging current `master` — **1,440 passed / 0 failed / 40 skipped**, exit 0 (the expected PARKED FR-025 skips).
+- [2026-09-11T11:31:52Z] [CX] `flutter test --no-pub test/features/talk/talk_ptt_ring_test.dart` — **10 passed / 0 failed**, exit 0.
+- [2026-09-11T11:31:52Z] [CX] `flutter analyze --no-pub lib/features/talk/talk_ptt_ring.dart test/features/talk/talk_ptt_ring_test.dart` — No issues found, exit 0.
+- [2026-09-11T11:31:52Z] [CX] `flutter test --no-pub` — full suite exit 0 (expected PARKED FR-025 skips retained).
 **Review_Findings:** [2026-09-11T11:27:29Z] [ORCH] **REWORK round 1.** Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave). NOT merged; branch `task/TASK-073-cx` retained.
 
 **What's clean:**
@@ -4168,8 +4172,8 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 
 **Next step for CX:** fix (1) and (2a)–(2d) on the existing branch, re-run the focused tests and the full suite, then return to needs_review.
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T11:27:29Z
+**Updated_By:** CX
+**Updated_At:** 2026-09-11T11:31:52Z
 
 
 ### TASK-074
