@@ -66,6 +66,11 @@ class MeshController {
   final bool _ownsFloorTransport;
 
   final Map<String, MeshConnection> _connections = <String, MeshConnection>{};
+
+  /// Parallel to [_connections] — see [_openConnection]'s dartdoc for why
+  /// this exists instead of reading the pc off `MeshConnection`.
+  final Map<String, RtcPeerConnection> _peerConnections =
+      <String, RtcPeerConnection>{};
   RtcLocalAudioTrack? _localTrack;
 
   late final StreamSubscription<PeerSession> _joinedSub;
@@ -118,13 +123,32 @@ class MeshController {
       onLocalIceCandidate: (candidate) => _sendIce(peerId, candidate),
     );
     _connections[peerId] = conn;
+    // Kept alongside `_connections` (never exposed by `MeshConnection`
+    // itself — that file is out of this task's `Owned_Paths`) purely so
+    // TASK-079's RX-level polling can reach the peer's remote-track surface
+    // without widening MeshConnection's own API.
+    _peerConnections[peerId] = pc;
     return conn;
   }
 
   void _onPeerDeparted(PeerSession session) {
     if (_disposed) return;
     final conn = _connections.remove(session.peerId);
+    _peerConnections.remove(session.peerId);
     if (conn != null) unawaited(conn.close());
+  }
+
+  /// TASK-079/ADR-002 A6: inbound-rtp `audioLevel` for [peerId]'s remote
+  /// audio track, or [RtcAudioLevel.unavailable] when that peer has no open
+  /// connection or no remote audio track has arrived yet. Never throws —
+  /// the caller polls this on a timer and a peer that just departed must
+  /// read as unavailable, not crash the poll.
+  Future<RtcAudioLevel> readAudioLevel(String peerId) async {
+    final pc = _peerConnections[peerId];
+    if (pc == null) return const RtcUnavailableAudioLevel();
+    final tracks = rtcRemoteTracks(pc).tracks;
+    if (tracks.isEmpty) return const RtcUnavailableAudioLevel();
+    return tracks.first.readAudioLevel();
   }
 
   Future<void> _onSignal(SignalingEnvelope envelope) async {
@@ -248,6 +272,7 @@ class MeshController {
       await conn.close();
     }
     _connections.clear();
+    _peerConnections.clear();
     if (_ownsFloorTransport) {
       await floorTransport.dispose();
     }

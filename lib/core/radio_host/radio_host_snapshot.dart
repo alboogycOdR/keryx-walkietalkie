@@ -1,4 +1,5 @@
 import 'package:keryx/core/floor/floor.dart' show FloorEngine;
+import 'package:keryx/core/presentation/telemetry.dart' show MeterLevel;
 import 'package:keryx/core/settings/settings_repository.dart' show TunedChannel;
 import 'package:keryx/services/session/session.dart' show StationInfo;
 
@@ -24,6 +25,7 @@ class RadioHostSnapshot {
     this.floorEngine,
     this.stations = const <StationInfo>[],
     this.channelMemory = const <TunedChannel>[],
+    this.meterLevel = MeterLevel.decorative,
   });
 
   /// Set once [FacePermissionGate.ensureMicrophone] resolves denied during
@@ -59,4 +61,11 @@ class RadioHostSnapshot {
   /// after every successful [RadioHost.tune] and refreshed once more at
   /// [RadioHost.start] with whatever was already on disk.
   final List<TunedChannel> channelMemory;
+
+  /// RX-level telemetry (TASK-079/ADR-002 A6) — mirrors whatever the
+  /// active session's own RX-level source (LOCAL mesh today; LINKED stays
+  /// decorative, see `RadioSessionController`'s dartdoc) last reported.
+  /// [MeterLevel.decorative] whenever no session is active, no real sample
+  /// is available, or the session isn't currently receiving.
+  final MeterLevel meterLevel;
 }

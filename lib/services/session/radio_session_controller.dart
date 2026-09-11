@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:keryx/core/floor/clock.dart';
 import 'package:keryx/core/floor/effects.dart';
 import 'package:keryx/core/floor/floor_engine.dart';
+import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/settings/settings_model.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_bridge.dart';
@@ -125,6 +126,38 @@ class RadioSessionController {
   RadioMode? _pendingSetMode;
   bool _disposed = false;
 
+  // --- RX level telemetry (TASK-079/ADR-002 A6) -------------------------
+  //
+  // Polls the active speaker's remote-track `audioLevel` at ~10 Hz while
+  // `RadioPhase.rxActive` is the effective floor state, using the SAME
+  // `engine.effects` stream `_onEffectForIdleTracking` already mirrors
+  // (`RemoteFloorStarted`/`RemoteFloorEnded`; `EndTransmit` also stops it —
+  // a local grant taking the floor after an RX makes the previous speaker
+  // no longer active regardless of whether a `RemoteFloorEnded` preceded
+  // it). Only the LOCAL/mesh chain implements a real read today: LINKED's
+  // `LiveKitAdapter`/`LiveKitRoom` (`lib/services/linked/livekit_adapter.dart`,
+  // outside this task's `Owned_Paths`) exposes no per-participant
+  // `audioLevel` to `LinkedController`, so LINKED stays
+  // `MeterLevel.decorative` — documented in `dossiers/TASK-079.md` rather
+  // than faked here.
+  static const _meterPollInterval = Duration(milliseconds: 100);
+
+  MeterLevel _meterLevel = MeterLevel.decorative;
+  FloorTimer? _meterPollTimer;
+  String? _polledSpeakerId;
+  StreamSubscription<FloorEffect>? _meterTrackSub;
+  final _meterLevelController = StreamController<MeterLevel>.broadcast();
+
+  /// The latest projected RX level — [MeterLevel.decorative] whenever no
+  /// real inbound-rtp sample is currently being polled (idle/TX/LINKED/
+  /// unavailable-sample).
+  MeterLevel get meterLevel => _meterLevel;
+
+  /// Emits every time [meterLevel] changes. Never replays the current value
+  /// to a new subscriber — matches every other broadcast stream this class
+  /// exposes ([stations]).
+  Stream<MeterLevel> get meterLevelChanges => _meterLevelController.stream;
+
   /// The engine driving the currently active chain (LOCAL or LINKED).
   /// Non-null once [start] has completed.
   FloorEngine get floorEngine {
@@ -207,6 +240,7 @@ class RadioSessionController {
     _disposed = true;
     await _teardownActive();
     await _stations.close();
+    await _meterLevelController.close();
   }
 
   // --- mode policy --------------------------------------------------------
@@ -329,6 +363,7 @@ class RadioSessionController {
     _bridge = RadioStateBridge(engine: engine, dispatch: _dispatch);
     _idleGuess = true;
     _idleTrackSub = engine.effects.listen(_onEffectForIdleTracking);
+    _meterTrackSub = engine.effects.listen(_onEffectForMeterLevel);
     if (signaling != null) {
       _joinedSub = signaling.sessionsJoined.listen(_onPeerJoined);
       _departedSub = signaling.sessionsDeparted.listen(_onPeerDeparted);
@@ -381,6 +416,78 @@ class RadioSessionController {
 
   bool _isIdleNow() => _isIdleOverride?.call() ?? _idleGuess;
 
+  // --- RX level telemetry -----------------------------------------------
+
+  /// Mirrors `RadioStateBridge._projectFloorEvent`'s own
+  /// `RemoteFloorStarted`/`RemoteFloorEnded`/`TransmitGranted`(local TX
+  /// pre-empting an RX)/`EndTransmit` handling for exactly the transitions
+  /// that start or stop who currently holds the floor — same reasoning
+  /// this file already documents on [_onEffectForIdleTracking].
+  void _onEffectForMeterLevel(FloorEffect effect) {
+    if (effect is! DispatchRadio) return;
+    final event = effect.event;
+    if (event is RemoteFloorStarted) {
+      final speakerId = _floorEngine?.holder;
+      if (speakerId != null) {
+        _startMeterPolling(speakerId);
+      } else {
+        _stopMeterPolling();
+      }
+    } else if (event is RemoteFloorEnded ||
+        event is EndTransmit ||
+        event is TransmitGranted) {
+      _stopMeterPolling();
+    }
+  }
+
+  void _startMeterPolling(String speakerId) {
+    _meterPollTimer?.cancel();
+    _polledSpeakerId = speakerId;
+    _scheduleMeterPoll();
+  }
+
+  void _stopMeterPolling() {
+    _meterPollTimer?.cancel();
+    _meterPollTimer = null;
+    _polledSpeakerId = null;
+    _setMeterLevel(MeterLevel.decorative);
+  }
+
+  void _scheduleMeterPoll() {
+    _meterPollTimer = _clock.schedule(_meterPollInterval, _pollMeterLevel);
+  }
+
+  Future<void> _pollMeterLevel() async {
+    final speakerId = _polledSpeakerId;
+    if (_disposed || speakerId == null) return;
+    // Only the LOCAL/mesh chain has a real reader today — see this
+    // section's opening dartdoc for why LINKED is intentionally not
+    // implemented here.
+    final mesh = _mesh;
+    final level = mesh != null
+        ? await mesh.readAudioLevel(speakerId)
+        : const RtcUnavailableAudioLevel();
+    // Re-check after the `await` — a retune/dispose/floor-change may have
+    // landed while the read was in flight, or a newer poll for a different
+    // speaker may already be in progress.
+    if (_disposed || _polledSpeakerId != speakerId) return;
+    _setMeterLevel(
+      level is RtcMeasuredAudioLevel
+          ? MeasuredMeterLevel(level.value * 100)
+          : MeterLevel.decorative,
+    );
+    // Still polling this speaker — reschedule. `_polledSpeakerId` is
+    // cleared by `_stopMeterPolling`/teardown, so a stale timer never
+    // outlives the RX window it was started for.
+    if (_polledSpeakerId == speakerId) _scheduleMeterPoll();
+  }
+
+  void _setMeterLevel(MeterLevel level) {
+    if (_meterLevel == level) return;
+    _meterLevel = level;
+    if (!_meterLevelController.isClosed) _meterLevelController.add(level);
+  }
+
   void _queueSetMode(RadioMode mode) {
     _pendingSetMode = mode;
     _flushPendingSetMode();
@@ -399,6 +506,9 @@ class RadioSessionController {
   Future<void> _teardownActive() async {
     await _idleTrackSub?.cancel();
     _idleTrackSub = null;
+    await _meterTrackSub?.cancel();
+    _meterTrackSub = null;
+    _stopMeterPolling();
     await _joinedSub?.cancel();
     _joinedSub = null;
     await _departedSub?.cancel();
