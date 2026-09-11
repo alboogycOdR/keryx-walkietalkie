@@ -11,6 +11,13 @@ import 'discovery_constants.dart';
 /// LOCAL discovery only needs a stable match key that never puts plaintext
 /// channel or privacy-code on the wire. When TASK-007 lands, callers may pass
 /// `roomId.substring(0, 8)` instead; the facade accepts an opaque prefix.
+///
+/// **v2 (TASK-087):** `roomId.substring(0, 8)` now exists as
+/// `RoomPrefix.compute` (`room_prefix.dart`) for the new group/1:1 room
+/// derivation. This class is retained only because
+/// `lib/services/session/radio_session_controller.dart` (outside TASK-087's
+/// `Owned_Paths`) still calls it for numbered channels; do not add new
+/// callers — use `RoomPrefix` instead.
 abstract final class ChannelHashPrefix {
   static String compute({
     required String region,

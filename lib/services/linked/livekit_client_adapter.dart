@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:typed_data';
 
 import 'package:livekit_client/livekit_client.dart' as lk;
 
@@ -17,17 +18,35 @@ class LiveKitClientAdapter implements LiveKitAdapter {
   const LiveKitClientAdapter();
 
   @override
-  Future<LiveKitRoom> connect({required String url, required String jwt}) async {
-    final room = lk.Room();
+  Future<LiveKitRoom> connect({
+    required String url,
+    required String jwt,
+    Uint8List? e2eeKey,
+  }) async {
+    lk.E2EEOptions? e2eeOptions;
+    if (e2eeKey != null) {
+      // setRawKey round-trips raw bytes through String.fromCharCodes /
+      // .codeUnits (Latin-1-safe for 0-255 byte values) — see
+      // BaseKeyProvider.setRawKey in package:livekit_client.
+      final keyProvider = await lk.BaseKeyProvider.create();
+      await keyProvider.setRawKey(e2eeKey);
+      e2eeOptions = lk.E2EEOptions(keyProvider: keyProvider);
+    }
+    final room = lk.Room(
+      roomOptions: lk.RoomOptions(encryption: e2eeOptions),
+    );
     await room.connect(url, jwt);
-    return _LiveKitClientRoom(room);
+    return _LiveKitClientRoom(room, isEncrypted: e2eeOptions != null);
   }
 }
 
 class _LiveKitClientRoom implements LiveKitRoom {
-  _LiveKitClientRoom(this._room);
+  _LiveKitClientRoom(this._room, {required this.isEncrypted});
 
   final lk.Room _room;
+
+  @override
+  final bool isEncrypted;
 
   Stream<lk.RoomEvent> get _events => _room.events.streamCtrl.stream;
 

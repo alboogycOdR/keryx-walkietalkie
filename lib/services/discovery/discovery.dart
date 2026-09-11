@@ -11,3 +11,4 @@ export 'discovery_service.dart';
 export 'discovery_state.dart';
 export 'nsd_events.dart';
 export 'nsd_platform.dart';
+export 'room_prefix.dart';

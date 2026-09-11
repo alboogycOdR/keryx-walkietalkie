@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:keryx/core/identity/keys.dart';
 import 'package:keryx/services/linked/token_client.dart';
 
 import 'fakes/fake_token_server.dart';
@@ -175,6 +176,71 @@ void main() {
 
       await client.requestToken(roomId: 'ABCDEFGHIJKLMNOP', callsign: 'X');
       expect(postedPath, '/token');
+    });
+  });
+
+  group('v2 signed requests (Technical §4.2)', () {
+    late FakeTokenServer server;
+    late TokenClient client;
+
+    setUp(() async {
+      server = await FakeTokenServer.start();
+      client = TokenClient(baseUrl: server.baseUrl);
+    });
+    tearDown(() async {
+      client.close();
+      await server.close();
+    });
+
+    test('no signer: request carries no X-Keryx-* headers (v1 shape unchanged)', () async {
+      server
+        ..statusCode = 200
+        ..responseBody = {'token': 't', 'identity': 'i#1', 'ttl_seconds': 60};
+
+      await client.requestToken(roomId: 'ABCDEFGHIJKLMNOP', callsign: 'X');
+
+      expect(server.lastRequestHeaders, isEmpty);
+    });
+
+    test('signer present: request carries a verifiable signature', () async {
+      server
+        ..statusCode = 200
+        ..responseBody = {'token': 't', 'identity': 'i#1', 'ttl_seconds': 60};
+      final signer = await IdentityKeyPair.generate();
+      final signedClient = TokenClient(baseUrl: server.baseUrl, signer: signer);
+      addTearDown(signedClient.close);
+
+      await signedClient.requestToken(roomId: 'ABCDEFGHIJKLMNOP', callsign: 'X');
+
+      final headers = server.lastRequestHeaders!;
+      expect(headers['x-keryx-sig'], isNotEmpty);
+      expect(headers['x-keryx-key'], isNotEmpty);
+      expect(headers['x-keryx-ts'], isNotEmpty);
+    });
+
+    test('a fake server that rejects unsigned calls is satisfied by a signer', () async {
+      server.requireSignature = true;
+      server
+        ..statusCode = 200
+        ..responseBody = {'token': 't', 'identity': 'i#1', 'ttl_seconds': 60};
+      final signer = await IdentityKeyPair.generate();
+      final signedClient = TokenClient(baseUrl: server.baseUrl, signer: signer);
+      addTearDown(signedClient.close);
+
+      final response = await signedClient.requestToken(
+        roomId: 'ABCDEFGHIJKLMNOP',
+        callsign: 'X',
+      );
+      expect(response.token, 't');
+    });
+
+    test('a fake server that rejects unsigned calls refuses an unsigned client', () async {
+      server.requireSignature = true;
+
+      expect(
+        () => client.requestToken(roomId: 'ABCDEFGHIJKLMNOP', callsign: 'X'),
+        throwsA(isA<TokenRequestException>()),
+      );
     });
   });
 }

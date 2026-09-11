@@ -115,13 +115,23 @@ class LinkedController {
   /// Event QR / `keryx://` deep-link flow decodes a `roomId` directly).
   /// This is the "join-by-derivation API" TASK-025 is expected to consume
   /// rather than re-deriving `roomId` itself.
+  ///
+  /// v2 (Technical §5.5): pass [roomSecret] (the group secret or 1:1
+  /// X25519 shared secret [roomId] was itself derived from,
+  /// `lib/core/rooms/derivation.dart`) to require LiveKit E2EE for this
+  /// join. When supplied, [ForceLocalOnlyException] aside, the join fails
+  /// with [LinkedE2eeUnavailableException] rather than silently falling
+  /// back to plaintext if the adapter cannot actually encrypt — this
+  /// controller never publishes an unencrypted track for a room a caller
+  /// asked to be encrypted (V2-NFR-004).
   Future<void> joinRoomId({
     required String roomId,
     String? eventToken,
     required bool forceLocalOnly,
+    List<int>? roomSecret,
   }) async {
     _guardForceLocalOnly(forceLocalOnly);
-    await _join(roomId, eventToken);
+    await _join(roomId, eventToken, roomSecret: roomSecret);
   }
 
   void _guardForceLocalOnly(bool forceLocalOnly) {
@@ -130,9 +140,9 @@ class LinkedController {
     }
   }
 
-  Future<void> _join(String roomId, String? eventToken) async {
+  Future<void> _join(String roomId, String? eventToken, {List<int>? roomSecret}) async {
     if (_disposed) throw StateError('LinkedController is disposed');
-    final joined = await _connectAndPublish(roomId, eventToken);
+    final joined = await _connectAndPublish(roomId, eventToken, roomSecret: roomSecret);
     if (_disposed) {
       // dispose() landed while we were awaiting the token/connect/publish
       // chain — unwind rather than adopt a room onto a disposed controller
@@ -152,7 +162,7 @@ class LinkedController {
       // what makes FR-045's auto-fallback-to-LOCAL reachable in production
       // (a null/absent reconnect degrades to LOCAL via LinkMonitor's own
       // give-up path, but a genuinely reachable relay must actually retry).
-      reconnect: () => _reconnectRoom(roomId, eventToken),
+      reconnect: () => _reconnectRoom(roomId, eventToken, roomSecret: roomSecret),
       initialBackoff: _linkMonitorInitialBackoff,
       maxBackoff: _linkMonitorMaxBackoff,
       maxAttempts: _linkMonitorMaxAttempts,
@@ -164,8 +174,12 @@ class LinkedController {
   /// just fail again). Swaps the controller's live room/track/transport in
   /// on success; the caller ([LinkMonitor]) re-attaches its connection-state
   /// listener to the returned room.
-  Future<LiveKitRoom> _reconnectRoom(String roomId, String? eventToken) async {
-    final joined = await _connectAndPublish(roomId, eventToken);
+  Future<LiveKitRoom> _reconnectRoom(
+    String roomId,
+    String? eventToken, {
+    List<int>? roomSecret,
+  }) async {
+    final joined = await _connectAndPublish(roomId, eventToken, roomSecret: roomSecret);
     if (_disposed) {
       await joined.room.disconnect();
       throw StateError('LinkedController disposed during reconnect');
@@ -191,13 +205,29 @@ class LinkedController {
     return joined.room;
   }
 
-  Future<_JoinedRoom> _connectAndPublish(String roomId, String? eventToken) async {
+  Future<_JoinedRoom> _connectAndPublish(
+    String roomId,
+    String? eventToken, {
+    List<int>? roomSecret,
+  }) async {
     final tokenResponse = await _tokenClient.requestToken(
       roomId: roomId,
       callsign: _callsign,
       eventToken: eventToken,
     );
-    final room = await _adapter.connect(url: _relayUrl.toString(), jwt: tokenResponse.token);
+    final e2eeKey = roomSecret != null ? await deriveE2eeKey(roomSecret) : null;
+    final room = await _adapter.connect(
+      url: _relayUrl.toString(),
+      jwt: tokenResponse.token,
+      e2eeKey: e2eeKey,
+    );
+    if (e2eeKey != null && !room.isEncrypted) {
+      // Never publish an unencrypted track for a room the caller asked to
+      // be encrypted (V2-NFR-004) — refuse before publishMutedAudioTrack
+      // is ever called, so no plaintext frame is ever at risk of going out.
+      await room.disconnect();
+      throw const LinkedE2eeUnavailableException();
+    }
     final LiveKitLocalAudioTrack track;
     try {
       track = await room.publishMutedAudioTrack();
@@ -268,4 +298,18 @@ class ForceLocalOnlyException implements Exception {
   @override
   String toString() =>
       'ForceLocalOnlyException: force-LOCAL-only is enabled (FR-046); refusing to join a LINKED room';
+}
+
+/// v2 (Technical §5.5, V2-NFR-004): thrown when [LinkedController.joinRoomId]
+/// was given a `roomSecret` (E2EE required) but the connected [LiveKitRoom]
+/// reports [LiveKitRoom.isEncrypted] as `false` — the adapter could not, or
+/// did not, actually enable encryption. The room is disconnected and no
+/// audio track is ever published in this case.
+class LinkedE2eeUnavailableException implements Exception {
+  const LinkedE2eeUnavailableException();
+
+  @override
+  String toString() =>
+      'LinkedE2eeUnavailableException: room secret supplied but the adapter '
+      'did not enable E2EE (V2-NFR-004); refusing to publish';
 }

@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:cryptography/cryptography.dart' show Hkdf, Hmac, SecretKey;
 
 /// Thin abstraction over the subset of `package:livekit_client` this
 /// package needs. Exists so [LinkedController] / [LinkMonitor] are unit
@@ -14,7 +17,33 @@ abstract class LiveKitAdapter {
   /// Connect to [url] (the relay's LiveKit endpoint) using the short-lived
   /// [jwt] minted by the token service (TASK-003) for one room. TS §8.4:
   /// "One LiveKit room per channel."
-  Future<LiveKitRoom> connect({required String url, required String jwt});
+  ///
+  /// v2 (Technical §5.5): when [e2eeKey] is supplied (the HKDF-derived key
+  /// from [deriveE2eeKey]), the implementation must configure the room's
+  /// `BaseKeyProvider` with it *before* connecting, so [LiveKitRoom.isEncrypted]
+  /// is true once this returns. `null` keeps the room unencrypted (LOCAL's
+  /// direct WebRTC path is already DTLS-SRTP and does not go through this
+  /// adapter at all).
+  Future<LiveKitRoom> connect({
+    required String url,
+    required String jwt,
+    Uint8List? e2eeKey,
+  });
+}
+
+/// HKDF-SHA256(roomSecret, info `keryx-e2ee-v1`) → 32-byte E2EE key
+/// (Technical §5.5). [roomSecret] is the group's 32 random bytes or the
+/// 1:1 room's X25519 shared secret — the same input `deriveGroupRoom`/
+/// `deriveDirectRoom` (`lib/core/rooms/derivation.dart`) key the room ID
+/// off, so knowing the room implies knowing this key and vice versa.
+Future<Uint8List> deriveE2eeKey(List<int> roomSecret) async {
+  final hkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
+  final derived = await hkdf.deriveKey(
+    secretKey: SecretKey(roomSecret),
+    info: 'keryx-e2ee-v1'.codeUnits,
+  );
+  final bytes = await derived.extractBytes();
+  return Uint8List.fromList(bytes);
 }
 
 /// One joined LiveKit room. [LinkedController] owns the pre-published
@@ -44,6 +73,14 @@ abstract class LiveKitRoom {
 
   /// Leave the room and release local resources. Idempotent.
   Future<void> disconnect();
+
+  /// v2 (Technical §5.5): true once the room's frames are actually being
+  /// encrypted with a key provider. [LinkedController] checks this — not
+  /// merely "did I pass a key to connect()" — before publishing, so an
+  /// adapter that silently drops E2EE is caught rather than trusted
+  /// (V2-NFR-004's "a test proves the adapter refuses to publish without a
+  /// key provider").
+  bool get isEncrypted;
 }
 
 /// The local microphone's published-to-LiveKit handle. `enabled=false`

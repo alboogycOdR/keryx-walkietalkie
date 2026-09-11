@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:keryx/services/linked/livekit_adapter.dart';
 
@@ -10,21 +11,33 @@ class FakeLiveKitAdapter implements LiveKitAdapter {
 
   /// Optional hook so a test can throw (simulate a relay-unreachable
   /// connect failure) or return a specific [FakeLiveKitRoom] instance.
-  final FakeLiveKitRoom Function(String url, String jwt)? onConnect;
+  final FakeLiveKitRoom Function(String url, String jwt, Uint8List? e2eeKey)? onConnect;
 
-  final List<({String url, String jwt})> connectCalls = [];
+  final List<({String url, String jwt, Uint8List? e2eeKey})> connectCalls = [];
   FakeLiveKitRoom? lastRoom;
 
   @override
-  Future<LiveKitRoom> connect({required String url, required String jwt}) async {
-    connectCalls.add((url: url, jwt: jwt));
-    final room = onConnect != null ? onConnect!(url, jwt) : FakeLiveKitRoom();
+  Future<LiveKitRoom> connect({
+    required String url,
+    required String jwt,
+    Uint8List? e2eeKey,
+  }) async {
+    connectCalls.add((url: url, jwt: jwt, e2eeKey: e2eeKey));
+    // Default behaviour: a key provider that is actually given a key
+    // encrypts, matching the production adapter — tests that want to
+    // simulate an adapter which silently drops E2EE pass their own
+    // [onConnect] returning `isEncrypted: false`.
+    final room = onConnect != null
+        ? onConnect!(url, jwt, e2eeKey)
+        : FakeLiveKitRoom(isEncrypted: e2eeKey != null);
     lastRoom = room;
     return room;
   }
 }
 
 class FakeLiveKitRoom implements LiveKitRoom {
+  FakeLiveKitRoom({this.isEncrypted = false});
+
   final _connectionState = StreamController<LiveKitConnectionState>.broadcast(sync: true);
   final _connectionQuality = StreamController<LiveKitConnectionQuality>.broadcast(sync: true);
   final _incomingData = StreamController<List<int>>.broadcast(sync: true);
@@ -33,6 +46,9 @@ class FakeLiveKitRoom implements LiveKitRoom {
   FakeLiveKitLocalAudioTrack? publishedTrack;
   bool disconnected = false;
   bool disposedStreams = false;
+
+  @override
+  final bool isEncrypted;
 
   /// If set, [publishMutedAudioTrack] throws this instead of succeeding.
   Object? publishFailure;

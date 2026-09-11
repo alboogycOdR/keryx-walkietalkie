@@ -226,7 +226,7 @@ class NsdDiscoveryService implements DiscoveryService {
     final config = _config;
     if (config == null) return;
     if (peer.peerId != null && peer.peerId == config.peerId) return;
-    if (!peer.matchesChannel(config.channelHashPrefix)) return;
+    if (!config.allRoomPrefixes.any(peer.matchesChannel)) return;
     if (peer.version != config.protocolVersion) return;
     final next = [..._state.peers];
     final idx = next.indexWhere(
