@@ -8,6 +8,9 @@ abstract final class TalkCopy {
   static const String channelClear = 'Channel clear.';
   static const String holdToTalk = 'Hold to talk';
   static const String requestingChannel = 'Requesting channel…';
+  static const String channelBusy = 'Channel busy';
+  static const String noOtherStationsOnChannel =
+      'No other stations on this channel';
   static const String connectionLost = 'Connection lost';
   static const String microphonePermissionRequired =
       'Microphone permission required';

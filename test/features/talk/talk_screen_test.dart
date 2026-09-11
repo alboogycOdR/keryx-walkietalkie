@@ -107,6 +107,13 @@ void main() {
     resolved.dispose();
   }
 
+  /// The denied-flash timer is 1.5 s; `pumpAndSettle` would wait it out
+  /// and assert the expired (Ready) presentation instead of the flash.
+  Future<void> pumpFlashFrame(WidgetTester tester) async {
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
   group('VT-011 — request/grant/release', () {
     testWidgets(
       'pointer-down creates exactly one request; before grant there is no '
@@ -646,10 +653,10 @@ void main() {
         ..dispatch(const RequestTransmit())
         ..dispatch(const TransmitGranted())
         ..dispatch(const TransmitDeniedIndicated());
-      await tester.pumpAndSettle();
+      await pumpFlashFrame(tester);
       // Both are independently true and both are rendered — the granted
       // TX is not concealed by the transient deny overlay.
-      expect(find.text('Channel busy'), findsOneWidget);
+      expect(find.text(TalkCopy.channelBusy), findsOneWidget);
       expect(find.text('Transmitting'), findsWidgets);
     });
 
@@ -837,7 +844,7 @@ void main() {
       container
           .read(radioStateProvider.notifier)
           .dispatch(const TransmitDeniedIndicated());
-      await tester.pumpAndSettle();
+      await pumpFlashFrame(tester);
       final tokens = KeryxUxTokens.dark;
       final ring = ringWidget(tester);
       expect(ring.treatment, TalkPttRingTreatment.deniedFlash);
@@ -851,7 +858,7 @@ void main() {
         ..dispatch(const RequestTransmit())
         ..dispatch(const TransmitGranted())
         ..dispatch(const TransmitDeniedIndicated());
-      await tester.pumpAndSettle();
+      await pumpFlashFrame(tester);
       final ring2 = ringWidget(tester);
       expect(ring2.treatment, TalkPttRingTreatment.tx);
       expect(ring2.ringColor, tokens.stateTx);
@@ -906,7 +913,7 @@ void main() {
         ..dispatch(const RequestTransmit())
         ..dispatch(const TransmitGranted())
         ..dispatch(const TransmitDeniedIndicated());
-      await tester.pumpAndSettle();
+      await pumpFlashFrame(tester);
       final tokens = KeryxUxTokens.dark;
       final icon = overlayIcon(tester, 'block');
       expect(icon.icon, Icons.block);
@@ -1229,6 +1236,182 @@ void main() {
           find.byKey(const Key('keryx-talk-radio-controls')),
           findsNothing,
         );
+      },
+    );
+  });
+
+  group('ADR-002 A7 — denied flash expiry, copy, PTT centring', () {
+    TalkPttRing ringWidget(WidgetTester tester) =>
+        tester.widget<TalkPttRing>(find.byType(TalkPttRing));
+
+    testWidgets('a refused press flashes then returns to Ready with no further '
+        'radio event (ADR-002 A7)', (tester) async {
+      await pumpReady(tester);
+      container
+          .read(radioStateProvider.notifier)
+          .dispatch(const TransmitDeniedIndicated());
+      await pumpFlashFrame(tester);
+      expect(ringWidget(tester).treatment, TalkPttRingTreatment.deniedFlash);
+      expect(find.text(TalkCopy.channelBusy), findsWidgets);
+      expect(find.byKey(const Key('keryx-talk-overlay-block')), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 1600));
+      expect(ringWidget(tester).treatment, TalkPttRingTreatment.ready);
+      expect(ringWidget(tester).ringColor, KeryxUxTokens.dark.actionPrimary);
+      expect(find.byKey(const Key('keryx-talk-overlay-block')), findsNothing);
+      expect(find.text(TalkCopy.channelBusy), findsNothing);
+      expect(find.text(TalkCopy.channelClear), findsWidgets);
+      expect(find.text(TalkCopy.holdToTalk), findsWidgets);
+    });
+
+    testWidgets('a second refusal after expiry shows the flash again', (
+      tester,
+    ) async {
+      await pumpReady(tester);
+      container
+          .read(radioStateProvider.notifier)
+          .dispatch(const TransmitDeniedIndicated());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1600));
+      expect(ringWidget(tester).treatment, TalkPttRingTreatment.ready);
+
+      container.read(radioStateProvider.notifier)
+        ..dispatch(const RequestTransmit())
+        ..dispatch(const TransmitDenied());
+      await pumpFlashFrame(tester);
+      expect(ringWidget(tester).treatment, TalkPttRingTreatment.deniedFlash);
+      expect(find.byKey(const Key('keryx-talk-overlay-block')), findsOneWidget);
+    });
+
+    testWidgets('a granted TX during an active flash shows TX, not the flash '
+        '(Design §4 precedence)', (tester) async {
+      await pumpReady(tester);
+      container
+          .read(radioStateProvider.notifier)
+          .dispatch(const TransmitDeniedIndicated());
+      await pumpFlashFrame(tester);
+      expect(ringWidget(tester).treatment, TalkPttRingTreatment.deniedFlash);
+
+      container.read(radioStateProvider.notifier)
+        ..dispatch(const RequestTransmit())
+        ..dispatch(const TransmitGranted());
+      await tester.pump();
+      expect(ringWidget(tester).treatment, TalkPttRingTreatment.tx);
+      expect(ringWidget(tester).ringColor, KeryxUxTokens.dark.stateTx);
+      expect(find.text(TalkCopy.transmitting), findsWidgets);
+    });
+
+    testWidgets(
+      'KnownRosterCount(0) deny copy is "No other stations on this channel"',
+      (tester) async {
+        await pumpReady(tester);
+        container.read(radioStateProvider.notifier)
+          ..dispatch(const SetMode(RadioMode.local))
+          ..dispatch(const TransmitDeniedIndicated());
+        await pumpFlashFrame(tester);
+        expect(find.text(TalkCopy.noOtherStationsOnChannel), findsWidgets);
+        expect(find.text(TalkCopy.channelBusy), findsNothing);
+        expect(
+          tester
+              .widget<Text>(find.byKey(const Key('keryx-talk-status-line')))
+              .data,
+          TalkCopy.noOtherStationsOnChannel,
+        );
+      },
+    );
+
+    testWidgets(
+      'stations present or an unavailable roster keep "Channel busy"',
+      (tester) async {
+        await pumpReady(tester);
+        // Default AUTO route → UnavailableRosterCount.
+        container
+            .read(radioStateProvider.notifier)
+            .dispatch(const TransmitDeniedIndicated());
+        await pumpFlashFrame(tester);
+        expect(find.text(TalkCopy.channelBusy), findsWidgets);
+        expect(find.text(TalkCopy.noOtherStationsOnChannel), findsNothing);
+
+        host.emit(
+          RadioHostSnapshot(
+            floorEngine: host.current.floorEngine,
+            stations: const <StationInfo>[
+              StationInfo(peerId: 'peer-2', callsign: 'BRAVO-2'),
+            ],
+          ),
+        );
+        container.read(radioStateProvider.notifier)
+          ..dispatch(const SetMode(RadioMode.local))
+          ..dispatch(const TransmitDeniedIndicated());
+        await pumpFlashFrame(tester);
+        expect(find.text(TalkCopy.channelBusy), findsWidgets);
+        expect(find.text(TalkCopy.noOtherStationsOnChannel), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'at 360×640 text scale 1.0 the PTT is centred in the space below '
+      'the channel card and card/ring/status are on-stage',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.reset);
+
+        await pumpReady(tester);
+
+        final Rect card = tester.getRect(
+          find.byKey(const Key('keryx-talk-channel-card')),
+        );
+        final Rect ring = tester.getRect(
+          find.byKey(const Key('keryx-talk-ptt-disc')),
+        );
+        final Rect status = tester.getRect(
+          find.byKey(const Key('keryx-talk-status-line')),
+        );
+        final Size viewport = tester.getSize(find.byType(TalkScreen));
+
+        expect(card.top, greaterThanOrEqualTo(-0.5));
+        expect(card.bottom, lessThanOrEqualTo(viewport.height + 0.5));
+        expect(ring.top, greaterThanOrEqualTo(-0.5));
+        expect(ring.bottom, lessThanOrEqualTo(viewport.height + 0.5));
+        expect(status.top, greaterThanOrEqualTo(-0.5));
+        expect(status.bottom, lessThanOrEqualTo(viewport.height + 0.5));
+
+        final double remainingMid = (card.bottom + viewport.height) / 2;
+        expect(
+          (ring.center.dy - remainingMid).abs(),
+          lessThanOrEqualTo(viewport.height * 0.10),
+          reason:
+              'PTT centre ${ring.center.dy} vs remaining mid $remainingMid '
+              '(card.bottom=${card.bottom}, viewport=${viewport.height})',
+        );
+      },
+    );
+
+    testWidgets(
+      '320×568 @ 2.0 and landscape 640×360: PTT reachable, no overflow',
+      (tester) async {
+        Future<void> check(Size size, double textScale) async {
+          tester.view.physicalSize = size;
+          tester.view.devicePixelRatio = 1.0;
+          tester.platformDispatcher.textScaleFactorTestValue = textScale;
+          await pumpReady(tester);
+          expect(tester.takeException(), isNull);
+          await tester.ensureVisible(
+            find.byKey(const Key('keryx-talk-ptt-disc')),
+          );
+          expect(find.byKey(const Key('keryx-talk-ptt-disc')), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        }
+
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await check(const Size(320, 568), 2.0);
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+        await check(const Size(640, 360), 1.0);
       },
     );
   });
