@@ -1,6 +1,6 @@
 ---
 plan_version: 15.0
-last_updated: 2026-09-11T11:36:40Z
+last_updated: 2026-09-11T11:46:09Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4407,7 +4407,7 @@ Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
 
 ### TASK-079
 **Title:** RX level telemetry — plumb inbound-rtp audioLevel into RadioViewState as MeasuredMeterLevel
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A6 (RX plumbing authorised; unavailable stays decorative; no TX mic metering); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.3 ("An animation driven by phase is decorative and must not be described as measured RMS"); Verification VT-015; lib/services/mesh/rtc_adapter.dart (`readAudioLevel`, `audioLevelFromInboundRtpStats`, TASK-065); lib/core/presentation/telemetry.dart (`MeasuredMeterLevel`, "reserved for TASK-065's real RX metering")
@@ -4465,10 +4465,26 @@ Reading rtc_adapter.dart (readAudioLevel/audioLevelFromInboundRtpStats), mesh_co
 - `flutter analyze` (full repo, commit 991d974) -> No issues found.
 - `flutter test` (full repo, commit 991d974) -> 1448 passed, 0 failed, 40 skipped (same named PARKED FR-025 seeds), run twice clean.
 - `git diff master...HEAD --stat` -> 10 files changed, all inside Owned_Paths.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T11:46:09Z] [ORCH] **APPROVED first-pass**, merged `edfbd29`. Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave).
+- **Territory:** clean. 10 files, all inside Owned_Paths, and no PLAN.md commits on the branch. `mesh_connection.dart` and `session_host.dart` were deliberately not widened.
+- **Tests:** run independently in the worktree by a subagent. `flutter analyze` 0 issues; targeted mesh/session/host/view-state tests 74/74; full suite 1448 passed / 0 failed / 40 skipped, 500 soak seeds run.
+- **Criteria:** all five verified in source.
+  - `MeshController.readAudioLevel(peerId)` reads the remote track's inbound-rtp level, returning unavailable for an unknown peer or no track.
+  - `RadioSessionController` starts a ~10 Hz `FloorClock` poll of `engine.holder` on `RemoteFloorStarted` and stops it on `RemoteFloorEnded`/`EndTransmit`/`TransmitGranted`/teardown/dispose, which resets the level to decorative. It maps `RtcMeasuredAudioLevel` to `MeasuredMeterLevel(v×100)`, and everything else to decorative.
+  - `KeryxRadioHost` mirrors the level into `RadioHostSnapshot.meterLevel`.
+  - `RadioViewState.project` re-gates on `phase == rxActive`, so a stale measured sample can never leak outside RX. That is good defensive design.
+  - LINKED stays decorative, with a documented reason: the LiveKit adapter exposes no per-participant level and is outside Owned_Paths.
+  - No TX/media-source metering was added.
+- **Non-blocking, recommended follow-ups:**
+  - (a) **Poll-chain overlap.** If `RemoteFloorEnded` + `RemoteFloorStarted` for the same speaker land while a `readAudioLevel` await is in flight, `_startMeterPolling` schedules a new timer and the in-flight poll also reschedules, because `_polledSpeakerId` matches again. That leaves two concurrent chains (20 Hz, and more with further flaps) with one orphaned timer until the next stop. It is bounded, since orphans die at stop, but a poll generation counter would close it. Suggest folding it into TASK-080 or a small successor.
+  - (b) `readAudioLevel`'s dartdoc says "never throws", but `tracks.first.readAudioLevel()` (getStats on a closing peer connection) is not guarded. A throw inside the timer callback becomes an uncaught async error and silently ends polling for that RX window. Wrap it in try/catch → unavailable.
+  - (c) The production host uses `RadioSessionHostAdapter.debugController` as its seam. The justification is documented, but a `debug`-named API on the production path is a smell; consider renaming it when `SessionHost` next opens.
+  - (d) Commit subject `991d974` lacks the `[TASK-079]` tag.
+  - (e) Snapshot emissions run at up to 10 Hz with equal-value dedup only. That is acceptable, and the "throttle" criterion is satisfied only by that dedup; revisit if Talk rebuild cost shows up in profiling.
+- **Unlocks:** TASK-080 (CX, after TASK-075).
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T12:20:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T11:46:09Z
 
 
 ### TASK-080
@@ -4491,6 +4507,8 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 - [ ] With configured LOCAL and configured LINKED, the effective route equals the resolved mode after start, after retune and after a session rebuild — one test per path (Technical §7)
 - [ ] With configured AUTO, the effective route is the concrete resolved route, never `auto` (UX-FR-002)
 - [ ] Before resolution, `ConnectionCondition` exposes an explicit unresolved state that UI can label; `auto` is never presented as an effective route (Technical §7)
+- [ ] Carried from TASK-079's review (same file, `radio_session_controller.dart`): the RX meter poll cannot run two concurrent chains. A poll generation counter (or equivalent) makes an in-flight `readAudioLevel` from a superseded start a no-op, proven by a test that flaps RemoteFloorEnded/RemoteFloorStarted for the same speaker during a pending read and asserts one poll per interval
+- [ ] Carried from TASK-079's review: a throwing `readAudioLevel` inside the poll is caught, maps to `MeterLevel.decorative`, and polling continues for the RX window (test with a throwing fake)
 - [ ] `flutter analyze` clean; full suite green
 **Branch:** —
 **Started_At:** —
