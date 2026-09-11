@@ -1,6 +1,6 @@
 ---
 plan_version: 15.1
-last_updated: 2026-09-11T12:36:05Z
+last_updated: 2026-09-11T12:47:49Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -4192,7 +4192,7 @@ Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without br
 
 ### TASK-074
 **Title:** UX R2 Talk screen recomposition — channel card, new PTT ring, status below disc, contextual latch
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A2 (content order, channel card, conditional back button), A3 (ring treatments by state, no text in disc), A4 (visible toggle button removed; latch visible only while TX granted/latched); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 ("A disconnected screen must not show 'Ready'", active-speaker copy), §4 (state catalogue labels), §5 (copy); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 (configured vs effective route); Verification VT-010–VT-015
@@ -4275,9 +4275,28 @@ Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the
 - (d) The golden harness now uses `pump()` + 500 ms instead of `pumpAndSettle`, needed because the requesting sweep never settles. That is correct; keep the comment.
 
 **Next step for S5:** fix (1) and (2) on the existing branch; run the FULL suite in the foreground (no background jobs) and record exact counts, which must be 0 failed; set needs_review.
+[2026-09-11T12:47:49Z] [ORCH] **APPROVED round 2, with a mandatory carried fix**, merged `70553b9`. Reviewed on claude-opus-5 (AUTOPILOT UX R2 wave).
+- **Tests:** run independently in the worktree by a subagent. `flutter analyze` 0 issues; talk + app_shell + regression 134/134; full suite 1472 passed / 0 failed / 40 skipped.
+- **BLOCKING (1) fixed:** `channels_screen_test.dart` now imports `talk_ptt_ring.dart` and asserts `TalkPttRing`, a 2-line change inside the ORCH-widened path.
+- **BLOCKING (2) fixed:** a new 360×640, text scale 1.0 test asserts that the channel card, the ring and the status line rects all lie fully within the viewport.
+
+**CARRIED, mandatory — new regression from round 2's response to non-blocking (a):**
+- **Change:** `_engageLatch` no longer requires `_holding`; it now checks `_lastBuiltPhase == tx`.
+- **Failure path:**
+  1. The finger lifts; `_handleHoldEnd` has already sent `intents.release()`.
+  2. The last built phase is still `tx` until the engine's EndTransmit rebuilds. On LINKED that window can be relay-latency long.
+  3. A Lock tap in that window sets `TalkLatchState` to true after the floor release was already requested.
+  4. Once the phase leaves tx, `viewState.latched` stays true, so the ring renders the red latched treatment and "Transmission locked" while nothing is transmitting.
+- **Why it matters:** that is a false-TX indication (VT-010; ADR-002 A5 "red reserved for actual local TX") that persists until the user taps Release. Floor behaviour itself stays safe: the release was sent and `releaseLatch` on an idle engine is a no-op.
+- **Why not a third review round:** the fix is one line in a file TASK-081 already owns, and a third round here would trip MAX_REWORK. It is carried into TASK-081 as a required criterion, and TASK-078's review build cannot ship before 081 merges.
+- **Fix to carry:** restore `_holding` as a precondition in both `canLatch` and `_engageLatch` (`_holding && !_latched && phase == tx`), keeping them consistent. Then drop `_lastBuiltPhase`, or also clear a latch whose phase has left tx without a grant. Add a test: grant → lift → tap Lock in the same frame → no latch and no red treatment.
+
+**Also carried as non-blocking:**
+- emergency still renders as a chip, not a banner;
+- route-line AUTO is TASK-081's job.
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T13:35:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T12:47:49Z
 
 
 ### TASK-075
@@ -4648,6 +4667,7 @@ Route each one through `ConnectionCondition.routeLabel` (or `isResolved`) so an 
 - [ ] No UI code formats `effectiveRoute` directly any more; a repo-wide grep of `lib/features/**` for `effectiveRoute` shows only `routeLabel`/`isResolved` consumers (TASK-080 dartdoc; Technical §7)
 - [ ] For each call site, a widget test proves that an unresolved condition renders the connecting/unresolved label and never "AUTO" as the effective route, and that a resolved LOCAL/LINKED renders that route (UX-FR-002)
 - [ ] Configured-preference labels still show AUTO when configured AUTO (Technical §7: configured and effective stay distinct)
+- [ ] **Carried from TASK-074 review (mandatory, same file `talk_screen.dart`):** the Lock control can no longer latch after the finger has lifted. `canLatch` and `_engageLatch` both require `_holding && !_latched && phase == tx` (drop `_lastBuiltPhase`), and a latch can never leave the red latched treatment or "Transmission locked" showing once TX is not granted. A test covers grant → lift → tap Lock in the same frame: no latch engaged, no red ring, no `releaseLatch` needed (VT-010; ADR-002 A5)
 - [ ] Changed goldens regenerated and listed; `flutter analyze` clean; full suite green
 **Branch:** —
 **Started_At:** —
