@@ -5423,6 +5423,7 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
   FILE   dossiers/TASK-088.md  -> exists, 13 line(s), 2013 bytes
 ```
 Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (directory client, contacts/groups controllers, room derivation), and the existing radio_state/settings_model/radio_session_controller/radio_view_state/radio_host before writing any code. Also pulling forward TASK-079(e) meter-snapshot-throttle and TASK-082(a) remount-flash-timer carried debt.
+- [2026-09-11T19:25:00Z] [S5] Read Technical §1.1-§11 fully plus current radio_state.dart and radio_session_controller.dart. Scope is large (reducer field removal/addition, settings model, session controller mode->transport, radio_host start sequence, presentation audience/target, carried debt). Implementing now; will update this note at the next milestone or at needs_review with full test evidence.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
