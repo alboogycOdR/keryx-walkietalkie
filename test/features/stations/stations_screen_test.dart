@@ -44,6 +44,7 @@ RadioViewState makeView({
   RadioMode configuredMode = RadioMode.local,
   int channel = 1,
   int privacyCode = 0,
+  String? activeSpeakerPeerId,
 }) {
   return RadioViewState(
     phase: RadioPhase.idle,
@@ -60,7 +61,7 @@ RadioViewState makeView({
     channel: channel,
     privacyCode: privacyCode,
     pendingTuningTarget: null,
-    activeSpeakerPeerId: null,
+    activeSpeakerPeerId: activeSpeakerPeerId,
     activeSpeakerCallsign: null,
     stations: stations,
     rosterCount: rosterCount ?? KnownRosterCount(stations.length),
@@ -109,6 +110,7 @@ void main() {
     RadioHostSnapshot snapshot = const RadioHostSnapshot(),
     Size surface = const Size(320, 720),
     Brightness brightness = Brightness.dark,
+    bool embedded = false,
   }) async {
     tester.view.physicalSize = surface;
     tester.view.devicePixelRatio = 1.0;
@@ -137,6 +139,7 @@ void main() {
           home: StationsScreen(
             onScan: () => harness.scanCalls++,
             onExport: () => harness.exportCalls++,
+            embedded: embedded,
           ),
         ),
       ),
@@ -602,5 +605,136 @@ void main() {
       await expectTapTargets(tester);
       handle.dispose();
     });
+  });
+
+  group('TASK-076 — embedded mode', () {
+    testWidgets(
+      'embedded: true renders no app bar; current-channel context and QR '
+      'actions move to the top of the body (ADR-002 A1; Design §2.4)',
+      (WidgetTester tester) async {
+        final StationsHarness harness = await pumpStations(
+          tester,
+          snapshot: const RadioHostSnapshot(
+            stations: <StationInfo>[
+              StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
+            ],
+          ),
+          embedded: true,
+        );
+
+        expect(find.byType(AppBar), findsNothing);
+        expect(find.byKey(StationsScreenKeys.title), findsNothing);
+        expect(find.byKey(StationsScreenKeys.channelContext), findsOneWidget);
+        expect(
+          find.byKey(StationsScreenKeys.embeddedActions),
+          findsOneWidget,
+        );
+        expect(find.byKey(StationsScreenKeys.scan), findsOneWidget);
+        expect(find.byKey(StationsScreenKeys.export), findsOneWidget);
+
+        await tester.tap(find.byKey(StationsScreenKeys.scan));
+        await tester.tap(find.byKey(StationsScreenKeys.export));
+        expect(harness.scanCalls, 1);
+        expect(harness.exportCalls, 1);
+      },
+    );
+
+    testWidgets(
+      'embedded: false (default) is unchanged: app bar with title and '
+      'channel context, QR actions in the app bar, no embedded action row',
+      (WidgetTester tester) async {
+        await pumpStations(
+          tester,
+          snapshot: const RadioHostSnapshot(
+            stations: <StationInfo>[
+              StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
+            ],
+          ),
+        );
+
+        expect(find.byType(AppBar), findsOneWidget);
+        expect(find.byKey(StationsScreenKeys.title), findsOneWidget);
+        expect(find.byKey(StationsScreenKeys.channelContext), findsOneWidget);
+        expect(
+          find.byKey(StationsScreenKeys.embeddedActions),
+          findsNothing,
+        );
+        expect(find.byKey(StationsScreenKeys.scan), findsOneWidget);
+        expect(find.byKey(StationsScreenKeys.export), findsOneWidget);
+      },
+    );
+  });
+
+  group('TASK-076 — rows: avatar, presence, speaking indicator', () {
+    testWidgets(
+      'rows show an initials avatar, callsign and honest presence '
+      '(Design §2.4)',
+      (WidgetTester tester) async {
+        await pumpStations(
+          tester,
+          snapshot: const RadioHostSnapshot(
+            stations: <StationInfo>[
+              StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
+            ],
+          ),
+        );
+
+        expect(find.byType(CircleAvatar), findsOneWidget);
+        expect(find.text('A1'), findsOneWidget);
+        expect(find.text('ALPHA-1'), findsOneWidget);
+        expect(find.text(StationsCopy.presenceVisible), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'only the active speaker row shows the speaking indicator '
+      '(Design §2.4; RadioViewState.activeSpeakerPeerId)',
+      (WidgetTester tester) async {
+        await pumpView(
+          tester,
+          makeView(
+            stations: const <StationInfo>[
+              StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
+              StationInfo(peerId: 'peer-bbb', callsign: 'BRAVO-2'),
+            ],
+            activeSpeakerPeerId: 'peer-bbb',
+          ),
+        );
+
+        expect(find.byKey(StationsScreenKeys.speaking), findsOneWidget);
+        expect(find.text('Speaking'), findsOneWidget);
+
+        final Semantics bravoRow = tester.widget<Semantics>(
+          find.ancestor(
+            of: find.text('BRAVO-2'),
+            matching: find.byWidgetPredicate(
+              (Widget w) =>
+                  w is Semantics && (w.properties.label ?? '').contains(
+                    'speaking',
+                  ),
+            ),
+          ),
+        );
+        expect(bravoRow.properties.label, contains('speaking'));
+      },
+    );
+
+    testWidgets(
+      'no station is speaking: indicator never renders',
+      (WidgetTester tester) async {
+        await pumpStations(
+          tester,
+          snapshot: const RadioHostSnapshot(
+            stations: <StationInfo>[
+              StationInfo(peerId: 'peer-aaa', callsign: 'ALPHA-1'),
+              StationInfo(peerId: 'peer-bbb', callsign: 'BRAVO-2'),
+            ],
+          ),
+        );
+
+        expect(find.byKey(StationsScreenKeys.speaking), findsNothing);
+        expect(find.text('Speaking'), findsNothing);
+      },
+    );
   });
 }

@@ -26,6 +26,8 @@ abstract final class StationsScreenKeys {
   static const Key scan = Key('stations.scan');
   static const Key export = Key('stations.export');
   static const Key streamFault = Key('stations.stream-fault');
+  static const Key embeddedActions = Key('stations.embedded-actions');
+  static const Key speaking = Key('stations.speaking');
 
   static Key row(String peerId) => Key('stations.row.$peerId');
 }
@@ -38,13 +40,26 @@ abstract final class StationsScreenKeys {
 /// no new data source is introduced. Event QR screens are TASK-056's —
 /// this widget only launches them.
 class StationsScreen extends ConsumerStatefulWidget {
-  const StationsScreen({super.key, this.onScan, this.onExport});
+  const StationsScreen({
+    super.key,
+    this.onScan,
+    this.onExport,
+    this.embedded = false,
+  });
 
   /// Opens TASK-056's scan flow. `null` disables the action.
   final VoidCallback? onScan;
 
   /// Opens TASK-056's export flow. `null` disables the action.
   final VoidCallback? onExport;
+
+  /// When `true`, renders as a tab body under the shell (ADR-002 A1): no
+  /// app bar (the shell owns it), current-channel context moves to the
+  /// top of the body, and the Event QR actions render as a compact
+  /// two-button row at the top of the body instead of app-bar actions.
+  /// Default `false` keeps the pre-shell full-screen presentation
+  /// byte-identical.
+  final bool embedded;
 
   @override
   ConsumerState<StationsScreen> createState() => _StationsScreenState();
@@ -105,6 +120,7 @@ class _StationsScreenState extends ConsumerState<StationsScreen> {
       streamFault: _streamFault,
       onScan: widget.onScan,
       onExport: widget.onExport,
+      embedded: widget.embedded,
     );
   }
 }
@@ -123,12 +139,16 @@ class StationsView extends StatelessWidget {
     this.streamFault = false,
     this.onScan,
     this.onExport,
+    this.embedded = false,
   });
 
   final RadioViewState view;
   final bool streamFault;
   final VoidCallback? onScan;
   final VoidCallback? onExport;
+
+  /// See [StationsScreen.embedded].
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -140,46 +160,48 @@ class StationsView extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: tokens.surfaceBase,
-      appBar: AppBar(
-        backgroundColor: tokens.surfaceBase,
-        foregroundColor: tokens.textPrimary,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              StationsCopy.title,
-              key: StationsScreenKeys.title,
-              style: KeryxUxTypography.screenTitle.copyWith(
-                color: tokens.textPrimary,
+      appBar: embedded
+          ? null
+          : AppBar(
+              backgroundColor: tokens.surfaceBase,
+              foregroundColor: tokens.textPrimary,
+              elevation: 0,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    StationsCopy.title,
+                    key: StationsScreenKeys.title,
+                    style: KeryxUxTypography.screenTitle.copyWith(
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    channelLabel,
+                    key: StationsScreenKeys.channelContext,
+                    style: KeryxUxTypography.compact.copyWith(
+                      color: tokens.textSecondary,
+                    ),
+                  ),
+                ],
               ),
+              actions: <Widget>[
+                _QrAction(
+                  key: StationsScreenKeys.scan,
+                  icon: Icons.qr_code_scanner,
+                  label: StationsCopy.scanEventQr,
+                  tokens: tokens,
+                  onPressed: onScan,
+                ),
+                _QrAction(
+                  key: StationsScreenKeys.export,
+                  icon: Icons.qr_code,
+                  label: StationsCopy.exportEventQr,
+                  tokens: tokens,
+                  onPressed: onExport,
+                ),
+              ],
             ),
-            Text(
-              channelLabel,
-              key: StationsScreenKeys.channelContext,
-              style: KeryxUxTypography.compact.copyWith(
-                color: tokens.textSecondary,
-              ),
-            ),
-          ],
-        ),
-        actions: <Widget>[
-          _QrAction(
-            key: StationsScreenKeys.scan,
-            icon: Icons.qr_code_scanner,
-            label: StationsCopy.scanEventQr,
-            tokens: tokens,
-            onPressed: onScan,
-          ),
-          _QrAction(
-            key: StationsScreenKeys.export,
-            icon: Icons.qr_code,
-            label: StationsCopy.exportEventQr,
-            tokens: tokens,
-            onPressed: onExport,
-          ),
-        ],
-      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
@@ -189,6 +211,23 @@ class StationsView extends StatelessWidget {
             KeryxUxSpacing.pageMargin,
           ),
           children: <Widget>[
+            if (embedded) ...<Widget>[
+              Text(
+                channelLabel,
+                key: StationsScreenKeys.channelContext,
+                style: KeryxUxTypography.compact.copyWith(
+                  color: tokens.textSecondary,
+                ),
+              ),
+              const SizedBox(height: KeryxUxSpacing.controlGap),
+              _EmbeddedQrActions(
+                key: StationsScreenKeys.embeddedActions,
+                tokens: tokens,
+                onScan: onScan,
+                onExport: onExport,
+              ),
+              const SizedBox(height: KeryxUxSpacing.cardSpacing),
+            ],
             if (streamFault)
               _StreamFault(tokens: tokens)
             else
@@ -218,7 +257,63 @@ class StationsView extends StatelessWidget {
     if (view.stations.isEmpty) {
       return const <Widget>[];
     }
-    return <Widget>[_StationList(stations: view.stations, tokens: tokens)];
+    return <Widget>[
+      _StationList(
+        stations: view.stations,
+        activeSpeakerPeerId: view.activeSpeakerPeerId,
+        tokens: tokens,
+      ),
+    ];
+  }
+}
+
+/// Embedded-mode compact two-button QR action row (Design §2.4). Default
+/// mode keeps these actions in the app bar via [_QrAction].
+class _EmbeddedQrActions extends StatelessWidget {
+  const _EmbeddedQrActions({
+    super.key,
+    required this.tokens,
+    required this.onScan,
+    required this.onExport,
+  });
+
+  final KeryxUxTokens tokens;
+  final VoidCallback? onScan;
+  final VoidCallback? onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: OutlinedButton.icon(
+            key: StationsScreenKeys.scan,
+            onPressed: onScan,
+            icon: const Icon(Icons.qr_code_scanner, size: 18),
+            label: Text(StationsCopy.scanEventQr),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: tokens.textPrimary,
+              side: BorderSide(color: tokens.borderDefault),
+              minimumSize: const Size.fromHeight(KeryxUxSpacing.minTarget),
+            ),
+          ),
+        ),
+        const SizedBox(width: KeryxUxSpacing.controlGap),
+        Expanded(
+          child: OutlinedButton.icon(
+            key: StationsScreenKeys.export,
+            onPressed: onExport,
+            icon: const Icon(Icons.qr_code, size: 18),
+            label: Text(StationsCopy.exportEventQr),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: tokens.textPrimary,
+              side: BorderSide(color: tokens.borderDefault),
+              minimumSize: const Size.fromHeight(KeryxUxSpacing.minTarget),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -327,9 +422,14 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _StationList extends StatelessWidget {
-  const _StationList({required this.stations, required this.tokens});
+  const _StationList({
+    required this.stations,
+    required this.activeSpeakerPeerId,
+    required this.tokens,
+  });
 
   final List<StationInfo> stations;
+  final String? activeSpeakerPeerId;
   final KeryxUxTokens tokens;
 
   @override
@@ -339,24 +439,42 @@ class _StationList extends StatelessWidget {
       children: <Widget>[
         for (int i = 0; i < stations.length; i++) ...<Widget>[
           if (i > 0) const SizedBox(height: KeryxUxSpacing.controlGap),
-          _StationRow(station: stations[i], tokens: tokens),
+          _StationRow(
+            station: stations[i],
+            speaking: stations[i].peerId == activeSpeakerPeerId,
+            tokens: tokens,
+          ),
         ],
       ],
     );
   }
 }
 
+/// Row height band (Design §2.4): 64–72 dp including padding.
+const double _rowMinHeight = 64;
+
 class _StationRow extends StatelessWidget {
-  const _StationRow({required this.station, required this.tokens});
+  const _StationRow({
+    required this.station,
+    required this.speaking,
+    required this.tokens,
+  });
 
   final StationInfo station;
+
+  /// True only for [RadioViewState.activeSpeakerPeerId] — the sole row
+  /// that shows the speaking indicator (Design §2.4).
+  final bool speaking;
   final KeryxUxTokens tokens;
 
   @override
   Widget build(BuildContext context) {
     final String name = stationDisplayName(station);
+    final String presence = speaking
+        ? '${StationsCopy.presenceVisible}, speaking'
+        : StationsCopy.presenceVisible;
     return Semantics(
-      label: '$name, ${StationsCopy.presenceVisible}',
+      label: '$name, $presence',
       child: Material(
         key: StationsScreenKeys.row(station.peerId),
         color: tokens.surfaceCard,
@@ -365,9 +483,7 @@ class _StationRow extends StatelessWidget {
           side: BorderSide(color: tokens.borderDefault),
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minHeight: KeryxUxSpacing.minTarget,
-          ),
+          constraints: const BoxConstraints(minHeight: _rowMinHeight),
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: KeryxUxSpacing.cardSpacing,
@@ -375,35 +491,121 @@ class _StationRow extends StatelessWidget {
             ),
             child: Row(
               children: <Widget>[
-                Icon(Icons.cell_tower, color: tokens.actionPrimary, size: 20),
+                _StationAvatar(name: name, tokens: tokens),
                 const SizedBox(width: KeryxUxSpacing.controlGap),
                 Expanded(
-                  child: Text(
-                    name,
-                    style: KeryxUxTypography.body.copyWith(
-                      color: tokens.textPrimary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        name,
+                        style: KeryxUxTypography.body.copyWith(
+                          color: tokens.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: <Widget>[
+                          Icon(
+                            Icons.visibility_outlined,
+                            color: tokens.textSecondary,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              StationsCopy.presenceVisible,
+                              style: KeryxUxTypography.compact.copyWith(
+                                color: tokens.textSecondary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: KeryxUxSpacing.controlGap),
-                Icon(
-                  Icons.visibility_outlined,
-                  color: tokens.textSecondary,
-                  size: 18,
-                ),
-                const SizedBox(width: KeryxUxSpacing.controlGap),
-                Text(
-                  StationsCopy.presenceVisible,
-                  style: KeryxUxTypography.compact.copyWith(
-                    color: tokens.textSecondary,
-                  ),
-                ),
+                if (speaking) ...<Widget>[
+                  const SizedBox(width: KeryxUxSpacing.controlGap),
+                  _SpeakingIndicator(tokens: tokens),
+                ],
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Leading circular avatar with callsign initials, Design §2.4.
+class _StationAvatar extends StatelessWidget {
+  const _StationAvatar({required this.name, required this.tokens});
+
+  final String name;
+  final KeryxUxTokens tokens;
+
+  static String _initialsFor(String name) {
+    final List<String> words = name
+        .trim()
+        .split(RegExp(r'[\s-]+'))
+        .where((String w) => w.isNotEmpty)
+        .toList();
+    if (words.isEmpty) {
+      return '?';
+    }
+    if (words.length == 1) {
+      final String w = words.first;
+      return (w.length >= 2 ? w.substring(0, 2) : w).toUpperCase();
+    }
+    return (words.first.substring(0, 1) + words[1].substring(0, 1))
+        .toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: tokens.surfaceRaised,
+      child: Text(
+        _initialsFor(name),
+        style: KeryxUxTypography.compact.copyWith(color: tokens.textPrimary),
+      ),
+    );
+  }
+}
+
+/// Active-speaker badge: `stateRx` dot + "Speaking" (Design §2.4), driven
+/// only by [RadioViewState.activeSpeakerPeerId] — never a decorative
+/// animation standing in for real telemetry.
+class _SpeakingIndicator extends StatelessWidget {
+  const _SpeakingIndicator({required this.tokens});
+
+  final KeryxUxTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      key: StationsScreenKeys.speaking,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: tokens.stateRx,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          'Speaking',
+          style: KeryxUxTypography.compact.copyWith(color: tokens.stateRx),
+        ),
+      ],
     );
   }
 }
