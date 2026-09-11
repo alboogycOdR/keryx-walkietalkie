@@ -4218,7 +4218,7 @@ No fake presence counts. Regenerate `channels_*` goldens.
 
 ### TASK-076
 **Title:** UX R2 Stations as a tab body — embedded mode, avatar rows, speaking state, QR action row
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A1 (Stations is a tab); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.4 ("known callsigns and actual presence… update while open… empty state, current-channel context and existing Event QR actions… Quality information is omitted or marked unavailable unless a real metric exists… explicitly state that a complete member list is unavailable rather than displaying zero")
