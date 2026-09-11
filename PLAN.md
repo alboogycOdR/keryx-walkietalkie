@@ -4519,7 +4519,7 @@ Reading rtc_adapter.dart (readAudioLevel/audioLevelFromInboundRtpStats), mesh_co
 
 ### TASK-080
 **Title:** Effective route shows "AUTO" — diagnose and fix the configured-vs-effective route projection
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** CX
 **Priority:** high
 **Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; lib/core/presentation/connection_condition.dart dartdoc (effective route "is never `auto` in practice"); owner screenshot 2026-09-11 ("Configured LOCAL · Route AUTO" on a real phone), also noted in orchestrator_notes after the 2026-09-08 hardware attempt
@@ -4540,12 +4540,13 @@ Sequenced after TASK-079 because both own `radio_session_controller.dart`.
 - [ ] Carried from TASK-079's review (same file, `radio_session_controller.dart`): the RX meter poll cannot run two concurrent chains. A poll generation counter (or equivalent) makes an in-flight `readAudioLevel` from a superseded start a no-op, proven by a test that flaps RemoteFloorEnded/RemoteFloorStarted for the same speaker during a pending read and asserts one poll per interval
 - [ ] Carried from TASK-079's review: a throwing `readAudioLevel` inside the poll is caught, maps to `MeterLevel.decorative`, and polling continues for the RX window (test with a throwing fake)
 - [ ] `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-080-cx
+**Started_At:** 2026-09-11T11:56:14Z
+**Progress_Notes:**
+- [2026-09-11T11:56:14Z] [CX] Claimed TASK-080. TASK-079 is done; task branch created from integration tip cceef4d. Next: preflight owned paths, reproduce the effective-route defect, then document and fix its verified cause.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T10:07:46Z
+**Updated_By:** CX
+**Updated_At:** 2026-09-11T11:56:14Z
