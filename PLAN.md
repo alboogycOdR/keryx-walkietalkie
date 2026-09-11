@@ -1,6 +1,6 @@
 ---
-plan_version: 14.2
-last_updated: 2026-09-11T09:16:38Z
+plan_version: 15.0
+last_updated: 2026-09-11T10:07:46Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -71,6 +71,8 @@ TICK 4 / WAVE END (2026-09-06T07:04Z): TASK-043 reviewed on claude-opus-5, APPRO
 **First dispatch wave: TASK-045 (S5), TASK-047 (GB), TASK-063 (S5), TASK-064 (GB), TASK-065 (GB)** — the five zero-dependency tasks; every W2+ task stays `Assigned_To: TBD` until its dependencies close, per this plan's established pattern. Roster read fresh from `autopilot.json`: `builders.active` is still `[GB, S5]`, so assignments use GB and S5 only — CX's 2026-09-06 live health probe is recorded above but the config was never updated, and ORCH is not flipping dispatch config as a side effect of a planning pass; if CX is reactivated, 065 is the natural first hand-off. TASK-063 is deliberately early so TASK-060's LINKED hardware test can use real default settings instead of the `ops/TWO_PHONE_TEST.md` §6 bare-origin workaround. Known disclosed cost (ADR-001 §7 item 2): TASK-043's hero-PTT/roster/emergency-band widgets become throwaway at TASK-061 — an informed owner choice, not an oversight. `validate_plan.py` 0 warnings at v12.0.
 
 **AUTOPILOT WAVE RUNNING (2026-09-07T19:00Z onward, project-owner instruction to run continuously until all 20 tasks done).** W1+W2+W3 CLOSED: TASK-045/046/047/048/063/064/065 all done — 045 first-pass, 046 first-pass, 047 first-pass, 048 REWORK round 1 (theme not wired into app.dart) then approved round 2, 063 first-pass, 064 first-pass, 065 first-pass. **8/20 done at this note.** W4 (seven parallel screens) dispatched: GB owns 049/053/055, S5 owns 050/051/054/056; 049 already first-pass merged. **PLAN CORRECTION superseding the "no TASK-052, do not renumber" line above: TASK-052 now EXISTS, created 2026-09-07T21:20Z after TASK-049's review surfaced a real gap — TASK-048 froze `lib/app_shell/**` with placeholder screens, and none of the seven W4 tasks could ever touch that territory to mount their own real widget.** TASK-052 is the single-owner convergence task (`lib/app_shell/**` only) that swaps every placeholder for the real screen once all seven land; `Depends_On` all seven; TASK-057 (a11y polish) now also `Depends_On: TASK-052` (polishing an unwired screen can't verify real device rendering). This is the TASK-032/033→035→037 pattern a third time. `validate_plan.py` 0 warnings after the insertion. Next: continue W4 reviews/dispatch; TASK-052 becomes eligible once all seven screens are done, assign whichever builder frees up last.
+
+**UX R2 WAVE PLANNED 2026-09-11T10:07Z (plan v15.0, ADR-002):** owner judged the R1 UI unpolished after TASK-059 run 1 (bidirectional LOCAL voice confirmed on Honor CRT-NX1 + Samsung A05s; contention/channel-change/background/no-internet rows still open, owner has no second phone today) and chose a Zello-aligned polish with no mockup: Talk-first launch, top icon tabs Talk/Channels/Stations, Settings + Radio controls in overflow, amber accent, dark-face PTT ring with measured-only glow. 9 tasks TASK-072..080. Dispatch order: wave 1 TASK-072 (S5) + TASK-073 (CX9); then TASK-074 (S5, needs 072+073) + TASK-075 (CX9, needs 072); then TASK-076 (S5) + TASK-079 (CX9); then TASK-077 (S5, needs 074/075/076) + TASK-080 (CX9, needs 079); last TASK-078 (CX9) produces the owner-review APK. Golden ownership is split by filename prefix so master stays green between merges; 075/076 are additive-API-only so shell tests need no edits until 077. TASK-080 fixes the Configured LOCAL / Route AUTO discrepancy noted below. TASK-059/060/061/062 sequencing unchanged.
 
 **WAVE CLOSED AUTONOMOUSLY 2026-09-09T02:52Z: 21/25 tasks done (all of 045-057, 063-069).** TASK-052/066/067/068/069 were all real gaps found mid-wave, not pre-scoped — each closed same-day. Roster churn this wave: GB deactivated (Grok Build usage balance exhausted mid-TASK-058, zero work lost, reassigned to S5); CX deactivated (own ChatGPT/Codex usage limit hit on a live probe); **CX9 activated** — a second, genuinely separate Codex identity (`~/.codex-nuburo-systems`, already authenticated on this machine by the sibling GROKBOT-CLONE project), live-verified and dry-run tested, armed for the next eligible task. S5 alone carried TASK-058 through two review rounds to close it. **TASK-059/060 (physical two-device tests) are the wall — genuinely require the project owner's own hands and phones, cannot be delegated to any agent.** First real-hardware attempt 2026-09-08T21:09-21:15 local: initial LOCAL discovery failed (root cause: router client/AP isolation, not an app defect — resolved by moving both phones to a different home Wi-Fi); once resolved, **bidirectional voice confirmed working** — this is the first real confirmation of TASK-044's Android audio-session/routing fix since the 2026-08-23 field-test handover first reported silent audio, and closes that finding. TASK-059 is NOT marked done — only partial evidence exists (no device model/OS recorded, no full VT-020/§7 matrix walked), owner does not currently have the second phone. One live discrepancy from the test screenshots, unresolved, worth checking when testing resumes: one phone showed \"Configured LOCAL · Route AUTO\" rather than \"Route LOCAL\" — may be a real conflation the redesign's own honesty principle (UX-FR-002) was built to prevent, or may be a user mode-picker mismatch between the two phones; not yet diagnosed. **TASK-070 created 2026-09-09T03:00Z** (VT-020 boundary-validation test gap, routed from TASK-058's review, zero hardware needed) to keep S5/CX9 productive while hardware testing is paused. Next: dispatch TASK-070; when the owner has both phones again, resume TASK-059 from where it left off (LOCAL discovery/voice confirmed, contention/channel-change/background/audio-routing rows still open), then TASK-060 (LINKED), then TASK-061/062 close the wave."
 ---
@@ -4031,3 +4033,321 @@ Territory matches expectation (existing TASK-054/057 screen, not new files). Dec
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-08T20:23:48Z
+
+
+### TASK-072
+**Title:** UX R2 tokens — amber accent, PTT ring/face tokens, tab indicator, golden refresh
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** high
+**Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A5 (accent becomes amber/radio-yellow; `state/warning` off the PTT ring; emergency hue separation ≥ 20°), A3 (`ptt/face` token, ring treatments), A1 (tab accent underline); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §3.2 ("Color values must pass contrast verification… do not scatter literal color values across widgets"), §3.4
+**Owned_Paths:** lib/core/theme/ux_tokens.dart, test/core/theme/ux_tokens_test.dart, test/regression/goldens/goldens/**, dossiers/TASK-072.md
+**Depends_On:** —
+**Description:** Reopens frozen `lib/core/theme` for `ux_tokens.dart` only (the legacy `theme.dart` stays frozen). Change `actionPrimary` in both palettes to an amber/radio-yellow that passes the existing contrast checks against `surfaceBase`/`surfaceCard` and yields a legible `contrastingOn` foreground. Add the tokens UX R2 needs so no widget invents literals: `pttFace` (dark disc face, both themes), `pttNeutralRing` (Off/Boot/No link/Tuning/denied flash), `pttRingWidthFraction` (ring stroke as a fraction of diameter, ~0.08), `pttWidthFraction` = 0.78, `pttMaxDiameter` = 300, `tabIndicatorThickness` (~3 dp). Keep every existing token name so no consumer breaks. Add tests: accent contrast in both themes; `stateEmergency` vs `actionPrimary` hue separation ≥ 20° in both themes; `stateTx` stays red-family and distinct from the accent. The accent change repaints existing surfaces, so regenerate every golden PNG under `test/regression/goldens/goldens/` (`flutter test --update-goldens test/regression/goldens`). Record in the dossier which goldens changed, and confirm by visual spot-check that the diff is colour-only.
+**Acceptance_Criteria:**
+- [ ] `actionPrimary` is amber/radio-yellow in dark and light palettes; contrast tests pass in both themes (ADR-002 A5; Design §3.2)
+- [ ] A test proves `stateEmergency` and `actionPrimary` differ by ≥ 20° hue in both themes (ADR-002 A5)
+- [ ] New tokens `pttFace`, `pttNeutralRing`, `pttRingWidthFraction`, `pttWidthFraction`, `pttMaxDiameter`, `tabIndicatorThickness` exist with dartdoc citing ADR-002; no existing token is renamed or removed
+- [ ] Every golden under `test/regression/goldens/goldens/` regenerated; the dossier lists changed files and confirms colour-only diffs
+- [ ] `flutter analyze` clean repo-wide; full `flutter test` green with no count regression
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T10:07:46Z
+
+
+### TASK-073
+**Title:** UX R2 PTT ring widget — dark face, state ring, measured-only glow, press feedback, accessible toggle action
+**Status:** pending
+**Assigned_To:** CX9
+**Priority:** high
+**Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A3 (face/ring/glyph, no text in disc, diameter clamp, ring treatments, press feedback, measured-only glow, reduced motion), A4 (semantics custom action + Enter/Space as the non-drag alternative); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 ("accessible hold action and a non-drag alternative"), §3.4 ("No continuously animated fake waveform presented as real audio telemetry"), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md VT-011 (duplicate pointer-up/cancel is a no-op), VT-015; lib/core/presentation/telemetry.dart (`MeterLevel` sealed type)
+**Owned_Paths:** lib/features/talk/talk_ptt_ring.dart, test/features/talk/talk_ptt_ring_test.dart, dossiers/TASK-073.md
+**Depends_On:** —
+**Description:** Build the new PTT as a **new, not-yet-wired** widget `TalkPttRing` in its own file, so this task changes no existing screen and no golden. TASK-074 wires it in and deletes the old `TalkPttDisc`. The caller supplies every colour as a parameter (`ringColor`, `faceColor`, `glyphColor`, `neutralRingColor`); the widget reads no theme itself, so it can run in parallel with TASK-072. Parameters: `enabled`, `treatment` (enum: ready, requesting, tx, rx, latched, deniedFlash, neutral), `meterLevel` (`MeterLevel`), `reducedMotion`, `semanticStatus` (announced as the semantics value), `onHoldStart`, `onHoldEnd`, plus optional `ringWidthFraction`/`widthFraction`/`maxDiameter` with defaults 0.08/0.78/300. Rendering:
+- `CustomPainter` ring with stroke = `ringWidthFraction × diameter`; dark face; centred mic glyph (ready/requesting/tx: `Icons.mic`, rx: `Icons.volume_up`, neutral: `Icons.mic_off`); **no text**.
+- Requesting: a rotating sweep arc.
+- deniedFlash: a one-shot horizontal shake (~300 ms).
+- latched: a small lock badge on the ring.
+- Glow: a soft outer shadow whose blur/opacity is a pure function of `MeasuredMeterLevel.value`; for `DecorativeMeterLevel` no glow and no running animation.
+- Diameter via `static double sizeFor(double width, {double widthFraction = .78, double maxDiameter = 300})` = `clamp(width × widthFraction, 96, maxDiameter)`.
+- Press: scale 0.97 and darken the face over 120 ms; `HapticFeedback.lightImpact()` on an accepted press-down.
+
+Gesture semantics carry over exactly from `TalkPttDisc`: a `Listener` with a `_holding` guard, each callback firing at most once per hold. Accessibility:
+- `Semantics(button: true, label: 'Push to talk', value: semanticStatus)` with `customSemanticsActions` "Start transmitting"/"Stop transmitting" that toggle through `onHoldStart`/`onHoldEnd`;
+- a `Focus` whose `Enter`/`Space` toggle the same way.
+
+Put key `keryx-talk-ptt-disc` on the root, so TASK-074 can swap it in without breaking shell tests that find that key.
+**Acceptance_Criteria:**
+- [ ] `TalkPttRing` renders face + ring + glyph with no text inside the disc; ring colour follows the supplied colour for each `treatment` (ADR-002 A3)
+- [ ] `sizeFor` clamps to [96, 300] at 0.78 × width; tests cover 320, 360, 412 and 800 dp widths (ADR-002 A3)
+- [ ] Glow is present only for `MeasuredMeterLevel` and scales with its value; `DecorativeMeterLevel` produces no glow and no running animation (test asserts no scheduled frame) (Design §3.4; VT-015)
+- [ ] Requesting sweep and denied shake run, and both are replaced by static treatments when `reducedMotion` is true (ADR-002 A3)
+- [ ] Hold gesture: exactly one `onHoldStart` per press and one `onHoldEnd` per up/cancel; duplicate up/cancel and press-while-disabled are no-ops (VT-011)
+- [ ] Semantics custom action and `Enter`/`Space` each toggle start/stop through the same callbacks; tests drive both (ADR-002 A4; Design §5)
+- [ ] Root key `keryx-talk-ptt-disc` present; `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T10:07:46Z
+
+
+### TASK-074
+**Title:** UX R2 Talk screen recomposition — channel card, new PTT ring, status below disc, contextual latch
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** high
+**Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A2 (content order, channel card, conditional back button), A3 (ring treatments by state, no text in disc), A4 (visible toggle button removed; latch visible only while TX granted/latched); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.2 ("A disconnected screen must not show 'Ready'", active-speaker copy), §4 (state catalogue labels), §5 (copy); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 (configured vs effective route); Verification VT-010–VT-015
+**Owned_Paths:** lib/features/talk/talk_screen.dart, lib/features/talk/talk_copy.dart, lib/features/talk/talk_ptt_disc.dart, lib/features/talk/talk_channel_card.dart, test/features/talk/talk_screen_test.dart, test/features/talk/a11y_matrix_support.dart, test/features/talk/talk_channel_card_test.dart, test/app_shell/talk_screen_test.dart, test/app_shell/mobile_app_shell_test.dart, test/regression/real_composition_test.dart, test/regression/goldens/talk_states_golden_test.dart, test/regression/goldens/goldens/talk_*.png, dossiers/TASK-074.md
+**Depends_On:** TASK-072, TASK-073
+**Description:** Recompose `TalkScreen` to ADR-002 A2, top to bottom:
+1. New `TalkChannelCard` in `talk_channel_card.dart`: `surfaceCard`, radius 16, 48 dp targets.
+   - Leading tile with the channel number; title `CH NN · CC`.
+   - Route line: the effective route, plus the configured mode only when it differs.
+   - Trailing station-count chip → `onOpenStations`; picker button → `onOpenPicker`.
+   - Optional tune icon → `onOpenRadioControls`, rendered **only when that callback is non-null**.
+2. Overlay cue banners, as today.
+3. Flexible space.
+4. `TalkPttRing` (TASK-073) with colours from `KeryxUxTokens` (TASK-072) and the treatment mapped from `RadioViewState`:
+   - tx → `stateTx`; latched → `stateTx` + badge; rx → `stateRx`; requesting → accent + sweep; ready idle → accent;
+   - deniedFlash → neutral + shake; off/boot/tuning/linkDegraded/permission-denied → neutral.
+   - Pass `viewState.meterLevel`, and `MediaQuery.disableAnimationsOf(context)` as reduced motion.
+5. Status text **below** the disc: primary line (callsign speaking / "Channel clear" / catalogue label) and secondary line ("Hold to talk" etc.); keep "must not show Ready while disconnected".
+6. Contextual row: a labelled lock control only while TX is granted and not latched, a labelled "Release" control while latched; nothing otherwise.
+
+Delete the visible `TalkPttToggleAlternative` and the old `TalkPttDisc` (A4: the non-drag alternative now lives on the ring's semantics action and keyboard toggle). The back button renders only when `Navigator.canPop`. Preserve **all** hold/latch/lifecycle safety logic in `_TalkScreenState` (VT-010–VT-015); only presentation changes. Keep keys `keryx-talk-ptt-disc`, `keryx-talk-picker`, `keryx-talk-stations`, `keryx-talk-latch`, `keryx-talk-unlatch`, `keryx-talk-status-line` on their new equivalents. In the shell/composition tests you own, update only what the removed elements break; navigation changes belong to TASK-077. Regenerate `talk_*` goldens and check them at 360×640.
+**Acceptance_Criteria:**
+- [ ] Talk renders channel card → banners → PTT ring → status text → contextual latch row; no text inside the disc; no visible "Start transmitting" button (ADR-002 A2/A4)
+- [ ] Channel card shows `CH NN · CC`, effective route, and configured mode only when different; station chip and picker fire their callbacks; radio-controls icon absent when its callback is null (ADR-002 A2; Technical §7)
+- [ ] Ring treatment/colour correct for ready, requesting, tx, rx, latched, denied flash and each neutral phase; emergency shows a banner and does not recolour the ring — one test per row (ADR-002 A3; Design §4)
+- [ ] Lock control appears only during granted TX, "Release" only while latched; both labelled, 48 dp (ADR-002 A4)
+- [ ] Every pre-existing VT-010–VT-015 test still passes in intent; any test that drove the removed toggle button now drives the ring's semantics action instead (Verification §4)
+- [ ] At 360×640 dp, text scale 1.0, card, ring and status are all visible without scrolling (widget test at that surface size) (ADR-002 A3)
+- [ ] `talk_*` goldens regenerated (dark + light); `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T10:07:46Z
+
+
+### TASK-075
+**Title:** UX R2 Channels as a tab body — embedded mode, polished list rows, tune-success callback
+**Status:** pending
+**Assigned_To:** CX9
+**Priority:** medium
+**Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A1 (Channels becomes a tab under a shell-owned app bar; Talk is default; recent channels stay here); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.1 ("Recent entries show their actual channel/code values and remain selectable. Empty memory uses a neutral explanatory message and a direct tune action. Do not show a fake online count"), §2.3, §3.3
+**Owned_Paths:** lib/features/channels/**, test/features/channels/**, test/regression/goldens/channels_golden_test.dart, test/regression/goldens/goldens/channels_*.png, dossiers/TASK-075.md
+**Depends_On:** TASK-072
+**Description:** **Additive API only** — the shell (TASK-077) switches over later, and `test/app_shell/**` and `test/regression/real_composition_test.dart` are not yours and must keep passing untouched. Add to `ChannelsLanding`:
+- `embedded` (default `false`): when `true`, no `Scaffold` app bar and no "KERYX" brand title, because the shell owns them.
+- `onOpenTalk` becomes nullable; when null, the "Open Talk" button and the card's tap-to-talk are hidden.
+- Optional `onTuneSucceeded` callback fired after a recall-tap retune succeeds, so the shell can jump to Talk.
+
+With the new parameters omitted, keep `ChannelsLandingKeys.openTalk`/`selectChannel` and the default behaviour identical. Polish the list in both modes, matching ADR-002's flat, dark, single-accent look:
+- Current channel row pinned first, with an accent leading bar and a "Current" label.
+- Recent rows: 64–72 dp, leading channel tile, `CH NN · CC`, trailing chevron.
+- Section headers in `KeryxUxTypography.sectionTitle`.
+- "Select channel" as a full-width outlined action.
+
+No fake presence counts. Regenerate `channels_*` goldens.
+**Acceptance_Criteria:**
+- [ ] `embedded: true` renders no app bar/brand title; omitting all new params renders the existing structure with the same keys, proven by a test (ADR-002 A1)
+- [ ] `onOpenTalk: null` hides Open Talk and card tap-to-talk; `onTuneSucceeded` fires once on a successful recall retune and not on failure/cancel (ADR-002 A1; Design §2.3)
+- [ ] Current row pinned with accent bar; recent rows show real channel/code and stay selectable; empty memory shows the neutral message + direct tune action (Design §2.1)
+- [ ] `test/app_shell/**` and `test/regression/real_composition_test.dart` pass with zero edits
+- [ ] `channels_*` goldens regenerated; `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T10:07:46Z
+
+
+### TASK-076
+**Title:** UX R2 Stations as a tab body — embedded mode, avatar rows, speaking state, QR action row
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** medium
+**Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A1 (Stations is a tab); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.4 ("known callsigns and actual presence… update while open… empty state, current-channel context and existing Event QR actions… Quality information is omitted or marked unavailable unless a real metric exists… explicitly state that a complete member list is unavailable rather than displaying zero")
+**Owned_Paths:** lib/features/stations/**, test/features/stations/**, test/regression/goldens/stations_golden_test.dart, test/regression/goldens/goldens/stations_*.png, dossiers/TASK-076.md
+**Depends_On:** TASK-072
+**Description:** **Additive API only**, the same rule as TASK-075: `test/app_shell/**` and `test/regression/real_composition_test.dart` must pass untouched. Add `embedded` (default `false`) to `StationsScreen`: when `true`, no app bar, because the shell owns it, and the current-channel context line moves to the top of the body. Polish the rows in both modes:
+- Leading circular avatar with callsign initials on `surfaceRaised`.
+- Callsign as title; honest presence/quality as subtitle (semantics unchanged).
+- A speaking indicator (`stateRx` dot + "Speaking") on the active speaker's row, using `RadioViewState.activeSpeakerPeerId`.
+- 64–72 dp rows.
+
+In embedded mode, the Event QR actions ("Scan QR" / "Share QR") render as a compact two-button row at the top of the body; in default mode they stay where they are. Keep the empty-state and "member list unavailable" copy. Regenerate `stations_*` goldens.
+**Acceptance_Criteria:**
+- [ ] `embedded: true` renders no app bar and shows current-channel context in the body; default mode unchanged, proven by a test (ADR-002 A1)
+- [ ] Rows show initials avatar, callsign and honest presence; only the active speaker's row shows the speaking indicator (Design §2.4)
+- [ ] List still updates while open without a parent rebuild (existing test passes); empty and unavailable states keep their copy (Design §2.4)
+- [ ] Scan/Share QR callbacks fire from the embedded action row (Design §2.4)
+- [ ] `test/app_shell/**` and `test/regression/real_composition_test.dart` pass with zero edits
+- [ ] `stations_*` goldens regenerated; `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T10:07:46Z
+
+
+### TASK-077
+**Title:** UX R2 shell — Talk-first launch, top app bar, icon tab strip (Talk · Channels · Stations), overflow menu
+**Status:** pending
+**Assigned_To:** S5
+**Priority:** high
+**Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §2 O1/O2 and §3 A1 (Talk default on every launch including first; icon-only tab strip with accent underline; swipe disabled; Settings + Radio controls in overflow; back on a non-Talk tab returns to Talk; bottom nav removed); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §1 ("its presentation lifecycle must not own the radio session. Secondary screens and sheets return to the previous context without changing the current channel"); Verification VT-001–VT-005; Technical §9
+**Owned_Paths:** lib/app_shell/**, lib/app.dart, test/app_shell/**, test/regression/real_composition_test.dart, dossiers/TASK-077.md
+**Depends_On:** TASK-074, TASK-075, TASK-076
+**Description:** Reopens frozen `lib/app.dart` for `home:` wiring only; the legacy debug route stays until TASK-061. Replace `MobileAppShell`'s bottom `NavigationBar` and two branches with:
+- **Top app bar**: "KERYX" wordmark; a connection indicator dot (healthy vs degraded, with semantic label); a `PopupMenuButton` overflow containing "Radio controls" (→ `ShellRoutes.openRadioControls`) and "Settings" (→ `SettingsScreen` pushed full-screen on the root navigator, with back).
+- **Icon-only tab strip** under the app bar: Talk (`Icons.mic`), Channels (`Icons.radio`), Stations (`Icons.groups`); semantic labels/tooltips "Talk"/"Channels"/"Stations"; 48 dp targets; accent underline of `tabIndicatorThickness`; thin divider below.
+- **Bodies**: an `IndexedStack` of per-tab navigators, keeping the existing branch-navigator pattern so state survives tab switches. No swipe between tabs.
+
+Wiring:
+- Talk tab root = `TalkScreen(host, onOpenPicker → selector, onOpenStations → switch to Stations tab, onOpenRadioControls: null)`.
+- Channels = `ChannelsLanding(embedded: true, onOpenTalk: null, onTuneSucceeded → switch to Talk)`; a successful apply in a selector opened from Channels also switches to Talk.
+- Stations = `StationsScreen(embedded: true, onScan/onExport → Event QR routes)`.
+- Default index = Talk on every launch; the first run uses the stored/default channel and never shows a picker.
+- `PopScope`: system back on the Channels/Stations roots switches to Talk; on the Talk root it falls through to the platform.
+- Re-tapping the active tab pops its branch to root (existing behaviour).
+
+The host is still constructed and started exactly once above all routes, and no tab switch or push/pop calls a host lifecycle method. Rewrite the shell tests and `real_composition_test.dart` for the new navigation, keeping every VT-001–VT-005 assertion.
+**Acceptance_Criteria:**
+- [ ] Cold `KeryxApp` launch lands on the Talk tab with the PTT ring visible, both with no stored settings and with stored settings; no picker shown (ADR-002 O1)
+- [ ] Tab strip has exactly Talk, Channels, Stations: icon-only, semantic labels, 48 dp targets, accent underline; no bottom navigation bar exists (ADR-002 A1/O2)
+- [ ] A horizontal drag across the Talk body, including across the PTT, never changes tab (ADR-002 A1)
+- [ ] Overflow menu opens Radio controls and Settings as full-screen routes with back; returning keeps the current tab and channel (Design §1)
+- [ ] Talk station chip switches to Stations; Channels recall success and selector apply switch to Talk; system back on Channels/Stations returns to Talk (ADR-002 A1)
+- [ ] VT-001–VT-005 pass against the new shell: exactly one host start, no lifecycle call on tab switch or push/pop, current channel preserved (Verification §3)
+- [ ] `flutter analyze` clean; full suite green; `flutter build apk --debug` succeeds
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T10:07:46Z
+
+
+### TASK-078
+**Title:** UX R2 regression + owner review build — goldens audit, small-phone/landscape checks, split release APKs
+**Status:** pending
+**Assigned_To:** CX9
+**Priority:** medium
+**Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §2 O4 (owner reviews the built APK instead of a mockup), §5; specs/KERYX_Mobile_UX_Redesign_Verification_v1.0.md §6 (golden fixtures for every significant state, dark and light; 320 lp width; text scale 2.0; landscape), §9 G4; ops/REGRESSION_UX_R1.md (the R1 baseline this extends)
+**Owned_Paths:** test/regression/**, ops/REGRESSION_UX_R2.md, dossiers/TASK-078.md
+**Depends_On:** TASK-077, TASK-079, TASK-080
+**Description:** The UX R2 evidence gate before the owner review. On the merged tree:
+1. Audit that every golden under `test/regression/goldens/goldens/` reflects the R2 compositions. Add goldens for the new shell frame (Talk tab with app bar + tab strip, dark and light) and for RX with a measured glow.
+2. Add regression widget tests at 320×568, 360×640 and 412×915 dp, text scale 1.0 and 2.0, and landscape 640×360: no overflow; PTT reachable; tab strip and overflow menu reachable.
+3. Run the full suite, `flutter analyze`, `flutter build apk --debug` and `flutter build apk --release --split-per-abi`.
+4. Record the arm64-v8a APK path, byte size and sha256 in `ops/REGRESSION_UX_R2.md`, with test counts reconciled against `ops/REGRESSION_UX_R1.md` and every delta explained.
+
+Do not install on devices or send the APK anywhere; ORCH hands it to the owner.
+**Acceptance_Criteria:**
+- [ ] Shell-frame goldens (dark/light) and a measured-glow RX golden exist; every other golden confirmed current (Verification §6)
+- [ ] Layout tests at 320×568, 360×640, 412×915, text scale 1.0/2.0 and landscape pass with no overflow and a reachable PTT (Verification §6)
+- [ ] Full suite, analyzer, debug build and split-per-ABI release build pass; counts reconciled against R1 with every delta explained (Verification §9 G4)
+- [ ] `ops/REGRESSION_UX_R2.md` records the arm64-v8a release APK path, byte size and sha256
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T10:07:46Z
+
+
+### TASK-079
+**Title:** RX level telemetry — plumb inbound-rtp audioLevel into RadioViewState as MeasuredMeterLevel
+**Status:** pending
+**Assigned_To:** CX9
+**Priority:** medium
+**Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A6 (RX plumbing authorised; unavailable stays decorative; no TX mic metering); specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §5.3 ("An animation driven by phase is decorative and must not be described as measured RMS"); Verification VT-015; lib/services/mesh/rtc_adapter.dart (`readAudioLevel`, `audioLevelFromInboundRtpStats`, TASK-065); lib/core/presentation/telemetry.dart (`MeasuredMeterLevel`, "reserved for TASK-065's real RX metering")
+**Owned_Paths:** lib/services/mesh/mesh_controller.dart, lib/services/session/radio_session_controller.dart, lib/services/linked/linked_controller.dart, lib/core/radio_host/**, lib/core/presentation/radio_view_state.dart, lib/core/presentation/telemetry.dart, test/services/mesh/mesh_controller_test.dart, test/services/session/radio_session_controller_test.dart, test/services/linked/linked_controller_test.dart, test/core/radio_host/**, test/core/presentation/radio_view_state_test.dart, dossiers/TASK-079.md
+**Depends_On:** —
+**Description:** TASK-065 built `RtcAdapter.readAudioLevel()` (inbound-rtp `audioLevel`, 0–1, or unavailable), but nothing consumes it, so `RadioViewState.meterLevel` is always `MeterLevel.decorative` and the new PTT glow (ADR-002 A3) can never light. Wire it through:
+- **Mesh controller:** while the phase is `rxActive`, poll the active speaker's connection at ~10 Hz. Stop immediately outside RX, and on retune and dispose.
+- **Pipeline:** expose the latest level through the session controller into `RadioHostSnapshot`, then have `RadioViewState.project` emit `MeasuredMeterLevel(value × 100)` only while receiving with a real level available.
+- **All other cases:** `MeterLevel.decorative`.
+- **LINKED:** if `livekit_client` exposes the active speaker participant's `audioLevel`, map it the same way. Otherwise LINKED stays decorative, with the reason in the dossier.
+- **Forbidden:** synthesising a level from energy/jitter/media-source; TX metering.
+- Throttle so a 10 Hz level does not rebuild unrelated consumers needlessly, and document the approach.
+
+Files in `Owned_Paths` that turn out not to need changes stay untouched.
+**Acceptance_Criteria:**
+- [ ] During `rxActive` with a fake adapter returning levels, `RadioViewState.meterLevel` is `MeasuredMeterLevel` tracking them (×100) (ADR-002 A6)
+- [ ] Unavailable level, TX, idle and every non-RX phase yield `MeterLevel.decorative`; one test per case (Technical §5.3; VT-015)
+- [ ] Polling starts on RX entry and stops on RX exit, retune and dispose — verified with a fake clock/adapter call count, no leaked timers (ADR-002 A6)
+- [ ] LINKED implemented or explicitly decorative, with the reason recorded in the dossier
+- [ ] No TX/media-source metering added; `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T10:07:46Z
+
+
+### TASK-080
+**Title:** Effective route shows "AUTO" — diagnose and fix the configured-vs-effective route projection
+**Status:** pending
+**Assigned_To:** CX9
+**Priority:** high
+**Spec_References:** specs/KERYX_Mobile_UX_Redesign_Technical_v1.0.md §7 ("The UI must distinguish configured preference from effective route. A configured AUTO value does not establish that the app is currently connected"); PRD UX-FR-002; lib/core/presentation/connection_condition.dart dartdoc (effective route "is never `auto` in practice"); owner screenshot 2026-09-11 ("Configured LOCAL · Route AUTO" on a real phone), also noted in orchestrator_notes after the 2026-09-08 hardware attempt
+**Owned_Paths:** lib/services/session/radio_session_controller.dart, lib/core/state/radio_state.dart, lib/core/state/radio_state_controller.dart, lib/core/presentation/connection_condition.dart, test/services/session/radio_session_controller_test.dart, test/core/state/**, test/core/presentation/connection_condition_test.dart, dossiers/TASK-080.md
+**Depends_On:** TASK-079
+**Description:** The shipped build on a real phone showed "Configured LOCAL · Route AUTO". `ConnectionCondition` documents that the effective route is never `auto`, because `RadioSessionController.start()` resolves the mode and dispatches `SetMode`. However, `RadioState.mode` defaults to `RadioMode.auto`, and `SetMode` is **queued if the reducer is not idle**. The leading hypothesis is a queued `SetMode` that is never flushed, or is lost on retune/rebuild, leaving the default visible. **Diagnose before fixing:**
+1. Reproduce with a failing test: configured LOCAL → boot → the effective route must be LOCAL once started, and still after a retune and after a settings-driven session rebuild.
+2. Record the verified root cause in the dossier.
+3. Fix at the root.
+4. Until a route is actually resolved, the projection presents an explicit unresolved/connecting state, and the literal AUTO is never shown as an effective route.
+
+Sequenced after TASK-079 because both own `radio_session_controller.dart`.
+**Acceptance_Criteria:**
+- [ ] The dossier states the verified root cause, with the test that failed before the fix
+- [ ] With configured LOCAL and configured LINKED, the effective route equals the resolved mode after start, after retune and after a session rebuild — one test per path (Technical §7)
+- [ ] With configured AUTO, the effective route is the concrete resolved route, never `auto` (UX-FR-002)
+- [ ] Before resolution, `ConnectionCondition` exposes an explicit unresolved state that UI can label; `auto` is never presented as an effective route (Technical §7)
+- [ ] `flutter analyze` clean; full suite green
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T10:07:46Z
