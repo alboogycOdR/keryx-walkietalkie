@@ -5094,7 +5094,7 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 
 ### TASK-084
 **Title:** v2 directory service I — Postgres, signed-request auth, identity + contacts + presence WebSocket
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §3.3 (signature verification), §4.1 (schema), §4.2 (identity/contacts/presence endpoints), §4.3 (presence protocol), §9 (compose, backups); PRD V2-FR-010..014, V2-FR-030..033, V2-NFR-002/003/004/007; Verification V2-VT-010, 013, 016; existing token-svc/app/** (grow, do not replace)
@@ -5102,13 +5102,13 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 **Depends_On:** —
 **Description:** Grow `token-svc` into the directory service under `/v2/`. Add Postgres 16 to the compose file (named volume, healthcheck, `DATABASE_URL`), SQLAlchemy + Alembic with the §4.1 schema (identities, contact_requests, contacts, blocks, groups, group_members, invites — create all tables now, implement identity/contacts/presence in this task; groups endpoints are TASK-085). Implement Ed25519 signature verification middleware (`X-Keryx-Sig/Key/Ts`, 120 s window, Redis nonce replay set). Endpoints: `POST /v2/identity`, `GET /v2/identity/me`, `PATCH /v2/identity/callsign`, `POST /v2/contacts/requests`, `POST /v2/contacts/requests/{from_pk}:accept|decline|block`, `DELETE /v2/contacts/{pk}`. Presence: `WS /v2/presence` with signed hello, `{status}` messages, 60 s heartbeat, Offline after 5 min, fan-out via Redis pub/sub to contacts (co-members come in TASK-085). Enumerate error codes in `token-svc/README.md`. Extend `PrivacyFilter` so logs carry no keys, callsigns or room IDs. Publish `token-svc/openapi-v2.yaml` (hand-written or generated) as the contract TASK-086 codes against; keep it in sync with the code. Existing `/token` behaviour is unchanged in this task (the membership gate is TASK-085).
 **Acceptance_Criteria:**
-- [ ] `docker compose up` brings up postgres alongside redis/livekit/coturn/caddy; Alembic migrates the §4.1 schema; nightly `pg_dump` script documented (Technical §9)
-- [ ] Signature middleware accepts a valid signed request and rejects stale (>120 s), replayed and wrongly-signed ones with enumerated error codes (Technical §3.3; V2-VT-004 server side)
-- [ ] Contacts lifecycle passes V2-VT-010: accept creates a symmetric link, decline creates nothing, block prevents re-request, expiry at 7 days, 21st outstanding request refused (V2-FR-010..013)
-- [ ] Presence passes V2-VT-013: heartbeat keeps Online, 5 min silence → Offline, a status change reaches a connected contact within 5 s, non-contacts receive nothing (V2-FR-030..032)
-- [ ] Storage per user < 4 KB after the V2-VT-016 load (V2-NFR-007)
-- [ ] Logs contain no key, callsign or room ID under a test that exercises every endpoint (Verification §7)
-- [ ] `openapi-v2.yaml` describes every endpoint above; `pytest` green; existing token tests still pass
+- [x] `docker compose up` brings up postgres alongside redis/livekit/coturn/caddy; Alembic migrates the §4.1 schema; nightly `pg_dump` script documented (Technical §9)
+- [x] Signature middleware accepts a valid signed request and rejects stale (>120 s), replayed and wrongly-signed ones with enumerated error codes (Technical §3.3; V2-VT-004 server side)
+- [x] Contacts lifecycle passes V2-VT-010: accept creates a symmetric link, decline creates nothing, block prevents re-request, expiry at 7 days, 21st outstanding request refused (V2-FR-010..013)
+- [x] Presence passes V2-VT-013: heartbeat keeps Online, 5 min silence → Offline, a status change reaches a connected contact within 5 s, non-contacts receive nothing (V2-FR-030..032)
+- [x] Storage per user < 4 KB after the V2-VT-016 load (V2-NFR-007)
+- [x] Logs contain no key, callsign or room ID under a test that exercises every endpoint (Verification §7)
+- [x] `openapi-v2.yaml` describes every endpoint above; `pytest` green; existing token tests still pass
 **Branch:** task/TASK-084-gb
 **Started_At:** 2026-09-11T17:38:00Z
 **Progress_Notes:**
@@ -5136,12 +5136,23 @@ Territory matches: Talk presentation + goldens + layout matrix + dossier. No lib
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Growing token-svc under /v2/; postgres added to compose with `:-` defaults so relay `.env.example` (out of territory) is not required. Groups tables created now; group endpoints left to TASK-085. Existing POST /token left unsigned.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-11T18:14:39Z] [GB] Directory I complete on `task/TASK-084-gb` (`4831c52`). `/v2/` identity+contacts+presence, Ed25519 signed headers, Alembic §4.1 schema (groups tables present, HTTP is TASK-085), Postgres 16 in compose, `openapi-v2.yaml`, enumerated errors in README. Caddyfile is out of territory — README notes the `/v2/` matcher follow-up. POST `/token` still unsigned.
+**Artifacts:**
+- token-svc/app/{signing,orm,db,directory,presence,v2_api,encoding,errors}.py
+- token-svc/alembic/**, token-svc/alembic.ini
+- token-svc/openapi-v2.yaml
+- token-svc/scripts/pg_dump_nightly.sh
+- token-svc/tests/test_v2_*.py
+- relay/docker-compose.yml (postgres:16.10-alpine + keryx_pg)
+- relay/README.md (Postgres, DATABASE_URL, pg_dump)
+- dossiers/TASK-084.md
+**Test_Evidence:**
+- [2026-09-11T18:14:39Z] [GB] `cd token-svc; python -m pytest --tb=no` — 48 passed in 10.31s (existing token tests + V2-VT-004/010/013/016 + logging + openapi + compose).
+- [2026-09-11T18:14:39Z] [GB] `python relay/tests/test_relay_config.py` — 19/19 OK, including `docker compose --env-file .env.example config` with postgres in the service set. `.env.example` unchanged (`${VAR:-default}` interpolation).
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-11T17:38:00Z
+**Updated_At:** 2026-09-11T18:14:39Z
 
 
 ### TASK-085
