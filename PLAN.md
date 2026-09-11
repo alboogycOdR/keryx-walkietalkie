@@ -4218,7 +4218,7 @@ No fake presence counts. Regenerate `channels_*` goldens.
 
 ### TASK-076
 **Title:** UX R2 Stations as a tab body — embedded mode, avatar rows, speaking state, QR action row
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** medium
 **Spec_References:** docs/adr/ADR-002-zello-aligned-talk-first-ui.md §3 A1 (Stations is a tab); specs/KERYX_Mobile_UX_Redesign_Design_v1.0.md §2.4 ("known callsigns and actual presence… update while open… empty state, current-channel context and existing Event QR actions… Quality information is omitted or marked unavailable unless a real metric exists… explicitly state that a complete member list is unavailable rather than displaying zero")
@@ -4232,22 +4232,35 @@ No fake presence counts. Regenerate `channels_*` goldens.
 
 In embedded mode, the Event QR actions ("Scan QR" / "Share QR") render as a compact two-button row at the top of the body; in default mode they stay where they are. Keep the empty-state and "member list unavailable" copy. Regenerate `stations_*` goldens.
 **Acceptance_Criteria:**
-- [ ] `embedded: true` renders no app bar and shows current-channel context in the body; default mode unchanged, proven by a test (ADR-002 A1)
-- [ ] Rows show initials avatar, callsign and honest presence; only the active speaker's row shows the speaking indicator (Design §2.4)
-- [ ] List still updates while open without a parent rebuild (existing test passes); empty and unavailable states keep their copy (Design §2.4)
-- [ ] Scan/Share QR callbacks fire from the embedded action row (Design §2.4)
-- [ ] `test/app_shell/**` and `test/regression/real_composition_test.dart` pass with zero edits
-- [ ] `stations_*` goldens regenerated; `flutter analyze` clean; full suite green
+- [x] `embedded: true` renders no app bar and shows current-channel context in the body; default mode unchanged, proven by a test (ADR-002 A1)
+- [x] Rows show initials avatar, callsign and honest presence; only the active speaker's row shows the speaking indicator (Design §2.4)
+- [x] List still updates while open without a parent rebuild (existing test passes); empty and unavailable states keep their copy (Design §2.4)
+- [x] Scan/Share QR callbacks fire from the embedded action row (Design §2.4)
+- [x] `test/app_shell/**` and `test/regression/real_composition_test.dart` pass with zero edits
+- [x] `stations_*` goldens regenerated; `flutter analyze` clean; full suite green
 **Branch:** task/TASK-076-s5
 **Started_At:** 2026-09-11T11:00:00Z
 **Progress_Notes:**
 - [2026-09-11T11:00:00Z] [S5] Claimed TASK-076 (resume check: no S5 claimed/in_progress task found; TASK-072 done/merged unlocked this task). Preflight (`python scripts/preflight_paths.py TASK-076`): lib/features/stations/** = 5 files, test/features/stations/** = 3 files, test/regression/goldens/stations_golden_test.dart exists (74 lines), test/regression/goldens/goldens/stations_*.png = 4 files, dossiers/TASK-076.md exists (21 lines). Branch task/TASK-076-s5 created from master (e6f2f18, post TASK-072 merge). Next: add `embedded` param to StationsScreen, restyle rows with avatar/speaking indicator, add embedded QR action row, regenerate stations_* goldens.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-11T12:00:00Z] [S5] Completed. `StationsScreen`/`StationsView` gained `embedded` (default `false`, additive): when true, `appBar: null` (shell owns it), the current-channel context line moves to the top of the body, and a new `_EmbeddedQrActions` compact two-button row replaces the app-bar QR actions (new key `stations.embedded-actions`, reusing `.scan`/`.export`). Default mode's tree is unchanged (title stays in app bar, no new keys render) — proven by a dedicated test. Rows restyled in both modes: new `_StationAvatar` (CircleAvatar on `surfaceRaised`, 1-2 letter initials, never the raw peer ID), row min-height 48->64dp (within the 64-72dp band), and a new `_SpeakingIndicator` (`stateRx` dot + "Speaking", key `stations.speaking`) shown only on the row where `station.peerId == RadioViewState.activeSpeakerPeerId` (wired through `_rosterBody` -> `_StationList` -> `_StationRow`). 5 new tests added (2 embedded-mode, 3 row/avatar/speaking); all 24 pre-existing stations tests pass unmodified. Regenerated `stations_*` goldens: only `stations_populated_{dark,light}.png` changed (avatars + taller rows); `stations_empty_*` byte-identical. Confirmed `test/app_shell/**` and `test/regression/real_composition_test.dart` pass with zero edits (27/27). → Status: needs_review.
+**Artifacts:**
+- lib/features/stations/stations_screen.dart
+- test/features/stations/stations_screen_test.dart
+- test/regression/goldens/goldens/stations_populated_dark.png
+- test/regression/goldens/goldens/stations_populated_light.png
+- dossiers/TASK-076.md
+**Test_Evidence:**
+- [2026-09-11T12:00:00Z] [S5] `flutter analyze --no-pub lib/features/stations/ test/features/stations/` -> No issues found.
+- [2026-09-11T12:00:00Z] [S5] `flutter analyze --no-pub` (repo-wide) -> No issues found.
+- [2026-09-11T12:00:00Z] [S5] `flutter test --no-pub test/features/stations/` -> **29/29 pass** (was 24, +5 new).
+- [2026-09-11T12:00:00Z] [S5] `flutter test --no-pub test/app_shell/ test/regression/real_composition_test.dart` -> **27/27 pass**, zero edits to either path.
+- [2026-09-11T12:00:00Z] [S5] `flutter test --no-pub --update-goldens test/regression/goldens/stations_golden_test.dart` -> 4/4 pass; only `stations_populated_{dark,light}.png` changed, `stations_empty_*` byte-identical.
+- [2026-09-11T12:00:00Z] [S5] `flutter test --no-pub` (full suite) -> **1434 passed / 0 failed / 40 skipped**, exit 0 (baseline 1429 + this task's 5 new tests; same 40 PARKED FR-025 soak-seed skips, reason string unchanged).
+- [2026-09-11T12:00:00Z] [S5] `git diff master...HEAD --stat` -> `lib/features/stations/stations_screen.dart`, `test/features/stations/stations_screen_test.dart`, 2 golden PNGs under `test/regression/goldens/goldens/`, `dossiers/TASK-076.md` — all inside `Owned_Paths`; zero PLAN.md commits on the branch.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-09-11T11:00:00Z
+**Updated_At:** 2026-09-11T12:00:00Z
 
 
 ### TASK-077
