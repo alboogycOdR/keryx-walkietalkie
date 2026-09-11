@@ -1,0 +1,321 @@
+openapi: 3.1.0
+info:
+  title: Keryx directory v2
+  version: "2.0.0"
+  description: |
+    Directory grown from token-svc (Technical §3.3, §4).
+    Every `/v2/` call is signed. `POST /token` is unchanged in TASK-084
+    (membership gate is TASK-085). Group write endpoints are TASK-085.
+
+    Signature (Technical §3.3):
+      canonical = METHOD|path|body|timestamp   (body is raw bytes; empty if none)
+      X-Keryx-Sig: standard base64(Ed25519(sha256(canonical)))
+      X-Keryx-Key: unpadded base64url of the 32-byte Ed25519 public key
+      X-Keryx-Ts: Unix seconds
+    Reject if |now - ts| > 120 s, if the nonce (sha256(sig)) was seen in that
+    window, or if the signature does not verify.
+
+    Error bodies are always `{ "error": "<code>" }`. Codes are enumerated
+    in token-svc/README.md.
+
+servers:
+  - url: /
+
+tags:
+  - name: identity
+  - name: contacts
+  - name: presence
+  - name: token
+
+paths:
+  /healthz:
+    get:
+      operationId: healthz
+      responses:
+        "200":
+          description: Process is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+
+  /token:
+    post:
+      tags: [token]
+      operationId: mintToken
+      description: Existing LiveKit JWT mint. Unchanged in TASK-084.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [room_id, callsign]
+              properties:
+                room_id: { type: string }
+                callsign: { type: string }
+                event_token: { type: string, nullable: true }
+      responses:
+        "200":
+          description: JWT
+        "422":
+          description: invalid_request (`detail`)
+        "429":
+          description: rate_limited (`detail`)
+
+  /v2/identity:
+    post:
+      tags: [identity]
+      operationId: registerIdentity
+      security: [{ keryxSign: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [callsign]
+              properties:
+                callsign: { type: string, minLength: 2, maxLength: 12 }
+      responses:
+        "200":
+          description: Registered (or idempotent same callsign)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pk, callsign]
+                properties:
+                  pk: { type: string, description: unpadded base64url public key }
+                  callsign: { type: string }
+        "401": { $ref: "#/components/responses/AuthError" }
+        "409":
+          description: identity_exists or callsign_taken
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/InvalidRequest" }
+
+  /v2/identity/me:
+    get:
+      tags: [identity]
+      operationId: getMe
+      security: [{ keryxSign: [] }]
+      responses:
+        "200":
+          description: Contacts, groups, pending requests
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/AuthError" }
+
+  /v2/identity/callsign:
+    patch:
+      tags: [identity]
+      operationId: patchCallsign
+      security: [{ keryxSign: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [callsign]
+              properties:
+                callsign: { type: string }
+      responses:
+        "200":
+          description: Renamed
+        "401": { $ref: "#/components/responses/AuthError" }
+        "409":
+          description: callsign_taken
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v2/contacts/requests:
+    post:
+      tags: [contacts]
+      operationId: sendContactRequest
+      security: [{ keryxSign: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to_pk]
+              properties:
+                to_pk: { type: string, description: unpadded base64url public key }
+      responses:
+        "200":
+          description: Pending request created (expires in 7 days)
+        "401": { $ref: "#/components/responses/AuthError" }
+        "403":
+          description: blocked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: not_found (unknown to_pk)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: already_contacts or already_pending
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429":
+          description: too_many_outstanding (21st refused)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v2/contacts/requests/{from_pk}:accept:
+    post:
+      tags: [contacts]
+      operationId: acceptContactRequest
+      security: [{ keryxSign: [] }]
+      parameters:
+        - $ref: "#/components/parameters/FromPk"
+      responses:
+        "200":
+          description: Symmetric contact created
+        "401": { $ref: "#/components/responses/AuthError" }
+        "404":
+          description: request_not_found
+        "410":
+          description: request_expired
+
+  /v2/contacts/requests/{from_pk}:decline:
+    post:
+      tags: [contacts]
+      operationId: declineContactRequest
+      security: [{ keryxSign: [] }]
+      parameters:
+        - $ref: "#/components/parameters/FromPk"
+      responses:
+        "200":
+          description: Declined; no contact row
+        "401": { $ref: "#/components/responses/AuthError" }
+        "404":
+          description: request_not_found
+        "410":
+          description: request_expired
+
+  /v2/contacts/requests/{from_pk}:block:
+    post:
+      tags: [contacts]
+      operationId: blockContactRequest
+      security: [{ keryxSign: [] }]
+      parameters:
+        - $ref: "#/components/parameters/FromPk"
+      responses:
+        "200":
+          description: Block recorded; re-request refused
+        "401": { $ref: "#/components/responses/AuthError" }
+
+  /v2/contacts/{pk}:
+    delete:
+      tags: [contacts]
+      operationId: removeContact
+      security: [{ keryxSign: [] }]
+      parameters:
+        - name: pk
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Link removed; other side is not notified
+        "401": { $ref: "#/components/responses/AuthError" }
+        "404":
+          description: not_contacts
+
+  /v2/presence:
+    get:
+      tags: [presence]
+      operationId: presenceSocket
+      description: |
+        WebSocket. Upgrade with the same signed headers (method GET, path
+        `/v2/presence`, empty body). Then send `{ "status": "available"|"busy"|"dnd"|"offline" }`
+        on change and `{ "type": "heartbeat" }` every 60 s. Server marks Offline
+        after 5 minutes without a heartbeat. Fan-out to contacts:
+        `{ pk, status, talking?, since }`. Nearby is never computed here.
+      security: [{ keryxSign: [] }]
+      responses:
+        "101":
+          description: Switching protocols
+        "401": { $ref: "#/components/responses/AuthError" }
+
+components:
+  securitySchemes:
+    keryxSign:
+      type: apiKey
+      in: header
+      name: X-Keryx-Sig
+      description: See info.signature; also send X-Keryx-Key and X-Keryx-Ts.
+
+  parameters:
+    FromPk:
+      name: from_pk
+      in: path
+      required: true
+      schema: { type: string }
+      description: unpadded base64url public key of the requester
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+    Me:
+      type: object
+      required: [pk, callsign, status, contacts, pending_in, pending_out, groups]
+      properties:
+        pk: { type: string }
+        callsign: { type: string }
+        status: { type: string, enum: [offline, available, busy, dnd] }
+        contacts:
+          type: array
+          items:
+            type: object
+            properties:
+              pk: { type: string }
+              callsign: { type: string }
+              status: { type: string }
+              last_seen_at: { type: integer }
+        pending_in:
+          type: array
+          items:
+            type: object
+            properties:
+              from_pk: { type: string }
+              callsign: { type: string }
+              created_at: { type: integer }
+              expires_at: { type: integer }
+        pending_out:
+          type: array
+          items:
+            type: object
+        groups:
+          type: array
+          items:
+            type: object
+            description: Empty until TASK-085 writes memberships; schema is stable.
+
+  responses:
+    AuthError:
+      description: missing_signature, invalid_signature, stale_timestamp, replayed, invalid_key, unknown_identity
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    InvalidRequest:
+      description: invalid_request / invalid_callsign
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }

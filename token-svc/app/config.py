@@ -21,6 +21,10 @@ def _int(name: str, default: int, minimum: int = 1) -> int:
     return value
 
 
+def _opt(name: str, default: str = "") -> str:
+    return os.environ.get(name, default).strip()
+
+
 @dataclass(frozen=True)
 class Settings:
     livekit_api_key: str
@@ -30,6 +34,9 @@ class Settings:
     rate_limit_max: int = 30
     rate_limit_window_seconds: int = 60
     rate_limit_ttl_seconds: int = 3600
+    database_url: str = "sqlite://"
+    redis_url: str = ""
+    signing_window_s: int = 120
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -44,4 +51,7 @@ class Settings:
             rate_limit_max=_int("RATE_LIMIT_MAX", 30),
             rate_limit_window_seconds=_int("RATE_LIMIT_WINDOW_SECONDS", 60),
             rate_limit_ttl_seconds=ttl,
+            database_url=_opt("DATABASE_URL", "sqlite://"),
+            redis_url=_opt("REDIS_URL", ""),
+            signing_window_s=_int("KERYX_SIGNING_WINDOW_S", 120),
         )

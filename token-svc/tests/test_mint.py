@@ -64,15 +64,18 @@ def test_room_id_is_normalized_uppercase(client, settings) -> None:
     assert claims["video"]["room"] == ROOM_A
 
 
-def test_no_user_database_or_state_files() -> None:
+def test_no_committed_sqlite_state_files() -> None:
     root = Path(__file__).resolve().parents[1]
     forbidden = []
     for path in root.rglob("*"):
-        if any(part in {".venv", "__pycache__", ".pytest_cache"} for part in path.parts):
+        if any(part in {".venv", "__pycache__", ".pytest_cache", "alembic"} for part in path.parts):
             continue
         if path.suffix.lower() in {".db", ".sqlite", ".sqlite3"}:
             forbidden.append(path)
     assert forbidden == []
-    text = "".join(py.read_text(encoding="utf-8") for py in (root / "app").glob("*.py"))
-    for needle in ("sqlite3", "sqlalchemy", "psycopg", "pymongo"):
-        assert needle not in text.lower()
+
+
+def test_token_mint_does_not_require_directory_rows(client) -> None:
+    res = client.post("/token", json={"room_id": ROOM_A, "callsign": CALLSIGN})
+    assert res.status_code == 200
+    assert "token" in res.json()

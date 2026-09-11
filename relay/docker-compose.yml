@@ -8,6 +8,8 @@
 #
 # token-svc is deliberately NOT a service here (TASK-040: no new services).
 # Caddy reverse-proxies /token to TOKEN_SVC_UPSTREAM (loopback :8080).
+# TASK-084 adds Postgres 16 for the v2 directory. token-svc still runs
+# beside the stack; give it DATABASE_URL / REDIS_URL / KERYX_SIGNING_WINDOW_S.
 #
 # Before first start: copy .env.example → .env, fill secrets, then
 #   python scripts/render_config.py --env .env
@@ -87,6 +89,28 @@ services:
       - ./generated/turnserver.conf:/etc/coturn/turnserver.conf:ro
     command: ["-c", "/etc/coturn/turnserver.conf", "--no-cli"]
 
+  postgres:
+    image: postgres:16.10-alpine
+    <<: [*restart, *log-cap]
+    network_mode: host
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # `:-` defaults so relay/.env.example (out of this task's territory) does
+      # not have to grow new keys. Override via the VPS `.env` in production.
+      POSTGRES_USER: ${POSTGRES_USER:-keryx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-REPLACE_ME_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-keryx}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - keryx_pg:/var/lib/postgresql/data
+    command: ["postgres", "-c", "listen_addresses=127.0.0.1"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keryx -d keryx -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   caddy:
     image: caddy:2.9.1-alpine
     <<: [*restart, *log-cap]
@@ -111,3 +135,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  keryx_pg:
