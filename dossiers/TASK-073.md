@@ -20,3 +20,5 @@ Build `TalkPttRing` in a new file: dark face, thick state-coloured ring, mic gly
 4. Test gesture idempotency, the semantics custom actions, Enter/Space, sizeFor clamps and reduced motion.
 
 ## Work Log
+
+- 2026-09-11T10:50:00Z [CX] Implemented standalone `TalkPttRing`: parameter-only colours, custom-painted face/ring/glyph/sweep/lock badge, measured-only glow, press feedback + haptic, reduced-motion static variants, idempotent pointer hold and semantics/keyboard toggles. Added focused widget tests for sizing, telemetry honesty, treatment rendering, hold cancellation, semantics and keyboard behavior. No Talk screen wiring or golden changes are part of this task.
