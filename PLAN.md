@@ -1,6 +1,6 @@
 ---
 plan_version: 16.0
-last_updated: 2026-09-11T18:21:05Z
+last_updated: 2026-09-11T18:52:34Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -5168,7 +5168,7 @@ Growing token-svc under /v2/; postgres added to compose with `:-` defaults so re
 
 ### TASK-085
 **Title:** v2 directory service II — groups, invites, rotation, alerts, membership-gated /token
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §4.2 (groups/alerts/token rows), §5.2 (invite), §5.3 (rotation); PRD V2-FR-020..025, V2-FR-050; Verification V2-VT-011, 012, 014, 015
@@ -5221,10 +5221,27 @@ Territory is existing token-svc (grow, do not replace). Implementing groups/invi
 - dossiers/TASK-085.md
 **Test_Evidence:**
 - [2026-09-11T18:42:58Z] [GB] `cd token-svc; python -m pytest --tb=short -q` — 64 passed in ~50 s (existing token + V2-VT-011/012/014/015 + encoding interop + sweep + Redis bus).
-**Review_Findings:** —
+**Review_Findings:** [2026-09-11T18:52:34Z] [ORCH] **APPROVED first-pass**, merged `dd54903`. Reviewed on claude-sonnet-5 (AUTOPILOT v2.0 wave).
+- **Territory:** clean. 26 files, all under `token-svc/**`, single tagged commit.
+- **Tests:** independent run in a fresh venv: full suite 64/64; the five new v2 files (key encoding, presence sweep, groups, token gate, alerts) individually 16/16.
+- **Both carried fixes verified in source:**
+  - `b64url_decode` now strips `=` and decodes with the urlsafe alphabet, which also accepts standard `+/` after translation — a test feeds the Dart client's exact standard-base64 form and it is accepted.
+  - `mark_stale_offline`'s sweep now also runs on a periodic loop (not only on socket traffic), and `RedisPresenceHub` has a subscriber wired to the bus.
+- **Groups reviewed in source:**
+  - `create_group`/`mint_invite`/`join_group`: room-ID conflict check, 25-member cap enforced at join, invite expiry presets and custom seconds.
+  - `rotate_group`: requires a sealed secret for every remaining member (`_apply_sealed` checks the key set matches exactly), bumps `key_version`, changes the room ID, and only then deletes the removed member — so a rotation that doesn't cover everyone fails atomically before anything is mutated.
+  - `leave_group`: last member leaving deletes the group and its invites; the last admin leaving among remaining members promotes the oldest by `joined_at`, matching PRD V2-FR-024.
+  - `send_alert`: requires an existing contact link, 600 s (10 min) per-sender-per-target window, upsert on the pair.
+  - `assert_room_member`: gates `/token` by checking the room ID against both group membership and 1:1 `DirectRoom`, refusing anyone else — this is the membership check V2-VT-014 needs.
+- **Criteria:** all seven verified against the tests and the source above.
+- **Non-blocking:**
+  - (a) `rotate_group` takes a `remove_pk` parameter for the "remove member" case but is also the general rotation endpoint; worth a docstring or split before TASK-090's admin UI leans on it, so a manual "rotate with no removal" and a "remove member" call are not confused.
+  - (b) `ensure_direct_room` lets either party propose the room ID and returns the existing row if it already matches; a race between two simultaneous first-time callers picking different room IDs will `409 ROOM_CONFLICT` one of them — acceptable, since TASK-087's derivation is deterministic from both public keys and both sides compute the same ID.
+  - (c) `get_group` returns `my_secret_enc` to the caller on every fetch; confirm TASK-091's client never logs or displays it.
+- **Unlocks:** TASK-086 (S5, needs TASK-087 too), TASK-089/090 (GB).
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-11T18:42:58Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T18:52:34Z
 
 
 ### TASK-086
