@@ -5,7 +5,17 @@ via WebRTC (`flutter_webrtc` LOCAL mode / `livekit_client` LINKED mode) over a
 self-hosted LiveKit relay (Docker compose: LiveKit + Redis + Caddy + coturn) with a
 FastAPI token service minting LiveKit JWTs (no user accounts).
 
-- **Current focus:** FIELD TESTING & DIAGNOSIS. **INTEGRATION WAVE COMPLETE (40/40 tasks)** — release APK built and deployed on two Android phones; LOCAL mode discovery working on real hardware; **PTT audio transmission blocked** (voice doesn't flow despite peer detection). Next: user diagnostic feedback on boot sound, media volume, and mic permission state will narrow root cause. After audio fixed: Phase 2 design engagement (UI redesign to skeuomorphic radio aesthetic) + small post-wave debt items (token URL double-append, app size, mic-denied recovery). See handover 2026-08-23 for field test status.
+- **Current focus:** OWNER REVIEW of the UX R2 build, then HARDWARE ACCEPTANCE.
+  - **UX R2 wave COMPLETE 2026-09-11** (TASK-072..081, 10/10, plan v15.1, `docs/adr/ADR-002-zello-aligned-talk-first-ui.md`): Talk-first launch, top icon tabs Talk·Channels·Stations, ⋮ menu (Settings, Radio controls), amber accent, dark-face PTT ring with measured-only RX glow, "Route AUTO" root-cause fix. The review APK went to the owner via Telegram.
+  - **Voice works:** bidirectional LOCAL voice was confirmed on two real phones (TASK-059 run 1, Honor CRT-NX1 + Samsung A05s), so the old "PTT audio blocked" finding is closed.
+  - **Next:**
+    1. Owner feedback on the R2 UI. One open visual question: the empty band above the bottom-pinned PTT.
+    2. TASK-059's remaining rows (contention, channel change, background, no-internet LAN, network drop) and TASK-060 (LINKED), both needing the owner's two phones.
+    3. TASK-061 (retire the legacy face), then TASK-062 (release acceptance).
+  - **Environment notes:**
+    - On this machine CX9 is unusable (its CODEX_HOME exists only on the owner's other machine); S5 + GB are the working builders.
+    - C: disk is nearly full, so check free space before Gradle builds.
+    - Headless S5 sessions must run verification in the foreground, not as background jobs.
 - FR-025 emergency-preemption double-grant (~40/500 soak seeds) is PARKED by
   explicit owner decision 2026-08-21T17:05Z — no successor task; do not chase.
 - Scaffolded and 31/31 pre-integration tasks merged. Source root is `lib/**` +
@@ -37,7 +47,7 @@ FastAPI token service minting LiveKit JWTs (no user accounts).
 
 # CLAUDE.md — Orchestrator Briefing (ORCH)
 
-You are **ORCH**, the orchestrator, planner, and reviewer of a configurable multi-unit development team. The roster is defined in `autopilot.json`'s `builders` registry (mechanism: `docs/BUILDER_REGISTRY.md`); as currently configured: **GB** (Grok Build), **S5** (Claude Sonnet 5, headless) — with **CX** (Codex AI, stepped down 2026-08-19 after hitting its own usage limit, resets 2026-08-21T16:27+02:00, reactivate after) and **S5B** (second Sonnet 5 login, needs `~/.claude-s5b` set up first) defined but inactive for this project. You do not build; they do not plan or review.
+You are **ORCH**, the orchestrator, planner, and reviewer of a configurable multi-unit development team. The roster is defined in `autopilot.json`'s `builders` registry (mechanism: `docs/BUILDER_REGISTRY.md`); as of 2026-09-11 on the primary machine: **S5** (Claude Sonnet 5, headless) and **GB** (Grok Build) active. **CX** (Codex) is defined; it hit its usage limit on 2026-09-11 and should be re-probed before use. **CX9** (second Codex identity) works only on the owner's other machine. **S5B** is inactive (no second Anthropic account). `autopilot.json` → `builders.active` is authoritative. You do not build; they do not plan or review.
 
 Read `AGENTS.md` and `docs/COORDINATION_PROTOCOL.md` at the start of every session. They are authoritative.
 
@@ -114,7 +124,7 @@ Builders must never modify: `specs/**`, `AGENTS.md`, `CLAUDE.md`, `docs/**`, `RE
 Conventional Commits, `[TASK-NNN]` suffix on task work, `[ORCH]` on orchestration commits. `master` is integration truth; only you commit/merge to it.
 
 ### Builder territory mapping for THIS project
-- Source root: **not yet scaffolded** (KRX-001 creates `lib/**` — Flutter app root)
-- Test root: **not yet scaffolded** (KRX-001 creates `test/**`)
-- Platform dirs: **not yet scaffolded** (`android/`, `ios/` come from `flutter create`; `relay/` = LiveKit Docker compose; `token-svc/` = FastAPI token service)
-- Owned_Paths must be drawn from these real directories — never a placeholder src/**. Until KRX-001 lands, no builder should be dispatched against source paths — decompose specs first.
+- Source root: `lib/**` (Flutter app; successor UI in `lib/app_shell/**` + `lib/features/{talk,channels,stations,settings,...}/**`; legacy face/ptt/display pending retirement by TASK-061)
+- Test root: `test/**` (goldens under `test/regression/goldens/**`, split by filename prefix per screen)
+- Platform dirs: `android/`, `ios/`; `relay/` = LiveKit Docker compose; `token-svc/` = FastAPI token service
+- Owned_Paths must be drawn from these real directories — never a placeholder src/**. When a task deletes or renames a widget, grep `test/**` for its type/key references and include every referencing test file in Owned_Paths (TASK-074 lesson).
