@@ -26,3 +26,5 @@ converted to a pass by assumption. If voice is still absent, the documented next
 step is TASK-065's remote-track handling, not blaming the new UI.
 
 ## Work Log
+
+- [2026-09-11T09:16:38Z] [ORCH] Run 1 reported by the owner, recorded in `ops/FIELD_TEST_LOCAL.md`. Honor CRT-NX1 / Android 15 plus a Samsung Galaxy A05s (Android version not recorded), home Wi-Fi with internet. Voice worked both ways through the loudspeaker, which confirms TASK-044 on hardware. Discovery passed, but only on a network with internet. Rows not run: contention, channel change, network failure, wired/Bluetooth routing, background, long-running. The owner confirmed exactly which rows they checked; nothing was inferred.

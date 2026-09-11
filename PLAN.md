@@ -1,6 +1,6 @@
 ---
-plan_version: 14.1
-last_updated: 2026-09-08T19:56:05Z
+plan_version: 14.2
+last_updated: 2026-09-11T09:16:38Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -3538,7 +3538,7 @@ Territory matches expectation: new `test/regression/**` + new report file; dossi
 **Acceptance_Criteria:**
 - [ ] Two physical Android devices used, with model, OS version, app commit, network configuration and per-row result recorded (Verification §7)
 - [ ] LOCAL discovery succeeds on a LAN without internet access (Verification §7)
-- [ ] Audible, intelligible bidirectional voice A→B and B→A through the intended output route, with correct grant/release and no stuck microphone (Verification §7; PRD §7)
+- [x] Audible, intelligible bidirectional voice A→B and B→A through the intended output route, with correct grant/release and no stuck microphone (Verification §7; PRD §7)
 - [ ] Busy/contention: only one station owns the floor and simultaneous requests obey arbitration (Verification §7)
 - [ ] Channel change: both devices tune to matching channel/code and communicate; the old channel is no longer incorrectly active (Verification §7)
 - [ ] Network failure produces the documented reconnect/fallback/no-link behaviour (Verification §7)
@@ -3547,14 +3547,18 @@ Territory matches expectation: new `test/regression/**` + new report file; dossi
 - [ ] Long-running TOT, battery and foreground-service checks executed against the established plan (Verification §7)
 - [ ] `ops/FIELD_TEST_LOCAL.md` records every row with real evidence; failures are recorded as failures with a recommended successor task, never assumed to pass (Verification §9)
 **Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
-**Artifacts:** —
-**Test_Evidence:** —
+**Started_At:** 2026-09-11T09:16:38Z
+**Progress_Notes:**
+- [2026-09-11T09:16:38Z] [ORCH] Run 1 reported by the owner (details in ops/FIELD_TEST_LOCAL.md). Devices: Honor CRT-NX1 / Android 15 and Samsung Galaxy A05s (Android version not recorded), on home Wi-Fi WITH internet. PASS: voice both ways through the loudspeaker. This is the first hardware confirmation of TASK-044's routing fix; the 2026-08-23 no-voice failure is resolved. PARTIAL: discovery (worked, but the no-internet LAN condition was not exercised); routing (speakerphone only). NOT RUN: contention, channel change, network failure, background, long-running. No failures observed, so no successor task. Status kept at pending, not in_progress: this is an owner-run hardware test with no builder branch, and the validator allows no TBD assignee on an active task. Close it once the remaining rows are run.
+**Artifacts:**
+- ops/FIELD_TEST_LOCAL.md (Run 1)
+- dossiers/TASK-059.md (work log)
+**Test_Evidence:**
+- [2026-09-11T09:16:38Z] [ORCH] Owner-observed two-phone LOCAL run, confirmed row by row via a direct question in the interactive session. Device A read via adb. The pulled on-device APK's libapp.so contains TASK-044's setSpeakerphoneOn and the successor-shell sources, matching origin/master f412dbd.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** ORCH
-**Updated_At:** 2026-09-07T18:05:00Z
+**Updated_At:** 2026-09-11T09:16:38Z
 
 
 ### TASK-060
