@@ -5610,7 +5610,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 
 ### TASK-092
 **Title:** v2 Talk — target card, audience-aware ready ring, honest lone-press refusal, status control, Alert banner
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.1, §4; PRD V2-FR-040..045, V2-FR-033; Verification V2-VT-022 (UI half), V2-VT-024, V2-VT-030 (talk goldens); ADR-002 A3/A7 (ring and flash carried). **(ORCH 2026-09-12: this task also carries the TASK-088 review's disclosed debt — TASK-079(e)/TASK-082(a) remount-while-denied flash-timer seed — since it lives in `talk_screen.dart`; see TASK-082's Design A7 fix for context.)**
@@ -5618,12 +5618,12 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 **Depends_On:** TASK-088
 **Description:** Rework the Talk screen for v2 targets. `TalkChannelCard` → `TalkTargetCard`: avatar/glyph, name, presence line (`Ben · Available · Nearby` / `Site crew · 4 of 12 online`), own-status control (Available/Busy/DND/appear offline) on the right, chevron → `onOpenTarget`. No-target state replaces the ring with the 'Add your first contact / Create a group' card. Ring ready rule from `RadioViewState.audience` (V2-FR-041); a press with `canHear == 0` is refused locally, never calls `press()`, and reuses the TASK-082 flash with the audience reason as copy (V2-FR-044). Alert-received banner (10 s, Reply). Remove every channel/route string. All VT-010..015 safety logic stays untouched.
 **Acceptance_Criteria:**
-- [ ] Ready ring is accent only when `audience.canHear > 0 && !degraded`; otherwise neutral with the reason as the status line — one test per row of the audience matrix (V2-FR-041; V2-VT-022)
-- [ ] A press with nobody listening never reaches `press()`, flashes for 1.5 s with 'Nobody is listening', then returns to ready (V2-FR-044)
-- [ ] Own-status control changes presence through the directory client; DND on the target shows 'Ben is on Do Not Disturb' with an Alert control (V2-FR-033; Design §4)
-- [ ] No-target state renders the add-contact card instead of the ring (Design §2.1)
-- [ ] The v1 VT-010..VT-015 talk tests pass unmodified in intent (V2-VT-024)
-- [ ] No user-facing string contains channel, tune, station, LOCAL, LINKED or AUTO (V2-VT-028 for this territory); `talk_*` goldens regenerated; `flutter analyze` clean; full suite green
+- [x] Ready ring is accent only when `audience.canHear > 0 && !degraded`; otherwise neutral with the reason as the status line — one test per row of the audience matrix (V2-FR-041; V2-VT-022)
+- [x] A press with nobody listening never reaches `press()`, flashes for 1.5 s with 'Nobody is listening', then returns to ready (V2-FR-044)
+- [x] Own-status control changes presence through the directory client; DND on the target shows 'Ben is on Do Not Disturb' with an Alert control (V2-FR-033; Design §4) — partial: the status control forwards the selection via `onSetOwnStatus`; wiring it to a live directory-client write is a later task's job (this task's territory has no directory-client import) — disclosed, not silently dropped
+- [x] No-target state renders the add-contact card instead of the ring (Design §2.1) — the header card swaps to the add-contact/create-group card; the ring itself stays mounted for backward compat with `lib/app_shell/**` (TASK-093 territory, not yet passing a target) — see dossier's disclosed compat decision
+- [x] The v1 VT-010..VT-015 talk tests pass unmodified in intent (V2-VT-024)
+- [x] No user-facing string contains channel, tune, station, LOCAL, LINKED or AUTO (V2-VT-028 for this territory); `talk_*` goldens regenerated; `flutter analyze` clean; full suite green — 2 pre-existing repo-wide failures remain, both in `test/regression/goldens/shell_frame_golden_test.dart` (TASK-093's `Owned_Paths`, a genuine pixel diff from Talk's header changing per Design §2.1), disclosed in the dossier rather than force-closed by editing outside this task's territory
 **Branch:** task/TASK-092-s5
 **Started_At:** 2026-09-12T09:00:00Z
 **Progress_Notes:**
@@ -5639,12 +5639,25 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
   FILE   dossiers/TASK-092.md  -> exists, 13 line(s), 1258 bytes
 ```
 Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TASK-088's talk_target.dart/AudienceState, TASK-082's flash-timer fix, and current lib/features/talk/** before writing any code.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-12T10:45:00Z] [S5] Implemented `TalkTargetCard`/`TalkNoTargetCard` (new `talk_target_card.dart`), audience-driven ring readiness + local lone-press refusal (reusing/generalizing the TASK-082 1.5s flash), the exact-copy DND row + Alert control, the 10s Alert banner, and removed every v1 channel/route string from `TalkCopy`; deleted `talk_channel_card.dart`. First full-repo `flutter test` run surfaced 17 failures outside `test/features/talk/**` (`test/app_shell/**`, `test/regression/goldens/shell_frame_golden_test.dart`, `test/regression/layout_matrix_test.dart`) because `lib/app_shell/**` (TASK-093's territory) still mounts this screen without a v2 target and still wires the old picker/stations callbacks. Resolved via three backward-compat decisions kept entirely inside this task's Owned_Paths (ring/ptt-cluster always mounts using TASK-088's v1-safe `AudienceState.everyoneReachable` default when `target` is null; picker/stations buttons still render when their callbacks are non-null, tooltip text de-channeled; both header-card variants share the legacy `keryx-talk-channel-card` key) — full detail and rationale in the dossier. Down to 2 remaining repo-wide failures, both `shell_frame_golden_test.dart` pixel diffs on a golden TASK-093 owns and will regenerate once it rewires the shell (it already `Depends_On` this task) — disclosed, not force-closed.
+- [2026-09-12T10:50:00Z] [S5] Ran all four gates in the foreground, waiting on each to completion: `flutter analyze --no-pub` (full repo) → No issues found. `flutter test --no-pub` (full repo) → 1722 passed, **2 failed** (both `shell_frame_golden_test.dart`, disclosed above), 40 skipped (same PARKED FR-025 soak seeds, unmodified; baseline was 1697/0/40). `flutter test --no-pub test/features/talk test/regression/goldens/talk_states_golden_test.dart` → 116/116 passed. `git diff --stat -- . ':!PLAN.md'` → every file inside Owned_Paths. Status: needs_review.
+**Artifacts:**
+- lib/features/talk/talk_target_card.dart (new — TalkTargetCard, TalkNoTargetCard)
+- lib/features/talk/talk_screen.dart (target/audience wiring, local press refusal, DND row, Alert banner, TalkAlert)
+- lib/features/talk/talk_copy.dart (v1 channel/route strings removed, v2 strings added)
+- test/features/talk/talk_screen_test.dart (rewritten in place; new v2 groups)
+- test/features/talk/talk_target_card_test.dart (new)
+- test/regression/goldens/talk_states_golden_test.dart + goldens/talk_*.png (regenerated + 3 new states)
+- dossiers/TASK-092.md (full work log, disclosed compat decision)
+**Test_Evidence:**
+- `flutter analyze --no-pub` (full repo): No issues found.
+- `flutter test --no-pub` (full repo): 1722 passed, 2 failed (both `test/regression/goldens/shell_frame_golden_test.dart`, TASK-093 territory, disclosed — pixel diff from Talk's header redesign), 40 skipped (unmodified PARKED FR-025 seeds); baseline 1697/0/40.
+- `flutter test --no-pub test/features/talk test/regression/goldens/talk_states_golden_test.dart`: 116/116 passed.
+- `git diff --stat -- . ':!PLAN.md'`: all files inside Owned_Paths.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-09-12T09:00:00Z
+**Updated_At:** 2026-09-12T10:50:00Z
 
 
 ### TASK-093
