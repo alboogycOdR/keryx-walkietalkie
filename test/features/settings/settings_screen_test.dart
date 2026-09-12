@@ -169,6 +169,26 @@ void main() {
     expect(host.applySettingsCalls, isNotEmpty);
   });
 
+  testWidgets(
+    'This network only, when on, names contacts and presence as blocked',
+    (tester) async {
+      await pumpSettings(
+        tester,
+        settings: const KeryxSettings(forceLocalOnly: true),
+      );
+      expect(find.byKey(SettingsKeys.forceLocalNote), findsOneWidget);
+      expect(find.text(SettingsCopy.forceLocalBlocksWan), findsOneWidget);
+      expect(
+        SettingsCopy.forceLocalBlocksWan.toLowerCase(),
+        contains('contact'),
+      );
+      expect(
+        SettingsCopy.forceLocalBlocksWan.toLowerCase(),
+        contains('presence'),
+      );
+    },
+  );
+
   testWidgets('a session-affecting toggle (Local only) shows confirmation; '
       'cancel does not apply', (tester) async {
     await pumpSettings(

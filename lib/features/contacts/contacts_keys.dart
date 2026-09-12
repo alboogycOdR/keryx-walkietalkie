@@ -15,6 +15,10 @@ abstract final class ContactsKeys {
   static const Key addError = Key('keryx-contacts-add-error');
   static const Key scanScreen = Key('keryx-contacts-scan');
   static const Key scanView = Key('keryx-contacts-scan-view');
+  static const Key scanBusy = Key('keryx-contacts-scan-busy');
+  static const Key localOnlyNotice = Key('keryx-contacts-local-only-notice');
+  static const Key localOnlyNoticeDismiss =
+      Key('keryx-contacts-local-only-notice-dismiss');
   static const Key incomingSheet = Key('keryx-contacts-incoming-sheet');
   static const Key incomingAccept = Key('keryx-contacts-incoming-accept');
   static const Key incomingDecline = Key('keryx-contacts-incoming-decline');

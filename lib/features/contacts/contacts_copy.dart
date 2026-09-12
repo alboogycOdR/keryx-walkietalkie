@@ -31,6 +31,11 @@ abstract final class ContactsCopy {
   static const invalidId = "That isn't a valid KERYX ID.";
   static const tamperedId = 'That code is damaged or has been tampered with.';
   static const requestFailed = "Couldn't send that request.";
+
+  /// Shown on Contacts and Scan while Settings → This network only is on.
+  static const localOnlyWarning =
+      'This network only is on. Adding contacts and seeing presence needs the '
+      'relay, so they will not work until you turn it off in Settings.';
   static const alertSent = 'Alert sent';
   static const alertCooldown = 'Alert is available again in 10 minutes';
 

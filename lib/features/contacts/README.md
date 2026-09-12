@@ -12,5 +12,10 @@ Embedded Contacts tab body for TASK-093 to mount. No app bar of its own.
 - Add contact sheet: scan (`mobile_scanner`, injectable for tests), show
   my code (callback), paste an ID. Tampered QRs are refused locally
   (`KeryxIdLink.parse`) before any network call.
+- Scan waits for `sendRequestFromId` (same try/catch as paste) and stays
+  open with `Couldn't send that request.` on failure; it does not pop on
+  parse alone.
+- When Settings → This network only is on, a dismissable notice on the
+  Contacts list and Scan screen says contacts and presence need the relay.
 - Nearby / Talking are injected `Set<String>`s — this territory has no
   session dependency.

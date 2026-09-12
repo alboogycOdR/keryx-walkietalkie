@@ -22,6 +22,8 @@ class ContactsScreen extends StatelessWidget {
     this.onAddContact,
     this.confirmingBlockPk,
     this.onArmBlockRequest,
+    this.forceLocalOnly = false,
+    this.onDismissLocalOnlyNotice,
   });
 
   final ContactsViewState state;
@@ -40,25 +42,38 @@ class ContactsScreen extends StatelessWidget {
   final String? confirmingBlockPk;
   final void Function(String pk)? onArmBlockRequest;
 
+  /// When true, show a dismissable notice that contacts/presence need
+  /// the relay (Settings → This network only).
+  final bool forceLocalOnly;
+  final VoidCallback? onDismissLocalOnlyNotice;
+
   @override
   Widget build(BuildContext context) {
     final tokens = KeryxUxTokens.of(context);
+    final Widget body = state.isEmpty
+        ? _EmptyState(tokens: tokens)
+        : _ContactsBody(
+            state: state,
+            tokens: tokens,
+            onSelectTarget: onSelectTarget,
+            onLongPressContact: onLongPressContact,
+            onAcceptRequest: onAcceptRequest,
+            onDeclineRequest: onDeclineRequest,
+            onBlockRequest: onBlockRequest,
+            onOpenIncomingRequest: onOpenIncomingRequest,
+            confirmingBlockPk: confirmingBlockPk,
+            onArmBlockRequest: onArmBlockRequest,
+          );
     return Scaffold(
       backgroundColor: tokens.surfaceBase,
-      body: state.isEmpty
-          ? _EmptyState(tokens: tokens)
-          : _ContactsBody(
-              state: state,
-              tokens: tokens,
-              onSelectTarget: onSelectTarget,
-              onLongPressContact: onLongPressContact,
-              onAcceptRequest: onAcceptRequest,
-              onDeclineRequest: onDeclineRequest,
-              onBlockRequest: onBlockRequest,
-              onOpenIncomingRequest: onOpenIncomingRequest,
-              confirmingBlockPk: confirmingBlockPk,
-              onArmBlockRequest: onArmBlockRequest,
-            ),
+      body: forceLocalOnly
+          ? Column(
+              children: [
+                LocalOnlyContactsNotice(onDismiss: onDismissLocalOnlyNotice),
+                Expanded(child: body),
+              ],
+            )
+          : body,
       floatingActionButton: FloatingActionButton.extended(
         key: ContactsKeys.addFab,
         onPressed: onAddContact,
@@ -367,6 +382,42 @@ class _ContactRow extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Persistent, dismissable honesty banner for Settings → This network only.
+class LocalOnlyContactsNotice extends StatelessWidget {
+  const LocalOnlyContactsNotice({super.key, this.onDismiss});
+
+  final VoidCallback? onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = KeryxUxTokens.of(context);
+    return Material(
+      key: ContactsKeys.localOnlyNotice,
+      color: tokens.surfaceCard,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                ContactsCopy.localOnlyWarning,
+                style: KeryxUxTypography.body.copyWith(color: tokens.textPrimary),
+              ),
+            ),
+            IconButton(
+              key: ContactsKeys.localOnlyNoticeDismiss,
+              onPressed: onDismiss,
+              tooltip: 'Dismiss',
+              icon: const Icon(Icons.close),
+            ),
+          ],
         ),
       ),
     );

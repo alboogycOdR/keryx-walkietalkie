@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -31,8 +32,12 @@ void main() {
               Navigator.of(context).push<void>(
                 MaterialPageRoute<void>(
                   builder: (_) => ScanIdScreen(
-                    onRaw: received.add,
-                    scannerBuilder: ({required onRaw}) => _fakeScanner(onRaw: onRaw, payload: link.qrPayload),
+                    onRaw: (raw) async {
+                      received.add(raw);
+                      return null;
+                    },
+                    scannerBuilder: ({required onRaw}) =>
+                        _fakeScanner(onRaw: onRaw, payload: link.qrPayload),
                   ),
                 ),
               );
@@ -60,7 +65,10 @@ void main() {
       MaterialApp(
         theme: keryxUxThemeData(),
         home: ScanIdScreen(
-          onRaw: received.add,
+          onRaw: (raw) async {
+            received.add(raw);
+            return null;
+          },
           scannerBuilder: ({required onRaw}) =>
               _fakeScanner(onRaw: onRaw, payload: 'keryx://id?v=1&c=BEN&k=nope'),
         ),
@@ -72,5 +80,96 @@ void main() {
 
     expect(received, isEmpty);
     expect(find.text(ContactsCopy.tamperedId), findsOneWidget);
+  });
+
+  testWidgets('a send failure stays on the scan screen with the paste-path error', (
+    tester,
+  ) async {
+    final link = KeryxIdLink(callsign: 'BEN', publicKey: _key());
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: keryxUxThemeData(),
+        home: ScanIdScreen(
+          onRaw: (raw) async => throw StateError('directory unreachable'),
+          scannerBuilder: ({required onRaw}) =>
+              _fakeScanner(onRaw: onRaw, payload: link.qrPayload),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('fake-scan-emit')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(ContactsKeys.scanScreen), findsOneWidget);
+    expect(find.text(ContactsCopy.requestFailed), findsOneWidget);
+  });
+
+  testWidgets('the scan screen does not pop while the request is still in flight', (
+    tester,
+  ) async {
+    final link = KeryxIdLink(callsign: 'BEN', publicKey: _key());
+    final pending = Completer<String?>();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: keryxUxThemeData(),
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () {
+              Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => ScanIdScreen(
+                    onRaw: (_) => pending.future,
+                    scannerBuilder: ({required onRaw}) =>
+                        _fakeScanner(onRaw: onRaw, payload: link.qrPayload),
+                  ),
+                ),
+              );
+            },
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.byKey(const Key('fake-scan-emit')));
+    await tester.pump();
+
+    expect(find.byKey(ContactsKeys.scanScreen), findsOneWidget);
+    expect(find.byKey(ContactsKeys.scanBusy), findsOneWidget);
+
+    pending.complete(ContactsCopy.requestFailed);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(ContactsKeys.scanScreen), findsOneWidget);
+    expect(find.text(ContactsCopy.requestFailed), findsOneWidget);
+  });
+
+  testWidgets('forceLocalOnly shows a dismissable contacts/presence warning', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: keryxUxThemeData(),
+        home: ScanIdScreen(
+          forceLocalOnly: true,
+          onRaw: (_) async => null,
+          scannerBuilder: ({required onRaw}) =>
+              _fakeScanner(onRaw: onRaw, payload: 'unused'),
+        ),
+      ),
+    );
+
+    expect(find.byKey(ContactsKeys.localOnlyNotice), findsOneWidget);
+    expect(find.text(ContactsCopy.localOnlyWarning), findsOneWidget);
+
+    await tester.tap(find.byKey(ContactsKeys.localOnlyNoticeDismiss));
+    await tester.pump();
+
+    expect(find.byKey(ContactsKeys.localOnlyNotice), findsNothing);
   });
 }
