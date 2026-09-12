@@ -1,5 +1,5 @@
 ---
-plan_version: 16.2
+plan_version: 16.3
 last_updated: 2026-09-12T05:11:42Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
@@ -5610,7 +5610,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 
 ### TASK-092
 **Title:** v2 Talk — target card, audience-aware ready ring, honest lone-press refusal, status control, Alert banner
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.1, §4; PRD V2-FR-040..045, V2-FR-033; Verification V2-VT-022 (UI half), V2-VT-024, V2-VT-030 (talk goldens); ADR-002 A3/A7 (ring and flash carried). **(ORCH 2026-09-12: this task also carries the TASK-088 review's disclosed debt — TASK-079(e)/TASK-082(a) remount-while-denied flash-timer seed — since it lives in `talk_screen.dart`; see TASK-082's Design A7 fix for context.)**
@@ -5641,6 +5641,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TASK-088's talk_target.dart/AudienceState, TASK-082's flash-timer fix, and current lib/features/talk/** before writing any code.
 - [2026-09-12T10:45:00Z] [S5] Implemented `TalkTargetCard`/`TalkNoTargetCard` (new `talk_target_card.dart`), audience-driven ring readiness + local lone-press refusal (reusing/generalizing the TASK-082 1.5s flash), the exact-copy DND row + Alert control, the 10s Alert banner, and removed every v1 channel/route string from `TalkCopy`; deleted `talk_channel_card.dart`. First full-repo `flutter test` run surfaced 17 failures outside `test/features/talk/**` (`test/app_shell/**`, `test/regression/goldens/shell_frame_golden_test.dart`, `test/regression/layout_matrix_test.dart`) because `lib/app_shell/**` (TASK-093's territory) still mounts this screen without a v2 target and still wires the old picker/stations callbacks. Resolved via three backward-compat decisions kept entirely inside this task's Owned_Paths (ring/ptt-cluster always mounts using TASK-088's v1-safe `AudienceState.everyoneReachable` default when `target` is null; picker/stations buttons still render when their callbacks are non-null, tooltip text de-channeled; both header-card variants share the legacy `keryx-talk-channel-card` key) — full detail and rationale in the dossier. Down to 2 remaining repo-wide failures, both `shell_frame_golden_test.dart` pixel diffs on a golden TASK-093 owns and will regenerate once it rewires the shell (it already `Depends_On` this task) — disclosed, not force-closed.
 - [2026-09-12T10:50:00Z] [S5] Ran all four gates in the foreground, waiting on each to completion: `flutter analyze --no-pub` (full repo) → No issues found. `flutter test --no-pub` (full repo) → 1722 passed, **2 failed** (both `shell_frame_golden_test.dart`, disclosed above), 40 skipped (same PARKED FR-025 soak seeds, unmodified; baseline was 1697/0/40). `flutter test --no-pub test/features/talk test/regression/goldens/talk_states_golden_test.dart` → 116/116 passed. `git diff --stat -- . ':!PLAN.md'` → every file inside Owned_Paths. Status: needs_review.
+- [2026-09-12T11:05:00Z] [ORCH] Reviewed on claude-sonnet-5 (v2.0 wave). Territory clean (33 files). Independent run: analyze 0; full suite 1724 total/2 failed/40 skipped, matching S5's 1722/2/40 exactly — both failures confirmed `shell_frame_golden_test.dart` (TASK-093 territory, genuine header pixel diff). Compat decision (ring cluster stays mounted on a null target via TASK-088's v1-safe default; shared legacy widget key) reviewed and accepted as the wave's established additive-seam pattern. ADR-002 A7 roster-count copy split correctly consolidated since the v2 audience-refusal path now owns that case; VT-010..015 logic itself unchanged. **APPROVED first-pass, merged `58f4b27`.** Status: done. Unlocks TASK-093.
 **Artifacts:**
 - lib/features/talk/talk_target_card.dart (new — TalkTargetCard, TalkNoTargetCard)
 - lib/features/talk/talk_screen.dart (target/audience wiring, local press refusal, DND row, Alert banner, TalkAlert)
@@ -5654,10 +5655,10 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 - `flutter test --no-pub` (full repo): 1722 passed, 2 failed (both `test/regression/goldens/shell_frame_golden_test.dart`, TASK-093 territory, disclosed — pixel diff from Talk's header redesign), 40 skipped (unmodified PARKED FR-025 seeds); baseline 1697/0/40.
 - `flutter test --no-pub test/features/talk test/regression/goldens/talk_states_golden_test.dart`: 116/116 passed.
 - `git diff --stat -- . ':!PLAN.md'`: all files inside Owned_Paths.
-**Review_Findings:** —
+**Review_Findings:** APPROVED first-pass. See REVIEW.md row and ORCH progress note above.
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-12T10:50:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T11:05:00Z
 
 
 ### TASK-093
