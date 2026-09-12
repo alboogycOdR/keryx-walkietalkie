@@ -31,6 +31,9 @@ Future<({FakeRadioHost host, ProviderContainer container})> pumpRegressionShell(
   }
 
   final host = FakeRadioHost();
+  // Deterministic seed so overflow → My code can render a real QR without
+  // hitting flutter_secure_storage (V2-VT-029).
+  final keyPair = await IdentityKeyPair.fromSeed(List<int>.filled(32, 1));
   final container = ProviderContainer(
     overrides: <Override>[
       radioHostProvider.overrideWithValue(host),
@@ -44,6 +47,7 @@ Future<({FakeRadioHost host, ProviderContainer container})> pumpRegressionShell(
           installUuid: '00000000-0000-4000-8000-000000000000',
           peerId: 'stub-peer',
           callsign: Callsign.parse('STUB-1'),
+          keyPair: keyPair,
         ),
       ),
     ],
@@ -76,11 +80,5 @@ Future<({FakeRadioHost host, ProviderContainer container})> pumpRegressionShell(
 Finder tabTalk() => find.byKey(ShellKeys.tabTalk);
 Finder tabContacts() => find.byKey(ShellKeys.tabContacts);
 Finder tabGroups() => find.byKey(ShellKeys.tabGroups);
-
-// v2 (TASK-093) renamed the second/third tabs Contacts/Groups. These aliases
-// keep `test/regression/layout_matrix_test.dart` (outside this task's
-// Owned_Paths) compiling until a fast-follow renames its call sites too.
-Finder tabChannels() => tabContacts();
-Finder tabStations() => tabGroups();
 Finder overflowMenu() => find.byKey(ShellKeys.overflowMenu);
 Finder pttDisc() => find.byKey(const Key('keryx-talk-ptt-disc'));

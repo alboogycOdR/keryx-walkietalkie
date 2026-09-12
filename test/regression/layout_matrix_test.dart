@@ -5,10 +5,10 @@ import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 
 import 'regression_shell_harness.dart';
 
-/// TASK-078 — Verification §6 layout matrix against the assembled R2 shell
+/// TASK-095 — Verification §6 layout matrix against the assembled v2 shell
 /// (not a per-screen fake): 320×568, 360×640, 412×915 at text scale 1.0 and
 /// 2.0, plus landscape 640×360. Asserts no overflow, a reachable PTT, and
-/// reachable tab strip + overflow menu.
+/// reachable Talk/Contacts/Groups tab strip + overflow menu.
 class _LayoutCase {
   const _LayoutCase(this.label, this.size, {this.textScale = 1.0});
 
@@ -29,7 +29,7 @@ const List<_LayoutCase> _matrix = <_LayoutCase>[
 
 void main() {
   for (final _LayoutCase c in _matrix) {
-    testWidgets('R2 shell layout — ${c.label}: no overflow, PTT and chrome '
+    testWidgets('v2 shell layout — ${c.label}: no overflow, PTT and chrome '
         'reachable (Verification §6)', (tester) async {
       await pumpRegressionShell(tester, size: c.size, textScale: c.textScale);
 
@@ -40,23 +40,27 @@ void main() {
       );
 
       expect(tabTalk(), findsOneWidget);
-      expect(tabChannels(), findsOneWidget);
-      expect(tabStations(), findsOneWidget);
+      expect(tabContacts(), findsOneWidget);
+      expect(tabGroups(), findsOneWidget);
       expect(overflowMenu(), findsOneWidget);
       await tester.ensureVisible(tabTalk());
+      await tester.ensureVisible(tabContacts());
+      await tester.ensureVisible(tabGroups());
       await tester.ensureVisible(overflowMenu());
 
-      final Size talkTarget = tester.getSize(tabTalk());
-      expect(
-        talkTarget.width,
-        greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
-        reason: '${c.label}: Talk tab width ${talkTarget.width}',
-      );
-      expect(
-        talkTarget.height,
-        greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
-        reason: '${c.label}: Talk tab height ${talkTarget.height}',
-      );
+      for (final Finder tab in <Finder>[tabTalk(), tabContacts(), tabGroups()]) {
+        final Size target = tester.getSize(tab);
+        expect(
+          target.width,
+          greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
+          reason: '${c.label}: tab width ${target.width}',
+        );
+        expect(
+          target.height,
+          greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
+          reason: '${c.label}: tab height ${target.height}',
+        );
+      }
 
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
       expect(pttDisc(), findsOneWidget);

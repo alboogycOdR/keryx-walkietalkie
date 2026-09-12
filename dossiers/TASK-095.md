@@ -11,3 +11,6 @@ Evidence gate for v2.0. Complete the golden set of V2-VT-030 for every surface i
 - Depends_On: TASK-094
 
 ## Work Log
+
+- [2026-09-12T09:40:00Z] [GB] Claimed. Preflight: `test/regression/**` 38 files; `ops/FIELD_TEST_V2.md` and `ops/REGRESSION_V2.md` NEW; dossier exists.
+- [2026-09-12T10:00:31Z] [GB] V2-VT-030 goldens frozen under `test/regression/goldens/` (Talk ready/DND + Contacts/Groups/detail/My code/phrase, dark+light). Layout matrix retargeted to Talk/Contacts/Groups. Overflow system-back covers My code. Safety sweep: no contacts permission, no analytics SDK, HttpClient/WebSocket allowlist, mute-before-publish source contract (mutation-checked). Full suite 1407/0/40. Analyze clean. Release split-per-abi: arm64 45,158,532 bytes (43.1 MB) sha256 `6C8D9518F65280295EAE1B887D46C54E98D5E73F539A3ECD7F121F311F463DFF`. Runbooks written. Ready for needs_review.
