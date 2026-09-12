@@ -258,6 +258,28 @@ void main() {
       );
     });
 
+    // v2 (TASK-095 / V2-VT-030): explicit ready fixture. Same arrangement
+    // as idle (online contact, idle phase) — named for the verification
+    // row rather than the v1 idle label.
+    testWidgets('Talk — ready ($suffix)', (tester) async {
+      await pumpAndGolden(
+        tester,
+        name: 'ready_$suffix',
+        brightness: brightness,
+        arrange: (host, container, engine) {},
+      );
+    });
+
+    testWidgets('Talk — DND target ($suffix)', (tester) async {
+      await pumpAndGolden(
+        tester,
+        name: 'dnd_target_$suffix',
+        brightness: brightness,
+        presenceByPeerId: const {'peer-1': PeerPresence.dnd},
+        arrange: (host, container, engine) {},
+      );
+    });
+
     // v2 (TASK-092, Design §2.1/§4).
     testWidgets('Talk — no target ($suffix)', (tester) async {
       await pumpAndGolden(
