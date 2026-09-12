@@ -164,7 +164,14 @@ class TokenClient {
     try {
       final decoded = jsonDecode(rawBody);
       if (decoded is Map<String, Object?>) {
-        final detail = decoded['detail'];
+        // Bugfix (2026-09-12, field-reported): the token service's actual
+        // error shape is `{"error": "<code>"}` (token-svc/app/errors.py's
+        // `error_response`) for every DirectoryError-based 401
+        // (missing_signature/invalid_signature/stale_timestamp/replayed/
+        // invalid_key/unknown_identity) — only its 422 validation handler
+        // uses `{"detail": ...}`. Checking `detail` alone meant every 401
+        // reported `detail: null`, masking which of the six causes it was.
+        final detail = decoded['detail'] ?? decoded['error'];
         if (detail is String) return detail;
       }
     } on FormatException {

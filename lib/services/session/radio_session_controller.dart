@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:keryx/core/floor/clock.dart';
+import 'package:keryx/core/identity/identity.dart'
+    show IdentityKeyPair, IdentityRepository, SecureIdentityStore;
 import 'package:keryx/core/floor/effects.dart';
 import 'package:keryx/core/floor/floor_engine.dart';
 import 'package:keryx/core/presentation/talk_target.dart';
@@ -84,7 +86,9 @@ class RadioSessionController {
     DiscoveryService Function()? discoveryFactory,
     RtcAdapter? rtcAdapter,
     LiveKitAdapter? liveKitAdapter,
-    TokenClient Function(Uri baseUrl)? tokenClientFactory,
+    TokenClient Function(Uri baseUrl, {IdentityKeyPair? signer})?
+        tokenClientFactory,
+    Future<IdentityKeyPair?> Function()? identityKeyPairLoader,
     Duration? sessionStartTimeout,
   }) : _settings = settings,
        _dispatch = dispatch,
@@ -95,7 +99,10 @@ class RadioSessionController {
        _liveKitAdapter = liveKitAdapter ?? const LiveKitClientAdapter(),
        _tokenClientFactory =
            tokenClientFactory ??
-           ((Uri baseUrl) => TokenClient(baseUrl: baseUrl)),
+           ((Uri baseUrl, {IdentityKeyPair? signer}) =>
+               TokenClient(baseUrl: baseUrl, signer: signer)),
+       _identityKeyPairLoader =
+           identityKeyPairLoader ?? _defaultIdentityKeyPairLoader,
        _sessionStartTimeout = sessionStartTimeout ?? _defaultSessionStartTimeout;
 
   final String localPeerId;
@@ -108,13 +115,41 @@ class RadioSessionController {
   final DiscoveryService Function() _discoveryFactory;
   final RtcAdapter _rtcAdapter;
   final LiveKitAdapter _liveKitAdapter;
-  final TokenClient Function(Uri baseUrl) _tokenClientFactory;
+  final TokenClient Function(Uri baseUrl, {IdentityKeyPair? signer})
+  _tokenClientFactory;
+
+  /// Loads the real device identity's signing key so every `/token`
+  /// request is authenticated (v2 Technical §4.2: the directory's
+  /// membership check needs a caller identity). Defaults to the same
+  /// production identity store every other identity read in this app
+  /// uses ([IdentityRepository]/[SecureIdentityStore]) — idempotent, local
+  /// storage only, no network. **Bugfix (2026-09-12, field-reported):**
+  /// previously this controller never supplied a signer at all, so every
+  /// automatic LINKED join sent an unsigned request and the v2 token
+  /// service's now-mandatory signature check rejected it with a
+  /// deterministic 401 on every attempt, on any network — misread in the
+  /// field as a relay-reachability problem.
+  final Future<IdentityKeyPair?> Function() _identityKeyPairLoader;
 
   /// TASK-097: bounds `_startLocal`/`_startLinked` — see this class's own
   /// `start()`/`switchTarget()` dartdoc-adjacent notes below. Injectable so
   /// a test can prove the bound fires without a real multi-second wait.
   final Duration _sessionStartTimeout;
   static const _defaultSessionStartTimeout = Duration(seconds: 20);
+
+  static Future<IdentityKeyPair?> _defaultIdentityKeyPairLoader() async {
+    try {
+      final identity = await IdentityRepository(SecureIdentityStore()).loadOrCreate();
+      return identity.keyPair;
+    } catch (_) {
+      // Identity storage is unavailable (e.g. no platform binding in a
+      // unit test, or a genuine read failure) — degrade to an unsigned
+      // request rather than letting an identity-load hiccup masquerade as
+      // a session/relay failure. The token service still rejects an
+      // unsigned request cleanly (401), which is the honest outcome here.
+      return null;
+    }
+  }
 
   // --- LOCAL chain ---------------------------------------------------
   SignalingService? _signaling;
@@ -362,7 +397,8 @@ class RadioSessionController {
       callsign: callsign,
     );
     final baseUrl = Uri.tryParse(_settings.resolvedTokenServiceUrl) ?? Uri();
-    final tokenClient = _tokenClientFactory(baseUrl);
+    final signer = await _identityKeyPairLoader();
+    final tokenClient = _tokenClientFactory(baseUrl, signer: signer);
     final relayUrl = Uri.tryParse(_settings.relayUrl) ?? Uri();
     final linked = LinkedController(
       adapter: _liveKitAdapter,

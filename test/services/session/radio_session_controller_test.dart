@@ -972,7 +972,7 @@ void main() {
             settings: settings,
             dispatch: dispatchedEvents.add,
             liveKitAdapter: _HangingLiveKitAdapter(),
-            tokenClientFactory: (_) => _FastTokenClient(),
+            tokenClientFactory: (_, {signer}) => _FastTokenClient(),
             sessionStartTimeout: const Duration(milliseconds: 50));
 
           await expectLater(

@@ -67,6 +67,25 @@ void main() {
       );
     });
 
+    test(
+      'maps the real token-svc auth error shape ({"error": code}, not '
+      '{"detail": code}) — bugfix regression guard, was always null before',
+      () async {
+        server
+          ..statusCode = 401
+          ..responseBody = {'error': 'missing_signature'};
+
+        await expectLater(
+          client.requestToken(roomId: 'ABCDEFGHIJKLMNOP', callsign: 'X'),
+          throwsA(
+            isA<TokenRequestException>()
+                .having((e) => e.statusCode, 'statusCode', 401)
+                .having((e) => e.detail, 'detail', 'missing_signature'),
+          ),
+        );
+      },
+    );
+
     test('rate_limited (429) maps through as detail', () async {
       server
         ..statusCode = 429
