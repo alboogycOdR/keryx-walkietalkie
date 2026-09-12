@@ -5959,7 +5959,7 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 
 ### TASK-095
 **Title:** v2.0 regression pass, device-matrix runbook and release build
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Verification_v1.0.md §5 (V2-VT-030 full golden set), §6 (device matrix rows A–I, `ops/FIELD_TEST_V2.md`), §7 (safety regression), §8 gates G1–G3; PRD §5, V2-NFR-005/006
@@ -5976,12 +5976,36 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 **Started_At:** 2026-09-12T09:40:00Z
 **Progress_Notes:**
 - [2026-09-12T09:40:00Z] [GB] Claimed TASK-095. Resume check: no GB in_progress/claimed task (TASK-094 done/merged). Depends_On TASK-094 and TASK-096 are done. Branch task/TASK-095-gb. Next: preflight_paths.py TASK-095, then V2-VT-030 goldens + layout-matrix/v2 shell + safety sweep + runbooks + release APK.
+- [2026-09-12T09:45:00Z] [GB] Status: in_progress. Branch task/TASK-095-gb at 922418e. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-095 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 4 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   test/regression/**  -> 38 file(s):
+           test/regression/goldens/goldens/radio_controls_dark.png
+           test/regression/goldens/goldens/radio_controls_light.png
+           test/regression/goldens/goldens/settings_dark.png
+           test/regression/goldens/goldens/settings_light.png
+           test/regression/goldens/goldens/shell_frame_dark.png
+           test/regression/goldens/goldens/shell_frame_light.png
+           test/regression/goldens/goldens/talk_alert_banner_dark.png
+           test/regression/goldens/goldens/talk_alert_banner_light.png
+           test/regression/goldens/goldens/talk_degraded_dark.png
+           test/regression/goldens/goldens/talk_degraded_light.png
+           test/regression/goldens/goldens/talk_emergency_dark.png
+           test/regression/goldens/goldens/talk_emergency_light.png
+           ... and 26 more
+  NEW    ops/FIELD_TEST_V2.md  -> does not exist; parent ops/ exists
+  NEW    ops/REGRESSION_V2.md  -> does not exist; parent ops/ exists
+  FILE   dossiers/TASK-095.md  -> exists, 13 line(s), 1078 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Existing Talk goldens cover no-target/nobody-listening/alert-banner plus idle (ready-equivalent). Missing V2-VT-030 surfaces: Talk DND + explicit ready, Contacts/Groups/group-detail/My-code/phrase. Layout matrix still uses Channels/Stations aliases. Next: those goldens, v2 layout/back, safety sweep, runbooks, release APK.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T09:40:00Z
+**Updated_At:** 2026-09-12T09:45:00Z
 
 
 ### TASK-096
