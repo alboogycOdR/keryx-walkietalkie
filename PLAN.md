@@ -5683,7 +5683,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-093
 **Title:** v2 shell and settings — Talk/Contacts/Groups tabs, My code in overflow, onboarding and restore routes, v2 settings sections
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §1, §2.7; Technical §6.4 (host start), §8 (v1 install migration); PRD V2-FR-060/061; Verification V2-VT-027 (shell half), V2-VT-029, V2-VT-030 (shell frame goldens)
@@ -5701,12 +5701,23 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 **Started_At:** 2026-09-12T07:00:00Z
 **Progress_Notes:**
 - [2026-09-12T07:00:00Z] [S5] Claimed TASK-093. Resume check: no S5 in_progress/claimed task found (session-start checkpoint referenced TASK-092, which is already reviewed/merged/done at 961b76f — stale checkpoint, deleted). Depends_On TASK-089/090/091/092 all done. Branch task/TASK-093-s5 to be created off master (7b6adff). Next: preflight_paths.py TASK-093, then read TASK-089 (onboarding)/090 (contacts)/091 (groups)/092 (Talk target card) dossiers for the exact integration surfaces (switchTarget, onboarding entry route, My code screen route name) before touching app_shell.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-12T09:30:00Z] [S5] Status: in_progress. Preflight confirmed all Owned_Paths exist. Production code complete for this session: rewired MobileAppShell to Talk/Contacts/Groups tabs (Design §1), new lib/app_shell/directory_providers.dart composes DirectoryClient/ContactsController/GroupsController/PresenceClient over TASK-086/087's stores (disclosed decision: directory base URL derived from settings.relayUrl, no dedicated field exists on frozen KeryxSettings), new contacts_tab_screen.dart/groups_tab_screen.dart wire TASK-090/091's screens with real controllers and target selection, new onboarding_gate.dart gates the shell behind first-run identity creation/restore (Design §2.6) and persists the recovery phrase for Settings' "Show recovery phrase", ⋮ menu gains My code, app.dart's debug legacy-face route registration deleted, Settings gained prefer-direct-on-Wi-Fi + Messages (retention, "used from v2.1") + Identity's Show-recovery-phrase/Restore rows and lost the mode/region rows. `flutter analyze --no-pub lib/` → **No issues found**. NOT ready for needs_review: test/app_shell/**, test/features/settings/settings_screen_test.dart and test/regression/real_composition_test.dart all still reference retired APIs (old tab keys, ChannelsScreen, legacyFaceRouteName, SettingsKeys.mode) and need a real rewrite (will need a FakeDirectoryServer harness for Contacts/Groups, following TASK-090/091's own pattern) — not attempted yet this session. **Cross-territory finding for ORCH:** test/regression/regression_shell_harness.dart and test/regression/overflow_system_back_test.dart — outside this task's Owned_Paths — also reference the now-retired ShellKeys.tabChannels/tabStations/stations and will fail to compile; this task cannot fix them without writing outside its territory. Also open: RadioSessionController.switchTarget has no live wiring from KeryxRadioHost (frozen, no public accessor for the per-session controller) — currentTargetProvider is presentation-only for now, routed to ORCH as lib/core/radio_host/** debt. Full detail (every file, every decision) in dossiers/TASK-093.md. Next session: rewrite the test suites, regenerate shell-frame/settings goldens, resolve/escalate the two cross-cutting findings, then full-suite + debug APK evidence before needs_review.
+**Artifacts:**
+- lib/app_shell/directory_providers.dart
+- lib/app_shell/contacts_tab_screen.dart
+- lib/app_shell/groups_tab_screen.dart
+- lib/app_shell/onboarding_gate.dart
+- lib/app_shell/mobile_app_shell.dart
+- lib/app_shell/talk_screen.dart
+- lib/app_shell/shell_routes.dart
+- lib/app.dart
+- lib/features/settings/settings_screen.dart, settings_copy.dart, settings_keys.dart, settings_rows.dart
+- lib/features/settings/recovery_phrase_view_screen.dart
+**Test_Evidence:** `flutter analyze --no-pub lib/` → No issues found (2026-09-12). Test suite not yet updated — see Progress_Notes; no full-suite run attempted since it would fail on the known compile errors above.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-09-12T07:00:00Z
+**Updated_At:** 2026-09-12T09:30:00Z
 
 
 ### TASK-094
