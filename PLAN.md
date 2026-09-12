@@ -6270,7 +6270,7 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 
 ### TASK-100
 **Title:** No-target boot must not attempt a relay room join — the idle placeholder room is not a server room
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.4 ("`KeryxRadioHost.start` now: load identity → open directory session → fetch me → open presence WS → **pick current target → start `RadioSessionController` for that room**" — a relay room exists only for a picked target; there is no v2 lobby/idle room). Server contract, verified at source 2026-09-12: `token-svc/app/main.py:153-182` — `POST /token` runs `assert_room_member(session, pk, body.room_id)` after the identity check; `token-svc/app/groups.py:383-395` — a `room_id` that is neither a `Group.room_id` nor a `DirectRoom.room_id` is refused **403 `not_member`**, unconditionally. Client: `lib/services/session/radio_session_controller.dart:286-288` (`_idleRoomId = 'AAAAAAAAAAAAAAAA'`, "Idle placeholder used until switchTarget supplies a real room ID"), `:170-179` (`start()` → `_resolveTransport()` → `_startLinked(roomId: _idleRoomId)` whenever a relay is configured and `forceLocalOnly` is off), `:250-274` (`switchTarget`, the real-room path, must keep relay). Host: `lib/core/radio_host/keryx_radio_host.dart` `_intendedFailureKind(settings)` attributes a boot failure from *settings* rather than from the typed `SessionEstablishmentFailure.transport` the controller already throws. Field evidence: with enrolment fixed (`6f14f3f`), every boot on a relay-configured device still shows "Couldn't reach the relay" — now a 403 `not_member` on a room that cannot exist, i.e. a false telltale about a reachable relay.
@@ -6284,15 +6284,15 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 - [ ] Transport-matrix/SetTransport tests updated with the new contract and rationale, none deleted; a boot on a relay-configured device dispatches `SetTransport(Transport.direct)`
 - [ ] No production code outside Owned_Paths; no change to `KeryxSettings` or to `TokenClient`/`LinkedController`
 - [ ] Full test suite green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-100-s5
+**Started_At:** 2026-09-12T21:50:00Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-12T21:45:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-12T21:50:00Z
 
 
 ### TASK-101
