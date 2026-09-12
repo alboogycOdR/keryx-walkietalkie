@@ -84,3 +84,30 @@ Rewire the shell for v2: tabs Talk (mic) / Contacts (person) / Groups (groups); 
   ```
 
   **Recommendation for ORCH:** fold `test/regression/regression_shell_harness.dart` and `test/regression/overflow_system_back_test.dart` into a small fast-follow task's `Owned_Paths` (both need only the same mechanical `ShellKeys.tabChannels`→`tabContacts`, `tabStations`→`tabGroups`, `.stations`→`.groupsTab`-shaped rename this task already applied everywhere else) — until then `flutter test`/`flutter analyze` on the full tree will always show these 3 pre-existing failures.
+
+- [2026-09-12] [S5] **Cross-territory scope fix landed; all acceptance criteria met; ready for `needs_review`.** ORCH added `test/regression/regression_shell_harness.dart` and `test/regression/overflow_system_back_test.dart` to this task's `Owned_Paths` (PLAN.md Progress_Note, 09:45Z) after the previous session correctly flagged both as blocking on retired `ShellKeys` members but out of scope. This session:
+  - `regression_shell_harness.dart`: renamed `tabChannels()`/`tabStations()` → `tabContacts()`/`tabGroups()`; kept the old names as thin aliases so `test/regression/layout_matrix_test.dart` (still outside `Owned_Paths`, not touched) keeps compiling until a fast-follow renames its own call sites. Added the same `identityProvider` stub override `test/app_shell/shell_harness.dart` already carries — without it, `pumpRegressionShell` hits the real `flutter_secure_storage` platform channel via Contacts/Groups' new controllers and every `pumpAndSettle` in this harness hangs (`pumpAndSettle timed out`), which is exactly why `shell_frame_golden_test.dart` failed until this was added.
+  - `overflow_system_back_test.dart`: replaced the retired `ChannelsLanding`/`ShellKeys.stations` assertions with `ContactsTabScreen`/`GroupsTabScreen` type checks for the "system back keeps the previous tab" TASK-077 carry rule, now exercising the real Contacts/Groups tabs instead of the deleted Channels/Stations wrappers.
+  - Regenerated `shell_frame_dark.png`/`shell_frame_light.png` against the v2 tab strip (`flutter test --update-goldens test/regression/goldens/shell_frame_golden_test.dart`).
+  - Re-synced the worktree's local `PLAN.md` from master (`cp` of the file content only — no commit to the task branch) so the territory-firewall hook saw ORCH's 09:45Z Owned_Paths update; this is a working-tree read aid only, never committed on `task/TASK-093-s5`.
+
+  **Full verification, this session:**
+  - `flutter analyze --no-pub lib/ test/` → **No issues found** (repo-wide).
+  - `flutter test test/regression/` → all passed (62 tests, including `layout_matrix_test.dart`'s 6 cases via the alias, `overflow_system_back_test.dart`'s 2 cases, `real_composition_test.dart`'s 4 cases incl. the G3 stubbed-directory boot test, and both `shell_frame_golden_test.dart` goldens).
+  - `flutter test` (full repo suite) → **`+1754 ~40 -0`, exit code 0, "All tests passed!"** The 40 skips are the pre-existing parked FR-025 emergency-preemption soak seeds (explicit 2026-08-21T17:05Z owner decision, unrelated to this task) — zero failures.
+  - `flutter build apk --debug` → **succeeded**, `build\app\outputs\flutter-apk\app-debug.apk` (25.5s Gradle assembleDebug; ~10.9 GB free on C: confirmed before the build per repo convention).
+
+  **All six Acceptance_Criteria now satisfied:**
+  1. Cold launch → onboarding → Talk (via `OnboardingGate`), keyed install → straight to Talk — `real_composition_test.dart`'s G3 test + `test/app_shell/mobile_app_shell_test.dart` onboarding coverage.
+  2. Tabs are exactly Talk/Contacts/Groups; ⋮ shows My code/Radio controls/Settings; real `handlePopRoute` tests cover every tab and pushed route — `test/app_shell/mobile_app_shell_test.dart` + `overflow_system_back_test.dart`.
+  3. Selecting a contact/group switches to Talk with that target — `contacts_tab_screen.dart`/`groups_tab_screen.dart` wiring, covered in `test/app_shell/mobile_app_shell_test.dart`.
+  4. Settings show v2 sections, no mode/region/channel rows, Show-recovery-phrase behind confirmation — `test/features/settings/settings_screen_test.dart`.
+  5. `real_composition_test.dart` boots against a stubbed directory and reaches Talk — added this task, passing.
+  6. Shell-frame and settings goldens regenerated; analyze clean; full suite green; debug APK builds — all confirmed above.
+
+  **Remaining disclosed debt (not blocking, both pre-existing/out of scope):**
+  - `RadioSessionController.switchTarget` still isn't wired to a live session (`lib/core/radio_host/**` is frozen territory, no public per-session accessor) — `currentTargetProvider` remains presentation-only. Routed to ORCH as prior sessions noted; not a regression from this session's work.
+  - `GroupListRow.onlineCount` still hardcoded (TASK-091 dossier's own disclosed gap, not this task's territory).
+  - `test/regression/layout_matrix_test.dart` still calls the deprecated `tabChannels()`/`tabStations()` aliases rather than the new names — cosmetic, kept working intentionally; a natural fast-follow cleanup once that file is in someone's `Owned_Paths`.
+
+  Status → `needs_review`.
