@@ -10,6 +10,8 @@ import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/services/platform/platform.dart';
 import 'package:keryx/services/session/session.dart' show RadioSessionController;
 
+import 'directory_providers.dart' show identityEnrolmentProvider;
+
 /// TASK-048 — the single, app-scoped [RadioHost], hoisted the rest of the
 /// way per Technical §9 ("A separate integration task owns shared route
 /// registration, app.dart, shared providers and final wiring").
@@ -38,6 +40,12 @@ final radioHostProvider = Provider<RadioHost>((ref) {
     permissionGateFactory: _defaultPermissionGateFactory,
     radioServiceFactory: _defaultRadioServiceFactory,
     loadSettings: () => ref.read(settingsProvider.future),
+    // v2 (Technical §6.4): the host awaits the app's single directory
+    // enrolment before every session start, so the boot-time LINKED
+    // `/token` mint never runs ahead of `POST /v2/identity`. `read`, not
+    // `watch`: this closure runs later, inside the host, and the enrolment
+    // provider already re-resolves itself on a settings/relay change.
+    ensureDirectoryEnrolment: () => ref.read(identityEnrolmentProvider.future),
     dispatch: (event) => ref.read(radioStateProvider.notifier).dispatch(event),
     readRadioState: () => ref.read(radioStateProvider),
     listenRadioState: (onChange, {bool fireImmediately = false}) {

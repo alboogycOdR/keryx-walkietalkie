@@ -37,6 +37,30 @@ typedef RadioIdentityFactory = Future<DeviceIdentity> Function();
 typedef RadioPermissionGateFactory = FacePermissionGate Function();
 typedef RadioServiceFactory = RadioServiceController Function();
 
+/// v2 (Technical §6.4 "load identity → open directory session → … → start
+/// `RadioSessionController`"): makes sure this device's identity is enrolled
+/// with the directory (`POST /v2/identity`) *before* the host starts a
+/// session, so the very first signed request the session makes (the LINKED
+/// `/token` mint) is not refused with `unknown_identity`.
+///
+/// The host owns the *ordering* guarantee only — it never constructs a
+/// directory client itself. The composition root
+/// (`lib/app_shell/radio_host_provider.dart`) supplies the app's single,
+/// memoised enrolment (`identityEnrolmentProvider`), which the directory /
+/// presence / contacts / groups providers share, so registration has exactly
+/// one owner and every signed-request path draws the same guarantee from
+/// it. The default is a no-op so a Riverpod-free test harness that has no
+/// directory at all keeps working unchanged.
+///
+/// Field defect this closes (2026-09-12): enrolment used to live only inside
+/// the lazily-built `directoryClientProvider`, which nothing on the Talk tab
+/// ever reads — so a fresh install that went straight to Talk never
+/// registered, and the boot-time LINKED join was rejected regardless of how
+/// correct the registration code itself was. See `_startSession`.
+typedef RadioDirectoryEnrolment = Future<void> Function();
+
+Future<void> _noDirectoryEnrolment() async {}
+
 /// Riverpod bridge callbacks — see `radio_host.dart`'s library dartdoc for
 /// why this module takes plain callbacks instead of a `Ref`/`WidgetRef`.
 typedef LoadSettings = Future<KeryxSettings> Function();
@@ -74,10 +98,17 @@ class KeryxRadioHost implements RadioHost {
     required this.readRadioState,
     required this.listenRadioState,
     required this.listenSettings,
+    RadioDirectoryEnrolment ensureDirectoryEnrolment = _noDirectoryEnrolment,
     Duration sessionStartTimeout = _defaultSessionStartTimeout,
-  }) : _sessionStartTimeout = sessionStartTimeout;
+  }) : _ensureDirectoryEnrolment = ensureDirectoryEnrolment,
+       _sessionStartTimeout = sessionStartTimeout;
 
   final RadioSessionFactory sessionFactory;
+
+  /// See [RadioDirectoryEnrolment]. Awaited (bounded, best-effort) at the
+  /// top of every [_startSession] — boot and every settings-triggered
+  /// rebuild alike — so no session ever starts ahead of enrolment.
+  final RadioDirectoryEnrolment _ensureDirectoryEnrolment;
   final RadioAudioSinkFactory audioSinkFactory;
   final RadioAudioSinkDisposer audioSinkDisposer;
   final RadioIdentityFactory identityFactory;
@@ -369,6 +400,24 @@ class KeryxRadioHost implements RadioHost {
     required KeryxSettings settings,
   }) async {
     final myGeneration = ++_sessionGeneration;
+
+    // v2 (Technical §6.4): enrol with the directory BEFORE any session is
+    // started, and before the previous session (if any) is torn down — the
+    // radio keeps whatever it had while the (network) enrolment runs, and a
+    // settings-driven rebuild that changes the relay re-enrols against the
+    // new directory because the injected enrolment re-resolves per current
+    // settings. Best-effort and bounded: a directory that is down must
+    // never block reaching Talk (LOCAL needs no directory at all), and the
+    // LINKED attempt below then fails honestly through its own typed path
+    // rather than hanging here. Re-entrancy: generation captured above is
+    // re-checked after the await, same VT-002 discipline as `session.start()`.
+    try {
+      await _ensureDirectoryEnrolment().timeout(_sessionStartTimeout);
+    } catch (error, stack) {
+      _log('directory enrolment failed or timed out; continuing: $error\n$stack');
+    }
+    if (_disposed || myGeneration != _sessionGeneration) return;
+
     final previousSession = _session;
     await _stationsSub?.cancel();
     _stationsSub = null;

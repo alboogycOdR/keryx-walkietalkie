@@ -155,6 +155,24 @@ class _Harness {
   /// before a later `applySettings`/rebuild) without rebuilding the harness.
   bool hangSessions = false;
 
+  /// Ordered log of the two lifecycle events whose *relative order* is the
+  /// v2 enrolment contract: `'enrolment:start'`/`'enrolment:done'` around
+  /// [enrolment], `'session'` when [sessionFactory] is invoked.
+  final List<String> events = <String>[];
+
+  /// The injected [RadioDirectoryEnrolment]. Default resolves immediately;
+  /// a test swaps in a throwing/hanging one to prove best-effort + bound.
+  Future<void> Function() enrolment = () async {};
+
+  int enrolmentCalls = 0;
+
+  Future<void> _ensureDirectoryEnrolment() async {
+    enrolmentCalls++;
+    events.add('enrolment:start');
+    await enrolment();
+    events.add('enrolment:done');
+  }
+
   KeryxSettings settings = const KeryxSettings();
   RadioState state = const RadioState.off();
   final List<RadioEvent> dispatched = <RadioEvent>[];
@@ -180,6 +198,7 @@ class _Harness {
     required KeryxSettings settings,
     required void Function(RadioEvent event) dispatch,
   }) {
+    events.add('session');
     if (hangSessions) {
       final host = _HangingSessionHost();
       hangingSessions.add(host);
@@ -268,6 +287,7 @@ class _Harness {
     readRadioState: readRadioState,
     listenRadioState: listenRadioState,
     listenSettings: listenSettings,
+    ensureDirectoryEnrolment: _ensureDirectoryEnrolment,
     sessionStartTimeout: sessionStartTimeout,
   );
 }
@@ -577,5 +597,111 @@ void main() {
         await host.dispose();
       },
       timeout: const Timeout(Duration(seconds: 5)));
+  });
+
+  // v2 Technical §6.4: "load identity → open directory session → … → start
+  // RadioSessionController". The host owns the ORDER (enrolment strictly
+  // before any session start, on boot and on every rebuild) and the
+  // degradation rules (best-effort, bounded) — the composition root owns
+  // what enrolment actually does. `test/app_shell/directory_enrolment_test
+  // .dart` proves the real enrolment feeds this seam end to end.
+  group('directory enrolment ordering (v2 §6.4)', () {
+    test('boot awaits enrolment to completion before the session factory '
+        'is ever invoked', () async {
+      final gate = Completer<void>();
+      final harness = _Harness()..enrolment = () => gate.future;
+      final host = harness.build();
+
+      final boot = host.start();
+      // Let boot run up to the enrolment await: identity, settings,
+      // permissions, audio sink, service start all resolve on microtasks.
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(harness.events, ['enrolment:start']);
+      expect(harness.sessions, isEmpty,
+          reason: 'no session may start while enrolment is still pending');
+
+      gate.complete();
+      await boot;
+
+      expect(harness.events, ['enrolment:start', 'enrolment:done', 'session']);
+      expect(harness.state.phase, RadioPhase.idle);
+      await host.dispose();
+    });
+
+    test('a settings-triggered rebuild re-awaits enrolment before starting '
+        'the replacement session', () async {
+      final harness = _Harness();
+      final host = harness.build();
+      await host.start();
+      expect(harness.enrolmentCalls, 1);
+
+      await host.applySettings(
+          harness.settings.copyWith(relayUrl: 'wss://relay.example/ws'));
+
+      expect(harness.enrolmentCalls, 2);
+      expect(harness.events, [
+        'enrolment:start', 'enrolment:done', 'session',
+        'enrolment:start', 'enrolment:done', 'session',
+      ]);
+      expect(harness.sessions, hasLength(2));
+      await host.dispose();
+    });
+
+    test('a throwing enrolment is best-effort: the session still starts and '
+        'boot still reaches idle', () async {
+      final harness = _Harness()
+        ..enrolment = () async => throw StateError('directory down');
+      final host = harness.build();
+
+      await host.start();
+
+      expect(harness.events, ['enrolment:start', 'session'],
+          reason: 'the throw skips enrolment:done but never the session');
+      expect(harness.sessions.single.startCalled, isTrue);
+      expect(harness.state.phase, RadioPhase.idle);
+      expect(host.current.sessionFailureKind, isNull,
+          reason: 'an enrolment failure is not a session failure');
+      await host.dispose();
+    });
+
+    test('a hanging enrolment is bounded by sessionStartTimeout — boot '
+        'proceeds instead of hanging forever', () async {
+      final harness = _Harness()..enrolment = () => Completer<void>().future;
+      final host = harness.build(
+          sessionStartTimeout: const Duration(milliseconds: 50));
+
+      await host.start();
+
+      expect(harness.events, ['enrolment:start', 'session']);
+      expect(harness.sessions.single.startCalled, isTrue);
+      expect(harness.state.phase, RadioPhase.idle);
+      await host.dispose();
+    }, timeout: const Timeout(Duration(seconds: 5)));
+
+    test('a host built without an enrolment seam boots exactly as before '
+        '(no-op default)', () async {
+      final harness = _Harness();
+      final host = KeryxRadioHost(
+        sessionFactory: harness.sessionFactory,
+        audioSinkFactory: harness.audioSinkFactory,
+        audioSinkDisposer: harness.audioSinkDisposer,
+        identityFactory: harness.identityFactory,
+        permissionGateFactory: harness.permissionGateFactory,
+        radioServiceFactory: harness.radioServiceFactory,
+        loadSettings: harness.loadSettings,
+        dispatch: harness.dispatch,
+        readRadioState: harness.readRadioState,
+        listenRadioState: harness.listenRadioState,
+        listenSettings: harness.listenSettings,
+      );
+
+      await host.start();
+
+      expect(harness.enrolmentCalls, 0);
+      expect(harness.events, ['session']);
+      expect(harness.state.phase, RadioPhase.idle);
+      await host.dispose();
+    });
   });
 }

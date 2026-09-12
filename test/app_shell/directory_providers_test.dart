@@ -123,8 +123,12 @@ void main() {
       expect(server.requests, hasLength(1));
 
       // Simulate a provider rebuild (e.g. a dependency invalidation) with
-      // the exact same identity/callsign still in scope.
-      container.invalidate(directoryClientProvider);
+      // the exact same identity/callsign still in scope. Registration now
+      // lives in `identityEnrolmentProvider` (the single owner —
+      // `directoryClientProvider` only re-exposes its client), so that is
+      // the provider a rebuild must re-run; invalidating the client provider
+      // alone deliberately re-registers nothing.
+      container.invalidate(identityEnrolmentProvider);
       final second = await container.read(directoryClientProvider.future);
       expect(second, isNotNull);
       expect(

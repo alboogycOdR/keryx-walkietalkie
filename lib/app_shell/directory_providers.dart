@@ -59,46 +59,161 @@ final _sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) {
   return SharedPreferences.getInstance();
 });
 
-/// `null` whenever no relay is configured yet (fresh install before
-/// Settings/onboarding sets one) — every provider below stays `null` too
-/// rather than throwing, so Contacts/Groups render their real empty states
-/// instead of crashing the shell (Technical §6.4: directory bootstrap must
-/// not block reaching Talk).
-final directoryClientProvider = FutureProvider<DirectoryClient?>((ref) async {
+/// How the app's single directory enrolment concluded (see
+/// [identityEnrolmentProvider]).
+enum IdentityEnrolmentOutcome {
+  /// No relay configured (or no v2 key pair) — there is no directory to
+  /// enrol with; every directory-backed feature stays in its "no relay"
+  /// empty state. Not an error.
+  notApplicable,
+
+  /// `POST /v2/identity` succeeded (or was a no-op upsert for an identity
+  /// the directory already knew under this callsign).
+  registered,
+
+  /// The directory knew this public key under a *different* callsign
+  /// (`identity_exists`, 409) — the local callsign had been renamed — and
+  /// `PATCH /v2/identity/callsign` brought the directory in line. Enrolled.
+  renamed,
+
+  /// Registration (and, where attempted, the rename) failed — network, a
+  /// down directory, `callsign_taken`, anything. The client is still handed
+  /// out so callers fail honestly with the server's own code rather than
+  /// crashing the provider chain; the next enrolment (next settings change,
+  /// or app start) retries.
+  failed,
+}
+
+/// Result of [identityEnrolmentProvider]: the app's one [DirectoryClient]
+/// (null iff [outcome] is [IdentityEnrolmentOutcome.notApplicable]) plus how
+/// enrolment went. Immutable; a fresh instance per provider (re)build.
+class IdentityEnrolment {
+  const IdentityEnrolment._(this.client, this.outcome, this.error);
+
+  const IdentityEnrolment.notApplicable()
+    : this._(null, IdentityEnrolmentOutcome.notApplicable, null);
+
+  final DirectoryClient? client;
+  final IdentityEnrolmentOutcome outcome;
+
+  /// The failure behind [IdentityEnrolmentOutcome.failed]; null otherwise.
+  final Object? error;
+
+  bool get isEnrolled =>
+      outcome == IdentityEnrolmentOutcome.registered ||
+      outcome == IdentityEnrolmentOutcome.renamed;
+}
+
+/// **The single owner of "this device's identity is known to the
+/// directory"** (v2 Technical §6.4: `load identity → open directory session
+/// → …`; §4.2 `POST /v2/identity`, `PATCH /v2/identity/callsign`).
+///
+/// Every signed request in the app — the LINKED `/token` mint that
+/// `RadioSessionController` makes at boot, contact requests, presence's
+/// signed WebSocket handshake, groups — is refused by `token-svc` with
+/// `unknown_identity` (401) unless the caller's public key is registered
+/// first. That guarantee therefore has to come from exactly one place that
+/// every one of those paths draws on, and it has to run *before* the first
+/// of them, not whenever the user happens to open the Contacts tab:
+///
+/// - [directoryClientProvider] and [presenceClientProvider] both await this
+///   and reuse its client, so the directory-backed tabs never race it.
+/// - `radioHostProvider` injects `() => ref.read(identityEnrolmentProvider
+///   .future)` as `KeryxRadioHost.ensureDirectoryEnrolment`, and the host
+///   awaits it at the top of every session start (boot and every
+///   settings-triggered rebuild). That is what makes enrolment *eager*: the
+///   host boots on app start unconditionally, so registration completes
+///   before the boot-time LINKED join even when nothing else in the app has
+///   touched the directory yet.
+///
+/// Watches `settingsProvider`, so a relay-URL change re-enrols against the
+/// new directory; otherwise memoised for the app's lifetime like every other
+/// provider in this file. The server-side upsert is idempotent (same pubkey
+/// + same callsign → no-op success), so re-running is always safe.
+///
+/// **Never throws.** Directory bootstrap must not block reaching Talk
+/// (LOCAL needs no directory at all) — a failure is recorded in
+/// [IdentityEnrolment.outcome]/[IdentityEnrolment.error], logged, and the
+/// still-usable client is handed out so dependents fail with the server's
+/// own honest code instead of a provider-chain crash.
+///
+/// History: this replaces the enrolment TASK-099 (commit `48747a9`) put
+/// inside [directoryClientProvider], which was correct in isolation but
+/// lazy — nothing on the Talk tab reads that provider, so a fresh install
+/// that went straight to Talk never registered at all, and the boot-time
+/// LINKED join was rejected regardless (field-confirmed 2026-09-12).
+final identityEnrolmentProvider = FutureProvider<IdentityEnrolment>((ref) async {
   final settings = await ref.watch(settingsProvider.future);
   final identity = await ref.watch(identityProvider.future);
   final keyPair = identity.keyPair;
   final resolveBase = ref.watch(directoryBaseUriResolverProvider);
   final base = resolveBase(settings.relayUrl);
-  if (base == null || keyPair == null) return null;
+  if (base == null || keyPair == null) {
+    return const IdentityEnrolment.notApplicable();
+  }
   final client = DirectoryClient(baseUrl: base, keyPair: keyPair);
   ref.onDispose(client.close);
 
-  // v2 (Technical §6.4, TASK-099): every device must register its identity
-  // with the directory before any dependent (contacts/groups/presence) call
-  // ever reaches the server — `token-svc` rejects a well-signed request from
-  // an unregistered public key with `unknown_identity` (401). The server
-  // upsert is idempotent (same pubkey + same callsign is a no-op success),
-  // so this is safe to call unconditionally on every provider build, not
-  // just once-ever. Never rethrow: directory bootstrap must not block
-  // reaching Talk (same convention as the null-return above for a missing
-  // relay/keyPair) — a failure here just leaves the device unregistered for
-  // this session, and the next successful build will retry it.
+  final callsign = identity.callsign.value;
+  Object? registerError;
   try {
-    await client.registerIdentity(identity.callsign.value);
-  } on Object catch (error, stack) {
-    developer.log(
-      'identity registration failed; continuing without directory registration',
-      name: _logName,
-      error: error,
-      stackTrace: stack,
-    );
+    await client.registerIdentity(callsign);
+    return IdentityEnrolment._(client, IdentityEnrolmentOutcome.registered, null);
+  } on Object catch (error) {
+    // Deliberately no `rethrow` anywhere in here: a `rethrow` inside an
+    // `on` clause leaves the whole `try`, it does not fall through to a
+    // later `on Object` — this provider must never throw.
+    registerError = error;
   }
 
-  return client;
+  if (registerError is DirectoryException &&
+      registerError.code == DirectoryErrorCode.identityExists) {
+    // Same public key, different callsign: the user renamed locally. The
+    // directory's rename route is the contract for exactly this (§4.2
+    // `PATCH /v2/identity/callsign`); registering again would 409 forever.
+    try {
+      await client.patchCallsign(callsign);
+      return IdentityEnrolment._(client, IdentityEnrolmentOutcome.renamed, null);
+    } on Object catch (renameError, stack) {
+      developer.log(
+        'identity enrolment: directory knows this key under another callsign '
+        'and the rename failed; continuing unenrolled',
+        name: _logName,
+        error: renameError,
+        stackTrace: stack,
+      );
+      return IdentityEnrolment._(client, IdentityEnrolmentOutcome.failed, renameError);
+    }
+  }
+
+  developer.log(
+    'identity enrolment failed; continuing unenrolled',
+    name: _logName,
+    error: registerError,
+  );
+  return IdentityEnrolment._(client, IdentityEnrolmentOutcome.failed, registerError);
+});
+
+/// `null` whenever no relay is configured yet (fresh install before
+/// Settings/onboarding sets one) — every provider below stays `null` too
+/// rather than throwing, so Contacts/Groups render their real empty states
+/// instead of crashing the shell (Technical §6.4: directory bootstrap must
+/// not block reaching Talk).
+///
+/// The client is [identityEnrolmentProvider]'s — this provider adds no
+/// behaviour of its own, it only exposes the already-enrolled client to the
+/// contacts/groups composition below.
+final directoryClientProvider = FutureProvider<DirectoryClient?>((ref) async {
+  final enrolment = await ref.watch(identityEnrolmentProvider.future);
+  return enrolment.client;
 });
 
 final presenceClientProvider = FutureProvider<PresenceClient?>((ref) async {
+  // The presence WebSocket's signed handshake is refused with
+  // `unknown_identity` (4401) for an unregistered key, exactly like every
+  // REST route — so presence draws the same enrolment guarantee first and
+  // never races it (see [identityEnrolmentProvider]).
+  await ref.watch(identityEnrolmentProvider.future);
   final settings = await ref.watch(settingsProvider.future);
   final identity = await ref.watch(identityProvider.future);
   final keyPair = identity.keyPair;
