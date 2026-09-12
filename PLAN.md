@@ -1,5 +1,5 @@
 ---
-plan_version: 16.9
+plan_version: 16.10
 last_updated: 2026-09-12T05:11:42Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
@@ -5728,7 +5728,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-094
 **Title:** v2 deletions — channels, selector, stations, numbered Event QR, legacy face/ptt/display/settings_panel
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
@@ -5745,6 +5745,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 **Started_At:** 2026-09-12T08:08:02Z
 **Progress_Notes:**
 - [2026-09-12T09:28:55Z] [GB] Status: needs_review. v1-field removal complete on `task/TASK-094-gb` (`d8487ca`). RadioMode/TuneTo/SetMode/deriveNumbered/ChannelHashPrefix gone. ConnectionCondition is transport+degraded. KEEP radio_controls. Residuals: `KeryxSettings.region` getter shim; `joinNumbered` HMAC kept for unowned linked tests; `ux_tokens.dart` still says Channel busy.
+- [2026-09-12T10:20:00Z] [ORCH] Reviewed on claude-sonnet-5 (v2.0 wave). Territory: all 183 changed files individually checked against the fully-widened Owned_Paths, zero outside it. Independent run: analyze 0; full suite 1379 total/0 failed/40 skipped, matches GB exactly. `warningCue`/"Channel busy" in `lib/core/theme/ux_tokens.dart` confirmed dead — grep shows it's referenced only by its own test, unreachable from any live UI, so it doesn't violate V2-VT-028 in practice; correctly left alone as out of territory. `region` getter shim and `joinNumbered` kept for the same reason. **APPROVED, merged `2a0f572`.** Status: done. Unlocks TASK-095 (release gate).
 - [2026-09-12T08:55:17Z] [GB] Status: in_progress. Merged master (`e085fb0`). Four-symbol grep (RadioMode/SetMode/TuneTo/deriveNumbered) over `lib/**/*.dart`+`test/**/*.dart` is exhaustive inside Owned_Paths — no remaining compile callers outside it. `joinNumbered` stays on LinkedController so unowned `test/services/linked/linked_controller_test.dart` still compiles (it never names those four symbols). Next: v1-field removal. Preflight (c8b9872 filesystem check):
 ```
 [preflight] TASK-094 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
@@ -5950,10 +5951,10 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 - [2026-09-12T08:39:05Z] [GB] `flutter analyze --no-pub` — No issues found!
 - [2026-09-12T08:39:05Z] [GB] `flutter test --no-pub` — **1406 passed / 0 failed / 40 skipped** (PARKED FR-025 soak seeds unmodified). Baseline after TASK-093 was 1754/0/40; Δ −348 presentation tests of deleted modules.
 - [2026-09-12T08:39:05Z] [GB] `flutter build apk --debug` — SUCCESS, `app-debug.apk` 226,749,955 bytes.
-**Review_Findings:** —
+**Review_Findings:** APPROVED. See REVIEW.md row and ORCH progress note above.
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-12T09:28:55Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T10:20:00Z
 
 
 ### TASK-095
