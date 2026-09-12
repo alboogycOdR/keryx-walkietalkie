@@ -5728,7 +5728,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-094
 **Title:** v2 deletions — channels, selector, stations, numbered Event QR, legacy face/ptt/display/settings_panel
-**Status:** claimed
+**Status:** blocked
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
@@ -5745,12 +5745,54 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 **Started_At:** 2026-09-12T08:08:02Z
 **Progress_Notes:**
 - [2026-09-12T08:08:02Z] [GB] Claimed TASK-094. Resume check: no GB in_progress/claimed task. Depends_On TASK-093 is done. Branch task/TASK-094-gb. Next: preflight_paths.py TASK-094, then map remaining shell/core imports before deleting.
-**Artifacts:** —
+- [2026-09-12T08:11:23Z] [GB] Status: blocked, Blocked_Reason: OWNERSHIP_CONFLICT. Branch task/TASK-094-gb created off master. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-094 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 34 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/channels/**  -> 6 file(s)
+  GLOB   lib/features/channel_selector/**  -> 4 file(s)
+  GLOB   lib/features/stations/**  -> 5 file(s)
+  GLOB   lib/features/event_qr/**  -> 5 file(s)
+  GLOB   lib/features/event_qr_ui/**  -> 5 file(s)
+  GLOB   lib/features/face/**  -> 10 file(s)
+  GLOB   lib/features/ptt/**  -> 8 file(s)
+  GLOB   lib/features/display/**  -> 3 file(s)
+  GLOB   lib/features/settings_panel/**  -> 8 file(s)
+  GLOB   lib/features/tuning/**  -> 7 file(s)
+  GLOB   lib/features/radio_controls/**  -> 2 file(s)
+  FILE   lib/features/features.dart  -> exists, 1 line(s), 72 bytes
+  GLOB   test/features/channels/**  -> 4 file(s)
+  GLOB   test/features/channel_selector/**  -> 4 file(s)
+  GLOB   test/features/stations/**  -> 3 file(s)
+  GLOB   test/features/event_qr/**  -> 3 file(s)
+  GLOB   test/features/event_qr_ui/**  -> 5 file(s)
+  GLOB   test/features/face/**  -> 7 file(s)
+  GLOB   test/features/ptt/**  -> 5 file(s)
+  GLOB   test/features/display/**  -> 1 file(s)
+  GLOB   test/features/settings_panel/**  -> 1 file(s)
+  GLOB   test/features/tuning/**  -> 4 file(s)
+  GLOB   test/features/radio_controls/**  -> 2 file(s)
+  GLOB   test/regression/goldens/goldens/channels_*.png  -> 4 file(s)
+  GLOB   test/regression/goldens/goldens/stations_*.png  -> 4 file(s)
+  GLOB   test/regression/goldens/goldens/selector_*.png  -> 2 file(s)
+  GLOB   test/regression/goldens/goldens/qr_*.png  -> 6 file(s)
+  GLOB   test/regression/goldens/goldens/radio_controls_*.png  -> 2 file(s)
+  FILE   test/regression/goldens/channels_golden_test.dart  -> exists
+  FILE   test/regression/goldens/stations_golden_test.dart  -> exists
+  FILE   test/regression/goldens/selector_golden_test.dart  -> exists
+  FILE   test/regression/goldens/event_qr_golden_test.dart  -> exists
+  FILE   test/regression/goldens/radio_controls_golden_test.dart  -> exists
+  FILE   dossiers/TASK-094.md  -> exists
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+No deletions made. TASK-093 left live imports of the retirement set outside this task's Owned_Paths; deleting in-territory would not compile. KEEP radio_controls (shell still pushes it). Talk does not import tuning. Paths needed (TASK-074 lesson): lib/app.dart; lib/app_shell/{shell_routes,radio_host_provider,mobile_app_shell}.dart; lib/core/radio_host/**; lib/core/presentation/{radio_view_intents,connection_condition,radio_view_state}.dart; lib/core/state/{radio_state,radio_state_bridge}.dart; lib/core/settings/settings_model.dart; lib/services/session/radio_session_controller.dart; lib/features/groups/{group_invite_link,group_invite_screen}.dart; lib/features/settings/{settings_screen,about_diagnostics,settings_copy,settings_inventory,settings_keys}.dart; plus tests: test/app_shell/fake_radio_host.dart, test/core/radio_host/**, test/core/presentation/radio_view_intents_test.dart, test/features/{talk,settings,radio_controls}/fake_radio_host.dart, test/features/groups/group_invite_screen_test.dart, test/regression/real_composition_test.dart. Full table in dossiers/TASK-094.md. Ask: widen Owned_Paths or split extract/hoist + delete + v1-field-removal. Idle until re-carve.
+**Artifacts:**
+- dossiers/TASK-094.md
 **Test_Evidence:** —
 **Review_Findings:** —
-**Blocked_Reason:** —
+**Blocked_Reason:** OWNERSHIP_CONFLICT — TASK-093 left live imports of the retirement set outside Owned_Paths. Production: lib/app.dart (settings_panel); lib/app_shell/shell_routes.dart (channel_selector, event_qr_ui); lib/app_shell/radio_host_provider.dart + lib/core/radio_host/** (face/permission_gate, face/session_host, event_qr/event_link); lib/core/presentation/radio_view_intents.dart; lib/services/session/radio_session_controller.dart; lib/features/groups/group_invite_link.dart (EventLinkExpiryPreset). Criterion-3 v1-field removal lives in frozen lib/core/{state,settings,presentation,radio_host}/** plus lib/features/settings/**. Tests: test/app_shell/fake_radio_host.dart, test/core/radio_host/**, test/core/presentation/radio_view_intents_test.dart, test/features/{talk,settings,radio_controls}/fake_radio_host.dart, test/features/groups/group_invite_screen_test.dart, test/regression/real_composition_test.dart. radio_controls KEPT (shell still pushes it). See Progress_Notes + dossier.
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T08:08:02Z
+**Updated_At:** 2026-09-12T08:11:23Z
 
 
 ### TASK-095
