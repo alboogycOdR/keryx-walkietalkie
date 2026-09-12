@@ -5488,7 +5488,7 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 
 ### TASK-091
 **Title:** v2 Groups tab — list, detail with members and presence, invites, admin actions, join with a code
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.3, §4 (key rotated / removed states); PRD V2-FR-020..025; Technical §5.2 (invite link); Verification V2-VT-026, V2-VT-030 (groups goldens)
@@ -5505,6 +5505,7 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 **Started_At:** 2026-09-11T20:10:00Z
 **Progress_Notes:**
 - [2026-09-11T20:10:00Z] [S5] Claimed TASK-091. Resume check: no S5 in_progress/claimed task other than blocked TASK-088 (left blocked, untouched further). Depends_On TASK-086, TASK-087 both done; description says 'no shell dependencies' so this is safely independent of TASK-088's blocker. Branch task/TASK-091-s5 to be created from master. Next: preflight_paths.py TASK-091, then read Design §2.3/§4, Technical §5.2, TASK-086 groups store API, TASK-087 room derivation, and event_link.dart's expiry presets before writing.
+- [2026-09-12T04:04:00Z] [ORCH] Session ended after 5 real commits (list/detail/invite/new-group/join-with-code screens, view-model/controller/golden tests, dossier) but before updating status to needs_review. Status corrected to in_progress to reflect real committed work. Resume and finish: run the full suite in the foreground, record Test_Evidence, tick verified criteria, set needs_review.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
