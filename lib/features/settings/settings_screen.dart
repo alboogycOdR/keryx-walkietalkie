@@ -33,6 +33,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
     this.identityRepository,
     this.confirm,
     this.appVersion = SettingsCopy.appVersion,
+    this.recoveryPhraseStore,
   });
 
   /// Test seam. Production constructs `IdentityRepository(SecureIdentityStore())`.
@@ -40,6 +41,12 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
   /// Test seam. Production shows the reconnect confirmation dialog.
   final SettingsConfirm? confirm;
+
+  /// Test seam for "Show recovery phrase" (Design §2.7): backs the
+  /// [RecoveryPhraseVault] this screen reads from. Production leaves this
+  /// `null` and reads the real `SecureIdentityStore` [RecoveryPhraseVault]
+  /// uses by default — same seam shape as [identityRepository].
+  final IdentityStore? recoveryPhraseStore;
 
   final String appVersion;
 
@@ -203,7 +210,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// disclosed scope decision, carried forward for a successor task if the
   /// project adds that dependency.
   Future<void> _showRecoveryPhrase() async {
-    final words = await RecoveryPhraseVault().load();
+    final words = await RecoveryPhraseVault(widget.recoveryPhraseStore).load();
     if (!mounted) return;
     if (words == null) {
       ScaffoldMessenger.of(context).showSnackBar(
