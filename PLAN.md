@@ -1,6 +1,6 @@
 ---
 plan_version: 16.0
-last_updated: 2026-09-11T19:37:03Z
+last_updated: 2026-09-12T04:16:18Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -5391,30 +5391,53 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §1.1, §6.3, §6.4, §7 (settings_model, radio_state, radio_session_controller); PRD V2-FR-040..045; Verification V2-VT-021, 022 (projection half), 023, 024; TASK-079 (e), TASK-082 (a) carried debt
 **Owned_Paths:** lib/services/session/**, lib/services/mesh/**, lib/core/radio_host/**, lib/core/state/**, lib/core/settings/**, lib/core/presentation/**, test/services/session/**, test/services/mesh/**, test/core/radio_host/**, test/core/state/**, test/core/settings/**, test/core/presentation/**, dossiers/TASK-088.md
 **Depends_On:** TASK-086, TASK-087
-**Description:** The engine-facing half of v2. `RadioState`: remove `channel`, `privacyCode`, `mode`; add `roomId`, `transport (none|direct|relay|both)`; `SetMode` → `SetTransport`; update the reducer and its transition-matrix oracle in lockstep. `KeryxSettings`: remove `mode/region/channel/privacyCode`; add `preferDirectOnWifi` (default true), `messageRetention` (default 7 d), keep the relay URL. `RadioSessionController`: `retune` → `switchTarget(TalkTarget)` which tears down and rebuilds the chain for the target's room, calls `FloorEngine.updateRoster(members)` immediately from the directory member list (closes the solo join-guard, Technical §1.1), and runs LAN mesh and relay together, with the mesh only attaching listeners discovered on the LAN. `KeryxRadioHost.start`: load identity → directory `me` → presence socket → current target (last used, else first group, else none) → session. `RadioViewState`: add `target` and `audience {canHear, reason}`; `ConnectionCondition` becomes `{transport, degraded}`; audience ready rule per V2-FR-041. Fold in the carried debt: throttle meter snapshots (TASK-079 e) and seed the denied-flash timer on remount (TASK-082 a). `lib/core/floor/**` is not in this task and must not change.
+**Description:** **RE-SCOPED 2026-09-11T20:20Z (ORCH, resolving S5's OWNERSHIP_CONFLICT):** the original wording asked for literal field removal plus a same-turn `retune`->`switchTarget` rename, which cannot compile without editing a dozen consumer files outside Owned_Paths and the `SessionHost` contract in `lib/features/face/session_host.dart`. S5's own option (b) is correct and matches Technical §10's own sequencing (session/host, item 5, before Talk/shell rewiring items 9-10, before Deletions item 11): this task is now **additive only**. Add the v2 shape *alongside* the v1 shape; delete nothing. `RadioState`: keep `RadioMode`/`channel`/`privacyCode`/`SetMode`/`TuneTo` exactly as they are; add `roomId` (String?, null until a target is chosen), a `Transport { none, direct, relay, both }` enum, `transport`, and a new `SetTransport`/`SetRoom` event pair the reducer accepts in any powered phase (mirroring TASK-080's `SetMode` fix) without touching the existing `mode`/`channel` transitions. `KeryxSettings`: add `preferDirectOnWifi` (default true) and `messageRetention` (default 7 d) as new optional fields with defaults, so existing JSON still round-trips unchanged; do not remove `mode`/`region`/`channel`/`privacyCode`. `RadioSessionController`: add a new `switchTarget(TalkTarget target, {required List<String> memberPeerIds})` method alongside the existing `retune` (do not rename or remove `retune` — `SessionHost` in `lib/features/face/session_host.dart`, outside this task's territory, still calls it). `switchTarget` tears down and rebuilds the chain for `target.roomId`, and calls `FloorEngine.updateRoster(memberPeerIds)` immediately after the chain is up and before returning, closing the solo join-guard (Technical §1.1) for v2 callers. Add a new `RadioSessionHostV2` seam (a new file/class, not a widened `SessionHost`) that `KeryxRadioHost` can use for the v2 start sequence (load identity -> directory `me` -> presence socket -> current target -> `switchTarget`) *without changing `KeryxRadioHost`'s existing v1 start path* — add a new `startV2()`/constructor parameter, gated so the current `start()` behaviour is byte-identical when nothing v2 is wired in yet. `RadioViewState`: add `target` (nullable) and `audience {canHear, reason}` as new fields with a v1-safe default (`audience: AudienceState(canHear: true, reason: null)` when no target is set, so every existing v1 projection test keeps passing unmodified); add a new `ConnectionCondition.transport` getter that defaults from the existing `effectiveRoute` until TASK-093 switches callers over — do not remove `effectiveRoute`, `configuredMode`, or `isResolved`. Fold in the carried debt (TASK-079 e meter-snapshot throttle, TASK-082 a remount-flash-timer seed) as these are pure additions/fixes in files this task already owns. `lib/core/floor/**` is not in this task and must not change. **TASK-094 (Deletions) is the task that removes the v1 fields/methods this task leaves in place, once TASK-091/092/093 have migrated their own consumers off them** — add that removal explicitly to TASK-094's scope in its own block below.
 **Acceptance_Criteria:**
-- [ ] `switchTarget` rebuilds within 1 s in the fake and calls `updateRoster` with the full member list before any press; a solo target yields `audience.canHear == 0` and the projection reason 'Nobody is listening' (V2-VT-021; V2-FR-044)
-- [ ] Audience matrix over {online, offline, DND, busy} × {contact, group} yields the correct `canHear`/reason (V2-VT-022; V2-FR-041)
-- [ ] Transport: LAN-discovered listener → direct, others → relay, mixed group → both; `ConnectionCondition.transport` reflects it (V2-VT-023; V2-FR-043)
-- [ ] The v1 VT-010..VT-015 floor tests pass unmodified in intent against v2 targets; no file under `lib/core/floor/` changes (V2-VT-024; V2-FR-042)
-- [ ] Reducer transition-matrix oracle updated with the removed/added fields and green; settings model round-trips the new fields and migrates old JSON without crashing (Technical §7, §8)
+- [ ] `switchTarget` rebuilds within 1 s in the fake and calls `updateRoster` with the full member list before returning; a solo target's roster yields `audience.canHear == 0` and reason 'Nobody is listening' from the projection (V2-VT-021; V2-FR-044)
+- [ ] Audience matrix over {online, offline, DND, busy} × {contact, group} yields the correct `canHear`/reason via the new `audience` field (V2-VT-022; V2-FR-041)
+- [ ] `ConnectionCondition.transport` reflects LAN-discovered-> direct, others -> relay, mixed -> both, computed additively without removing `effectiveRoute` (V2-VT-023; V2-FR-043)
+- [ ] `retune`/`SessionHost.retune` and every existing `RadioState`/`RadioViewState`/`KeryxSettings` v1 test pass completely unmodified — a diff of `test/core/state/radio_state_test.dart`, `test/core/presentation/radio_view_state_test.dart`, `test/core/settings/settings_repository_test.dart`, `test/services/session/radio_session_controller_test.dart` against master shows only additions (V2-VT-024; V2-FR-042)
+- [ ] Reducer transition-matrix oracle is extended (not altered) with the new `SetTransport`/`SetRoom` rows; existing rows and counts unchanged; settings model round-trips old JSON with no new field present and defaults `preferDirectOnWifi`/`messageRetention` when absent (Technical §7, §8)
 - [ ] Carried debt closed: meter snapshot throttle test; remount-while-denied starts the flash timer (TASK-079 e, TASK-082 a)
-- [ ] `flutter analyze` clean; full suite green
+- [ ] `flutter analyze` clean; full suite green with a strictly higher pass count than the pre-task baseline, zero removed/weakened tests
 **Branch:** task/TASK-088-s5
-**Started_At:** 2026-09-11T19:10:00Z
+**Started_At:** 2026-09-12T06:20:00Z
 **Progress_Notes:**
 - [2026-09-11T19:10:00Z] [S5] Claimed TASK-088. Resume check: no S5 in_progress/claimed task found. Depends_On TASK-086, TASK-087 both done. Branch task/TASK-088-s5 to be created from master. Next: preflight_paths.py TASK-088, then read Technical §1.1/§6.3/§6.4/§7, current lib/services/session/**, lib/core/state/**, lib/core/settings/**, lib/core/presentation/**, and TASK-079/TASK-082 carried debt before writing.
+- [2026-09-11T19:14:00Z] [S5] Status: in_progress. Branch task/TASK-088-s5 created off master. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-088 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx
+[preflight] 13 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/services/session/**  -> 4 file(s): linked_proxy_floor_transport.dart, radio_session_controller.dart, session.dart, station_info.dart
+  GLOB   lib/services/mesh/**  -> 9 file(s): floor_data_channel_transport.dart, mesh.dart, mesh_config.dart, mesh_connection.dart, mesh_controller.dart, opus_sdp.dart, rtc_adapter.dart, rtc_adapter_flutter_webrtc.dart, rx_gate.dart
+  GLOB   lib/core/radio_host/**  -> 4 file(s): keryx_radio_host.dart, radio_host.dart, radio_host_contract.dart, radio_host_snapshot.dart
+  GLOB   lib/core/state/**  -> 4 file(s): README.md, radio_state.dart, radio_state_bridge.dart, radio_state_controller.dart
+  GLOB   lib/core/settings/**  -> 4 file(s): README.md, settings_model.dart, settings_repository.dart, settings_store.dart
+  GLOB   lib/core/presentation/**  -> 8 file(s): connection_condition.dart, presentation.dart, presentation_cue.dart, radio_phase_presentation.dart, radio_view_intents.dart, radio_view_state.dart, telemetry.dart, tuning_target.dart
+  GLOB   test/services/session/**  -> 1 file(s): radio_session_controller_test.dart
+  GLOB   test/services/mesh/**  -> 8 file(s)
+  GLOB   test/core/radio_host/**  -> 2 file(s)
+  GLOB   test/core/state/**  -> 1 file(s): radio_state_test.dart
+  GLOB   test/core/settings/**  -> 2 file(s): resolved_token_uri_test.dart, settings_repository_test.dart
+  GLOB   test/core/presentation/**  -> 3 file(s): connection_condition_test.dart, radio_view_intents_test.dart, radio_view_state_test.dart
+  FILE   dossiers/TASK-088.md  -> exists, 13 line(s), 2013 bytes
+```
+Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (directory client, contacts/groups controllers, room derivation), and the existing radio_state/settings_model/radio_session_controller/radio_view_state/radio_host before writing any code. Also pulling forward TASK-079(e) meter-snapshot-throttle and TASK-082(a) remount-flash-timer carried debt.
+- [2026-09-11T19:25:00Z] [S5] Read Technical §1.1-§11 fully plus current radio_state.dart and radio_session_controller.dart. Scope is large (reducer field removal/addition, settings model, session controller mode->transport, radio_host start sequence, presentation audience/target, carried debt). Implementing now; will update this note at the next milestone or at needs_review with full test evidence.
+- [2026-09-11T20:05:00Z] [S5] STOP — real OWNERSHIP_CONFLICT found, not a guess. The task Description (and Technical §7) literally requires removing `RadioMode`/`channel`/`privacyCode`/`SetMode`/`TuneTo` from `lib/core/state/radio_state.dart` (owned) and renaming `RadioSessionController.retune` -> `switchTarget` (owned). But: (1) `RadioMode` is consumed outside Owned_Paths in `lib/features/channels/channel_format.dart`, `event_qr_ui/event_qr_join_coordinator.dart`, `face/face_view.dart`, `settings/about_diagnostics.dart`, `settings/settings_screen.dart`, `settings_panel/back_panel_screen.dart`, `settings_panel/settings_copy.dart`, `stations/station_copy.dart`, `talk/talk_channel_card.dart`; (2) `radioState.channel`/`.privacyCode` are consumed outside Owned_Paths in `channels/channels_landing.dart`, `channel_selector/channel_selector_screen.dart`, `channel_selector/tune_coordinator.dart`, `display/keryx_lcd_display.dart`, `event_qr/event_link.dart`, `event_qr_ui/event_qr_ui_export_screen.dart`, `face/face_screen.dart`, `face/face_view.dart`, `stations/stations_screen.dart`, `talk/talk_channel_card.dart`, `talk/talk_screen.dart`, `tuning/stepper_button.dart`, `app_shell/shell_routes.dart`; (3) `RadioHost.tune(int channel, int code)` (the interface in owned `radio_host_contract.dart`) is called from `channel_selector/tune_coordinator.dart` and `face/face_screen.dart`, both outside territory; (4) the `SessionHost`/`RadioSessionHostAdapter` seam that `KeryxRadioHost` calls `.retune(channel, code)` through lives entirely in `lib/features/face/session_host.dart`, also outside territory — renaming `RadioSessionController.retune` breaks that abstract interface's contract. Technical §10's own planning-dependency list sequences this exactly: item 5 (session/host, this task) before items 9-10 (Talk/shell rewiring) before item 11 (Deletions: channels/selector/stations/etc). Doing the literal field-removal now, before those later tasks exist/land, cannot compile without editing a dozen+ files outside Owned_Paths — not a judgement call, a hard compile-break across other units' future territory. Per AGENTS.md commandment 4/10: stopping rather than guessing or editing those files. Status: blocked, Blocked_Reason: OWNERSHIP_CONFLICT. No destructive edits made — working tree on task/TASK-088-s5 is clean, zero commits beyond the claim. Requesting ORCH decide: (a) widen TASK-088's Owned_Paths to include the listed consumer files so removal+rewire happens in one pass, or (b) re-scope TASK-088 to be ADDITIVE ONLY (add `roomId`/`Transport` enum alongside the existing `RadioMode`/`channel`/`privacyCode` rather than removing them, implement `switchTarget` as a new method alongside `retune` rather than a rename, implement the audience/target presentation fields additively) with the literal removal folded into the later "Deletions" task (Technical §10 item 11) once TASK-091/092/093 have migrated their own consumers off the old fields, or (c) explicitly sequence TASK-088 to depend on / run alongside 091-093 as one combined wave. Ready to proceed immediately once ORCH picks a direction — no re-reading needed, all spec/code context above is current.
+- [2026-09-11T20:25:00Z] [ORCH] S5 self-redirected to the now-unblocked TASK-091 rather than idle while this re-scope landed (reasonable use of time; its blocked STOP was correct and cost no wasted work). Status reset to `pending`, no branch, since nobody is actively on the re-scoped version yet. Next eligible builder: resume from the re-scoped Description/Acceptance_Criteria above.
+- [2026-09-12T06:20:00Z] [S5] Re-claimed TASK-088 (re-scoped additive-only version). Resume check: no S5 in_progress/claimed task found (TASK-091 done/merged); TASK-088 pending with re-scope note above, deps TASK-086/087 both done. Fresh branch task/TASK-088-s5 to be created off current master tip. Next: preflight_paths.py TASK-088, then re-read the re-scoped Description/Acceptance_Criteria in full plus current lib/services/session/**, lib/core/state/**, lib/core/settings/**, lib/core/presentation/**, lib/core/radio_host/**, lib/services/mesh/** before writing (additive-only: no removal/rename of any v1 field or method).
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T19:10:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-11T20:20:00Z
 
 
 ### TASK-089
 **Title:** v2 onboarding, My code and Restore screens
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.4 (My code), §2.6 (first run), §2.7 Identity section wiring hooks; PRD V2-FR-001..004; Verification V2-VT-003, V2-VT-027, V2-VT-030 (My code, phrase goldens)
@@ -5427,15 +5450,16 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
 - [ ] Restore rejects an invalid word inline and, with a valid phrase, reproduces the same ID as the original install in a test (V2-FR-003; V2-VT-027)
 - [ ] Goldens for the phrase screen and My code in dark and light (V2-VT-030)
 - [ ] `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-089-gb
+**Started_At:** 2026-09-12T04:08:35Z
+**Progress_Notes:**
+- [2026-09-12T04:08:35Z] [GB] Claimed TASK-089. Resume check: no GB in_progress/claimed task. Depends_On TASK-083 and TASK-086 both done. Branch task/TASK-089-gb. Next: preflight_paths.py TASK-089, then implement standalone onboarding / My code / Restore widgets.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-12T04:08:35Z
 
 
 ### TASK-090
@@ -5466,7 +5490,7 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
 
 ### TASK-091
 **Title:** v2 Groups tab — list, detail with members and presence, invites, admin actions, join with a code
-**Status:** pending
+**Status:** done
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.3, §4 (key rotated / removed states); PRD V2-FR-020..025; Technical §5.2 (invite link); Verification V2-VT-026, V2-VT-030 (groups goldens)
@@ -5474,20 +5498,33 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
 **Depends_On:** TASK-086, TASK-087
 **Description:** The Groups tab body and the group detail screen. List rows: glyph, name, `n online · m members`; tap → `onSelectTarget(group)`; chevron → detail. Detail: member list with presence and admin marks, invite (QR + link per Technical §5.2 with the expiry presets reused from `event_link.dart`), Leave, and admin-only Rename, Remove member (which triggers rotation through the groups store), Rotate key, Make admin. Floating: New group (name → create → invite screen) and Join with a code (scan or paste). Toasts for 'key changed' and 'you were removed'. Uses the TASK-086 groups store and TASK-087 room derivation; no shell dependencies.
 **Acceptance_Criteria:**
-- [ ] List counts and detail member list track the store's stream; the 26th join shows the cap message (V2-FR-022/025; V2-VT-026)
-- [ ] Invite QR/link matches Technical §5.2 and honours the expiry preset; Join with a code accepts a valid link and refuses an expired one (V2-FR-021)
-- [ ] Admin actions are hidden for non-admins; Remove member rotates the key and the removed member's row disappears; last-admin leave promotes the oldest member in the UI state (V2-FR-023/024)
-- [ ] Rotation and removal toasts appear per Design §4
-- [ ] Goldens: empty, populated, detail, dark and light (V2-VT-030); `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
-**Artifacts:** —
-**Test_Evidence:** —
-**Review_Findings:** —
+- [x] List counts and detail member list track the store's stream; the 26th join shows the cap message (V2-FR-022/025; V2-VT-026) — UI renders `GroupsCopy.groupFullMessage`; cap enforcement lives server-side/`GroupsController` per TASK-086, this task surfaces it
+- [x] Invite QR/link matches Technical §5.2 and honours the expiry preset; Join with a code accepts a valid link and refuses an expired one (V2-FR-021)
+- [x] Admin actions are hidden for non-admins; Remove member rotates the key and the removed member's row disappears; last-admin leave promotes the oldest member in the UI state (V2-FR-023/024)
+- [x] Rotation and removal toasts appear per Design §4
+- [x] Goldens: empty, populated, detail, dark and light (V2-VT-030); `flutter analyze` clean; full suite green
+**Branch:** task/TASK-091-s5
+**Started_At:** 2026-09-11T20:10:00Z
+**Progress_Notes:**
+- [2026-09-11T20:10:00Z] [S5] Claimed TASK-091. Resume check: no S5 in_progress/claimed task other than blocked TASK-088 (left blocked, untouched further). Depends_On TASK-086, TASK-087 both done; description says 'no shell dependencies' so this is safely independent of TASK-088's blocker. Branch task/TASK-091-s5 to be created from master. Next: preflight_paths.py TASK-091, then read Design §2.3/§4, Technical §5.2, TASK-086 groups store API, TASK-087 room derivation, and event_link.dart's expiry presets before writing.
+- [2026-09-12T04:04:00Z] [ORCH] Session ended after 5 real commits (list/detail/invite/new-group/join-with-code screens, view-model/controller/golden tests, dossier) but before updating status to needs_review. Status corrected to in_progress to reflect real committed work. Resume and finish: run the full suite in the foreground, record Test_Evidence, tick verified criteria, set needs_review.
+- [2026-09-12T02:05:00Z] [S5] Resumed. Working tree already clean on task/TASK-091-s5 with all implementation/test commits from prior session present (list/detail/invite/new-group/join-with-code screens + view-model/controller/widget/golden tests per dossier work log). Re-ran verification fresh in the foreground: `flutter analyze --no-pub` → No issues found (95.6s). `flutter test --no-pub` (full suite) → All tests passed (1673 total incl. previously-flagged KRX-044 soak seeds 498/499, which passed this run — not weakened, no changes made to soak_test.dart or SafetyMonitor). Ticked all acceptance criteria as verified against the diff. Status → needs_review.
+**Artifacts:** lib/features/groups/** (group_invite_link.dart, groups_copy.dart, group_view_models.dart, groups_list_controller.dart, groups_list_screen.dart, group_detail_controller.dart, group_detail_screen.dart, group_invite_screen.dart, join_with_code_screen.dart, new_group_screen.dart); test/features/groups/** (unit/controller/widget tests + goldens)
+**Test_Evidence:** `flutter analyze --no-pub` (full project): No issues found! (95.6s). `flutter test --no-pub` (full project, foreground, 2026-09-12T02:05Z): All tests passed — 1673 total run, including KRX-044 soak seeds 498/499 (previously flagged as parked/flaky under FR-025; this run they passed with no code changes to soak logic).
+**Review_Findings:** [2026-09-12T04:16:18Z] [ORCH] **APPROVED first-pass**, merged `47e07c2`. Reviewed on claude-sonnet-5 (AUTOPILOT v2.0 wave).
+- **Process note, not charged:** this task's status went stale overnight (real commits landed, but the session ended before flipping to needs_review). ORCH corrected the status, S5's resumed session re-verified everything fresh in the foreground rather than trusting the old note, and reached needs_review honestly. First-pass stands.
+- **Territory:** clean. 28 files, entirely `lib/features/groups/**` and `test/features/groups/**`; no touch to `lib/app_shell/**`, PLAN.md, or regression tests. 7 commits, tagged.
+- **Tests:** independent run in the worktree: analyze 0; `test/features/groups` 52/52; full suite 1673 passed / 0 failed / 40 skipped (the same PARKED FR-025 markers, confirmed unmodified). The 500-seed KRX-044 soak ran as part of this and passed.
+- **Reviewed in source:**
+  - `group_invite_link.dart`: v2 link carries `{g, t, s(secret), exp?}`; decode rejects a wrong scheme/host/version, a missing/malformed/wrong-length (≠32 byte) secret, and a malformed expiry, each with a distinct reason string.
+  - `GroupDetailController.removeMember`/`rotateKey`: both mint a fresh 32-byte secret and seal it to every remaining member before calling the directory, matching TASK-085's server-side "all-or-nothing" rotation contract.
+  - List/detail controllers stream off `GroupsController`/`DirectoryClient`; admin-only actions gated on the server-reported role; last-admin state surfaced for the UI to react to.
+- **Criteria:** all five verified. Criterion 1's caveat (cap enforcement lives server-side, this task surfaces the message) is accurate and reasonable — TASK-085 already tests the actual 25-member refusal.
+- **Non-blocking:** `GroupDetailController`'s `keyPair` constructor parameter is accepted but unused (documented candidly in the class's own comment as forward-looking); fine to leave, or drop it if nothing claims it by TASK-093.
+- **Unlocks:** nothing new (TASK-093 already depended on 091/092/090/089).
 **Blocked_Reason:** —
 **Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_At:** 2026-09-12T04:16:18Z
 
 
 ### TASK-092
@@ -5552,11 +5589,12 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
 **Owned_Paths:** lib/features/channels/**, lib/features/channel_selector/**, lib/features/stations/**, lib/features/event_qr/**, lib/features/event_qr_ui/**, lib/features/face/**, lib/features/ptt/**, lib/features/display/**, lib/features/settings_panel/**, lib/features/tuning/**, lib/features/radio_controls/**, lib/features/features.dart, test/features/channels/**, test/features/channel_selector/**, test/features/stations/**, test/features/event_qr/**, test/features/event_qr_ui/**, test/features/face/**, test/features/ptt/**, test/features/display/**, test/features/settings_panel/**, test/features/tuning/**, test/features/radio_controls/**, test/regression/goldens/goldens/channels_*.png, test/regression/goldens/goldens/stations_*.png, test/regression/goldens/goldens/selector_*.png, test/regression/goldens/goldens/qr_*.png, test/regression/goldens/goldens/radio_controls_*.png, test/regression/goldens/channels_golden_test.dart, test/regression/goldens/stations_golden_test.dart, test/regression/goldens/selector_golden_test.dart, test/regression/goldens/event_qr_golden_test.dart, test/regression/goldens/radio_controls_golden_test.dart, dossiers/TASK-094.md
 **Depends_On:** TASK-093
-**Description:** Delete what v2 replaced, after the shell no longer references it. Before deleting each module, list in the dossier every behavioural test it carried and where the surviving behaviour is now tested (Verification §0 rule); only presentation-only tests are dropped. `radio_controls` survives only if the shell still pushes it — if TASK-093 kept it, keep the module and drop it from this task's deletion list in the dossier; `tuning/` haptics that Talk still uses must be moved into `lib/features/talk/` by TASK-092 first (coordinate via the dossier, do not edit talk). Event QR: the keyed invite path now lives in TASK-091's groups feature; delete both `event_qr` directories. Then run V2-VT-028 repo-wide.
+**Description:** (ORCH 2026-09-11: also completes TASK-088's deferred v1-field removal, see below.) Delete what v2 replaced, after the shell no longer references it. Before deleting each module, list in the dossier every behavioural test it carried and where the surviving behaviour is now tested (Verification §0 rule); only presentation-only tests are dropped. `radio_controls` survives only if the shell still pushes it — if TASK-093 kept it, keep the module and drop it from this task's deletion list in the dossier; `tuning/` haptics that Talk still uses must be moved into `lib/features/talk/` by TASK-092 first (coordinate via the dossier, do not edit talk). Event QR: the keyed invite path now lives in TASK-091's groups feature; delete both `event_qr` directories. Then run V2-VT-028 repo-wide.
 **Acceptance_Criteria:**
 - [ ] Every directory in Owned_Paths that the shell no longer imports is deleted, and a repo-wide grep for `features/channels`, `channel_selector`, `features/stations`, `features/face`, `features/ptt`, `features/display`, `settings_panel`, `event_qr` finds no imports (Technical §6.2; ADR-001 §6)
 - [ ] Repo-wide grep of `lib/` user-facing strings for channel, privacy code, tune, station, LOCAL, LINKED, AUTO returns nothing (V2-VT-028)
-- [ ] The dossier reconciles deleted tests: every behavioural assertion names its successor test; before/after suite counts explained (Verification §0)
+- [ ] The dossier reconciles deleted tests: every behavioural assertion names its successor test; before/after suite counts explained (Verification §0) Additionally, **remove the v1 fields TASK-088 deliberately left in place**: `RadioMode`/`channel`/`privacyCode`/`SetMode`/`TuneTo` from `lib/core/state/radio_state.dart`; `mode`/`region`/`channel`/`privacyCode` from `KeryxSettings`; the v1 `retune(channel, code)`/`tune(channel, code)` surface on `RadioHost`/`SessionHost` once TASK-093's shell no longer calls it; and `ConnectionCondition.effectiveRoute`/`configuredMode`/`isResolved` once every caller uses `.transport`. This is the removal half of the additive fields TASK-088/080/081 introduced — do it in the same pass as the rest of this task's deletions, verified by the same repo-wide grep.
+
 - [ ] Retired goldens removed; `flutter analyze` clean; full suite green; `flutter build apk --debug` succeeds
 **Branch:** —
 **Started_At:** —
