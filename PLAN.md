@@ -5728,7 +5728,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-094
 **Title:** v2 deletions — channels, selector, stations, numbered Event QR, legacy face/ptt/display/settings_panel
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
@@ -5744,6 +5744,83 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 **Branch:** task/TASK-094-gb
 **Started_At:** 2026-09-12T08:08:02Z
 **Progress_Notes:**
+- [2026-09-12T08:55:17Z] [GB] Status: in_progress. Merged master (`e085fb0`). Four-symbol grep (RadioMode/SetMode/TuneTo/deriveNumbered) over `lib/**/*.dart`+`test/**/*.dart` is exhaustive inside Owned_Paths — no remaining compile callers outside it. `joinNumbered` stays on LinkedController so unowned `test/services/linked/linked_controller_test.dart` still compiles (it never names those four symbols). Next: v1-field removal. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-094 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 86 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/channels/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/channel_selector/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/stations/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/event_qr/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/event_qr_ui/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/face/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/ptt/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/display/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/settings_panel/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/tuning/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/radio_controls/**  -> 2 file(s)
+  FILE   lib/features/features.dart  -> exists, 1 line(s), 72 bytes
+  FILE   lib/app.dart  -> exists, 70 line(s), 3195 bytes
+  FILE   lib/app_shell/shell_routes.dart  -> exists, 64 line(s), 2469 bytes
+  FILE   lib/app_shell/radio_host_provider.dart  -> exists, 114 line(s), 4922 bytes
+  FILE   lib/app_shell/mobile_app_shell.dart  -> exists, 425 line(s), 16584 bytes
+  GLOB   lib/core/radio_host/**  -> 7 file(s)
+  FILE   lib/core/settings/settings_repository.dart  -> exists, 177 line(s), 6026 bytes
+  FILE   lib/core/presentation/radio_view_intents.dart  -> exists, 43 line(s), 2048 bytes
+  FILE   lib/core/presentation/connection_condition.dart  -> exists, 72 line(s), 3246 bytes
+  FILE   lib/core/presentation/radio_view_state.dart  -> exists, 334 line(s), 15445 bytes
+  FILE   lib/core/state/radio_state.dart  -> exists, 555 line(s), 18305 bytes
+  FILE   lib/core/state/radio_state_bridge.dart  -> exists, 103 line(s), 3746 bytes
+  FILE   lib/core/settings/settings_model.dart  -> exists, 384 line(s), 13761 bytes
+  FILE   lib/services/session/radio_session_controller.dart  -> exists, 621 line(s), 24729 bytes
+  FILE   lib/features/groups/group_invite_link.dart  -> exists, 173 line(s), 5721 bytes
+  FILE   lib/features/groups/group_invite_screen.dart  -> exists, 117 line(s), 3890 bytes
+  FILE   lib/features/settings/settings_screen.dart  -> exists, 751 line(s), 28357 bytes
+  FILE   lib/features/settings/about_diagnostics.dart  -> exists, 100 line(s), 3076 bytes
+  FILE   lib/features/settings/settings_copy.dart  -> exists, 212 line(s), 9359 bytes
+  FILE   lib/features/settings/settings_inventory.dart  -> exists, 182 line(s), 5395 bytes
+  FILE   lib/features/settings/settings_keys.dart  -> exists, 48 line(s), 2747 bytes
+  FILE   lib/features/settings/session_settings.dart  -> exists, 72 line(s), 2677 bytes
+  FILE   lib/core/rooms/derivation.dart  -> exists, 162 line(s), 6429 bytes
+  FILE   lib/services/discovery/channel_hash_prefix.dart  -> exists, 39 line(s), 1520 bytes
+  FILE   lib/services/discovery/discovery.dart  -> exists, 14 line(s), 444 bytes
+  FILE   lib/services/discovery/discovery_config.dart  -> exists, 110 line(s), 3808 bytes
+  FILE   lib/services/discovery/room_prefix.dart  -> exists, 32 line(s), 1526 bytes
+  FILE   lib/services/linked/linked_controller.dart  -> exists, 315 line(s), 12363 bytes
+  FILE   lib/core/presentation/tuning_target.dart  -> exists, 28 line(s), 1090 bytes
+  FILE   lib/core/settings/README.md  -> exists, 38 line(s), 1580 bytes
+  GLOB   test/features/{channels,channel_selector,stations,event_qr,event_qr_ui,face,ptt,display,settings_panel,tuning}/**  -> matches nothing yet
+  GLOB   test/features/radio_controls/**  -> 2 file(s)
+  FILE   test/app_shell/fake_radio_host.dart  -> exists, 73 line(s), 2304 bytes
+  FILE   test/app_shell/mobile_app_shell_test.dart  -> exists, 473 line(s), 18703 bytes
+  GLOB   test/core/radio_host/**  -> 4 file(s)
+  FILE   test/core/presentation/radio_view_intents_test.dart  -> exists, 113 line(s), 3211 bytes
+  FILE   test/core/presentation/connection_condition_test.dart  -> exists, 63 line(s), 2118 bytes
+  FILE   test/core/presentation/radio_view_state_test.dart  -> exists, 599 line(s), 21538 bytes
+  FILE   test/core/state/radio_state_test.dart  -> exists, 670 line(s), 23642 bytes
+  FILE   test/core/settings/settings_repository_test.dart  -> exists, 473 line(s), 15648 bytes
+  FILE   test/services/session/radio_session_controller_test.dart  -> exists, 851 line(s), 28359 bytes
+  FILE   test/features/talk/fake_radio_host.dart  -> exists, 72 line(s), 2184 bytes
+  FILE   test/features/settings/fake_radio_host.dart  -> exists, 115 line(s), 3012 bytes
+  FILE   test/features/settings/settings_screen_test.dart  -> exists, 550 line(s), 20012 bytes
+  FILE   test/features/settings/about_diagnostics_test.dart  -> exists, 103 line(s), 3722 bytes
+  FILE   test/features/talk/talk_screen_test.dart  -> exists, 1618 line(s), 63939 bytes
+  FILE   test/features/settings/settings_apply_test.dart  -> exists, 215 line(s), 7822 bytes
+  FILE   test/features/settings/settings_persistence_test.dart  -> exists, 129 line(s), 4890 bytes
+  FILE   test/core/rooms/derivation_test.dart  -> exists, 213 line(s), 7377 bytes
+  FILE   test/core/rooms/vectors_test.dart  -> exists, 84 line(s), 2392 bytes
+  FILE   test/services/discovery/channel_hash_prefix_test.dart  -> exists, 53 line(s), 1510 bytes
+  FILE   test/features/groups/group_invite_screen_test.dart  -> exists, 138 line(s), 5135 bytes
+  FILE   test/regression/real_composition_test.dart  -> exists, 660 line(s), 24709 bytes
+  FILE   test/regression/goldens/settings_golden_test.dart  -> exists, 89 line(s), 3591 bytes
+  GLOB   test/regression/goldens/goldens/settings_*.png  -> 2 file(s)
+  GLOB   test/regression/goldens/goldens/{channels,stations,selector,qr}_*.png  -> matches nothing yet
+  GLOB   test/regression/goldens/goldens/radio_controls_*.png  -> 2 file(s)
+  NEW    test/regression/goldens/{channels,stations,selector,event_qr}_golden_test.dart  -> does not exist (deleted)
+  FILE   test/regression/goldens/radio_controls_golden_test.dart  -> exists, 165 line(s), 6165 bytes
+  FILE   dossiers/TASK-094.md  -> exists, 265 line(s), 21661 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
 - [2026-09-12T08:50:00Z] [GB] Reclaimed TASK-094 after ORCH's third Owned_Paths widen. Same branch `task/TASK-094-gb`, Started_At unchanged. Next: merge master, preflight, then re-grep RadioMode/SetMode/TuneTo/deriveNumbered across lib/**+test/** before any v1-field removal.
 - [2026-09-12T09:15:00Z] [ORCH] Third and final widen for this task, from GB's own exhaustive dossier grep of `RadioMode`/`SetMode`/`TuneTo`/`deriveNumbered` across all of `lib/**`+`test/**` (not a guess-list this time — GB's own comprehensive search): added `lib/features/settings/session_settings.dart`, `lib/core/rooms/derivation.dart`, `lib/services/discovery/{channel_hash_prefix,discovery,discovery_config,room_prefix}.dart`, `lib/services/linked/linked_controller.dart`, `lib/core/presentation/tuning_target.dart`, `lib/core/settings/README.md`, `test/features/talk/talk_screen_test.dart`, `test/features/settings/{settings_apply,settings_persistence}_test.dart`, `test/core/rooms/{derivation,vectors}_test.dart`, `test/services/discovery/channel_hash_prefix_test.dart`. No other task owns any of this (TASK-087/093 both done). **Before touching anything, re-run GB's own grep for those four symbols once more across the whole repo to confirm this list is now actually exhaustive** — if it isn't, stop and report the residual rather than deleting partially again; three rounds is enough guessing, the fourth should be a real completion. Status -> pending.
 - [2026-09-12T08:46:19Z] [GB] Status: blocked, Blocked_Reason: OWNERSHIP_CONFLICT. Merged master (`c975103`). No v1-field removal written — an honest AC-3 pass still cannot compile. Second widen granted every file named in the last Residual list; grep of live `lib/`+`test/` found a further caller set that list missed. Preflight (c8b9872 filesystem check):
@@ -5870,7 +5947,7 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T08:50:00Z
+**Updated_At:** 2026-09-12T08:55:17Z
 
 
 ### TASK-095
