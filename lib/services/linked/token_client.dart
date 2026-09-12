@@ -5,6 +5,8 @@ import 'dart:io';
 
 import 'package:keryx/core/identity/keys.dart' show IdentityKeyPair;
 import 'package:keryx/core/identity/signing.dart' show signRequest;
+import 'package:keryx/features/my_code/keryx_id_link.dart'
+    show encodeUnpaddedBase64Url;
 
 const _logName = 'keryx.linked';
 
@@ -50,22 +52,36 @@ class TokenClient {
   final Duration _requestTimeout;
 
   /// Requests a token for [roomId] (TASK-007's derived roomId) and
-  /// [callsign], optionally carrying an Event-QR [eventToken] (TASK-025).
+  /// [callsign], optionally carrying an Event-QR [eventToken] (TASK-025)
+  /// and a 1:1 [peerPublicKey] (TASK-101).
+  ///
+  /// When [peerPublicKey] is a 32-byte Ed25519 key, the body includes
+  /// `peer_pk` as unpadded base64url (the encoding
+  /// [encodeUnpaddedBase64Url] already produces). The v2 token service
+  /// uses that field to `ensure_direct_room` before `assert_room_member`
+  /// (`token-svc/app/main.py`). When null, the JSON body is byte-identical
+  /// to the pre-TASK-101 shape — groups and the idle session send none.
   ///
   /// Throws [TokenRequestException] for any non-200 response, mapping the
-  /// service's stable `detail` codes; throws [TokenTransportException] for
+  /// service's stable `detail`/`error` codes (`not_member`, `not_contacts`,
+  /// `room_conflict`, …); throws [TokenTransportException] for
   /// network/decoding failures. Never returns a malformed [TokenResponse].
   Future<TokenResponse> requestToken({
     required String roomId,
     required String callsign,
     String? eventToken,
+    List<int>? peerPublicKey,
   }) async {
     final uri = resolveTokenUri();
-    final bodyJson = jsonEncode({
+    final bodyMap = <String, Object?>{
       'room_id': roomId,
       'callsign': callsign,
       'event_token': eventToken,
-    });
+    };
+    if (peerPublicKey != null) {
+      bodyMap['peer_pk'] = encodeUnpaddedBase64Url(peerPublicKey);
+    }
+    final bodyJson = jsonEncode(bodyMap);
     final body = utf8.encode(bodyJson);
 
     late final HttpClientRequest request;

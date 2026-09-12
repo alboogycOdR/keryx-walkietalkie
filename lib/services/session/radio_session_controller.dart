@@ -6,6 +6,8 @@ import 'package:keryx/core/identity/identity.dart'
 import 'package:keryx/core/floor/effects.dart';
 import 'package:keryx/core/floor/floor_engine.dart';
 import 'package:keryx/core/presentation/talk_target.dart';
+import 'package:keryx/features/my_code/keryx_id_link.dart'
+    show decodeUnpaddedBase64Url;
 import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/settings/settings_model.dart';
 import 'package:keryx/core/state/radio_state.dart';
@@ -261,7 +263,10 @@ class RadioSessionController {
     if (transport == Transport.direct) {
       await _startLocal(roomIdOverride: target.roomId);
     } else {
-      await _startLinked(roomIdOverride: target.roomId);
+      await _startLinked(
+        roomIdOverride: target.roomId,
+        peerPublicKey: _peerPublicKeyFor(target),
+      );
     }
     final roster = <String>{localPeerId, ...memberPeerIds};
     _floorEngine?.updateRoster(roster);
@@ -301,6 +306,22 @@ class RadioSessionController {
     if (_settings.relayUrl.isEmpty) return false;
     final uri = Uri.tryParse(_settings.relayUrl);
     return uri != null && uri.host.isNotEmpty;
+  }
+
+  /// TASK-101: a contact [TalkTarget.id] is the peer's unpadded-base64url
+  /// Ed25519 public key (`ContactRowVm.pk`, pinned at
+  /// `contacts_tab_screen.dart`). Groups and the idle session send none.
+  /// A malformed / wrong-length id is treated as "no key" rather than
+  /// crashing the join — the token service then skips `ensure_direct_room`
+  /// and the existing 403 `not_member` path fires.
+  List<int>? _peerPublicKeyFor(TalkTarget target) {
+    if (target.kind != TalkTargetKind.contact) return null;
+    try {
+      final key = decodeUnpaddedBase64Url(target.id);
+      return key.length == 32 ? key : null;
+    } on FormatException {
+      return null;
+    }
   }
 
   // --- LOCAL chain ---------------------------------------------------
@@ -390,7 +411,10 @@ class RadioSessionController {
   /// carries no bound of its own (`token_client.dart`'s own 10 s HTTP
   /// timeout only covers the token fetch step, not the LiveKit `connect()`/
   /// publish steps after it).
-  Future<void> _startLinked({String? roomIdOverride}) async {
+  Future<void> _startLinked({
+    String? roomIdOverride,
+    List<int>? peerPublicKey,
+  }) async {
     final proxyTransport = LinkedProxyFloorTransport();
     final engine = FloorEngine(
       localPeerId: localPeerId,
@@ -418,6 +442,7 @@ class RadioSessionController {
           .joinRoomId(
             roomId: roomIdOverride ?? _idleRoomId,
             forceLocalOnly: _settings.forceLocalOnly,
+            peerPublicKey: peerPublicKey,
           )
           .timeout(_sessionStartTimeout);
       final transport = linked.floorTransport;

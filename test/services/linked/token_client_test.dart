@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/identity/keys.dart';
+import 'package:keryx/features/my_code/keryx_id_link.dart'
+    show encodeUnpaddedBase64Url;
 import 'package:keryx/services/linked/token_client.dart';
 
 import 'fakes/fake_token_server.dart';
@@ -52,6 +54,45 @@ void main() {
       expect(server.lastRequestBody?['event_token'], 'keryx-evt.v1.aa.bb');
     });
 
+    test(
+      'TASK-101: peerPublicKey is sent as unpadded-base64url peer_pk',
+      () async {
+        server
+          ..statusCode = 200
+          ..responseBody = {'token': 't', 'identity': 'i#1', 'ttl_seconds': 60};
+        final key = List<int>.generate(32, (i) => i + 1);
+
+        await client.requestToken(
+          roomId: 'ABCDEFGHIJKLMNOP',
+          callsign: 'X',
+          peerPublicKey: key,
+        );
+
+        expect(server.lastRequestBody?['peer_pk'], encodeUnpaddedBase64Url(key));
+        expect(server.lastRequestBody?['room_id'], 'ABCDEFGHIJKLMNOP');
+        expect(server.lastRequestBody?['callsign'], 'X');
+        expect(server.lastRequestBody?['event_token'], isNull);
+      },
+    );
+
+    test(
+      'TASK-101: omitting peerPublicKey keeps the body byte-identical to today',
+      () async {
+        server
+          ..statusCode = 200
+          ..responseBody = {'token': 't', 'identity': 'i#1', 'ttl_seconds': 60};
+
+        await client.requestToken(roomId: 'ABCDEFGHIJKLMNOP', callsign: 'X');
+
+        expect(server.lastRequestBody, {
+          'room_id': 'ABCDEFGHIJKLMNOP',
+          'callsign': 'X',
+          'event_token': null,
+        });
+        expect(server.lastRequestBody!.containsKey('peer_pk'), isFalse);
+      },
+    );
+
     test('maps a non-200 response to TokenRequestException with detail', () async {
       server
         ..statusCode = 403
@@ -83,6 +124,29 @@ void main() {
                 .having((e) => e.detail, 'detail', 'missing_signature'),
           ),
         );
+      },
+    );
+
+    test(
+      'TASK-101: 403 not_contacts and 409 room_conflict map through as detail '
+      '(real token-svc {error: code} shape)',
+      () async {
+        Future<void> expectCode(int status, String code) async {
+          server
+            ..statusCode = status
+            ..responseBody = {'error': code};
+          await expectLater(
+            client.requestToken(roomId: 'ABCDEFGHIJKLMNOP', callsign: 'X'),
+            throwsA(
+              isA<TokenRequestException>()
+                  .having((e) => e.statusCode, 'statusCode', status)
+                  .having((e) => e.detail, 'detail', code),
+            ),
+          );
+        }
+
+        await expectCode(403, 'not_contacts');
+        await expectCode(409, 'room_conflict');
       },
     );
 

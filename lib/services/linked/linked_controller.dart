@@ -151,9 +151,15 @@ class LinkedController {
     String? eventToken,
     required bool forceLocalOnly,
     List<int>? roomSecret,
+    List<int>? peerPublicKey,
   }) async {
     _guardForceLocalOnly(forceLocalOnly);
-    await _join(roomId, eventToken, roomSecret: roomSecret);
+    await _join(
+      roomId,
+      eventToken,
+      roomSecret: roomSecret,
+      peerPublicKey: peerPublicKey,
+    );
   }
 
   void _guardForceLocalOnly(bool forceLocalOnly) {
@@ -162,9 +168,19 @@ class LinkedController {
     }
   }
 
-  Future<void> _join(String roomId, String? eventToken, {List<int>? roomSecret}) async {
+  Future<void> _join(
+    String roomId,
+    String? eventToken, {
+    List<int>? roomSecret,
+    List<int>? peerPublicKey,
+  }) async {
     if (_disposed) throw StateError('LinkedController is disposed');
-    final joined = await _connectAndPublish(roomId, eventToken, roomSecret: roomSecret);
+    final joined = await _connectAndPublish(
+      roomId,
+      eventToken,
+      roomSecret: roomSecret,
+      peerPublicKey: peerPublicKey,
+    );
     if (_disposed) {
       // dispose() landed while we were awaiting the token/connect/publish
       // chain — unwind rather than adopt a room onto a disposed controller
@@ -184,7 +200,12 @@ class LinkedController {
       // what makes FR-045's auto-fallback-to-LOCAL reachable in production
       // (a null/absent reconnect degrades to LOCAL via LinkMonitor's own
       // give-up path, but a genuinely reachable relay must actually retry).
-      reconnect: () => _reconnectRoom(roomId, eventToken, roomSecret: roomSecret),
+      reconnect: () => _reconnectRoom(
+        roomId,
+        eventToken,
+        roomSecret: roomSecret,
+        peerPublicKey: peerPublicKey,
+      ),
       initialBackoff: _linkMonitorInitialBackoff,
       maxBackoff: _linkMonitorMaxBackoff,
       maxAttempts: _linkMonitorMaxAttempts,
@@ -200,8 +221,14 @@ class LinkedController {
     String roomId,
     String? eventToken, {
     List<int>? roomSecret,
+    List<int>? peerPublicKey,
   }) async {
-    final joined = await _connectAndPublish(roomId, eventToken, roomSecret: roomSecret);
+    final joined = await _connectAndPublish(
+      roomId,
+      eventToken,
+      roomSecret: roomSecret,
+      peerPublicKey: peerPublicKey,
+    );
     if (_disposed) {
       await joined.room.disconnect();
       throw StateError('LinkedController disposed during reconnect');
@@ -231,11 +258,13 @@ class LinkedController {
     String roomId,
     String? eventToken, {
     List<int>? roomSecret,
+    List<int>? peerPublicKey,
   }) async {
     final tokenResponse = await _tokenClient.requestToken(
       roomId: roomId,
       callsign: _callsign,
       eventToken: eventToken,
+      peerPublicKey: peerPublicKey,
     );
     final e2eeKey = roomSecret != null ? await deriveE2eeKey(roomSecret) : null;
     final room = await _adapter.connect(
