@@ -6104,15 +6104,16 @@ Existing channel names (must not collide or rename): `za.co.basileia.keryx/nsd`,
 - [ ] PTT stays disabled while in this failure state (`floorEngine` remains null; `ptteEnabled` in `talk_screen.dart` already covers this — add a regression test pinning it for the new state specifically)
 - [ ] Existing mic-permission-denied behavior and its tests are unmodified and still pass
 - [ ] Full test suite green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-097-s5
+**Started_At:** 2026-09-12T14:50:00Z
+**Progress_Notes:**
+- [2026-09-12T14:50:00Z] [S5] Claimed TASK-097. Resume check: no other S5 in_progress/claimed task found (TASK-093 is already done/merged at 9909819; stale PreCompact checkpoint referencing it deleted). Depends_On: none. Branch task/TASK-097-s5 to be created off master. Next: preflight_paths.py TASK-097, then read keryx_radio_host.dart:297-299 and radio_session_controller.dart:170-284 in full before touching anything.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-12T14:40:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-12T14:50:00Z
 
 
 ### TASK-098
