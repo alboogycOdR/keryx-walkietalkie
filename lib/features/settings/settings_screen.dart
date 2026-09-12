@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:keryx/app_shell/onboarding_gate.dart' show RecoveryPhraseVault;
 import 'package:keryx/app_shell/radio_host_provider.dart';
 import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/presentation/presentation.dart';
@@ -10,9 +11,11 @@ import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
+import 'package:keryx/features/restore/restore_screen.dart';
 
 import 'about_diagnostics.dart';
 import 'appearance_preference.dart';
+import 'recovery_phrase_view_screen.dart';
 import 'session_settings.dart';
 import 'settings_apply.dart';
 import 'settings_copy.dart';
@@ -54,7 +57,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   DeviceIdentity? _identity;
   AppearancePreference _appearance = AppearancePreference.defaults;
   KeryxSettings? _pending;
-  String? _regionError;
   String? _relayError;
   String? _tokenError;
   String? _callsignError;
@@ -194,6 +196,90 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  /// Design §2.7 "Show recovery phrase behind device lock". This build has
+  /// no biometric plugin (`local_auth` would be a `pubspec.yaml` addition —
+  /// frozen territory, not this task's to make), so "device lock" is a
+  /// same-device confirmation dialog rather than a biometric/PIN prompt —
+  /// disclosed scope decision, carried forward for a successor task if the
+  /// project adds that dependency.
+  Future<void> _showRecoveryPhrase() async {
+    final words = await RecoveryPhraseVault().load();
+    if (!mounted) return;
+    if (words == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(SettingsCopy.showRecoveryPhraseUnavailable)),
+      );
+      return;
+    }
+    final bool confirmed = await _confirmDialog(
+      key: SettingsKeys.recoveryPhraseGate,
+      title: SettingsCopy.recoveryPhraseConfirmTitle,
+      body: SettingsCopy.recoveryPhraseConfirmBody,
+      confirmLabel: SettingsCopy.recoveryPhraseConfirmShow,
+    );
+    if (!confirmed || !mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => RecoveryPhraseViewScreen(words: words),
+      ),
+    );
+  }
+
+  Future<void> _restoreFromPhrase() async {
+    final bool confirmed = await _confirmDialog(
+      key: SettingsKeys.restoreConfirm,
+      title: SettingsCopy.restoreConfirmTitle,
+      body: SettingsCopy.restoreConfirmBody,
+      confirmLabel: SettingsCopy.restoreConfirmContinue,
+    );
+    if (!confirmed || !mounted) return;
+    final DeviceIdentity? restored = await Navigator.of(context)
+        .push<DeviceIdentity>(
+      MaterialPageRoute<DeviceIdentity>(
+        builder: (routeContext) => RestoreScreen(
+          onRestored: (identity) => Navigator.of(routeContext).pop(identity),
+        ),
+      ),
+    );
+    if (restored == null) return;
+    final keyPair = restored.keyPair;
+    if (keyPair != null) {
+      await _identityRepo.restoreKeyPair(keyPair);
+      await _identityRepo.setCallsign(restored.callsign.value);
+    }
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text(SettingsCopy.restoreDone)));
+  }
+
+  Future<bool> _confirmDialog({
+    required Key key,
+    required String title,
+    required String body,
+    required String confirmLabel,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        key: key,
+        title: Text(title),
+        content: Text(body),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(SettingsCopy.confirmCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    ).then((bool? value) => value ?? false);
+  }
+
   Brightness _brightnessFor(BuildContext context) {
     switch (_appearance.theme) {
       case AppearanceTheme.light:
@@ -231,7 +317,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             appearance: _appearance,
             pending: _pending,
             appVersion: widget.appVersion,
-            regionError: _regionError,
             relayError: _relayError,
             tokenError: _tokenError,
             callsignError: _callsignError,
@@ -240,8 +325,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTheme: (AppearanceTheme theme) => unawaited(_setTheme(theme)),
             onCallsign: (String raw) => unawaited(_setCallsign(raw)),
             onCancelDeferred: _cancelDeferred,
-            onRegionError: (String? error) =>
-                setState(() => _regionError = error),
+            onShowRecoveryPhrase: _showRecoveryPhrase,
+            onRestoreFromPhrase: _restoreFromPhrase,
             onRelayError: (String? error) =>
                 setState(() => _relayError = error),
             onTokenError: (String? error) =>
@@ -275,7 +360,6 @@ class _SettingsScaffold extends StatelessWidget {
     required this.appearance,
     required this.pending,
     required this.appVersion,
-    required this.regionError,
     required this.relayError,
     required this.tokenError,
     required this.callsignError,
@@ -283,7 +367,8 @@ class _SettingsScaffold extends StatelessWidget {
     required this.onTheme,
     required this.onCallsign,
     required this.onCancelDeferred,
-    required this.onRegionError,
+    required this.onShowRecoveryPhrase,
+    required this.onRestoreFromPhrase,
     required this.onRelayError,
     required this.onTokenError,
   });
@@ -294,7 +379,6 @@ class _SettingsScaffold extends StatelessWidget {
   final AppearancePreference appearance;
   final KeryxSettings? pending;
   final String appVersion;
-  final String? regionError;
   final String? relayError;
   final String? tokenError;
   final String? callsignError;
@@ -302,7 +386,8 @@ class _SettingsScaffold extends StatelessWidget {
   final ValueChanged<AppearanceTheme> onTheme;
   final ValueChanged<String> onCallsign;
   final VoidCallback onCancelDeferred;
-  final ValueChanged<String?> onRegionError;
+  final VoidCallback onShowRecoveryPhrase;
+  final VoidCallback onRestoreFromPhrase;
   final ValueChanged<String?> onRelayError;
   final ValueChanged<String?> onTokenError;
 
@@ -373,22 +458,6 @@ class _SettingsScaffold extends StatelessWidget {
                   onChanged: (bool v) =>
                       onPropose(settings.copyWith(busyLockout: v)),
                 ),
-                SettingsTextRow(
-                  key: SettingsKeys.region,
-                  label: SettingsCopy.regionLabel,
-                  description: SettingsCopy.regionDescription,
-                  value: settings.region,
-                  sessionAffecting: true,
-                  error: regionError,
-                  onSubmit: (String raw) {
-                    if (raw.isEmpty) {
-                      onRegionError(SettingsCopy.regionEmptyError);
-                      return;
-                    }
-                    onRegionError(null);
-                    onPropose(settings.copyWith(region: raw));
-                  },
-                ),
               ],
             ),
             SettingsSection(
@@ -443,18 +512,6 @@ class _SettingsScaffold extends StatelessWidget {
               title: SettingsCopy.connectivitySection,
               description: SettingsCopy.connectivitySectionDescription,
               children: <Widget>[
-                SettingsPickerRow<RadioMode>(
-                  key: SettingsKeys.mode,
-                  label: SettingsCopy.modeLabel,
-                  description: SettingsCopy.modeDescription,
-                  value: settings.mode,
-                  options: RadioMode.values,
-                  optionLabel: (RadioMode v) =>
-                      SettingsCopy.modeOptionLabel(v.name),
-                  sessionAffecting: true,
-                  onChanged: (RadioMode v) =>
-                      onPropose(settings.copyWith(mode: v)),
-                ),
                 SettingsReadOnlyRow(
                   key: SettingsKeys.effectiveRoute,
                   label: SettingsCopy.effectiveRouteLabel,
@@ -519,6 +576,14 @@ class _SettingsScaffold extends StatelessWidget {
                     onPropose(settings.copyWith(tokenServiceUrl: raw));
                   },
                 ),
+                SettingsToggleRow(
+                  key: SettingsKeys.preferDirect,
+                  label: SettingsCopy.preferDirectLabel,
+                  description: SettingsCopy.preferDirectDescription,
+                  value: settings.preferDirectOnWifi,
+                  onChanged: (bool v) =>
+                      onPropose(settings.copyWith(preferDirectOnWifi: v)),
+                ),
               ],
             ),
             SettingsSection(
@@ -533,6 +598,36 @@ class _SettingsScaffold extends StatelessWidget {
                   value: identity?.callsign.value ?? '',
                   error: callsignError,
                   onSubmit: onCallsign,
+                ),
+                SettingsActionRow(
+                  key: SettingsKeys.showRecoveryPhrase,
+                  label: SettingsCopy.showRecoveryPhraseLabel,
+                  description: SettingsCopy.showRecoveryPhraseDescription,
+                  actionLabel: SettingsCopy.showRecoveryPhraseAction,
+                  onPressed: onShowRecoveryPhrase,
+                ),
+                SettingsActionRow(
+                  key: SettingsKeys.restoreFromPhrase,
+                  label: SettingsCopy.restoreFromPhraseLabel,
+                  description: SettingsCopy.restoreFromPhraseDescription,
+                  actionLabel: SettingsCopy.restoreFromPhraseAction,
+                  destructive: true,
+                  onPressed: onRestoreFromPhrase,
+                ),
+              ],
+            ),
+            SettingsSection(
+              key: SettingsKeys.messagesSection,
+              title: SettingsCopy.messagesSection,
+              description: SettingsCopy.messagesSectionDescription,
+              children: <Widget>[
+                SettingsReadOnlyRow(
+                  key: SettingsKeys.messageRetention,
+                  label: SettingsCopy.messageRetentionLabel,
+                  description: SettingsCopy.messageRetentionDescription,
+                  value: SettingsCopy.messageRetentionValueLabel(
+                    settings.messageRetentionDays,
+                  ),
                 ),
               ],
             ),

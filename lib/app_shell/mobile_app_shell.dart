@@ -3,23 +3,25 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:keryx/core/presentation/connection_condition.dart';
+import 'package:keryx/core/presentation/talk_target.dart' show TalkTarget;
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart' show RadioPhase, RadioState;
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
 
-import 'channels_screen.dart';
+import 'contacts_tab_screen.dart';
+import 'directory_providers.dart';
+import 'groups_tab_screen.dart';
 import 'radio_host_provider.dart';
 import 'shell_keys.dart';
 import 'shell_routes.dart';
-import 'stations_screen.dart';
 import 'talk_screen.dart';
 
-/// ADR-002 §2/§3 — the R2 Talk-first shell: a top app bar (wordmark,
-/// connection indicator, overflow menu) and an icon-only tab strip (Talk ·
-/// Channels · Stations) replace TASK-048's bottom `NavigationBar` and its
-/// two Channels/Settings destinations. Settings and Radio controls move into
-/// the overflow menu, pushed full-screen on the root navigator.
+/// v2 (ADR-002 §2/§3, Design §1): the Talk-first shell — a top app bar
+/// (wordmark, connection indicator, overflow menu) and an icon-only tab
+/// strip. TASK-093 replaces the R2 Talk/Channels/Stations tabs with
+/// Talk/Contacts/Groups (Design §1's information architecture) and adds
+/// My code to the ⋮ menu above Radio controls and Settings.
 ///
 /// The host is still read — and, on that first read, constructed and
 /// started — exactly once here, at application scope. Every destination
@@ -44,8 +46,8 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
 
   final List<GlobalKey<NavigatorState>> _branchKeys = <GlobalKey<NavigatorState>>[
     GlobalKey<NavigatorState>(debugLabel: 'talk-branch'),
-    GlobalKey<NavigatorState>(debugLabel: 'channels-branch'),
-    GlobalKey<NavigatorState>(debugLabel: 'stations-branch'),
+    GlobalKey<NavigatorState>(debugLabel: 'contacts-branch'),
+    GlobalKey<NavigatorState>(debugLabel: 'groups-branch'),
   ];
 
   /// One observer per branch so a push/pop *inside* any nested [Navigator]
@@ -94,6 +96,13 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
     setState(() => _index = index);
   }
 
+  /// Design §1 "Current target": selecting a contact or group anywhere
+  /// makes it the current target and switches to Talk.
+  void _selectTarget(TalkTarget target) {
+    ref.read(currentTargetProvider.notifier).state = TalkTargetSelection(target);
+    _switchTo(0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final KeryxUxTokens tokens = KeryxUxTokens.of(context);
@@ -130,6 +139,7 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
           actions: <Widget>[
             const _ConnectionIndicator(),
             _OverflowMenu(
+              onOpenMyCode: () => ShellRoutes.openMyCode(context),
               onOpenRadioControls: () => ShellRoutes.openRadioControls(
                 context,
                 ref.read(radioHostProvider),
@@ -151,20 +161,19 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
               navigatorKey: _branchKeys[0],
               observer: _branchObservers[0],
               builder: (_) => TalkScreen(
-                onSwitchToStations: () => _switchTo(2),
+                onSwitchToContacts: () => _switchTo(1),
+                onSwitchToGroups: () => _switchTo(2),
               ),
             ),
             _BranchNavigator(
               navigatorKey: _branchKeys[1],
               observer: _branchObservers[1],
-              builder: (_) => ChannelsScreen(
-                onSwitchToTalk: () => _switchTo(0),
-              ),
+              builder: (_) => ContactsTabScreen(onSelectTarget: _selectTarget),
             ),
             _BranchNavigator(
               navigatorKey: _branchKeys[2],
               observer: _branchObservers[2],
-              builder: (_) => const StationsScreen(),
+              builder: (_) => GroupsTabScreen(onSelectTarget: _selectTarget),
             ),
           ],
         ),
@@ -173,12 +182,11 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
   }
 }
 
-/// A branch's own [Navigator] so that pushing e.g. the selector beneath
-/// Channels never rebuilds or resets the Talk/Stations branches' state —
-/// each destination keeps its own back stack, and switching between them
-/// via [IndexedStack] keeps all three mounted (state preserved) rather than
-/// disposing the inactive ones (UX-FR-005/007: the current channel stays
-/// identifiable regardless of which branch/route is on top). There is no
+/// A branch's own [Navigator] so that pushing e.g. a group's detail screen
+/// beneath Groups never rebuilds or resets the Talk/Contacts branches'
+/// state — each destination keeps its own back stack, and switching between
+/// them via [IndexedStack] keeps all three mounted (state preserved) rather
+/// than disposing the inactive ones (UX-FR-005/007). There is no
 /// `PageView`/`TabBarView` anywhere in this shell, so a horizontal drag —
 /// including one that starts on the PTT — has no swipe gesture to be
 /// recognised as (ADR-002 §3 A1).
@@ -237,9 +245,9 @@ class _BranchPopObserver extends NavigatorObserver {
       _notify();
 }
 
-/// Icon-only tab strip under the app bar (ADR-002 §3 A1): Talk (mic),
-/// Channels (radio), Stations (groups); each a 48 dp target with a semantic
-/// label and an accent underline on the active tab. No swipe — see
+/// Icon-only tab strip under the app bar (Design §1): Talk (mic), Contacts
+/// (person), Groups (groups); each a 48 dp target with a semantic label and
+/// an accent underline on the active tab. No swipe — see
 /// [_BranchNavigator]'s dartdoc.
 class _TabStrip extends StatelessWidget {
   const _TabStrip({required this.index, required this.onTap, required this.tokens});
@@ -250,8 +258,8 @@ class _TabStrip extends StatelessWidget {
 
   static const List<(IconData, String, Key)> _tabs = <(IconData, String, Key)>[
     (Icons.mic, 'Talk', ShellKeys.tabTalk),
-    (Icons.radio, 'Channels', ShellKeys.tabChannels),
-    (Icons.groups, 'Stations', ShellKeys.tabStations),
+    (Icons.person, 'Contacts', ShellKeys.tabContacts),
+    (Icons.groups, 'Groups', ShellKeys.tabGroups),
   ];
 
   @override
@@ -306,7 +314,7 @@ class _TabStrip extends StatelessWidget {
 /// App-bar connection indicator dot (ADR-002 §3 A1: "a connection indicator
 /// dot (healthy vs degraded, with semantic label)"). Reads `RadioState` and
 /// settings directly — the full `RadioHostSnapshot` subscription every
-/// screen (Channels/Talk/Stations) already owns is not needed for this: a
+/// screen (Contacts/Talk/Groups) already owns is not needed for this: a
 /// [ConnectionCondition] only ever depends on the configured mode and the
 /// live route/degraded fields already on `RadioState`.
 class _ConnectionIndicator extends ConsumerWidget {
@@ -363,15 +371,18 @@ class _ConnectionIndicator extends ConsumerWidget {
   }
 }
 
-/// App-bar overflow menu — Radio controls and Settings (ADR-002 §3 A1),
+/// App-bar overflow menu — My code, Radio controls and Settings (Design §1:
+/// "The ⋮ menu gains My code... [above] Radio controls · Settings"),
 /// pushed full-screen on the root navigator (this build context, not a
 /// branch's — the app bar sits outside every [_BranchNavigator]).
 class _OverflowMenu extends StatelessWidget {
   const _OverflowMenu({
+    required this.onOpenMyCode,
     required this.onOpenRadioControls,
     required this.onOpenSettings,
   });
 
+  final VoidCallback onOpenMyCode;
   final VoidCallback onOpenRadioControls;
   final VoidCallback onOpenSettings;
 
@@ -382,6 +393,8 @@ class _OverflowMenu extends StatelessWidget {
       tooltip: 'More',
       onSelected: (_OverflowAction action) {
         switch (action) {
+          case _OverflowAction.myCode:
+            onOpenMyCode();
           case _OverflowAction.radioControls:
             onOpenRadioControls();
           case _OverflowAction.settings:
@@ -389,6 +402,11 @@ class _OverflowMenu extends StatelessWidget {
         }
       },
       itemBuilder: (BuildContext context) => <PopupMenuEntry<_OverflowAction>>[
+        const PopupMenuItem<_OverflowAction>(
+          key: ShellKeys.overflowMyCode,
+          value: _OverflowAction.myCode,
+          child: Text('My code'),
+        ),
         const PopupMenuItem<_OverflowAction>(
           key: ShellKeys.overflowRadioControls,
           value: _OverflowAction.radioControls,
@@ -404,4 +422,4 @@ class _OverflowMenu extends StatelessWidget {
   }
 }
 
-enum _OverflowAction { radioControls, settings }
+enum _OverflowAction { myCode, radioControls, settings }
