@@ -6303,7 +6303,7 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 
 ### TASK-101
 **Title:** 1:1 relay rooms — send `peer_pk` on `/token` so the directory provisions the DirectRoom
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §5.4 (1:1 room: `roomId = deriveKeyed(base64(x25519(myPriv, theirPub)))`, symmetric — both peers derive the same id; implemented at `lib/core/rooms/derivation.dart:61-84`), §4.2 (`POST /token` "now checks the signed caller is a member of `room_id`"). Server contract, verified at source 2026-09-12: `token-svc/app/models.py:15-24` (`TokenRequest.peer_pk: str | None`), `token-svc/app/main.py:176-180` (if `peer_pk` present → `ensure_direct_room(actor, peer, room_id)` then `assert_room_member`), `token-svc/app/groups.py:354-379` (`ensure_direct_room`: 422 if peer == self, **403 `not_contacts`** unless the pair are accepted contacts, creates/reuses `DirectRoom(a,b,room_id)`, **409 `room_conflict`** if the pair already has a different room_id), `token-svc/app/encoding.py:40-44` (`parse_pubkey`: unpadded base64url of exactly 32 bytes, else 401 `invalid_key` — the same encoding `KeryxIdLink.encodedKey`/`encodeUnpaddedBase64Url` in `lib/features/my_code/keryx_id_link.dart:103-107` already produce). Client gap: `lib/services/linked/token_client.dart:58-69` (`requestToken` body is `room_id`/`callsign`/`event_token` only — no `peer_pk`), `lib/services/linked/linked_controller.dart:149,235-238` (`joinRoomId` → `requestToken` without it), `lib/services/session/radio_session_controller.dart:250-274` (`switchTarget(target, memberPeerIds)` has no public key to pass), `lib/core/presentation/talk_target.dart:13-38` (`TalkTarget{kind,id,name,roomId,memberPeerIds}` — carries no contact public key; `id` for a contact MAY already be the pk — `lib/app_shell/contacts_tab_screen.dart:70` builds it — verify, never assume), `lib/core/radio_host/radio_session_host_v2.dart:73` (the one `switchTarget` caller). Without `peer_pk` the server never creates the DirectRoom, so every contact call over relay is 403 `not_member` — groups are unaffected (`/v2/groups` creates `Group`+`GroupMember` rows).
@@ -6318,12 +6318,13 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 - [ ] 403 `not_contacts` / 409 `room_conflict` from `/token` surface as a typed `SessionEstablishmentFailure` with the server code in `cause` (test), no new copy/UI
 - [ ] No change outside Owned_Paths; `deriveKeyed`/`lib/core/rooms/**` untouched
 - [ ] Full test suite green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-101-gb
+**Started_At:** 2026-09-12T21:35:00Z
+**Progress_Notes:**
+- [2026-09-12T21:35:00Z] [GB] Claimed TASK-101. TASK-100 is done (`51124db`); resuming from a clean worktree at master. Next: preflight, then thread `peer_pk` through TokenClient → LinkedController → switchTarget for contact targets only.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-12T21:45:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-12T21:35:00Z
