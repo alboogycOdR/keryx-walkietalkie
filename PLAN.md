@@ -5436,7 +5436,7 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 
 ### TASK-089
 **Title:** v2 onboarding, My code and Restore screens
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.4 (My code), §2.6 (first run), §2.7 Identity section wiring hooks; PRD V2-FR-001..004; Verification V2-VT-003, V2-VT-027, V2-VT-030 (My code, phrase goldens)
@@ -5449,15 +5449,16 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 - [ ] Restore rejects an invalid word inline and, with a valid phrase, reproduces the same ID as the original install in a test (V2-FR-003; V2-VT-027)
 - [ ] Goldens for the phrase screen and My code in dark and light (V2-VT-030)
 - [ ] `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-089-gb
+**Started_At:** 2026-09-12T04:08:35Z
+**Progress_Notes:**
+- [2026-09-12T04:08:35Z] [GB] Claimed TASK-089. Resume check: no GB in_progress/claimed task. Depends_On TASK-083 and TASK-086 both done. Branch task/TASK-089-gb. Next: preflight_paths.py TASK-089, then implement standalone onboarding / My code / Restore widgets.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-12T04:08:35Z
 
 
 ### TASK-090
