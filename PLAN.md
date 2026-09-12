@@ -5728,7 +5728,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-094
 **Title:** v2 deletions — channels, selector, stations, numbered Event QR, legacy face/ptt/display/settings_panel
-**Status:** claimed
+**Status:** blocked
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
@@ -5744,6 +5744,69 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 **Branch:** task/TASK-094-gb
 **Started_At:** 2026-09-12T08:08:02Z
 **Progress_Notes:**
+- [2026-09-12T08:46:19Z] [GB] Status: blocked, Blocked_Reason: OWNERSHIP_CONFLICT. Merged master (`c975103`). No v1-field removal written — an honest AC-3 pass still cannot compile. Second widen granted every file named in the last Residual list; grep of live `lib/`+`test/` found a further caller set that list missed. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-094 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 71 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/channels/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/channel_selector/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/stations/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/event_qr/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/event_qr_ui/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/face/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/ptt/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/display/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/settings_panel/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/tuning/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/radio_controls/**  -> 2 file(s)
+  FILE   lib/features/features.dart  -> exists
+  FILE   lib/app.dart  -> exists
+  FILE   lib/app_shell/shell_routes.dart  -> exists
+  FILE   lib/app_shell/radio_host_provider.dart  -> exists
+  FILE   lib/app_shell/mobile_app_shell.dart  -> exists
+  GLOB   lib/core/radio_host/**  -> 7 file(s)
+  FILE   lib/core/settings/settings_repository.dart  -> exists
+  FILE   lib/core/presentation/radio_view_intents.dart  -> exists
+  FILE   lib/core/presentation/connection_condition.dart  -> exists
+  FILE   lib/core/presentation/radio_view_state.dart  -> exists
+  FILE   lib/core/state/radio_state.dart  -> exists
+  FILE   lib/core/state/radio_state_bridge.dart  -> exists
+  FILE   lib/core/settings/settings_model.dart  -> exists
+  FILE   lib/services/session/radio_session_controller.dart  -> exists
+  FILE   lib/features/groups/group_invite_link.dart  -> exists
+  FILE   lib/features/groups/group_invite_screen.dart  -> exists
+  FILE   lib/features/settings/settings_screen.dart  -> exists
+  FILE   lib/features/settings/about_diagnostics.dart  -> exists
+  FILE   lib/features/settings/settings_copy.dart  -> exists
+  FILE   lib/features/settings/settings_inventory.dart  -> exists
+  FILE   lib/features/settings/settings_keys.dart  -> exists
+  GLOB   test/features/{channels,channel_selector,stations,event_qr,event_qr_ui,face,ptt,display,settings_panel,tuning}/**  -> matches nothing yet
+  GLOB   test/features/radio_controls/**  -> 2 file(s)
+  FILE   test/app_shell/fake_radio_host.dart  -> exists
+  FILE   test/app_shell/mobile_app_shell_test.dart  -> exists
+  GLOB   test/core/radio_host/**  -> 4 file(s)
+  FILE   test/core/presentation/radio_view_intents_test.dart  -> exists
+  FILE   test/core/presentation/connection_condition_test.dart  -> exists
+  FILE   test/core/presentation/radio_view_state_test.dart  -> exists
+  FILE   test/core/state/radio_state_test.dart  -> exists
+  FILE   test/core/settings/settings_repository_test.dart  -> exists
+  FILE   test/services/session/radio_session_controller_test.dart  -> exists
+  FILE   test/features/talk/fake_radio_host.dart  -> exists
+  FILE   test/features/settings/fake_radio_host.dart  -> exists
+  FILE   test/features/settings/settings_screen_test.dart  -> exists
+  FILE   test/features/settings/about_diagnostics_test.dart  -> exists
+  FILE   test/features/groups/group_invite_screen_test.dart  -> exists
+  FILE   test/regression/real_composition_test.dart  -> exists
+  FILE   test/regression/goldens/settings_golden_test.dart  -> exists
+  GLOB   test/regression/goldens/goldens/settings_*.png  -> 2 file(s)
+  GLOB   test/regression/goldens/goldens/{channels,stations,selector,qr}_*.png  -> matches nothing yet
+  GLOB   test/regression/goldens/goldens/radio_controls_*.png  -> 2 file(s)
+  NEW    test/regression/goldens/{channels,stations,selector,event_qr}_golden_test.dart  -> does not exist (deleted)
+  FILE   test/regression/goldens/radio_controls_golden_test.dart  -> exists
+  FILE   dossiers/TASK-094.md  -> exists
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Removing `RadioState.mode`/`channel`/`privacyCode`, `SetMode`/`TuneTo`, or `KeryxSettings.mode`/`region`/`channelMemory` breaks these still-unowned files (compile, not just tests): `lib/features/settings/session_settings.dart` (`a.mode`, `a.region`, `sessionAffectingFieldNames`); `test/features/talk/talk_screen_test.dart` (`SetMode`, `RadioState(..., mode:)`); `test/features/settings/settings_apply_test.dart` (`copyWith(mode:/region:)`); `test/features/settings/settings_persistence_test.dart` (`TunedChannel`, `channelMemory`, `loaded.mode`). Spec §6.2/§7 also names `lib/core/rooms/derivation.dart::deriveNumbered` and `lib/services/discovery/channel_hash_prefix.dart`, whose live callers are `lib/services/linked/linked_controller.dart` plus `test/core/rooms/{derivation,vectors}_test.dart` and `test/services/discovery/channel_hash_prefix_test.dart` (and comments in `lib/services/discovery/{discovery,discovery_config,room_prefix}.dart`). Ask: widen Owned_Paths by those exact paths (TASK-074 lesson, grep `test/**` for `RadioMode`/`SetMode`/`TunedChannel`/`deriveNumbered`), or split a dedicated v1-field-removal task that owns the union. Idle on `task/TASK-094-gb` until re-carve. Deletion pass (`3eeabc8`) stays intact.
 - [2026-09-12T08:43:30Z] [GB] Reclaimed TASK-094 after ORCH's second Owned_Paths widen (mobile_app_shell + settings_repository + remaining v1 tests/goldens). Same branch `task/TASK-094-gb`, Started_At unchanged. Next: merge master, preflight, then AC-3 v1-field removal + AC-2 copy cleanup in the newly granted files.
 - [2026-09-12T08:39:05Z] [GB] Deletion pass complete on `task/TASK-094-gb` (`3eeabc8`). KEEP radio_controls. Hoisted SessionHost + FacePermissionGate into `lib/core/radio_host/`; EventLinkExpiryPreset into groups; dropped joinEvent. Deleted channels/selector/stations/event_qr/event_qr_ui/face/ptt/display/settings_panel/tuning + tests + retired goldens. AC 2/3 residual: v1 RadioMode/tune fields and settings copy still present — remaining callers/tests outside Owned_Paths (mobile_app_shell, settings_repository, radio_state_test, connection_condition_test, radio_view_state_test, settings_repository_test, radio_session_controller_test, settings_screen_test, about_diagnostics_test, settings goldens). Status: needs_review.
 - [2026-09-12T09:00:00Z] [ORCH] Reviewing needs_review, found GB's disclosed residual list points to a real gap in my own first re-carve — I transcribed GB's original Blocked_Reason but dropped `mobile_app_shell.dart` and several test files (they weren't literally under a glob I'd already added). This is not a second independent OWNERSHIP_CONFLICT, it's ORCH finishing the same widening properly: added `lib/app_shell/mobile_app_shell.dart`, `lib/core/settings/settings_repository.dart`, `test/app_shell/mobile_app_shell_test.dart`, `test/core/presentation/{connection_condition,radio_view_state}_test.dart`, `test/core/state/radio_state_test.dart`, `test/core/settings/settings_repository_test.dart`, `test/services/session/radio_session_controller_test.dart`, `test/features/settings/{settings_screen,about_diagnostics}_test.dart`, `test/regression/goldens/settings_golden_test.dart` + `settings_*.png` — every remaining file GB's own residual list named, exact paths confirmed on disk. TASK-093 is done, nothing else active, no conflict. Not sending back with a rework verdict (GB's needs_review evidence for the deletion pass itself was accurate and disclosed, not wrong) — reopening to pending so GB can finish AC-3 (the actual v1-field removal) in the same session/branch. Status -> pending.
@@ -5803,9 +5866,9 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 - [2026-09-12T08:39:05Z] [GB] `flutter test --no-pub` — **1406 passed / 0 failed / 40 skipped** (PARKED FR-025 soak seeds unmodified). Baseline after TASK-093 was 1754/0/40; Δ −348 presentation tests of deleted modules.
 - [2026-09-12T08:39:05Z] [GB] `flutter build apk --debug` — SUCCESS, `app-debug.apk` 226,749,955 bytes.
 **Review_Findings:** —
-**Blocked_Reason:** —
+**Blocked_Reason:** OWNERSHIP_CONFLICT
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T08:43:30Z
+**Updated_At:** 2026-09-12T08:46:19Z
 
 
 ### TASK-095
