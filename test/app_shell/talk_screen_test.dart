@@ -1,37 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:keryx/app_shell/app_shell.dart' hide StationsScreen;
+import 'package:keryx/app_shell/app_shell.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
-import 'package:keryx/features/channel_selector/channel_selector_screen.dart';
 import 'package:keryx/features/talk/talk_ptt_ring.dart';
 import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 
 import 'fake_radio_host.dart';
 import 'shell_harness.dart';
 
-/// TASK-077 (ADR-002 §3 A1/A2) — the Stations header affordance now
-/// switches the shell to the Stations tab instead of pushing a screen, and
-/// Radio controls moved to the app bar's overflow menu, so this wrapper no
-/// longer wires `onOpenRadioControls` at all (the feature `TalkScreen`
-/// renders that button only when non-null).
+/// TASK-093 — the numbered-channel picker and Stations tab are both gone
+/// (Design §1/§5): this shell-composed `TalkScreen` wrapper now only wires
+/// `onAddContact`/`onCreateGroup` (the no-target empty-state affordances,
+/// Design §2.1), backed by tab-switch callbacks the same way the R2 shell
+/// wired `onSwitchToStations`.
 void main() {
   late FakeRadioHost host;
-  late int switchToStationsCalls;
+  late int addContactCalls;
+  late int createGroupCalls;
 
   Widget build() {
     host = FakeRadioHost();
-    switchToStationsCalls = 0;
+    addContactCalls = 0;
+    createGroupCalls = 0;
     return pumpShell(
       host: host,
       home: TalkScreen(
         host: host,
-        onSwitchToStations: () => switchToStationsCalls++,
+        onSwitchToContacts: () => addContactCalls++,
+        onSwitchToGroups: () => createGroupCalls++,
       ),
     );
   }
 
-  testWidgets('mounts TASK-051 TalkScreen with the ADR-002 TalkPttRing '
-      '(TASK-074)', (tester) async {
+  testWidgets('mounts TASK-051/092 TalkScreen with the TalkPttRing', (
+    tester,
+  ) async {
     givePhoneSurface(tester);
     await tester.pumpWidget(build());
     await tester.pumpAndSettle();
@@ -41,50 +44,32 @@ void main() {
     expect(find.byType(TalkPttRing), findsOneWidget);
   });
 
+  testWidgets('no numbered-channel picker or Stations affordance is wired '
+      '(v2 Design §1/§5)', (tester) async {
+    givePhoneSurface(tester);
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('keryx-talk-picker')), findsNothing);
+    expect(find.byKey(const Key('keryx-talk-stations')), findsNothing);
+    expect(find.byKey(const Key('keryx-talk-radio-controls')), findsNothing);
+  });
+
   testWidgets(
-    "picker's real onOpenPicker callback pushes TASK-050 "
-    'ChannelSelectorScreen (TASK-068 — no overlay involved)',
+    'the no-target empty state Add contact/Create group buttons switch '
+    'tabs via the wired callbacks (Design §2.1)',
     (tester) async {
       givePhoneSurface(tester);
       await tester.pumpWidget(build());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('keryx-talk-picker')));
+      await tester.tap(find.byKey(const Key('keryx-talk-add-contact')));
       await tester.pumpAndSettle();
+      expect(addContactCalls, 1);
 
-      expect(find.byKey(ShellKeys.channelSelector), findsOneWidget);
-      expect(find.byType(ChannelSelectorScreen), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    "stations' real onOpenStations callback switches to the Stations tab "
-    'instead of pushing a screen (ADR-002 §3 A1)',
-    (tester) async {
-      givePhoneSurface(tester);
-      await tester.pumpWidget(build());
+      await tester.tap(find.byKey(const Key('keryx-talk-create-group')));
       await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('keryx-talk-stations')));
-      await tester.pumpAndSettle();
-
-      expect(switchToStationsCalls, 1);
-    },
-  );
-
-  testWidgets(
-    'Radio Controls header button is absent — that affordance moved to '
-    "the app bar's overflow menu (ADR-002 §3 A2: rendered only when "
-    'non-null, and this wrapper never wires it)',
-    (tester) async {
-      givePhoneSurface(tester);
-      await tester.pumpWidget(build());
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const Key('keryx-talk-radio-controls')),
-        findsNothing,
-      );
+      expect(createGroupCalls, 1);
     },
   );
 
