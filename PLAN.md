@@ -1,5 +1,5 @@
 ---
-plan_version: 16.5
+plan_version: 16.6
 last_updated: 2026-09-12T05:11:42Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
@@ -5683,7 +5683,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-093
 **Title:** v2 shell and settings — Talk/Contacts/Groups tabs, My code in overflow, onboarding and restore routes, v2 settings sections
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §1, §2.7; Technical §6.4 (host start), §8 (v1 install migration); PRD V2-FR-060/061; Verification V2-VT-027 (shell half), V2-VT-029, V2-VT-030 (shell frame goldens)
@@ -5719,10 +5719,11 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 - test/regression/overflow_system_back_test.dart
 - test/regression/goldens/goldens/shell_frame_dark.png, shell_frame_light.png
 **Test_Evidence:** `flutter analyze --no-pub lib/ test/` → No issues found (2026-09-12). `flutter test` full suite → +1754 ~40 -0, exit 0, "All tests passed!" (40 skips = pre-existing parked FR-025 soak seeds). `flutter test test/regression/` → all 62 passed incl. shell_frame_golden_test.dart (regenerated), overflow_system_back_test.dart, layout_matrix_test.dart, real_composition_test.dart's G3 stubbed-directory boot test. `flutter build apk --debug` → succeeded, buildpp\outputslutter-apkpp-debug.apk.
-**Review_Findings:** —
+- [2026-09-12T11:20:00Z] [ORCH] Reviewed on claude-sonnet-5 (v2.0 wave). Territory clean (33 files, incl. the two cross-territory back-button test files). Independent run: analyze 0; full suite 1754 total/0 failed/40 skipped — matches S5 exactly, resolves the shell_frame_golden_test.dart pair carried as debt since TASK-092/090. Onboarding gate correctly probes with a read-only store instance ahead of `loadOrCreate()`. Recovery-phrase device-auth gate is honestly a same-device confirmation dialog, not biometric, disclosed as a frozen-pubspec scope limit. switchTarget/KeryxRadioHost wiring debt carried forward, not blocking. **APPROVED first-pass, merged `9909819`.** Status: done. Unlocks TASK-094.
+**Review_Findings:** APPROVED first-pass. See REVIEW.md row and ORCH progress note above.
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-12T11:00:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T11:20:00Z
 
 
 ### TASK-094
