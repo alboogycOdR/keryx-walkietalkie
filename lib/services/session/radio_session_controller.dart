@@ -231,17 +231,21 @@ class RadioSessionController {
   LinkedController? get debugLinkedController => _linked;
   LinkedProxyFloorTransport? get debugLinkedTransport => _linkedTransport;
 
-  /// Resolves transport policy, builds the direct or relay chain, and
-  /// dispatches `SetTransport` for whichever one actually got built.
+  /// The no-target boot session is **always LOCAL**, regardless of
+  /// `relayUrl`/`forceLocalOnly` (TASK-100, per Technical §6.4: a relay
+  /// room exists only for a picked target — there is no v2 lobby/idle
+  /// room). The v2 token service's `assert_room_member` check refuses any
+  /// `room_id` that is not a real `Group`/`DirectRoom` row with a
+  /// deterministic 403 `not_member`, so attempting a LINKED join for the
+  /// idle placeholder room ([_idleRoomId]) can only ever fail — and does so
+  /// with a transport error that used to be misread as "relay
+  /// unreachable" when the relay was actually fine. [switchTarget] is
+  /// unchanged and still resolves LINKED vs LOCAL from settings, because
+  /// that is where a real room id (from a picked contact/group) arrives.
   Future<void> start() async {
     _checkNotDisposed();
-    final transport = _resolveTransport();
-    if (transport == Transport.direct) {
-      await _startLocal();
-    } else {
-      await _startLinked();
-    }
-    _dispatch(SetTransport(transport));
+    await _startLocal();
+    _dispatch(SetTransport(Transport.direct));
   }
 
   /// Switch the active chain to [target]'s room and close the solo
