@@ -29,8 +29,6 @@ typedef RadioSessionFactory =
       required String callsign,
       required KeryxSettings settings,
       required void Function(RadioEvent event) dispatch,
-      required int initialChannel,
-      required int initialCode,
     });
 
 typedef RadioAudioSinkFactory = Future<AudioSink> Function();
@@ -44,7 +42,6 @@ typedef RadioServiceFactory = RadioServiceController Function();
 typedef LoadSettings = Future<KeryxSettings> Function();
 typedef DispatchRadioEvent = void Function(RadioEvent event);
 typedef ReadRadioState = RadioState Function();
-typedef RememberChannel = Future<KeryxSettings> Function(TunedChannel channel);
 
 /// Registers a listener and returns the function that cancels it. Called
 /// exactly once, from [KeryxRadioHost.start]. `fireImmediately: true`
@@ -77,7 +74,6 @@ class KeryxRadioHost implements RadioHost {
     required this.readRadioState,
     required this.listenRadioState,
     required this.listenSettings,
-    required this.rememberChannel,
   });
 
   final RadioSessionFactory sessionFactory;
@@ -91,7 +87,6 @@ class KeryxRadioHost implements RadioHost {
   final ReadRadioState readRadioState;
   final ListenRadioState listenRadioState;
   final ListenSettings listenSettings;
-  final RememberChannel rememberChannel;
 
   static const String _serviceFaultLabel = 'SVC FAULT';
   static const String _logName = 'RadioHost';
@@ -104,11 +99,6 @@ class KeryxRadioHost implements RadioHost {
   /// Review round-1 (pre-hoist) finding (d), preserved: guards session
   /// (re)construction against re-entrancy. See [_startSession]'s dartdoc.
   int _sessionGeneration = 0;
-
-  /// Serializes [tune] calls (Technical §6: "the successor must serialize
-  /// competing tune requests") — every call chains strictly after the
-  /// previous one's completion, success or failure.
-  Future<void> _tuneChain = Future<void>.value();
 
   // --- owned resources -----------------------------------------------
 
@@ -151,7 +141,6 @@ class KeryxRadioHost implements RadioHost {
   bool _micPermissionDenied = false;
   String? _serviceFaultMessage;
   List<StationInfo> _stations = const <StationInfo>[];
-  List<TunedChannel> _channelMemory = const <TunedChannel>[];
   MeterLevel _meterLevel = MeterLevel.decorative;
 
   RadioHostSnapshot _snapshot = const RadioHostSnapshot();
@@ -170,7 +159,6 @@ class KeryxRadioHost implements RadioHost {
       serviceFaultMessage: _serviceFaultMessage,
       floorEngine: _floorEngine,
       stations: _stations,
-      channelMemory: _channelMemory,
       meterLevel: _meterLevel,
     );
     if (!_changes.isClosed) _changes.add(_snapshot);
@@ -256,7 +244,6 @@ class KeryxRadioHost implements RadioHost {
     _audioSink = sink;
     _sfxEngine = sfxEngine;
     _sfxProjection = sfxProjection;
-    _channelMemory = settings.channelMemory;
     _emitSnapshot();
 
     _sfxTick = Timer.periodic(const Duration(milliseconds: 50), (_) {
@@ -283,7 +270,7 @@ class KeryxRadioHost implements RadioHost {
     _radioServiceSub = radioService.events.listen(_onRadioServiceEvent);
     try {
       await radioService.start(
-        channelLabel: _channelLabel(initial.channel, initial.privacyCode),
+        channelLabel: _notificationLabel(initial),
       );
     } catch (error, stack) {
       // TASK-038 acceptance criterion: a `start()` fault degrades
@@ -302,8 +289,6 @@ class KeryxRadioHost implements RadioHost {
     await _startSession(
       identity: identity,
       settings: settings,
-      initialChannel: initial.channel,
-      initialCode: initial.privacyCode,
     );
     if (_disposed) return;
 
@@ -326,15 +311,17 @@ class KeryxRadioHost implements RadioHost {
     }
   }
 
-  String _channelLabel(int channel, int code) =>
-      'CH ${channel.toString().padLeft(2, '0')} · '
-      '${code.toString().padLeft(2, '0')}';
+  String _notificationLabel(RadioState state) {
+    final roomId = state.roomId;
+    if (roomId == null || roomId.isEmpty) return 'KERYX';
+    return roomId.length <= 8 ? roomId : roomId.substring(0, 8);
+  }
 
   // --- session (re)construction ----------------------------------------
 
   /// (Re)builds the active [SessionHost]. Called once from [_bootInternal]
   /// and again from [_maybeRebuildSession] on a session-affecting settings
-  /// change or from [tune]'s retune path. Tears down whatever
+  /// change. Tears down whatever
   /// session/subscriptions are currently active first — safe to call with
   /// `_session == null` (the first-boot case).
   ///
@@ -349,8 +336,6 @@ class KeryxRadioHost implements RadioHost {
   Future<void> _startSession({
     required DeviceIdentity identity,
     required KeryxSettings settings,
-    required int initialChannel,
-    required int initialCode,
   }) async {
     final myGeneration = ++_sessionGeneration;
     final previousSession = _session;
@@ -379,8 +364,6 @@ class KeryxRadioHost implements RadioHost {
       callsign: identity.callsign.value,
       settings: settings,
       dispatch: dispatch,
-      initialChannel: initialChannel,
-      initialCode: initialCode,
     );
     await session.start();
     if (_disposed || myGeneration != _sessionGeneration) {
@@ -447,97 +430,18 @@ class KeryxRadioHost implements RadioHost {
       _appliedSettings = settings;
       return;
     }
-    final state = readRadioState();
     await _startSession(
       identity: identity,
       settings: settings,
-      initialChannel: state.channel,
-      initialCode: state.privacyCode,
     );
   }
 
   bool _sessionAffectingFieldsChanged(KeryxSettings a, KeryxSettings b) =>
-      a.mode != b.mode ||
       a.forceLocalOnly != b.forceLocalOnly ||
       a.relayUrl != b.relayUrl ||
       a.tokenServiceUrl != b.tokenServiceUrl ||
       a.totSeconds != b.totSeconds ||
-      a.busyLockout != b.busyLockout ||
-      a.region != b.region;
-
-  // --- tune --------------------------------------------------------------
-
-  @override
-  Future<TuneResult> tune(int channel, int code) {
-    final result = _tuneChain.then((_) => _tuneInternal(channel, code));
-    // Keep the chain alive regardless of this call's outcome — a failed
-    // tune must not wedge every subsequent one.
-    _tuneChain = result.then((_) {}, onError: (_) {});
-    return result;
-  }
-
-  Future<TuneResult> _tuneInternal(int channel, int code) async {
-    if (_disposed) return const TuneResult.cancelled();
-    if (!_isValidChannel(channel) || !_isValidCode(code)) {
-      return TuneResult.validationFailure(
-        'channel $channel / code $code out of range '
-        '(${RadioState.minimumChannel}-${RadioState.maximumChannel} / '
-        '${RadioState.minimumPrivacyCode}-${RadioState.maximumPrivacyCode})',
-      );
-    }
-
-    dispatch(TuneTo(channel: channel, privacyCode: code));
-
-    try {
-      final updated = await rememberChannel(
-        TunedChannel(channel: channel, privacyCode: code),
-      );
-      if (!_disposed) {
-        _channelMemory = updated.channelMemory;
-        _emitSnapshot();
-      }
-    } catch (error, stack) {
-      _log('rememberChannel failed: $error\n$stack');
-    }
-
-    // Channel-scoped retune: `RadioSessionController.retune`'s own
-    // contract is a full teardown/rebuild of the channel-scoped parts, so
-    // a tune has to rebuild the transport, not just the reducer's numeral.
-    // A no-op before the session has finished its first `start()` —
-    // nothing to retune yet, and the very next `_startSession` already
-    // carries whatever channel is current by then.
-    final session = _session;
-    if (session != null) {
-      try {
-        await session.retune(channel: channel, code: code);
-      } catch (error, stack) {
-        _log('retune failed: $error\n$stack');
-        return TuneResult.transportFailure(error.toString());
-      }
-    }
-
-    // TASK-038: keep the persistent notification's channel label in sync
-    // on every retune, independent of session state.
-    final service = _radioService;
-    if (service != null && service.isRunning) {
-      try {
-        await service.updateNotification(
-          channelLabel: _channelLabel(channel, code),
-        );
-      } catch (error, stack) {
-        _log('radio service updateNotification failed: $error\n$stack');
-      }
-    }
-
-    if (_disposed) return const TuneResult.cancelled();
-    return const TuneResult.success();
-  }
-
-  bool _isValidChannel(int channel) =>
-      channel >= RadioState.minimumChannel && channel <= RadioState.maximumChannel;
-
-  bool _isValidCode(int code) =>
-      code >= RadioState.minimumPrivacyCode && code <= RadioState.maximumPrivacyCode;
+      a.busyLockout != b.busyLockout;
 
   // --- PTT ---------------------------------------------------------------
 

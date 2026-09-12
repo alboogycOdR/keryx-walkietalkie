@@ -2,7 +2,6 @@
 library;
 
 export 'broadcast_fallback.dart';
-export 'channel_hash_prefix.dart';
 export 'discovered_peer.dart';
 export 'discovery_config.dart';
 export 'discovery_constants.dart';

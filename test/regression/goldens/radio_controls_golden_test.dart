@@ -53,16 +53,12 @@ void main() {
         ],
         child: MaterialApp(
           theme: keryxUxThemeData(brightness: brightness),
-          home: RadioControlsScreen(host: host),
-        ),
-      ),
-    );
+          home: RadioControlsScreen(host: host))));
     await tester.pumpAndSettle();
 
     await expectLater(
       find.byType(RadioControlsScreen),
-      matchesGoldenFile('goldens/radio_controls_$name.png'),
-    );
+      matchesGoldenFile('goldens/radio_controls_$name.png'));
   }
 
   for (final brightness in <Brightness>[Brightness.dark, Brightness.light]) {
@@ -93,8 +89,7 @@ void main() {
         localPeerId: 'local',
         transport: transport,
         clock: const WallClock(),
-        tot: const Duration(seconds: 60),
-      );
+        tot: const Duration(seconds: 60));
       // Both Monitor and Emergency need `RadioHostSnapshot.floorEngine` set
       // (Monitor for `_eligible`'s idle-phase requirement, Emergency because
       // its hold target is swapped for an "unavailable" explanation entirely
@@ -106,8 +101,7 @@ void main() {
       final container = ProviderContainer(
         overrides: <Override>[
           settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
-        ],
-      );
+        ]);
       addTearDown(container.dispose);
 
       await tester.pumpWidget(
@@ -115,10 +109,7 @@ void main() {
           container: container,
           child: MaterialApp(
             theme: keryxUxThemeData(brightness: Brightness.dark),
-            home: RadioControlsScreen(host: host),
-          ),
-        ),
-      );
+            home: RadioControlsScreen(host: host))));
       await tester.pumpAndSettle();
       container.read(radioStateProvider.notifier)
         ..dispatch(const PowerOn())
@@ -129,37 +120,29 @@ void main() {
       // sits below the Monitor row and can fall outside the initial build
       // extent, so scroll each target into view before measuring it.
       await tester.ensureVisible(
-        find.byKey(RadioControlsKeys.monitorHoldTarget),
-      );
+        find.byKey(RadioControlsKeys.monitorHoldTarget));
       await tester.pumpAndSettle();
       final Size monitorSize = tester.getSize(
-        find.byKey(RadioControlsKeys.monitorHoldTarget),
-      );
+        find.byKey(RadioControlsKeys.monitorHoldTarget));
 
       await tester.ensureVisible(
-        find.byKey(RadioControlsKeys.emergencyHoldTarget),
-      );
+        find.byKey(RadioControlsKeys.emergencyHoldTarget));
       await tester.pumpAndSettle();
       final Size emergencySize = tester.getSize(
-        find.byKey(RadioControlsKeys.emergencyHoldTarget),
-      );
+        find.byKey(RadioControlsKeys.emergencyHoldTarget));
 
       expect(monitorSize.width, greaterThanOrEqualTo(KeryxUxSpacing.minTarget));
       expect(
         monitorSize.height,
-        greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
-      );
+        greaterThanOrEqualTo(KeryxUxSpacing.minTarget));
       expect(
         emergencySize.width,
-        greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
-      );
+        greaterThanOrEqualTo(KeryxUxSpacing.minTarget));
       expect(
         emergencySize.height,
-        greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
-      );
+        greaterThanOrEqualTo(KeryxUxSpacing.minTarget));
 
       engine.dispose();
       transport.dispose();
-    },
-  );
+    });
 }

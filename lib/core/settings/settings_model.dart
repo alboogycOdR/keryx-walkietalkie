@@ -1,5 +1,3 @@
-import 'package:keryx/core/state/radio_state.dart';
-
 /// The selectable amount of radio-character processing applied to receive
 /// audio. Kept here because it is a persistent user preference, not DSP state.
 enum CharacterDspIntensity { off, light, full }
@@ -13,43 +11,6 @@ enum RogerBeepVariant { off, classic, dualTone, customPack }
 /// Night-dimming preference (DS FR-108). Display and legend luminance follow
 /// this auto/manual setting.
 enum DimMode { auto, manual }
-
-/// A previously tuned numbered channel, retained for quick recall.
-class TunedChannel {
-  const TunedChannel({required this.channel, required this.privacyCode})
-    : assert(channel >= 1 && channel <= 99),
-      assert(privacyCode >= 0 && privacyCode <= 38);
-
-  final int channel;
-  final int privacyCode;
-
-  Map<String, int> toJson() => {'channel': channel, 'privacyCode': privacyCode};
-
-  factory TunedChannel.fromJson(Map<String, Object?> json) {
-    final channel = json['channel'];
-    final privacyCode = json['privacyCode'];
-    if (channel is! int || privacyCode is! int) {
-      throw const FormatException(
-        'A tuned channel must contain integer values.',
-      );
-    }
-    if (channel < 1 || channel > 99 || privacyCode < 0 || privacyCode > 38) {
-      throw const FormatException(
-        'A tuned channel is outside the supported range.',
-      );
-    }
-    return TunedChannel(channel: channel, privacyCode: privacyCode);
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      other is TunedChannel &&
-      other.channel == channel &&
-      other.privacyCode == privacyCode;
-
-  @override
-  int get hashCode => Object.hash(channel, privacyCode);
-}
 
 /// All settings that may be written on-device during phase one.
 ///
@@ -70,7 +31,6 @@ class KeryxSettings {
   static const voxHangTimeMsMin = 0;
   static const voxHangTimeMsMax = 60000;
   static const voxHangTimeMsDefault = 500;
-  static const defaultRegion = 'global';
 
   /// v2 (Technical §7): default for [preferDirectOnWifi].
   static const preferDirectOnWifiDefault = true;
@@ -95,11 +55,8 @@ class KeryxSettings {
     this.latchMode = false,
     this.characterDspIntensity = CharacterDspIntensity.light,
     this.forceLocalOnly = false,
-    this.region = defaultRegion,
     this.isPro = false,
-    this.channelMemory = const [],
     this.dimMode = DimMode.auto,
-    this.mode = RadioMode.auto,
     this.voxSensitivity = voxSensitivityDefault,
     this.voxHangTimeMs = voxHangTimeMsDefault,
     this.relayUrl = relayUrlDefault,
@@ -114,7 +71,6 @@ class KeryxSettings {
          squelchLevel >= squelchLevelMin && squelchLevel <= squelchLevelMax,
        ),
        assert(totSeconds >= totSecondsMin && totSeconds <= totSecondsMax),
-       assert(region.length > 0),
        assert(
          voxSensitivity >= voxSensitivityMin &&
              voxSensitivity <= voxSensitivityMax,
@@ -130,16 +86,14 @@ class KeryxSettings {
   final bool latchMode;
   final CharacterDspIntensity characterDspIntensity;
   final bool forceLocalOnly;
-  final String region;
   final bool isPro;
-  final List<TunedChannel> channelMemory;
+
+  /// Residual shim for unowned `lib/features/settings/settings_apply.dart`,
+  /// which still compares `.region`. Always `global`; not persisted.
+  String get region => 'global';
 
   /// DS FR-108 night dimming. Default auto.
   final DimMode dimMode;
-
-  /// FR-040 three-position mode switch. Default AUTO so a missing key
-  /// matches the product default rather than inventing LOCAL.
-  final RadioMode mode;
 
   /// FR-024 VOX sensitivity slider. Persisted now; the feature is later.
   /// Discrete 0–10, same user-facing model as squelch.
@@ -148,7 +102,7 @@ class KeryxSettings {
   /// FR-024 VOX hang-time in milliseconds. Persisted now; the feature is later.
   final int voxHangTimeMs;
 
-  /// WebSocket relay endpoint. An empty value means LINKED is unconfigured.
+  /// WebSocket relay endpoint. An empty value means the relay is unconfigured.
   final String relayUrl;
 
   /// Optional token-service endpoint. When empty, [resolvedTokenServiceUrl]
@@ -188,11 +142,8 @@ class KeryxSettings {
     bool? latchMode,
     CharacterDspIntensity? characterDspIntensity,
     bool? forceLocalOnly,
-    String? region,
     bool? isPro,
-    List<TunedChannel>? channelMemory,
     DimMode? dimMode,
-    RadioMode? mode,
     int? voxSensitivity,
     int? voxHangTimeMs,
     String? relayUrl,
@@ -207,11 +158,8 @@ class KeryxSettings {
     latchMode: latchMode ?? this.latchMode,
     characterDspIntensity: characterDspIntensity ?? this.characterDspIntensity,
     forceLocalOnly: forceLocalOnly ?? this.forceLocalOnly,
-    region: region ?? this.region,
     isPro: isPro ?? this.isPro,
-    channelMemory: channelMemory ?? this.channelMemory,
     dimMode: dimMode ?? this.dimMode,
-    mode: mode ?? this.mode,
     voxSensitivity: voxSensitivity ?? this.voxSensitivity,
     voxHangTimeMs: voxHangTimeMs ?? this.voxHangTimeMs,
     relayUrl: relayUrl ?? this.relayUrl,
@@ -228,11 +176,8 @@ class KeryxSettings {
     'latchMode': latchMode,
     'characterDspIntensity': characterDspIntensity.name,
     'forceLocalOnly': forceLocalOnly,
-    'region': region,
     'isPro': isPro,
-    'channelMemory': channelMemory.map((channel) => channel.toJson()).toList(),
     'dimMode': dimMode.name,
-    'mode': mode.name,
     'voxSensitivity': voxSensitivity,
     'voxHangTimeMs': voxHangTimeMs,
     'relayUrl': relayUrl,
@@ -243,7 +188,8 @@ class KeryxSettings {
 
   /// Total parser: never throws. Missing / wrong-typed / out-of-range
   /// fields are clamped or defaulted independently so one bad key cannot
-  /// wipe the rest of the user's configuration.
+  /// wipe the rest of the user's configuration. Unknown v1 keys
+  /// (`mode`, `region`, `channelMemory`) are ignored.
   factory KeryxSettings.fromJson(Map<String, Object?> json) {
     return KeryxSettings(
       squelchLevel: _clampInt(
@@ -271,11 +217,8 @@ class KeryxSettings {
         CharacterDspIntensity.light,
       ),
       forceLocalOnly: _asBool(json['forceLocalOnly'], false),
-      region: _asRegion(json['region']),
       isPro: _asBool(json['isPro'], false),
-      channelMemory: _readMemory(json['channelMemory']),
       dimMode: _enumByName(json['dimMode'], DimMode.values, DimMode.auto),
-      mode: _enumByName(json['mode'], RadioMode.values, RadioMode.auto),
       voxSensitivity: _clampInt(
         json['voxSensitivity'],
         min: voxSensitivityMin,
@@ -333,11 +276,6 @@ int _clampInt(
 
 bool _asBool(Object? value, bool fallback) => value is bool ? value : fallback;
 
-String _asRegion(Object? value) {
-  if (value is String && value.trim().isNotEmpty) return value;
-  return KeryxSettings.defaultRegion;
-}
-
 /// Accepts only secure, host-qualified endpoints. Invalid values are clamped
 /// to the supplied deployment default rather than making a settings write fail.
 String _asEndpoint(
@@ -360,25 +298,4 @@ T _enumByName<T extends Enum>(Object? value, List<T> values, T fallback) {
     if (item.name == value) return item;
   }
   return fallback;
-}
-
-List<TunedChannel> _readMemory(Object? value) {
-  if (value is! List) return const [];
-  final out = <TunedChannel>[];
-  for (final entry in value) {
-    if (out.length >= SettingsMemoryCap.channelMemoryCapacity) break;
-    if (entry is! Map) continue;
-    try {
-      out.add(TunedChannel.fromJson(Map<String, Object?>.from(entry)));
-    } on FormatException {
-      continue;
-    }
-  }
-  return List<TunedChannel>.unmodifiable(out);
-}
-
-/// FR-009 cap, named here so the model can apply it on the read path
-/// without importing the repository.
-abstract final class SettingsMemoryCap {
-  static const channelMemoryCapacity = 6;
 }

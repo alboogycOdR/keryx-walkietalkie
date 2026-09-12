@@ -2,7 +2,6 @@ import 'package:keryx/core/presentation/presentation.dart'
     show ConnectionCondition, RadioViewState;
 import 'package:keryx/core/settings/settings_repository.dart'
     show KeryxSettings;
-import 'package:keryx/core/state/radio_state.dart' show RadioMode;
 
 import 'settings_copy.dart';
 
@@ -60,15 +59,8 @@ AboutDiagnostics buildAboutDiagnostics({
   required String version,
 }) {
   final ConnectionCondition connection = view.connection;
-  final String configured = SettingsCopy.modeOptionLabel(
-    connection.configuredMode.name,
-  );
-  // Match the configured-mode row's title case; unresolved stays
-  // Connecting so AUTO is never an effective-route label.
-  final String effective = connection.isResolved
-      ? SettingsCopy.modeOptionLabel(connection.effectiveRoute.name)
-      : connection.routeLabel;
-  final String localOnly = settings.forceLocalOnly ? 'On' : 'Off';
+  final String path = connection.routeLabel;
+  final String networkOnly = settings.forceLocalOnly ? 'On' : 'Off';
   final String mic = view.permissionDenied
       ? SettingsCopy.microphoneRequired
       : SettingsCopy.microphoneOk;
@@ -78,23 +70,16 @@ AboutDiagnostics buildAboutDiagnostics({
   final String link = connection.degraded
       ? SettingsCopy.connectionLost
       : SettingsCopy.connectionOk;
-  final String channel =
-      'CH ${view.channel.toString().padLeft(2, '0')} · '
-      '${view.privacyCode.toString().padLeft(2, '0')}';
 
   return AboutDiagnostics(
     summaryLines: <String>['Version $version', link, mic],
     detailLines: <String>[
       'Version $version',
-      'Channel $channel',
-      'Configured mode $configured',
-      'Effective route $effective',
-      'Local only $localOnly',
+      'Active path $path',
+      'This network only $networkOnly',
       link,
       mic,
       service,
-      if (settings.mode == RadioMode.auto)
-        'Auto is a preference, not a dual LAN+WAN connection.',
     ],
   );
 }

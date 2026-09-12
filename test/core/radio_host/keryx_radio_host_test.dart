@@ -58,20 +58,13 @@ class _FakeSessionHost implements SessionHost {
     clock: const WallClock(),
     tot: const Duration(seconds: 60),
     busyLockout: true,
-    callsign: callsign,
-  );
+    callsign: callsign);
 
   final StreamController<List<StationInfo>> _stations =
       StreamController<List<StationInfo>>.broadcast();
 
   bool startCalled = false;
   bool disposeCalled = false;
-  int retuneCallCount = 0;
-
-  /// Set by [_Harness.sessionFactory] right after construction — lets a
-  /// test observe the exact order `retune` calls land in, independent of
-  /// `retuneCallCount`'s mere tally.
-  void Function(int channel)? onRetune;
 
   @override
   FloorEngine get floorEngine => _engine;
@@ -87,13 +80,6 @@ class _FakeSessionHost implements SessionHost {
   Future<void> start() async {
     startCalled = true;
   }
-
-  @override
-  Future<void> retune({required int channel, required int code}) async {
-    retuneCallCount++;
-    onRetune?.call(channel);
-  }
-
 
   @override
   Future<void> dispose() async {
@@ -141,13 +127,13 @@ class _Harness {
   /// order — the observable proof that [KeryxRadioHost.tune]'s
   /// serialization actually holds calls to strict submission order rather
   /// than merely completing them all eventually.
-  final List<int> retuneOrder = <int>[];
+
 
   /// Consumed exactly once by the very next [rememberChannel] call — lets
   /// a test force a real suspension inside one `tune()` call so a second,
   /// unawaited `tune()` call has every opportunity to race ahead if
   /// [KeryxRadioHost.tune] were not actually serializing.
-  Completer<void>? rememberChannelGate;
+
 
   void Function(RadioState? previous, RadioState next)? _radioStateListener;
   void Function(KeryxSettings settings)? _settingsListener;
@@ -157,11 +143,8 @@ class _Harness {
     required String callsign,
     required KeryxSettings settings,
     required void Function(RadioEvent event) dispatch,
-    required int initialChannel,
-    required int initialCode,
   }) {
-    final host = _FakeSessionHost(label: '${sessions.length}')
-      ..onRetune = retuneOrder.add;
+    final host = _FakeSessionHost(label: '${sessions.length}');
     sessions.add(host);
     return host;
   }
@@ -177,8 +160,7 @@ class _Harness {
     return DeviceIdentity(
       installUuid: 'test-install-uuid',
       peerId: 'test-peer-id',
-      callsign: Callsign.parse('TEST-1'),
-    );
+      callsign: Callsign.parse('TEST-1'));
   }
 
   FacePermissionGate permissionGateFactory() =>
@@ -208,18 +190,6 @@ class _Harness {
 
   RadioState readRadioState() => state;
 
-  Future<KeryxSettings> rememberChannel(TunedChannel channel) async {
-    final gate = rememberChannelGate;
-    if (gate != null) {
-      rememberChannelGate = null; // consumed once
-      await gate.future;
-    }
-    settings = settings.copyWith(
-      channelMemory: <TunedChannel>[...settings.channelMemory, channel],
-    );
-    return settings;
-  }
-
   RadioHostUnsubscribe listenRadioState(
     void Function(RadioState? previous, RadioState next) onChange, {
     bool fireImmediately = false,
@@ -230,8 +200,7 @@ class _Harness {
   }
 
   RadioHostUnsubscribe listenSettings(
-    void Function(KeryxSettings settings) onChange,
-  ) {
+    void Function(KeryxSettings settings) onChange) {
     _settingsListener = onChange;
     return () => _settingsListener = null;
   }
@@ -256,7 +225,6 @@ class _Harness {
     readRadioState: readRadioState,
     listenRadioState: listenRadioState,
     listenSettings: listenSettings,
-    rememberChannel: rememberChannel,
   );
 }
 
@@ -330,11 +298,9 @@ void main() {
       // `face_screen_test.dart`'s own equivalent
       // "`_startSession` re-entrancy" test.
       final firstApply = host.applySettings(
-        harness.settings.copyWith(mode: RadioMode.local),
-      );
+        harness.settings.copyWith(totSeconds: 90));
       final secondApply = host.applySettings(
-        harness.settings.copyWith(mode: RadioMode.linked),
-      );
+        harness.settings.copyWith(totSeconds: 100));
       await Future.wait(<Future<void>>[firstApply, secondApply]);
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
@@ -434,81 +400,6 @@ void main() {
       await host.dispose();
     });
   });
-
-  group('tune', () {
-    test('rejects an out-of-range channel/code as a validation failure '
-        'without dispatching or touching the session', () async {
-      final harness = _Harness();
-      final host = harness.build();
-      await host.start();
-
-      final result = await host.tune(0, 0);
-
-      expect(result.outcome, RadioHostOutcome.validationFailure);
-      expect(harness.sessions.single.retuneCallCount, 0);
-
-      await host.dispose();
-    });
-
-    test('a valid tune dispatches TuneTo, remembers the channel, retunes '
-        'the active session, and updates the service notification', () async {
-      final harness = _Harness();
-      final host = harness.build();
-      await host.start();
-
-      final result = await host.tune(42, 7);
-
-      expect(result.outcome, RadioHostOutcome.success);
-      expect(harness.state.channel, 42);
-      expect(harness.state.privacyCode, 7);
-      expect(
-        harness.settings.channelMemory,
-        contains(const TunedChannel(channel: 42, privacyCode: 7)),
-      );
-      expect(host.current.channelMemory, harness.settings.channelMemory);
-      expect(harness.sessions.single.retuneCallCount, 1);
-
-      await host.dispose();
-    });
-
-    test('serializes concurrent tune calls: a second call fired without '
-        'awaiting the first cannot reach the session before the first '
-        'call finishes, even when the first is genuinely suspended '
-        '(Technical §6: "serialize competing tune requests")', () async {
-      final harness = _Harness();
-      final host = harness.build();
-      await host.start();
-
-      // Suspend the FIRST call's `rememberChannel` step on a gate the test
-      // controls — the second call is fired immediately after, with every
-      // opportunity to race ahead while the first sits suspended.
-      final gate = Completer<void>();
-      harness.rememberChannelGate = gate;
-
-      final first = host.tune(10, 1);
-      final second = host.tune(20, 2);
-
-      // While the first call is still gated, the session must not have
-      // seen ANY retune yet — a non-serialized implementation would let
-      // the second call run straight through to `session.retune(20, ...)`
-      // here, ahead of the first.
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-      expect(harness.retuneOrder, isEmpty);
-
-      gate.complete();
-      final results = await Future.wait(<Future<TuneResult>>[first, second]);
-
-      expect(results.every((r) => r.isSuccess), isTrue);
-      // Strict submission order: channel 10's retune lands before
-      // channel 20's — never interleaved or reordered.
-      expect(harness.retuneOrder, <int>[10, 20]);
-      expect(harness.state.channel, 20);
-      expect(harness.state.privacyCode, 2);
-
-      await host.dispose();
-    });
-  });
-
 
   group('PTT', () {
     test('pressPtt/releasePtt/releaseLatch forward straight to the '

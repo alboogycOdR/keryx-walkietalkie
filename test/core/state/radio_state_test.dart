@@ -12,8 +12,7 @@ void main() {
 
   RadioState bootToIdle() => reducer.reduce(
     reducer.reduce(const RadioState.off(), const PowerOn()),
-    const BootCompleted(),
-  );
+    const BootCompleted());
 
   group('RadioReducer lifecycle', () {
     test('has an exhaustive phase by event transition matrix', () {
@@ -23,8 +22,6 @@ void main() {
         BootCompleted(),
         BeginTuning(),
         FinishTuning(),
-        TuneTo(channel: 42, privacyCode: 16),
-        SetMode(RadioMode.local),
         RequestTransmit(),
         TransmitGranted(),
         TransmitDenied(),
@@ -58,11 +55,7 @@ void main() {
       for (final phase in RadioPhase.values) {
         for (final event in events) {
           final state = RadioState(
-            phase: phase,
-            mode: RadioMode.linked,
-            channel: 7,
-            privacyCode: 5,
-          );
+            phase: phase);
           final actual = reducer.reduce(state, event);
           final expected = _expectedMatrixResult(state, event);
 
@@ -75,11 +68,10 @@ void main() {
         }
       }
 
-      // v2 (Technical §6a, TASK-088): 145/87 was the pre-existing baseline
-      // for the 29 original events; SetTransport/SetRoom add 7 legal + 1
-      // illegal (off) each across the 8 phases, extending it to 159/89.
-      expect(legalTransitions, 159);
-      expect(illegalNoOps, 89);
+      // 29 events × 8 phases. TuneTo/SetMode retired; SetTransport/SetRoom
+      // remain. Legal/illegal counted by the oracle below.
+      expect(legalTransitions, 144);
+      expect(illegalNoOps, 88);
     });
 
     test('moves OFF to BOOT to IDLE and ignores invalid lifecycle events', () {
@@ -98,8 +90,7 @@ void main() {
       expect(tuning.phase, RadioPhase.tuning);
       expect(
         reducer.reduce(tuning, const FinishTuning()).phase,
-        RadioPhase.idle,
-      );
+        RadioPhase.idle);
       expect(reducer.reduce(idle, const FinishTuning()), idle);
     });
 
@@ -111,8 +102,7 @@ void main() {
       expect(transmitting.phase, RadioPhase.tx);
       expect(
         reducer.reduce(transmitting, const EndTransmit()).phase,
-        RadioPhase.idle,
-      );
+        RadioPhase.idle);
     });
 
     test(
@@ -127,8 +117,7 @@ void main() {
         expect(reducer.reduce(idle, const TransmitGranted()), idle);
         expect(reducer.reduce(idle, const TransmitDenied()), idle);
         expect(reducer.reduce(idle, const EndTransmit()), idle);
-      },
-    );
+      });
 
     test('moves IDLE through RX_ACTIVE and back', () {
       final active = reducer.reduce(bootToIdle(), const RemoteFloorStarted());
@@ -136,88 +125,35 @@ void main() {
       expect(active.phase, RadioPhase.rxActive);
       expect(
         reducer.reduce(active, const RemoteFloorEnded()).phase,
-        RadioPhase.idle,
-      );
+        RadioPhase.idle);
       expect(
         reducer.reduce(bootToIdle(), const RemoteFloorEnded()),
-        bootToIdle(),
-      );
+        bootToIdle());
     });
   });
 
   group('RadioReducer settings and degradation', () {
-    test('accepts the complete channel and privacy-code domains', () {
-      final lower = reducer.reduce(
-        const RadioState.off(),
-        const TuneTo(
-          channel: RadioState.minimumChannel,
-          privacyCode: RadioState.minimumPrivacyCode,
-        ),
-      );
-      final upper = reducer.reduce(
-        lower,
-        const TuneTo(
-          channel: RadioState.maximumChannel,
-          privacyCode: RadioState.maximumPrivacyCode,
-        ),
-      );
-
-      expect(lower.channel, 1);
-      expect(lower.privacyCode, 0);
-      expect(upper.channel, 99);
-      expect(upper.privacyCode, 38);
-    });
-
-    test(
-      'rejects tuning values outside the channel and privacy-code domains',
-      () {
-        final state = bootToIdle();
-
-        expect(
-          reducer.reduce(state, const TuneTo(channel: 0, privacyCode: 0)),
-          state,
-        );
-        expect(
-          reducer.reduce(state, const TuneTo(channel: 100, privacyCode: 0)),
-          state,
-        );
-        expect(
-          reducer.reduce(state, const TuneTo(channel: 1, privacyCode: -1)),
-          state,
-        );
-        expect(
-          reducer.reduce(state, const TuneTo(channel: 1, privacyCode: 39)),
-          state,
-        );
-      },
-    );
-
-    test('defaults to AUTO until a concrete effective route is resolved', () {
+    test('defaults transport to none until a concrete path is resolved', () {
       final state = bootToIdle();
 
-      expect(state.mode, RadioMode.auto);
+      expect(state.transport, Transport.none);
       expect(
-        reducer.reduce(state, const SetMode(RadioMode.local)).mode,
-        RadioMode.local,
+        reducer.reduce(state, const SetTransport(Transport.direct)).transport,
+        Transport.direct,
       );
       expect(
-        reducer.reduce(state, const SetMode(RadioMode.linked)).mode,
-        RadioMode.linked,
-      );
-      expect(
-        reducer.reduce(state, const SetMode(RadioMode.auto)),
-        state,
-        reason: 'AUTO is a preference, never an effective route',
+        reducer.reduce(state, const SetTransport(Transport.relay)).transport,
+        Transport.relay,
       );
     });
 
-    test('accepts a concrete resolved route while booting', () {
+    test('accepts a concrete transport while booting', () {
       const booting = RadioState(phase: RadioPhase.boot);
 
       expect(
-        reducer.reduce(booting, const SetMode(RadioMode.local)),
-        const RadioState(phase: RadioPhase.boot, mode: RadioMode.local),
-        reason: 'the session resolves its route before BootCompleted',
+        reducer.reduce(booting, const SetTransport(Transport.direct)).transport,
+        Transport.direct,
+        reason: 'the session resolves its path before BootCompleted',
       );
     });
 
@@ -226,45 +162,36 @@ void main() {
       () {
         for (final phase in RadioPhase.values) {
           final degraded = reducer.reduce(
-            RadioState(phase: phase, mode: RadioMode.linked),
-            const LinkDegraded(),
-          );
+            RadioState(phase: phase),
+            const LinkDegraded());
           if (phase == RadioPhase.off) {
-            expect(degraded, RadioState(phase: phase, mode: RadioMode.linked));
+            expect(degraded, RadioState(phase: phase));
             continue;
           }
           expect(degraded.phase, RadioPhase.linkDegraded);
           expect(degraded.isNoLink, isTrue);
           expect(
             reducer.reduce(degraded, const LinkResolved()).isNoLink,
-            isFalse,
-          );
+            isFalse);
           expect(
             reducer.reduce(degraded, const LinkResolved()).phase,
-            RadioPhase.idle,
-          );
+            RadioPhase.idle);
         }
-      },
-    );
+      });
 
     test(
-      'a resolved degradation can fall back to LOCAL and ignores a stray recovery',
+      'a resolved degradation can fall back to direct and ignores a stray recovery',
       () {
         final state = RadioState(
-          phase: RadioPhase.linkDegraded,
-          mode: RadioMode.linked,
-        );
+          phase: RadioPhase.linkDegraded);
 
         expect(
           reducer.reduce(state, const LinkResolved(useLocalFallback: true)),
-          const RadioState(phase: RadioPhase.idle, mode: RadioMode.local),
-        );
+          const RadioState(phase: RadioPhase.idle, transport: Transport.direct));
         expect(
           reducer.reduce(bootToIdle(), const LinkResolved()),
-          bootToIdle(),
-        );
-      },
-    );
+          bootToIdle());
+      });
   });
 
   test('Riverpod Notifier host projects the pure reducer state', () {
@@ -277,10 +204,10 @@ void main() {
     container.read(radioStateProvider.notifier).dispatch(const BootCompleted());
     container
         .read(radioStateProvider.notifier)
-        .dispatch(const SetMode(RadioMode.linked));
+        .dispatch(const SetTransport(Transport.relay));
     expect(
       container.read(radioStateProvider),
-      const RadioState(phase: RadioPhase.idle, mode: RadioMode.linked),
+      const RadioState(phase: RadioPhase.idle, transport: Transport.relay),
     );
   });
 
@@ -313,8 +240,7 @@ void main() {
     expect(projected.isTransmitDenied, isFalse);
     expect(
       reducer.reduce(projected, const EmergencyCleared()).isEmergency,
-      isFalse,
-    );
+      isFalse);
   });
 
   test('TOT warning is raised only in TX and cleared without a timer', () {
@@ -328,20 +254,17 @@ void main() {
 
     expect(
       reducer.reduce(warning, const TotWarningCleared()).isTotWarning,
-      isFalse,
-    );
+      isFalse);
     expect(
       reducer.reduce(warning, const EndTransmit()),
-      const RadioState(phase: RadioPhase.idle),
-    );
+      const RadioState(phase: RadioPhase.idle));
 
     for (final phase in RadioPhase.values.where((p) => p != RadioPhase.tx)) {
       final state = RadioState(phase: phase);
       expect(
         reducer.reduce(state, const TotWarningRaised()),
         state,
-        reason: '$phase must not accept TotWarningRaised',
-      );
+        reason: '$phase must not accept TotWarningRaised');
     }
   });
 
@@ -354,8 +277,7 @@ void main() {
     expect(
       reducer.reduce(denied, const PowerOn()),
       denied,
-      reason: 'no-op events keep the deny flash',
-    );
+      reason: 'no-op events keep the deny flash');
 
     final cleared = reducer.reduce(denied, const BeginTuning());
     expect(cleared.isTransmitDenied, isFalse);
@@ -378,19 +300,11 @@ void main() {
     expect(reducer.reduce(state, const SignalQualityUpdated(10)), state);
   });
 
-  test('PowerOff and a changed channel clear replay', () {
+  test('PowerOff clears replay', () {
     const replaying = RadioState(
       phase: RadioPhase.idle,
-      channel: 7,
-      privacyCode: 3,
       isReplay: true,
       activeSpeaker: 'BRAVO-7',
-    );
-    expect(
-      reducer
-          .reduce(replaying, const TuneTo(channel: 8, privacyCode: 3))
-          .isReplay,
-      isFalse,
     );
     final off = reducer.reduce(replaying, const PowerOff());
     expect(off.phase, RadioPhase.off);
@@ -415,13 +329,11 @@ void main() {
       localPeerId: peerId,
       transport: hub.attach(peerId),
       clock: clock,
-      tot: FloorEngine.minTot,
-    );
+      tot: FloorEngine.minTot);
     var state = const RadioState(phase: RadioPhase.idle);
     final bridge = RadioStateBridge(
       engine: engine,
-      dispatch: (event) => state = reducer.reduce(state, event),
-    );
+      dispatch: (event) => state = reducer.reduce(state, event));
     addTearDown(() async {
       await bridge.dispose();
       engine.dispose();
@@ -466,18 +378,15 @@ void main() {
       final holder = FloorEngine(
         localPeerId: aId,
         transport: hub.attach(aId),
-        clock: clock,
-      );
+        clock: clock);
       final locked = FloorEngine(
         localPeerId: bId,
         transport: hub.attach(bId),
-        clock: clock,
-      );
+        clock: clock);
       var state = const RadioState(phase: RadioPhase.idle);
       final bridge = RadioStateBridge(
         engine: locked,
-        dispatch: (event) => state = reducer.reduce(state, event),
-      );
+        dispatch: (event) => state = reducer.reduce(state, event));
       addTearDown(() async {
         await bridge.dispose();
         holder.dispose();
@@ -494,8 +403,7 @@ void main() {
       locked.requestTransmit();
       expect(state.isTransmitDenied, isTrue);
       expect(state.phase, RadioPhase.rxActive);
-    },
-  );
+    });
 
   // v2 (Technical §6a, TASK-088): additive coverage for roomId/transport —
   // every v1 test above this group is unmodified.
@@ -514,8 +422,7 @@ void main() {
         final withRoom = reducer.reduce(state, const SetRoom('room-1'));
         final withTransport = reducer.reduce(
           state,
-          const SetTransport(Transport.relay),
-        );
+          const SetTransport(Transport.relay));
         if (phase == RadioPhase.off) {
           expect(withRoom.roomId, isNull, reason: '$phase');
           expect(withTransport.transport, Transport.none, reason: '$phase');
@@ -548,19 +455,12 @@ void main() {
       expect(withRoom.hashCode, same.hashCode);
     });
 
-    test('SetTransport/SetRoom never disturb the mode/channel path', () {
-      final tuned = reducer.reduce(
-        bootToIdle(),
-        const TuneTo(channel: 42, privacyCode: 7),
-      );
-      final withMode = reducer.reduce(tuned, const SetMode(RadioMode.local));
+    test('SetTransport/SetRoom compose independently of phase', () {
       final withRoomAndTransport = reducer.reduce(
-        reducer.reduce(withMode, const SetRoom('room-x')),
+        reducer.reduce(bootToIdle(), const SetRoom('room-x')),
         const SetTransport(Transport.direct),
       );
-      expect(withRoomAndTransport.channel, 42);
-      expect(withRoomAndTransport.privacyCode, 7);
-      expect(withRoomAndTransport.mode, RadioMode.local);
+      expect(withRoomAndTransport.phase, RadioPhase.idle);
       expect(withRoomAndTransport.roomId, 'room-x');
       expect(withRoomAndTransport.transport, Transport.direct);
     });
@@ -575,65 +475,49 @@ RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
       isReplay: false,
       clearActiveSpeaker: true,
       isTotWarning: false,
-      isTransmitDenied: false,
-    ),
+      isTransmitDenied: false),
     LinkDegraded() when state.phase != RadioPhase.off => state.copyWith(
       phase: RadioPhase.linkDegraded,
       isNoLink: true,
-      isTotWarning: false,
-    ),
+      isTotWarning: false),
     PowerOn() when state.phase == RadioPhase.off => state.copyWith(
-      phase: RadioPhase.boot,
-    ),
+      phase: RadioPhase.boot),
     BootCompleted() when state.phase == RadioPhase.boot => state.copyWith(
-      phase: RadioPhase.idle,
-    ),
+      phase: RadioPhase.idle),
     BeginTuning() when state.phase == RadioPhase.idle => state.copyWith(
-      phase: RadioPhase.tuning,
-    ),
+      phase: RadioPhase.tuning),
     FinishTuning() when state.phase == RadioPhase.tuning => state.copyWith(
-      phase: RadioPhase.idle,
-    ),
-    TuneTo() => state.copyWith(
-      channel: event.channel,
-      privacyCode: event.privacyCode,
-    ),
-    SetMode()
-        when state.phase != RadioPhase.off && event.mode != RadioMode.auto =>
-      state.copyWith(mode: event.mode),
+      phase: RadioPhase.idle),
     RequestTransmit() when state.phase == RadioPhase.idle => state.copyWith(
-      phase: RadioPhase.txRequest,
-    ),
+      phase: RadioPhase.txRequest),
     TransmitGranted() when state.phase == RadioPhase.txRequest =>
       state.copyWith(phase: RadioPhase.tx),
     TransmitDenied() when state.phase == RadioPhase.txRequest => state.copyWith(
       phase: RadioPhase.idle,
-      isTransmitDenied: true,
-    ),
+      isTransmitDenied: true),
     EndTransmit() when state.phase == RadioPhase.tx => state.copyWith(
       phase: RadioPhase.idle,
-      isTotWarning: false,
-    ),
+      isTotWarning: false),
     RemoteFloorStarted() when state.phase == RadioPhase.idle => state.copyWith(
-      phase: RadioPhase.rxActive,
-    ),
+      phase: RadioPhase.rxActive),
     RemoteFloorEnded() when state.phase == RadioPhase.rxActive =>
       state.copyWith(phase: RadioPhase.idle),
     LinkResolved() when state.phase == RadioPhase.linkDegraded =>
-      state.copyWith(phase: RadioPhase.idle, isNoLink: false),
+      state.copyWith(
+        phase: RadioPhase.idle,
+        isNoLink: false,
+        transport: event.useLocalFallback ? Transport.direct : state.transport,
+      ),
     EmergencyPinned() => state.copyWith(isEmergency: true),
     EmergencyCleared() => state.copyWith(isEmergency: false),
     ActiveSpeakerChanged() => state.copyWith(
       activeSpeaker: event.speaker,
-      clearActiveSpeaker: event.speaker == null,
-    ),
+      clearActiveSpeaker: event.speaker == null),
     ArbiterIdentityChanged() => state.copyWith(
       arbiterId: event.peerId,
-      clearArbiterId: event.peerId == null,
-    ),
+      clearArbiterId: event.peerId == null),
     RosterUpdated() when event.stationCount >= 0 => state.copyWith(
-      stationCount: event.stationCount,
-    ),
+      stationCount: event.stationCount),
     SignalQualityUpdated()
         when event.sMeter >= RadioState.minimumSignalQuality &&
             event.sMeter <= RadioState.maximumSignalQuality =>
@@ -644,20 +528,17 @@ RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
     ScanChanged() => state.copyWith(isScanning: event.isActive),
     VoxChanged() => state.copyWith(isVoxArmed: event.isArmed),
     TotWarningRaised() when state.phase == RadioPhase.tx => state.copyWith(
-      isTotWarning: true,
-    ),
+      isTotWarning: true),
     TotWarningCleared() => state.copyWith(isTotWarning: false),
     TransmitDeniedIndicated() when state.phase != RadioPhase.off =>
       state.copyWith(isTransmitDenied: true),
     // v2 (Technical §6a, TASK-088): additive rows, existing rows unchanged
     // above this line.
     SetTransport() when state.phase != RadioPhase.off => state.copyWith(
-      transport: event.transport,
-    ),
+      transport: event.transport),
     SetRoom() when state.phase != RadioPhase.off => state.copyWith(
       roomId: event.roomId,
-      clearRoomId: event.roomId == null,
-    ),
+      clearRoomId: event.roomId == null),
     _ => state,
   };
   if (event is TransmitDeniedIndicated || event is TransmitDenied) {

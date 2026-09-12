@@ -25,13 +25,6 @@ class _RecordingRadioHost implements RadioHost {
     calls.add('powerOff');
   }
 
-  TuneResult tuneResult = const TuneResult.success();
-  @override
-  Future<TuneResult> tune(int channel, int code) async {
-    calls.add('tune($channel, $code)');
-    return tuneResult;
-  }
-
   KeryxSettings? appliedSettings;
   @override
   Future<void> applySettings(KeryxSettings settings) async {
@@ -79,14 +72,6 @@ void main() {
     expect(host.calls, ['releaseLatch']);
   });
 
-  test('tune() forwards channel/code and returns the host result verbatim', () async {
-    host.tuneResult = const TuneResult.validationFailure('bad code');
-    final result = await intents.tune(12, 7);
-
-    expect(host.calls, ['tune(12, 7)']);
-    expect(result.outcome, RadioHostOutcome.validationFailure);
-  });
-
   test('applySettings() forwards the exact settings instance', () async {
     const settings = KeryxSettings(squelchLevel: 8);
     await intents.applySettings(settings);
@@ -108,6 +93,5 @@ void main() {
       expect(host.calls, isNot(contains('start')));
       expect(host.calls, isNot(contains('powerOff')));
       expect(host.calls, isNot(contains('dispose')));
-    },
-  );
+    });
 }

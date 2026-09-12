@@ -43,8 +43,7 @@ class _NullFloorTransport implements FloorTransport {
     localPeerId: peerId,
     transport: transport,
     clock: const WallClock(),
-    tot: const Duration(seconds: 60),
-  );
+    tot: const Duration(seconds: 60));
   return (engine, transport);
 }
 
@@ -56,16 +55,13 @@ void main() {
     container = ProviderContainer(
       overrides: <Override>[
         settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
-      ],
-    );
+      ]);
     addTearDown(container.dispose);
     return UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
         theme: keryxUxThemeData(brightness: brightness),
-        home: RadioControlsScreen(host: host),
-      ),
-    );
+        home: RadioControlsScreen(host: host)));
   }
 
   setUp(() {
@@ -107,8 +103,7 @@ void main() {
         expect(find.textContaining('VOX'), findsNothing);
         expect(find.textContaining('Replay'), findsNothing);
         engine.dispose();
-      },
-    );
+      });
   });
 
   group('acceptance criterion 2/4 — Monitor hold-to-open, authoritative state', () {
@@ -118,12 +113,10 @@ void main() {
         final engine = await pumpReady(tester);
         expect(
           container.read(radioStateProvider).isMonitorOpen,
-          isFalse,
-        );
+          isFalse);
 
         final gesture = await tester.startGesture(
-          tester.getCenter(find.byKey(RadioControlsKeys.monitorHoldTarget)),
-        );
+          tester.getCenter(find.byKey(RadioControlsKeys.monitorHoldTarget)));
         await tester.pump();
         expect(container.read(radioStateProvider).isMonitorOpen, isTrue);
 
@@ -131,8 +124,7 @@ void main() {
         await tester.pump();
         expect(container.read(radioStateProvider).isMonitorOpen, isFalse);
         engine.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'the indicator lights from authoritative state directly, not from a '
@@ -142,20 +134,16 @@ void main() {
         // No gesture at all — dispatch straight to the reducer, exactly as
         // a real authoritative source would.
         container.read(radioStateProvider.notifier).dispatch(
-          const MonitorChanged(true),
-        );
+          const MonitorChanged(true));
         await tester.pump();
 
         final Icon indicator = tester.widget<Icon>(
-          find.byKey(RadioControlsKeys.monitorIndicator),
-        );
+          find.byKey(RadioControlsKeys.monitorIndicator));
         final tokens = KeryxUxTokens.of(
-          tester.element(find.byKey(RadioControlsKeys.monitorIndicator)),
-        );
+          tester.element(find.byKey(RadioControlsKeys.monitorIndicator)));
         expect(indicator.color, tokens.stateRx);
         engine.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'Monitor is ineligible and explains itself while transmitting; the '
@@ -170,13 +158,11 @@ void main() {
         expect(find.byKey(RadioControlsKeys.monitorUnavailable), findsOneWidget);
 
         await tester.startGesture(
-          tester.getCenter(find.byKey(RadioControlsKeys.monitorHoldTarget)),
-        );
+          tester.getCenter(find.byKey(RadioControlsKeys.monitorHoldTarget)));
         await tester.pump();
         expect(container.read(radioStateProvider).isMonitorOpen, isFalse);
         engine.dispose();
-      },
-    );
+      });
   });
 
   group('acceptance criterion 2/4 — Scan toggle, authoritative state', () {
@@ -210,8 +196,7 @@ void main() {
         await tester.pump();
         expect(container.read(radioStateProvider).isScanning, isFalse);
         engine.dispose();
-      },
-    );
+      });
   });
 
   group('acceptance criteria 5/6/7 — Emergency guarded activation and clear', () {
@@ -223,8 +208,7 @@ void main() {
         expect(engine.isEmergencyPinned, isFalse);
 
         final gesture = await tester.startGesture(
-          tester.getCenter(find.byKey(RadioControlsKeys.emergencyHoldTarget)),
-        );
+          tester.getCenter(find.byKey(RadioControlsKeys.emergencyHoldTarget)));
         await tester.pump();
         expect(find.byKey(RadioControlsKeys.emergencyArming), findsOneWidget);
         expect(engine.isEmergencyPinned, isFalse);
@@ -236,8 +220,7 @@ void main() {
         await gesture.up();
         await tester.pump();
         engine.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'releasing Emergency before the hold duration elapses does not '
@@ -245,8 +228,7 @@ void main() {
       (tester) async {
         final engine = await pumpReady(tester);
         final gesture = await tester.startGesture(
-          tester.getCenter(find.byKey(RadioControlsKeys.emergencyHoldTarget)),
-        );
+          tester.getCenter(find.byKey(RadioControlsKeys.emergencyHoldTarget)));
         await tester.pump(const Duration(milliseconds: 200));
         await gesture.up();
         await tester.pump(const Duration(milliseconds: 500));
@@ -254,8 +236,7 @@ void main() {
         expect(engine.isEmergencyPinned, isFalse);
         expect(find.byKey(RadioControlsKeys.emergencyBanner), findsNothing);
         engine.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'the owner can clear an active emergency through the authoritative '
@@ -263,8 +244,7 @@ void main() {
       (tester) async {
         final engine = await pumpReady(tester);
         final gesture = await tester.startGesture(
-          tester.getCenter(find.byKey(RadioControlsKeys.emergencyHoldTarget)),
-        );
+          tester.getCenter(find.byKey(RadioControlsKeys.emergencyHoldTarget)));
         await tester.pump(const Duration(milliseconds: 650));
         await gesture.up();
         await tester.pump();
@@ -276,8 +256,7 @@ void main() {
         expect(engine.isEmergencyPinned, isFalse);
         expect(find.byKey(RadioControlsKeys.emergencyBanner), findsNothing);
         engine.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'a non-owner cannot clear a remotely-raised emergency — the clear '
@@ -295,17 +274,14 @@ void main() {
         expect(engine.emergencyPeer, 'remote-1');
         expect(
           find.byKey(RadioControlsKeys.emergencyClearedByOther),
-          findsOneWidget,
-        );
+          findsOneWidget);
 
         final FilledButton clearButton = tester.widget<FilledButton>(
-          find.byKey(RadioControlsKeys.emergencyClear),
-        );
+          find.byKey(RadioControlsKeys.emergencyClear));
         expect(clearButton.onPressed, isNull);
         engine.dispose();
         transport.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'no location or emergency-service claim appears in the emergency copy',
@@ -314,13 +290,11 @@ void main() {
         expect(find.textContaining('location'), findsOneWidget);
         expect(
           find.text(RadioControlsCopy.emergencyDescription),
-          findsOneWidget,
-        );
+          findsOneWidget);
         expect(find.textContaining('911'), findsNothing);
         expect(find.textContaining('emergency service'), findsOneWidget);
         engine.dispose();
-      },
-    );
+      });
   });
 
   group('TASK-057 — accessibility and safe-area polish', () {
@@ -338,14 +312,12 @@ void main() {
         expect(find.text(RadioControlsCopy.monitorOpenState), findsNothing);
 
         container.read(radioStateProvider.notifier).dispatch(
-          const MonitorChanged(true),
-        );
+          const MonitorChanged(true));
         await tester.pump();
         expect(find.text(RadioControlsCopy.monitorOpenState), findsOneWidget);
         expect(find.text(RadioControlsCopy.monitorClosedState), findsNothing);
         engine.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'Scan on/off state has a text equivalent, not colour alone',
@@ -359,8 +331,7 @@ void main() {
         expect(find.text(RadioControlsCopy.scanningState), findsOneWidget);
         expect(find.text(RadioControlsCopy.scanIdleState), findsNothing);
         engine.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'the Monitor hold target exposes an explicit toggled Semantics node',
@@ -369,26 +340,20 @@ void main() {
         final SemanticsNode node = tester.getSemantics(
           find.ancestor(
             of: find.byKey(RadioControlsKeys.monitorHoldTarget),
-            matching: find.byWidgetPredicate((w) => w is Semantics),
-          ).first,
-        );
+            matching: find.byWidgetPredicate((w) => w is Semantics)).first);
         expect(node.flagsCollection.isButton, isTrue);
         expect(node.flagsCollection.isToggled, Tristate.isFalse);
 
         container.read(radioStateProvider.notifier).dispatch(
-          const MonitorChanged(true),
-        );
+          const MonitorChanged(true));
         await tester.pump();
         final SemanticsNode nodeAfter = tester.getSemantics(
           find.ancestor(
             of: find.byKey(RadioControlsKeys.monitorHoldTarget),
-            matching: find.byWidgetPredicate((w) => w is Semantics),
-          ).first,
-        );
+            matching: find.byWidgetPredicate((w) => w is Semantics)).first);
         expect(nodeAfter.flagsCollection.isToggled, Tristate.isTrue);
         engine.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'the Emergency hold target exposes an explicit button Semantics node '
@@ -398,30 +363,24 @@ void main() {
         final SemanticsNode node = tester.getSemantics(
           find.ancestor(
             of: find.byKey(RadioControlsKeys.emergencyHoldTarget),
-            matching: find.byWidgetPredicate((w) => w is Semantics),
-          ).first,
-        );
+            matching: find.byWidgetPredicate((w) => w is Semantics)).first);
         expect(node.flagsCollection.isButton, isTrue);
         expect(node.flagsCollection.isToggled, Tristate.isFalse);
 
         final gesture = await tester.startGesture(
-          tester.getCenter(find.byKey(RadioControlsKeys.emergencyHoldTarget)),
-        );
+          tester.getCenter(find.byKey(RadioControlsKeys.emergencyHoldTarget)));
         await tester.pump();
         final SemanticsNode armingNode = tester.getSemantics(
           find.ancestor(
             of: find.byKey(RadioControlsKeys.emergencyHoldTarget),
-            matching: find.byWidgetPredicate((w) => w is Semantics),
-          ).first,
-        );
+            matching: find.byWidgetPredicate((w) => w is Semantics)).first);
         expect(armingNode.flagsCollection.isToggled, Tristate.isTrue);
         // Release before the arm duration elapses — no activation, and no
         // dangling timer left running past the test.
         await gesture.up();
         await tester.pump();
         engine.dispose();
-      },
-    );
+      });
   });
 
   group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
@@ -436,8 +395,7 @@ void main() {
           final engine = await pumpReady(t);
           engine.dispose();
         });
-      },
-    );
+      });
 
     testWidgets('meets WCAG AA rendered contrast and 48dp tap targets '
         '(dark)', (tester) async {
@@ -469,18 +427,15 @@ void main() {
 
         await _activateViaKeyboard(
           tester,
-          RadioControlsKeys.monitorHoldTarget,
-        );
+          RadioControlsKeys.monitorHoldTarget);
         expect(container.read(radioStateProvider).isMonitorOpen, isTrue);
 
         await _activateViaKeyboard(
           tester,
-          RadioControlsKeys.monitorHoldTarget,
-        );
+          RadioControlsKeys.monitorHoldTarget);
         expect(container.read(radioStateProvider).isMonitorOpen, isFalse);
         engine.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'switch/TalkBack tap latches Monitor open and closed — not a '
@@ -492,19 +447,16 @@ void main() {
 
         await _activateViaSwitch(
           tester,
-          RadioControlsKeys.monitorHoldTarget,
-        );
+          RadioControlsKeys.monitorHoldTarget);
         expect(container.read(radioStateProvider).isMonitorOpen, isTrue);
 
         await _activateViaSwitch(
           tester,
-          RadioControlsKeys.monitorHoldTarget,
-        );
+          RadioControlsKeys.monitorHoldTarget);
         expect(container.read(radioStateProvider).isMonitorOpen, isFalse);
         engine.dispose();
         handle.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'a single keyboard/switch Activate does not pin Emergency',
@@ -514,19 +466,16 @@ void main() {
 
         await _activateViaSwitch(
           tester,
-          RadioControlsKeys.emergencyHoldTarget,
-        );
+          RadioControlsKeys.emergencyHoldTarget);
 
         expect(engine.isEmergencyPinned, isFalse);
         expect(
           find.byKey(RadioControlsKeys.emergencyKeyboardConfirm),
-          findsOneWidget,
-        );
+          findsOneWidget);
         expect(find.byKey(RadioControlsKeys.emergencyArming), findsNothing);
         engine.dispose();
         handle.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'a second Activate before 600ms does not pin Emergency (same '
@@ -537,25 +486,21 @@ void main() {
 
         await _activateViaSwitch(
           tester,
-          RadioControlsKeys.emergencyHoldTarget,
-        );
+          RadioControlsKeys.emergencyHoldTarget);
         await tester.pump(const Duration(milliseconds: 200));
         await _activateViaSwitch(
           tester,
-          RadioControlsKeys.emergencyHoldTarget,
-        );
+          RadioControlsKeys.emergencyHoldTarget);
         await tester.pump(const Duration(milliseconds: 500));
 
         expect(engine.isEmergencyPinned, isFalse);
         expect(find.byKey(RadioControlsKeys.emergencyBanner), findsNothing);
         expect(
           find.byKey(RadioControlsKeys.emergencyKeyboardConfirm),
-          findsOneWidget,
-        );
+          findsOneWidget);
         engine.dispose();
         handle.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'a second Activate after 600ms pins Emergency through the '
@@ -566,22 +511,19 @@ void main() {
 
         await _activateViaSwitch(
           tester,
-          RadioControlsKeys.emergencyHoldTarget,
-        );
+          RadioControlsKeys.emergencyHoldTarget);
         expect(engine.isEmergencyPinned, isFalse);
 
         await tester.pump(const Duration(milliseconds: 650));
         await _activateViaSwitch(
           tester,
-          RadioControlsKeys.emergencyHoldTarget,
-        );
+          RadioControlsKeys.emergencyHoldTarget);
 
         expect(engine.isEmergencyPinned, isTrue);
         expect(find.byKey(RadioControlsKeys.emergencyBanner), findsOneWidget);
         engine.dispose();
         handle.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'switch/TalkBack tap on Clear unpins an owner-raised emergency',
@@ -591,13 +533,11 @@ void main() {
 
         await _activateViaSwitch(
           tester,
-          RadioControlsKeys.emergencyHoldTarget,
-        );
+          RadioControlsKeys.emergencyHoldTarget);
         await tester.pump(const Duration(milliseconds: 650));
         await _activateViaSwitch(
           tester,
-          RadioControlsKeys.emergencyHoldTarget,
-        );
+          RadioControlsKeys.emergencyHoldTarget);
         expect(engine.isEmergencyPinned, isTrue);
 
         await _activateViaSwitch(tester, RadioControlsKeys.emergencyClear);
@@ -605,8 +545,7 @@ void main() {
         expect(find.byKey(RadioControlsKeys.emergencyBanner), findsNothing);
         engine.dispose();
         handle.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'Escape cancels emergency keyboard confirm without arming',
@@ -615,12 +554,10 @@ void main() {
 
         await _activateViaKeyboard(
           tester,
-          RadioControlsKeys.emergencyHoldTarget,
-        );
+          RadioControlsKeys.emergencyHoldTarget);
         expect(
           find.byKey(RadioControlsKeys.emergencyKeyboardConfirm),
-          findsOneWidget,
-        );
+          findsOneWidget);
         expect(engine.isEmergencyPinned, isFalse);
 
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -628,12 +565,10 @@ void main() {
 
         expect(
           find.byKey(RadioControlsKeys.emergencyKeyboardConfirm),
-          findsNothing,
-        );
+          findsNothing);
         expect(engine.isEmergencyPinned, isFalse);
         engine.dispose();
-      },
-    );
+      });
   });
 }
 
@@ -652,8 +587,7 @@ Future<void> _activateViaSwitch(WidgetTester tester, Key key) async {
   expect(
     node.getSemanticsData().hasAction(SemanticsAction.tap),
     isTrue,
-    reason: '$key must expose SemanticsAction.tap for switch/TalkBack',
-  );
+    reason: '$key must expose SemanticsAction.tap for switch/TalkBack');
   node.owner!.performAction(node.id, SemanticsAction.tap);
   await tester.pump();
 }

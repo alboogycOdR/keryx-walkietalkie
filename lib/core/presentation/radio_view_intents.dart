@@ -1,10 +1,9 @@
-import 'package:keryx/core/radio_host/radio_host.dart'
-    show RadioHost, TuneResult;
+import 'package:keryx/core/radio_host/radio_host.dart' show RadioHost;
 import 'package:keryx/core/settings/settings_repository.dart' show KeryxSettings;
 
 /// The typed intents every Wave 4 screen dispatches (Technical §5.1/§9's
 /// "define the typed intents the UI dispatches
-/// (press/release/latch-release/tune/apply-settings/join-event), all of
+/// (press/release/latch-release/apply-settings), all of
 /// which delegate to the host").
 ///
 /// Every method here forwards, unchanged, straight to the injected
@@ -32,10 +31,6 @@ class RadioViewIntents {
   /// a latch is UI-owned while the release action itself is always the
   /// host's job (Technical §4; `RadioHost.releaseLatch`'s own dartdoc).
   void releaseLatch() => _host.releaseLatch();
-
-  /// Serialized channel/code change — forwards to `RadioHost.tune`.
-  Future<TuneResult> tune(int channel, int privacyCode) =>
-      _host.tune(channel, privacyCode);
 
   /// Applies a settings snapshot — forwards to `RadioHost.applySettings`.
   Future<void> applySettings(KeryxSettings settings) =>

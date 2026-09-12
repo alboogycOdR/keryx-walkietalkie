@@ -12,7 +12,7 @@ abstract final class SettingsCopy {
 
   static const String radioSection = 'Radio';
   static const String radioSectionDescription =
-      'Transmit limits and channel numbering.';
+      'Transmit limits and busy-lockout.';
 
   static const String audioSection = 'Audio';
   static const String audioSectionDescription =
@@ -20,11 +20,11 @@ abstract final class SettingsCopy {
 
   static const String connectivitySection = 'Connectivity';
   static const String connectivitySectionDescription =
-      'How this radio reaches other stations.';
+      'How this radio reaches other people.';
 
   static const String identitySection = 'Identity';
   static const String identitySectionDescription =
-      'The name other stations see, and your KERYX ID.';
+      'The name other people see, and your KERYX ID.';
 
   static const String messagesSection = 'Messages';
   static const String messagesSectionDescription =
@@ -48,11 +48,6 @@ abstract final class SettingsCopy {
   static const String lockoutLabel = 'Busy lockout';
   static const String lockoutDescription = 'Deny transmit while the floor is held.';
 
-  static const String regionLabel = 'Region';
-  static const String regionDescription =
-      "Partitions numbered channels so CH 7 here isn't CH 7 elsewhere.";
-  static const String regionEmptyError = 'Region cannot be empty.';
-
   static const String squelchLabel = 'Squelch';
   static const String squelchDescription =
       'Sets the RX gate threshold and the resting hiss level.';
@@ -70,18 +65,14 @@ abstract final class SettingsCopy {
   static const String audioRoutingDescription =
       "Uses the phone's current output. End-of-TX and character sounds stay the radio pack.";
 
-  static const String modeLabel = 'Radio mode';
-  static const String modeDescription =
-      'Selects Local, relay-preferred Auto, or relay-only Linked operation.';
-
-  static const String effectiveRouteLabel = 'Effective route';
+  static const String effectiveRouteLabel = 'Active path';
   static const String effectiveRouteDescription =
-      'The route actually in use right now. Auto is a preference, not a dual connection.';
+      'The path actually in use right now.';
 
-  static const String forceLocalLabel = 'Local only';
-  static const String forceLocalDescription = 'Nothing leaves this network.';
+  static const String forceLocalLabel = 'This network only';
+  static const String forceLocalDescription = 'Nothing leaves this Wi-Fi network.';
   static const String forceLocalBlocksWan =
-      'Local only is on. Linked and relay settings are stored but no WAN call is made.';
+      'This-network-only is on. Relay settings are stored but no internet call is made.';
 
   static const String relayUrlLabel = 'Relay URL';
   static const String relayUrlDescription =
@@ -189,15 +180,16 @@ abstract final class SettingsCopy {
   };
 
   static String dimOptionLabel(String name) => switch (name) {
-    'auto' => 'Auto',
+    'auto' => 'Automatic',
     'manual' => 'Manual',
     _ => name,
   };
 
-  static String modeOptionLabel(String name) => switch (name) {
-    'local' => 'Local',
-    'auto' => 'Auto',
-    'linked' => 'Linked',
+  static String transportOptionLabel(String name) => switch (name) {
+    'none' => 'Connecting',
+    'direct' => 'Direct',
+    'relay' => 'Relay',
+    'both' => 'Direct and relay',
     _ => name,
   };
 

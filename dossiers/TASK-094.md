@@ -263,3 +263,29 @@ AC 2 V2-VT-028: Radio Controls copy cleaned (in-territory goldens regenerated). 
 | `lib/core/settings/README.md` | documents `mode`/`RadioMode` |
 
 Ask of ORCH: widen Owned_Paths by the compile-break table (minimum) plus the spec-named derivation/discovery/linked set if AC-3 is to include Technical §6.2 deletions; or split a dedicated v1-field-removal task that owns the union. Do not resume on the current Owned_Paths — same class of conflict as the first block, different leftover files (TASK-074: grep `test/**` for retired types before finishing a removal). Idle until re-carve. Deletion pass `3eeabc8` unchanged.
+
+- [2026-09-12T09:28:55Z] [GB] Third widen landed; four-symbol grep was exhaustive inside Owned_Paths. v1-field removal complete on `task/TASK-094-gb`.
+
+### v1-field removal (this session)
+
+- Deleted `RadioMode`, `RadioState.mode`/`channel`/`privacyCode`, `TuneTo`, `SetMode`.
+- `ConnectionCondition` is now `{transport, degraded}` (Technical §6.3). Route labels: Connecting / Direct / Relay / Direct and relay.
+- `KeryxSettings`: removed persisted `mode`/`region`/`channelMemory`/`TunedChannel`. Unknown v1 JSON keys ignored. Residual shim: `region` getter always `'global'` so unowned `lib/features/settings/settings_apply.dart` still compiles.
+- `RadioHost.tune` / `SessionHost.retune` / `rememberChannel` removed. Session start uses `RoomPrefix` + `joinRoomId`.
+- `deriveNumbered` deleted. `ChannelHashPrefix` deleted; discovery uses `RoomPrefix`.
+- `LinkedController.joinNumbered` kept (unowned `linked_controller_test` calls it) with an inlined HMAC matching the deleted formula.
+- `tuning_target.dart` is an empty library so the unowned `presentation.dart` barrel export stays valid.
+- Settings copy: "This network only", "Active path"; Dim option "Automatic". Overlay cue "Someone is already transmitting".
+- Residual user-facing "Channel busy" remains in unowned `lib/core/theme/ux_tokens.dart` (V2-VT-028).
+
+### Behavioural-test reconciliation (additions)
+
+| Deleted/rewritten test | Kind | Successor |
+|---|---|---|
+| numbered `deriveNumbered` vectors | behavioural | dropped — feature deleted; keyed/group/direct room tests remain |
+| `ChannelHashPrefix` tests | behavioural | `test/services/discovery/channel_hash_prefix_test.dart` now asserts `RoomPrefix` |
+| `RadioHost.tune` serialisation | behavioural | dropped with numbered tune; v2 join is `switchTarget` |
+| `rememberChannel` FIFO | behavioural | dropped with channel memory |
+| `SetMode` routing | behavioural | `SetTransport` on `RadioSessionController.start` |
+
+Suite: **1379 passed / 0 failed / 40 skipped** (40 = PARKED FR-025 soak seeds). Analyzer: No issues found.

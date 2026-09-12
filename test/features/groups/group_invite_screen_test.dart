@@ -34,15 +34,13 @@ void main() {
     groupsController = GroupsController(
       directoryClient: directoryClient,
       repository: SharedPreferencesGroupsRepository(await SharedPreferences.getInstance()),
-      keyPair: keyPair,
-    );
+      keyPair: keyPair);
     detailController = GroupDetailController(
       groupId: 'g1',
       groupsController: groupsController,
       directoryClient: directoryClient,
       keyPair: keyPair,
-      myPk: 'me',
-    );
+      myPk: 'me');
   });
 
   tearDown(() async {
@@ -55,8 +53,7 @@ void main() {
   testWidgets('mints an invite and renders a QR plus the encoded link honouring the preset', (tester) async {
     server.responder = (req) => const DirectoryFakeResponse(
       statusCode: 200,
-      body: {'token': 'tok-1', 'group_id': 'g1', 'expires_at': null},
-    );
+      body: {'token': 'tok-1', 'group_id': 'g1', 'expires_at': null});
     final secret = List<int>.generate(32, (i) => i);
 
     await tester.runAsync(() async {
@@ -66,10 +63,7 @@ void main() {
             controller: detailController,
             groupId: 'g1',
             secret: secret,
-            initialPreset: EventLinkExpiryPreset.twentyFourHours,
-          ),
-        ),
-      );
+            initialPreset: EventLinkExpiryPreset.twentyFourHours)));
       await Future<void>.delayed(const Duration(milliseconds: 200));
     });
     await tester.pumpAndSettle();
@@ -102,17 +96,13 @@ void main() {
           GroupInviteScreen(
             controller: detailController,
             groupId: 'g1',
-            secret: List<int>.generate(32, (i) => i),
-          ),
-        ),
-      );
+            secret: List<int>.generate(32, (i) => i))));
       await Future<void>.delayed(const Duration(milliseconds: 200));
     });
     await tester.pumpAndSettle();
 
     final dropdown = tester.widget<DropdownButton<EventLinkExpiryPreset>>(
-      find.byKey(const Key('keryx-group-invite-expiry')),
-    );
+      find.byKey(const Key('keryx-group-invite-expiry')));
     expect(dropdown.items!.map((i) => i.value), containsAll(EventLinkExpiryPreset.values));
   });
 
@@ -125,10 +115,7 @@ void main() {
           GroupInviteScreen(
             controller: detailController,
             groupId: 'g1',
-            secret: List<int>.generate(32, (i) => i),
-          ),
-        ),
-      );
+            secret: List<int>.generate(32, (i) => i))));
       await Future<void>.delayed(const Duration(milliseconds: 200));
     });
     await tester.pumpAndSettle();

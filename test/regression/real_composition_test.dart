@@ -84,9 +84,7 @@ void main() {
           (ref) async => DeviceIdentity(
             installUuid: '00000000-0000-4000-8000-000000000000',
             peerId: 'real-composition-stub-peer',
-            callsign: Callsign.parse('STUB-1'),
-          ),
-        ),
+            callsign: Callsign.parse('STUB-1'))),
         // The only override in this file that touches `radioHostProvider`
         // itself — and it still constructs a real `KeryxRadioHost`, wired
         // to the same `settingsProvider`/`radioStateProvider` the
@@ -103,14 +101,11 @@ void main() {
             loadSettings: () => ref.read(settingsProvider.future),
             dispatch: (event) => ref.read(radioStateProvider.notifier).dispatch(event),
             readRadioState: () => ref.read(radioStateProvider),
-            rememberChannel: (channel) =>
-                ref.read(settingsProvider.notifier).rememberChannel(channel),
             listenRadioState: (onChange, {bool fireImmediately = false}) {
               final subscription = ref.listen<RadioState>(
                 radioStateProvider,
                 (previous, next) => onChange(previous, next),
-                fireImmediately: fireImmediately,
-              );
+                fireImmediately: fireImmediately);
               return subscription.close;
             },
             listenSettings: (onChange) {
@@ -119,11 +114,9 @@ void main() {
                 (previous, next) {
                   final settings = next.valueOrNull;
                   if (settings != null) onChange(settings);
-                },
-              );
+                });
               return subscription.close;
-            },
-          );
+            });
           ref.onDispose(() => unawaited(host.dispose()));
           return host;
         }),
@@ -132,8 +125,7 @@ void main() {
       // and `MobileAppShell` composition, completely unmodified. A keyed
       // identity store so `OnboardingGate` passes straight through to
       // `MobileAppShell` (see `_keyedInstallIdentityStore`'s doc).
-      child: KeryxApp(identityStore: _keyedInstallIdentityStore()),
-    );
+      child: KeryxApp(identityStore: _keyedInstallIdentityStore()));
   }
 
   testWidgets(
@@ -152,18 +144,15 @@ void main() {
       expect(
         tester.takeException(),
         isNull,
-        reason: 'the real composition must not throw during boot',
-      );
+        reason: 'the real composition must not throw during boot');
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
       expect(find.textContaining('Contacts need a relay address'), findsNothing);
       expect(
         harness.sessionHostsCreated,
         1,
-        reason: 'exactly one real SessionHost must be constructed on boot',
-      );
+        reason: 'exactly one real SessionHost must be constructed on boot');
       expect(harness.serviceControllersCreated, 1);
-    },
-  );
+    });
 
   testWidgets(
     'navigating Talk -> Contacts -> Settings -> Talk through the real '
@@ -201,20 +190,16 @@ void main() {
       expect(
         harness.sessionHostsCreated,
         1,
-        reason: 'navigation alone must never rebuild the real session',
-      );
+        reason: 'navigation alone must never rebuild the real session');
       expect(
         harness.session!.retuneCallCount,
         0,
-        reason: 'navigation alone must never retune the real session',
-      );
+        reason: 'navigation alone must never retune the real session');
       expect(
         harness.session!.disposeCalled,
         isFalse,
-        reason: 'navigation alone must never dispose the real session',
-      );
-    },
-  );
+        reason: 'navigation alone must never dispose the real session');
+    });
 
   testWidgets(
     'disposing the real composition tears down the real session, floor '
@@ -235,8 +220,7 @@ void main() {
 
       expect(harness.session!.disposeCalled, isTrue);
       expect(harness.audioSink!.stopAllCalled, isTrue);
-    },
-  );
+    });
 
   testWidgets(
     'on-screen PTT and a simulated notification PTT action both act on the '
@@ -259,14 +243,12 @@ void main() {
 
       // On-screen PTT: hold the disc.
       final gesture = await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-      );
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
       await tester.pump();
       expect(
         engine.isTransmitting,
         isTrue,
-        reason: 'on-screen PTT must reach the real, shared FloorEngine',
-      );
+        reason: 'on-screen PTT must reach the real, shared FloorEngine');
 
       await gesture.up();
       await tester.pumpAndSettle();
@@ -283,14 +265,12 @@ void main() {
         isTrue,
         reason:
             'notification PTT must toggle the same shared FloorEngine the '
-            'on-screen disc just proved live, not a second instance',
-      );
+            'on-screen disc just proved live, not a second instance');
 
       harness.serviceController!.emitEvent(const RadioServicePttAction());
       await tester.pumpAndSettle();
       expect(engine.isTransmitting, isFalse);
-    },
-  );
+    });
 
   testWidgets(
     'switching away from the Talk tab does not stop the native radio '
@@ -317,10 +297,8 @@ void main() {
             'leaving the Talk tab must not stop the foreground '
             'service/notification — its PTT action must remain reachable '
             'while off-screen (IndexedStack keeps Talk mounted, not '
-            'disposed)',
-      );
-    },
-  );
+            'disposed)');
+    });
 
   testWidgets(
     'the real KeryxApp boots against a stubbed directory backend and '
@@ -358,8 +336,7 @@ void main() {
               'pending_in': <Object?>[],
               'pending_out': <Object?>[],
               'groups': <Object?>[],
-            },
-          );
+            });
         }
         return const DirectoryFakeResponse(statusCode: 200, body: <String, Object?>{});
       };
@@ -374,9 +351,7 @@ void main() {
                 installUuid: '00000000-0000-4000-8000-000000000000',
                 peerId: derivePeerId(keyPair.publicKey),
                 callsign: Callsign.parse('STUB-1'),
-                keyPair: keyPair,
-              ),
-            ),
+                keyPair: keyPair)),
             directoryClientProvider.overrideWith((ref) async => directoryClient),
             presenceClientProvider.overrideWith((ref) async => presenceClient),
             radioHostProvider.overrideWith((ref) {
@@ -391,14 +366,11 @@ void main() {
                 dispatch: (event) =>
                     ref.read(radioStateProvider.notifier).dispatch(event),
                 readRadioState: () => ref.read(radioStateProvider),
-                rememberChannel: (channel) =>
-                    ref.read(settingsProvider.notifier).rememberChannel(channel),
                 listenRadioState: (onChange, {bool fireImmediately = false}) {
                   final subscription = ref.listen<RadioState>(
                     radioStateProvider,
                     (previous, next) => onChange(previous, next),
-                    fireImmediately: fireImmediately,
-                  );
+                    fireImmediately: fireImmediately);
                   return subscription.close;
                 },
                 listenSettings: (onChange) {
@@ -407,18 +379,14 @@ void main() {
                     (previous, next) {
                       final settings = next.valueOrNull;
                       if (settings != null) onChange(settings);
-                    },
-                  );
+                    });
                   return subscription.close;
-                },
-              );
+                });
               ref.onDispose(() => unawaited(host.dispose()));
               return host;
             }),
           ],
-          child: KeryxApp(identityStore: _keyedInstallIdentityStore()),
-        ),
-      );
+          child: KeryxApp(identityStore: _keyedInstallIdentityStore())));
       await tester.pump();
       await tester.pump();
       await tester.pumpAndSettle();
@@ -426,8 +394,7 @@ void main() {
       expect(
         tester.takeException(),
         isNull,
-        reason: 'a stubbed directory backend must not throw during boot',
-      );
+        reason: 'a stubbed directory backend must not throw during boot');
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
 
       await tester.tap(find.byKey(ShellKeys.tabContacts));
@@ -436,14 +403,12 @@ void main() {
         find.textContaining('Contacts need a relay address'),
         findsNothing,
         reason: 'a stubbed directory client must reach the real Contacts '
-            'tab body, not the no-relay empty state',
-      );
+            'tab body, not the no-relay empty state');
 
       await tester.tap(find.byKey(ShellKeys.tabTalk));
       await tester.pumpAndSettle();
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
-    },
-  );
+    });
 }
 
 /// Counts real construction calls and exposes the last-built real
@@ -464,8 +429,6 @@ class _RealCompositionHarness {
     required String callsign,
     required KeryxSettings settings,
     required void Function(RadioEvent event) dispatch,
-    required int initialChannel,
-    required int initialCode,
   }) {
     sessionHostsCreated++;
     final host = _RealSessionHost(localPeerId: localPeerId, callsign: callsign);
@@ -486,8 +449,7 @@ class _RealCompositionHarness {
   Future<DeviceIdentity> identityFactory() async => DeviceIdentity(
         installUuid: 'test-install-uuid',
         peerId: 'test-peer',
-        callsign: Callsign.parse('TEST-01'),
-      );
+        callsign: Callsign.parse('TEST-01'));
 
   FacePermissionGate permissionGateFactory() => const _RealPermissionGate();
 
@@ -529,8 +491,7 @@ class _RealSessionHost implements SessionHost {
     clock: const WallClock(),
     tot: const Duration(seconds: 60),
     busyLockout: true,
-    callsign: callsign,
-  );
+    callsign: callsign);
 
   final _stations = StreamController<List<StationInfo>>.broadcast();
 
@@ -544,12 +505,6 @@ class _RealSessionHost implements SessionHost {
   Future<void> start() async {
     startCalled = true;
   }
-
-  @override
-  Future<void> retune({required int channel, required int code}) async {
-    retuneCallCount++;
-  }
-
 
   @override
   Future<void> dispose() async {

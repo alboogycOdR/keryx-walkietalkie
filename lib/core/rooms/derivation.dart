@@ -19,60 +19,6 @@ const roomIdLength = 16;
 /// token-svc / ORCH ruling (d): RFC 4648 uppercase, unpadded.
 final roomIdPattern = RegExp(r'^[A-Z2-7]{16}$');
 
-/// Numbered-channel domain, matching FR-002 / settings (CH 01–99).
-const minChannel = 1;
-const maxChannel = 99;
-
-/// Privacy-code domain, matching FR-002 (00–38; `00` = open).
-const minPrivacyCode = 0;
-const maxPrivacyCode = 38;
-
-/// `numbered: roomId = b32(HMAC-SHA256("KERYX.v1", region | ch | code))[:16]`
-///
-/// Spec-silent pin, proposed for ORCH ratification:
-/// the HMAC message is UTF-8 `"$region|$ch|$code"` with [channel] and
-/// [code] zero-padded to two decimal digits (`7` → `"07"`, `0` → `"00"`).
-/// [region] is used as supplied after trim; it must be non-empty and
-/// must not contain `|` (the field separator). Case-sensitive, so
-/// `"za-cpt"` and `"ZA-cpt"` are different rooms (FR-008 partitions
-/// by the salt the user actually set).
-///
-/// HMAC key is UTF-8 `"KERYX.v1"`. Digest is RFC 4648 uppercase
-/// unpadded base32, first 16 characters.
-///
-/// **v2 (Technical §6.2) marks this for deletion** — numbered channels are
-/// replaced by [deriveGroupRoom]/[deriveDirectRoom]. It is *retained* here
-/// only because `lib/services/session/radio_session_controller.dart`
-/// (TASK-088's `Owned_Paths`) and `lib/features/event_qr/event_link.dart`
-/// (TASK-094's `Owned_Paths`) still call it and are outside this task's
-/// territory (Technical §10: item 4, this task, precedes items 5/11 which
-/// migrate/delete those callers). Do not add new callers.
-String deriveNumbered({
-  required String region,
-  required int channel,
-  required int code,
-}) {
-  final canonicalRegion = _canonicalRegion(region);
-  if (channel < minChannel || channel > maxChannel) {
-    throw ArgumentError.value(
-      channel,
-      'channel',
-      'must be $minChannel–$maxChannel',
-    );
-  }
-  if (code < minPrivacyCode || code > maxPrivacyCode) {
-    throw ArgumentError.value(
-      code,
-      'code',
-      'must be $minPrivacyCode–$maxPrivacyCode',
-    );
-  }
-  final message = utf8.encode(
-    '$canonicalRegion|${_twoDigits(channel)}|${_twoDigits(code)}',
-  );
-  return _roomIdFromHmac(message);
-}
-
 /// `keyed: roomId = b32(HMAC-SHA256("KERYX.v1", "PRV" | scrypt(passphrase)))[:16]`
 ///
 /// Spec-silent pin, proposed for ORCH ratification:
@@ -144,19 +90,3 @@ String _roomIdFromHmac(List<int> message) {
   return encoded.substring(0, roomIdLength);
 }
 
-String _canonicalRegion(String region) {
-  final trimmed = region.trim();
-  if (trimmed.isEmpty) {
-    throw ArgumentError.value(region, 'region', 'must be non-empty');
-  }
-  if (trimmed.contains('|')) {
-    throw ArgumentError.value(
-      region,
-      'region',
-      'must not contain "|" (field separator)',
-    );
-  }
-  return trimmed;
-}
-
-String _twoDigits(int n) => n.toString().padLeft(2, '0');

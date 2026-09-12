@@ -8,7 +8,6 @@ import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/settings/settings_model.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_bridge.dart';
-import 'package:keryx/services/discovery/channel_hash_prefix.dart';
 import 'package:keryx/services/discovery/discovery_config.dart';
 import 'package:keryx/services/discovery/discovery_service.dart';
 import 'package:keryx/services/discovery/room_prefix.dart';
@@ -57,19 +56,14 @@ class RadioSessionController {
     required this.callsign,
     required KeryxSettings settings,
     required void Function(RadioEvent event) dispatch,
-    required int initialChannel,
-    required int initialCode,
     FloorClock? clock,
     SignalingEndpoint Function()? endpointFactory,
     DiscoveryService Function()? discoveryFactory,
     RtcAdapter? rtcAdapter,
     LiveKitAdapter? liveKitAdapter,
     TokenClient Function(Uri baseUrl)? tokenClientFactory,
-    bool Function()? isIdle,
   }) : _settings = settings,
        _dispatch = dispatch,
-       _channel = initialChannel,
-       _code = initialCode,
        _clock = clock ?? const WallClock(),
        _endpointFactory = endpointFactory ?? IoSignalingEndpoint.new,
        _discoveryFactory = discoveryFactory ?? NsdDiscoveryService.production,
@@ -77,8 +71,7 @@ class RadioSessionController {
        _liveKitAdapter = liveKitAdapter ?? const LiveKitClientAdapter(),
        _tokenClientFactory =
            tokenClientFactory ??
-           ((Uri baseUrl) => TokenClient(baseUrl: baseUrl)),
-       _isIdleOverride = isIdle;
+           ((Uri baseUrl) => TokenClient(baseUrl: baseUrl));
 
   final String localPeerId;
   final String callsign;
@@ -91,19 +84,6 @@ class RadioSessionController {
   final RtcAdapter _rtcAdapter;
   final LiveKitAdapter _liveKitAdapter;
   final TokenClient Function(Uri baseUrl) _tokenClientFactory;
-
-  /// Overrides the internal idle-phase mirror used to obey the `SetMode`
-  /// reducer trap (see [_flushPendingSetMode]) with a live read of the real
-  /// `RadioState`. TASK-037's host has that read access (via its own
-  /// `ref.read(radioStateProvider)`); this controller, being host-agnostic,
-  /// does not — so it defaults to mirroring the relevant `RadioPhase`
-  /// transitions itself from the active [FloorEngine]'s effects, which is
-  /// exactly what the reducer does for the same events (see the dartdoc on
-  /// [_onEffectForIdleTracking]).
-  final bool Function()? _isIdleOverride;
-
-  int _channel;
-  int _code;
 
   // --- LOCAL chain ---------------------------------------------------
   SignalingService? _signaling;
@@ -118,14 +98,11 @@ class RadioSessionController {
   // --- shared -----------------------------------------------------------
   FloorEngine? _floorEngine;
   RadioStateBridge? _bridge;
-  StreamSubscription<FloorEffect>? _idleTrackSub;
   StreamSubscription<PeerSession>? _joinedSub;
   StreamSubscription<PeerSession>? _departedSub;
   final Map<String, PeerSession> _peers = <String, PeerSession>{};
   final _stations = StreamController<List<StationInfo>>.broadcast();
 
-  bool _idleGuess = true;
-  RadioMode? _pendingSetMode;
   bool _disposed = false;
 
   // --- RX level telemetry (TASK-079/ADR-002 A6) -------------------------
@@ -188,52 +165,30 @@ class RadioSessionController {
   LinkedController? get debugLinkedController => _linked;
   LinkedProxyFloorTransport? get debugLinkedTransport => _linkedTransport;
 
-  /// Resolves mode policy, builds the LOCAL or LINKED chain, and dispatches
-  /// `SetMode` reflecting whichever one actually got built (queued if the
-  /// reducer is not currently `RadioPhase.idle`).
+  /// Resolves transport policy, builds the direct or relay chain, and
+  /// dispatches `SetTransport` for whichever one actually got built.
   Future<void> start() async {
     _checkNotDisposed();
-    final mode = _resolveEffectiveMode();
-    if (mode == RadioMode.local) {
+    final transport = _resolveTransport();
+    if (transport == Transport.direct) {
       await _startLocal();
     } else {
       await _startLinked();
     }
-    _queueSetMode(mode);
+    _dispatch(SetTransport(transport));
   }
 
-  /// Full teardown/rebuild of the channel-scoped parts (new
-  /// `channelHashPrefix` / `roomId`), per TASK-035's own spec: retuning
-  /// means the LOCAL discovery/signaling bind and the LINKED room are both
-  /// channel-scoped, so nothing about them survives a channel change.
-  Future<void> retune({required int channel, required int code}) async {
-    _checkNotDisposed();
-    await _teardownActive();
-    _channel = channel;
-    _code = code;
-    await start();
-  }
-
-  /// v2 (Technical §6.4, TASK-088 additive scope): switch the active chain
-  /// to [target]'s room and close the solo join-guard (Technical §1.1) by
-  /// calling `FloorEngine.updateRoster` with the full member list
-  /// *immediately* after the chain is up, before this method returns —
-  /// unlike v1's [retune], which relies on `SignalingService`'s own
-  /// peer-joined stream to discover the roster over time.
-  ///
-  /// Added alongside [retune], not a replacement: [retune]'s numbered-
-  /// channel path is untouched, and `SessionHost.retune` (outside this
-  /// task's `Owned_Paths`) still calls it. Dispatches `SetRoom`/
-  /// `SetTransport` directly (both are accepted in any powered phase,
-  /// unlike `SetMode`), then queues `SetMode` exactly as [start] does.
+  /// Switch the active chain to [target]'s room and close the solo
+  /// join-guard (Technical §1.1) by calling `FloorEngine.updateRoster`
+  /// with the full member list immediately after the chain is up.
   Future<void> switchTarget(
     TalkTarget target, {
     required List<String> memberPeerIds,
   }) async {
     _checkNotDisposed();
     await _teardownActive();
-    final mode = _resolveEffectiveMode();
-    if (mode == RadioMode.local) {
+    final transport = _resolveTransport();
+    if (transport == Transport.direct) {
       await _startLocal(roomIdOverride: target.roomId);
     } else {
       await _startLinked(roomIdOverride: target.roomId);
@@ -241,14 +196,6 @@ class RadioSessionController {
     final roster = <String>{localPeerId, ...memberPeerIds};
     _floorEngine?.updateRoster(roster);
     _bridge?.updateRoster(roster.length);
-    // `_peers`/`PeerSession` are LAN-signaling-specific bookkeeping (host,
-    // port, presence heartbeat) that a v2 directory roster does not have —
-    // populating it with synthetic entries here would misrepresent LAN
-    // discovery state. `_stations` is published directly instead, using
-    // peerId as a placeholder callsign: resolving a real display name is
-    // `lib/core/contacts/**`/`lib/core/groups/**` territory (TASK-086),
-    // outside this task's scope. Whichever host composes a live `TalkTarget`
-    // already has the real names and may pass a richer roster later.
     if (!_stations.isClosed) {
       _stations.add(
         memberPeerIds
@@ -257,10 +204,7 @@ class RadioSessionController {
       );
     }
     _dispatch(SetRoom(target.roomId));
-    _dispatch(
-      SetTransport(mode == RadioMode.local ? Transport.direct : Transport.relay),
-    );
-    _queueSetMode(mode);
+    _dispatch(SetTransport(transport));
   }
 
   Future<void> dispose() async {
@@ -271,18 +215,16 @@ class RadioSessionController {
     await _meterLevelController.close();
   }
 
-  // --- mode policy --------------------------------------------------------
+  // --- transport policy ---------------------------------------------------
 
-  RadioMode _resolveEffectiveMode() {
-    if (_settings.forceLocalOnly) return RadioMode.local;
-    switch (_settings.mode) {
-      case RadioMode.local:
-        return RadioMode.local;
-      case RadioMode.linked:
-        return RadioMode.linked;
-      case RadioMode.auto:
-        return _relayConfigured() ? RadioMode.linked : RadioMode.local;
-    }
+  /// Idle placeholder used until [switchTarget] supplies a real room ID.
+  /// 16 RFC 4648 chars so [RoomPrefix.compute] can slice it.
+  static const _idleRoomId = 'AAAAAAAAAAAAAAAA';
+
+  Transport _resolveTransport() {
+    if (_settings.forceLocalOnly) return Transport.direct;
+    if (_relayConfigured()) return Transport.relay;
+    return Transport.direct;
   }
 
   bool _relayConfigured() {
@@ -293,19 +235,8 @@ class RadioSessionController {
 
   // --- LOCAL chain ---------------------------------------------------
 
-  String _channelHashPrefix() => ChannelHashPrefix.compute(
-    region: _settings.region,
-    channel: '$_channel',
-    code: '$_code',
-  );
-
-  /// [roomIdOverride], when supplied (v2 [switchTarget]), replaces the
-  /// legacy numbered `region`/`channel`/`code` hash with `RoomPrefix.compute`
-  /// (TASK-087) as the LAN match key — v1's [start]/[retune] never pass it.
   Future<void> _startLocal({String? roomIdOverride}) async {
-    final prefix = roomIdOverride != null
-        ? RoomPrefix.compute(roomIdOverride)
-        : _channelHashPrefix();
+    final prefix = RoomPrefix.compute(roomIdOverride ?? _idleRoomId);
     final endpoint = _endpointFactory();
     final signaling = SignalingService(endpoint: endpoint, clock: _clock);
     await signaling.start(
@@ -354,10 +285,6 @@ class RadioSessionController {
 
   // --- LINKED chain ----------------------------------------------------
 
-  /// [roomIdOverride], when supplied (v2 [switchTarget]), joins that room ID
-  /// directly (`LinkedController.joinRoomId`, TASK-087) instead of deriving
-  /// one from the legacy numbered `region`/`channel`/`code` tuple — v1's
-  /// [start]/[retune] never pass it.
   Future<void> _startLinked({String? roomIdOverride}) async {
     final proxyTransport = LinkedProxyFloorTransport();
     final engine = FloorEngine(
@@ -380,19 +307,10 @@ class RadioSessionController {
       dispatch: _dispatch,
     );
 
-    if (roomIdOverride != null) {
-      await linked.joinRoomId(
-        roomId: roomIdOverride,
-        forceLocalOnly: _settings.forceLocalOnly,
-      );
-    } else {
-      await linked.joinNumbered(
-        region: _settings.region,
-        channel: _channel,
-        code: _code,
-        forceLocalOnly: _settings.forceLocalOnly,
-      );
-    }
+    await linked.joinRoomId(
+      roomId: roomIdOverride ?? _idleRoomId,
+      forceLocalOnly: _settings.forceLocalOnly,
+    );
     final transport = linked.floorTransport;
     if (transport != null) proxyTransport.attach(transport);
 
@@ -406,8 +324,6 @@ class RadioSessionController {
   void _adoptEngine(FloorEngine engine, {SignalingService? signaling}) {
     _floorEngine = engine;
     _bridge = RadioStateBridge(engine: engine, dispatch: _dispatch);
-    _idleGuess = true;
-    _idleTrackSub = engine.effects.listen(_onEffectForIdleTracking);
     _meterTrackSub = engine.effects.listen(_onEffectForMeterLevel);
     if (signaling != null) {
       _joinedSub = signaling.sessionsJoined.listen(_onPeerJoined);
@@ -437,32 +353,6 @@ class RadioSessionController {
         .toList(growable: false);
     if (!_stations.isClosed) _stations.add(stations);
   }
-
-  // --- SetMode / reducer-idle handling ---------------------------------
-
-  /// Mirrors just enough of `RadioReducer`'s `RadioPhase` transitions to
-  /// know when `SetMode` (idle-only) is safe to dispatch, since this
-  /// controller has no direct `RadioState` read access (host-agnostic — see
-  /// class dartdoc). The mapping matches `RadioReducer.reduce` exactly for
-  /// the events that move phase away from / back to `idle`:
-  /// `RequestTransmit`/`RemoteFloorStarted` leave idle;
-  /// `TransmitDenied`/`EndTransmit`/`RemoteFloorEnded` return to it.
-  /// [_isIdleOverride], if supplied, replaces this mirror entirely with a
-  /// live read from whoever does have `RadioState` access.
-  void _onEffectForIdleTracking(FloorEffect effect) {
-    if (effect is! DispatchRadio) return;
-    final event = effect.event;
-    if (event is RequestTransmit || event is RemoteFloorStarted) {
-      _idleGuess = false;
-    } else if (event is TransmitDenied ||
-        event is EndTransmit ||
-        event is RemoteFloorEnded) {
-      _idleGuess = true;
-      _flushPendingSetMode();
-    }
-  }
-
-  bool _isIdleNow() => _isIdleOverride?.call() ?? _idleGuess;
 
   // --- RX level telemetry -----------------------------------------------
 
@@ -555,24 +445,9 @@ class RadioSessionController {
     if (!_meterLevelController.isClosed) _meterLevelController.add(level);
   }
 
-  void _queueSetMode(RadioMode mode) {
-    _pendingSetMode = mode;
-    _flushPendingSetMode();
-  }
-
-  void _flushPendingSetMode() {
-    final pending = _pendingSetMode;
-    if (pending == null) return;
-    if (!_isIdleNow()) return;
-    _pendingSetMode = null;
-    _dispatch(SetMode(pending));
-  }
-
   // --- teardown ---------------------------------------------------------
 
   Future<void> _teardownActive() async {
-    await _idleTrackSub?.cancel();
-    _idleTrackSub = null;
     await _meterTrackSub?.cancel();
     _meterTrackSub = null;
     _stopMeterPolling();
@@ -584,7 +459,6 @@ class RadioSessionController {
     _bridge = null;
     _peers.clear();
     if (!_stations.isClosed) _stations.add(const []);
-    _pendingSetMode = null;
 
     final mesh = _mesh;
     _mesh = null;

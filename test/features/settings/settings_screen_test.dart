@@ -41,9 +41,7 @@ void main() {
     WidgetTester tester, {
     KeryxSettings settings = const KeryxSettings(),
     RadioState radioState = const RadioState(
-      phase: RadioPhase.idle,
-      mode: RadioMode.local,
-    ),
+      phase: RadioPhase.idle),
     SettingsConfirm? confirm,
     bool useProductionConfirm = false,
     Size surface = const Size(800, 3600),
@@ -58,8 +56,7 @@ void main() {
     store = InMemorySettingsStore();
     await store.write(
       SettingsRepository.storageKey,
-      jsonEncode(settings.toJson()),
-    );
+      jsonEncode(settings.toJson()));
     identityStore = MemoryIdentityStore(<String, String>{
       IdentityRepository.uuidKey: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
       IdentityRepository.callsignKey: 'BRAVO-7',
@@ -82,17 +79,12 @@ void main() {
                 ? null
                 : confirm ??
                       ({required String title, required String body}) async =>
-                          true,
-          ),
-        ),
-      ),
-    );
+                          true))));
     await tester.pumpAndSettle();
   }
 
   testWidgets('six sections and their v2 controls render (Design §2.6)', (
-    tester,
-  ) async {
+    tester) async {
     await pumpSettings(tester);
     expect(find.text('Settings'), findsOneWidget);
     expect(find.byKey(SettingsKeys.radioSection), findsOneWidget);
@@ -110,7 +102,7 @@ void main() {
     expect(find.text('Busy lockout'), findsOneWidget);
     expect(find.text('Character DSP'), findsOneWidget);
     expect(find.text('Dim'), findsOneWidget);
-    expect(find.text('Local only'), findsOneWidget);
+    expect(find.text('This network only'), findsOneWidget);
     expect(find.text('Relay URL'), findsOneWidget);
     expect(find.text('Token URL'), findsOneWidget);
     expect(find.text('Prefer direct on Wi-Fi'), findsOneWidget);
@@ -118,7 +110,7 @@ void main() {
     expect(find.text('Show recovery phrase'), findsOneWidget);
     expect(find.text('Restore from phrase'), findsOneWidget);
     expect(find.text('Message retention'), findsOneWidget);
-    expect(find.text('Effective route'), findsOneWidget);
+    expect(find.text('Active path'), findsOneWidget);
     expect(find.text('Audio routing'), findsOneWidget);
     expect(find.text('Device default'), findsOneWidget);
     expect(find.text('BRAVO-7'), findsOneWidget);
@@ -136,52 +128,38 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(SettingsKeys.tot),
-          matching: find.text(SettingsCopy.reconnectsRadio),
-        ),
-        findsOneWidget,
-      );
+          matching: find.text(SettingsCopy.reconnectsRadio)),
+        findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(SettingsKeys.forceLocal),
-          matching: find.text(SettingsCopy.reconnectsRadio),
-        ),
-        findsOneWidget,
-      );
+          matching: find.text(SettingsCopy.reconnectsRadio)),
+        findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(SettingsKeys.dim),
-          matching: find.text(SettingsCopy.reconnectsRadio),
-        ),
-        findsNothing,
-      );
+          matching: find.text(SettingsCopy.reconnectsRadio)),
+        findsNothing);
       expect(
         find.descendant(
           of: find.byKey(SettingsKeys.theme),
-          matching: find.text(SettingsCopy.reconnectsRadio),
-        ),
-        findsNothing,
-      );
+          matching: find.text(SettingsCopy.reconnectsRadio)),
+        findsNothing);
       expect(
         find.descendant(
           of: find.byKey(SettingsKeys.squelch),
-          matching: find.text(SettingsCopy.reconnectsRadio),
-        ),
-        findsNothing,
-      );
+          matching: find.text(SettingsCopy.reconnectsRadio)),
+        findsNothing);
       expect(
         find.descendant(
           of: find.byKey(SettingsKeys.preferDirect),
-          matching: find.text(SettingsCopy.reconnectsRadio),
-        ),
+          matching: find.text(SettingsCopy.reconnectsRadio)),
         findsNothing,
-        reason: 'Prefer direct on Wi-Fi is not marked sessionAffecting',
-      );
-    },
-  );
+        reason: 'Prefer direct on Wi-Fi is not marked sessionAffecting');
+    });
 
   testWidgets('squelch persists without reconstructing the session', (
-    tester,
-  ) async {
+    tester) async {
     await pumpSettings(tester);
     await tester.tap(rowChild(SettingsKeys.squelch, find.byIcon(Icons.add)));
     await tester.pumpAndSettle();
@@ -195,8 +173,7 @@ void main() {
       'cancel does not apply', (tester) async {
     await pumpSettings(
       tester,
-      confirm: ({required String title, required String body}) async => false,
-    );
+      confirm: ({required String title, required String body}) async => false);
     await tester.tap(rowChild(SettingsKeys.forceLocal, find.byType(Switch)));
     await tester.pumpAndSettle();
     expect(host.applySettingsCalls, isEmpty);
@@ -228,14 +205,13 @@ void main() {
   testWidgets('TX defers a session-affecting apply until idle', (tester) async {
     await pumpSettings(
       tester,
-      radioState: const RadioState(phase: RadioPhase.tx, mode: RadioMode.local),
-    );
+      radioState: const RadioState(phase: RadioPhase.tx));
     await tester.tap(rowChild(SettingsKeys.forceLocal, find.byType(Switch)));
     await tester.pumpAndSettle();
     expect(host.applySettingsCalls, isEmpty);
     expect(find.byKey(SettingsKeys.deferredBanner), findsOneWidget);
 
-    radio.seed(const RadioState(phase: RadioPhase.idle, mode: RadioMode.local));
+    radio.seed(const RadioState(phase: RadioPhase.idle));
     await tester.pumpAndSettle();
     expect(host.reconstructions, 1);
     expect(host.applied.forceLocalOnly, isTrue);
@@ -247,26 +223,19 @@ void main() {
     (tester) async {
       await pumpSettings(
         tester,
-        settings: const KeryxSettings(mode: RadioMode.auto),
+        settings: const KeryxSettings(),
         radioState: const RadioState(
-          phase: RadioPhase.idle,
-          mode: RadioMode.auto,
-        ),
-      );
+          phase: RadioPhase.idle));
       expect(
         rowChild(SettingsKeys.effectiveRoute, find.text('Connecting')),
-        findsOneWidget,
-      );
+        findsOneWidget);
       expect(
         rowChild(SettingsKeys.effectiveRoute, find.text('AUTO')),
-        findsNothing,
-      );
-    },
-  );
+        findsNothing);
+    });
 
   testWidgets('audio copy never substitutes generic messaging sounds', (
-    tester,
-  ) async {
+    tester) async {
     await pumpSettings(tester);
     expect(find.textContaining('notification'), findsNothing);
     expect(find.textContaining('ringtone'), findsNothing);
@@ -276,8 +245,7 @@ void main() {
   });
 
   testWidgets('About shows version and no internal service names', (
-    tester,
-  ) async {
+    tester) async {
     await pumpSettings(tester);
     expect(find.text(SettingsCopy.appVersion), findsWidgets);
     expect(find.textContaining('FloorEngine'), findsNothing);
@@ -291,16 +259,13 @@ void main() {
     await tester.enterText(
       find.descendant(
         of: find.byKey(SettingsKeys.callsign),
-        matching: find.byType(TextField),
-      ),
-      'no spaces allowed!!',
-    );
+        matching: find.byType(TextField)),
+      'no spaces allowed!!');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     expect(find.text(SettingsCopy.callsignInvalid), findsOneWidget);
     final DeviceIdentity identity = await IdentityRepository(
-      identityStore,
-    ).loadOrCreate();
+      identityStore).loadOrCreate();
     expect(identity.callsign.value, 'BRAVO-7');
   });
 
@@ -311,15 +276,12 @@ void main() {
       (tester) async {
         await pumpSettings(tester);
         await tester.tap(
-          rowChild(SettingsKeys.showRecoveryPhrase, find.text('Show')),
-        );
+          rowChild(SettingsKeys.showRecoveryPhrase, find.text('Show')));
         await tester.pumpAndSettle();
         expect(
           find.text(SettingsCopy.showRecoveryPhraseUnavailable),
-          findsOneWidget,
-        );
-      },
-    );
+          findsOneWidget);
+      });
 
     testWidgets(
       'Show recovery phrase with a saved phrase requires confirmation, '
@@ -328,38 +290,31 @@ void main() {
         await pumpSettings(tester);
         await identityStore.write(
           'keryx.v2.recovery_phrase_words',
-          jsonEncode(List<String>.generate(12, (i) => 'word$i')),
-        );
+          jsonEncode(List<String>.generate(12, (i) => 'word$i')));
 
         await tester.tap(
-          rowChild(SettingsKeys.showRecoveryPhrase, find.text('Show')),
-        );
+          rowChild(SettingsKeys.showRecoveryPhrase, find.text('Show')));
         await tester.pumpAndSettle();
         expect(find.byKey(SettingsKeys.recoveryPhraseGate), findsOneWidget);
         expect(
           find.text(SettingsCopy.recoveryPhraseConfirmBody),
-          findsOneWidget,
-        );
+          findsOneWidget);
 
         await tester.tap(
           rowChild(
             SettingsKeys.recoveryPhraseGate,
-            find.text(SettingsCopy.recoveryPhraseConfirmShow),
-          ),
-        );
+            find.text(SettingsCopy.recoveryPhraseConfirmShow)));
         await tester.pumpAndSettle();
         expect(find.textContaining('word0'), findsOneWidget);
         expect(find.textContaining('word11'), findsOneWidget);
-      },
-    );
+      });
 
     testWidgets(
       'Restore from phrase requires confirmation before navigating away',
       (tester) async {
         await pumpSettings(tester);
         await tester.tap(
-          rowChild(SettingsKeys.restoreFromPhrase, find.text('Restore')),
-        );
+          rowChild(SettingsKeys.restoreFromPhrase, find.text('Restore')));
         await tester.pumpAndSettle();
         expect(find.byKey(SettingsKeys.restoreConfirm), findsOneWidget);
         expect(find.text(SettingsCopy.restoreConfirmBody), findsOneWidget);
@@ -367,8 +322,7 @@ void main() {
         await tester.tap(find.text(SettingsCopy.confirmCancel));
         await tester.pumpAndSettle();
         expect(find.byType(SettingsScreen), findsOneWidget);
-      },
-    );
+      });
   });
 
   group('TASK-093 — Messages section', () {
@@ -376,19 +330,15 @@ void main() {
         '(Design §2.7)', (tester) async {
       await pumpSettings(
         tester,
-        settings: const KeryxSettings(messageRetentionDays: 30),
-      );
+        settings: const KeryxSettings(messageRetentionDays: 30));
       expect(
         rowChild(SettingsKeys.messageRetention, find.text('30 d')),
-        findsOneWidget,
-      );
+        findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(SettingsKeys.messagesSection),
-          matching: find.textContaining('v2.1'),
-        ),
-        findsWidgets,
-      );
+          matching: find.textContaining('v2.1')),
+        findsWidgets);
     });
   });
 
@@ -404,14 +354,12 @@ void main() {
       expect(
         persisted.preferDirectOnWifi,
         isFalse,
-        reason: 'preferDirectOnWifi defaults to true (Technical §7)',
-      );
+        reason: 'preferDirectOnWifi defaults to true (Technical §7)');
     });
   });
 
   testWidgets('theme save does not drop a legacy settings fixture', (
-    tester,
-  ) async {
+    tester) async {
     tester.view.physicalSize = const Size(800, 3600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -442,8 +390,7 @@ void main() {
       IdentityRepository.callsignKey: 'BRAVO-7',
     });
     radio = SeededRadioStateController(
-      const RadioState(phase: RadioPhase.idle, mode: RadioMode.local),
-    );
+      const RadioState(phase: RadioPhase.idle));
 
     await tester.pumpWidget(
       ProviderScope(
@@ -457,11 +404,7 @@ void main() {
           home: SettingsScreen(
             identityRepository: IdentityRepository(identityStore),
             confirm: ({required String title, required String body}) async =>
-                true,
-          ),
-        ),
-      ),
-    );
+                true))));
     await tester.pumpAndSettle();
 
     await tester.tap(rowChild(SettingsKeys.theme, find.text('Light')));
@@ -471,7 +414,6 @@ void main() {
 
     final KeryxSettings persisted = await SettingsRepository(store).load();
     expect(persisted.squelchLevel, 8);
-    expect(persisted.region, 'za-cpt');
     expect(persisted.latchMode, isTrue);
     expect(persisted.forceLocalOnly, isTrue);
     expect(persisted.relayUrl, 'wss://old.example/relay');
@@ -479,8 +421,7 @@ void main() {
     expect(host.reconstructions, 0);
     expect(
       await AppearanceStore(store).load(),
-      const AppearancePreference(theme: AppearanceTheme.light),
-    );
+      const AppearancePreference(theme: AppearanceTheme.light));
   });
 
   group('TASK-057 — accessibility polish', () {
@@ -493,13 +434,10 @@ void main() {
           find
               .descendant(
                 of: find.byKey(SettingsKeys.callsign),
-                matching: find.byWidgetPredicate((w) => w is Semantics),
-              )
-              .first,
-        );
+                matching: find.byWidgetPredicate((w) => w is Semantics))
+              .first);
         expect(semantics.properties.label, contains('Callsign'));
-      },
-    );
+      });
 
     testWidgets(
       'the squelch stepper value announces which setting it belongs to',
@@ -511,13 +449,9 @@ void main() {
             matching: find.byWidgetPredicate(
               (w) =>
                   w is Semantics &&
-                  (w.properties.label ?? '').contains('Squelch,'),
-            ),
-          ),
-        );
+                  (w.properties.label ?? '').contains('Squelch,'))));
         expect(semantics.properties.label, contains('Squelch,'));
-      },
-    );
+      });
   });
 
   group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {

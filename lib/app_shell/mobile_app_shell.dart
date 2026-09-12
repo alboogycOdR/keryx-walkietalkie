@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:keryx/core/presentation/connection_condition.dart';
 import 'package:keryx/core/presentation/talk_target.dart' show TalkTarget;
-import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart' show RadioPhase, RadioState;
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
@@ -324,11 +323,8 @@ class _ConnectionIndicator extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final KeryxUxTokens tokens = KeryxUxTokens.of(context);
     final RadioState radioState = ref.watch(radioStateProvider);
-    final KeryxSettings settings =
-        ref.watch(settingsProvider).valueOrNull ?? const KeryxSettings();
     final ConnectionCondition connection = ConnectionCondition(
-      configuredMode: settings.mode,
-      effectiveRoute: radioState.mode,
+      transport: radioState.transport,
       degraded:
           radioState.isNoLink || radioState.phase == RadioPhase.linkDegraded,
     );

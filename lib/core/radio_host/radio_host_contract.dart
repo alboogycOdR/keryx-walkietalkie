@@ -14,35 +14,6 @@ enum RadioHostOutcome {
   transportFailure,
 }
 
-/// Result of [RadioHost.tune]. `unavailableRoute` never applies to a tune —
-/// there is always a channel/code numeral to accept or reject — so only
-/// the other four outcomes are exposed as named constructors.
-class TuneResult {
-  const TuneResult._(this.outcome, [this.message]);
-
-  const TuneResult.success() : this._(RadioHostOutcome.success);
-
-  const TuneResult.validationFailure(String reason)
-    : this._(RadioHostOutcome.validationFailure, reason);
-
-  const TuneResult.cancelled() : this._(RadioHostOutcome.cancelled);
-
-  const TuneResult.transportFailure(String reason)
-    : this._(RadioHostOutcome.transportFailure, reason);
-
-  final RadioHostOutcome outcome;
-
-  /// Human-diagnostic detail for logs/dossiers only — never surfaced
-  /// verbatim to the UI as a message the user is expected to parse
-  /// (Technical §3).
-  final String? message;
-
-  bool get isSuccess => outcome == RadioHostOutcome.success;
-
-  @override
-  String toString() => 'TuneResult($outcome${message != null ? ', $message' : ''})';
-}
-
 /// Narrow, testable, app-scoped radio lifecycle contract — Technical §3's
 /// illustrative `RadioHost` interface, adopted with the same operation
 /// names (this task's own naming call is to keep them, not invent
@@ -78,12 +49,6 @@ abstract interface class RadioHost {
   /// subsequent [start] is not part of this task's contract (no caller
   /// needs it yet) but nothing here forecloses it.
   Future<void> powerOff();
-
-  /// Serialized entry point for a channel/code change (Technical §6: "the
-  /// successor must serialize competing tune requests"). Concurrent calls
-  /// run strictly in submission order — a call never observes another
-  /// call's partially-applied state.
-  Future<TuneResult> tune(int channel, int code);
 
   /// Applies a settings snapshot: always feeds the sound pipeline, and
   /// additionally serializes a full session reconstruction if any

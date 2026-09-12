@@ -48,8 +48,7 @@ void main() {
         next: next,
         snapshot: snap(),
         radio: idle,
-        confirmSession: () async => fail('presentation-only must not confirm'),
-      );
+        confirmSession: () async => fail('presentation-only must not confirm'));
       expect(result.status, SettingsApplyStatus.appliedPresentation);
       expect(host.reconstructions, 0);
     }
@@ -60,13 +59,11 @@ void main() {
     'each session-affecting field causes exactly one reconstruction',
     () async {
       final List<KeryxSettings> cases = <KeryxSettings>[
-        initial.copyWith(mode: RadioMode.linked),
         initial.copyWith(forceLocalOnly: true),
         initial.copyWith(relayUrl: 'wss://relay.example'),
         initial.copyWith(tokenServiceUrl: 'https://token.example/token'),
         initial.copyWith(totSeconds: 90),
         initial.copyWith(busyLockout: false),
-        initial.copyWith(region: 'za-cpt'),
       ];
       for (final KeryxSettings next in cases) {
         host = ReconstructingFakeHost(initial);
@@ -76,8 +73,7 @@ void main() {
           next: next,
           snapshot: snap(),
           radio: idle,
-          confirmSession: () async => true,
-        );
+          confirmSession: () async => true);
         expect(result.status, SettingsApplyStatus.appliedSession);
         expect(host.reconstructions, 1, reason: next.toJson().toString());
         expect(host.applied.toJson(), next.toJson());
@@ -86,59 +82,50 @@ void main() {
         expect(host.disposedSessions.single.changes.isClosed, isTrue);
         expect(host.session, isNot(same(host.disposedSessions.single)));
       }
-    },
-  );
+    });
 
   test('overlapping session applies serialize; last settings win', () async {
     host.gate = Completer<void>();
     final Future<SettingsApplyResult> first = coordinator.propose(
       current: initial,
-      next: initial.copyWith(mode: RadioMode.linked),
+      next: initial.copyWith(totSeconds: 90),
       snapshot: snap(),
       radio: idle,
-      confirmSession: () async => true,
-    );
+      confirmSession: () async => true);
     await Future<void>.delayed(Duration.zero);
     final Future<SettingsApplyResult> second = coordinator.propose(
-      current: initial.copyWith(mode: RadioMode.linked),
-      next: initial.copyWith(mode: RadioMode.linked, region: 'za-cpt'),
+      current: initial.copyWith(totSeconds: 90),
+      next: initial.copyWith(totSeconds: 100),
       snapshot: snap(),
       radio: idle,
-      confirmSession: () async => true,
-    );
+      confirmSession: () async => true);
     expect(host.reconstructions, 0);
     host.gate!.complete();
     await first;
     await second;
     expect(host.reconstructions, 2);
-    expect(host.applied.mode, RadioMode.linked);
-    expect(host.applied.region, 'za-cpt');
     expect(host.disposedSessions, hasLength(2));
     expect(
       host.disposedSessions.every((FakeSession s) => s.changes.isClosed),
-      isTrue,
-    );
+      isTrue);
   });
 
   test('RadioPhase.tx defers applySettings — no hot-mic window', () async {
     final SettingsApplyResult result = await coordinator.propose(
       current: initial,
-      next: initial.copyWith(mode: RadioMode.linked),
+      next: initial.copyWith(totSeconds: 90),
       snapshot: snap(),
       radio: tx,
-      confirmSession: () async => true,
-    );
+      confirmSession: () async => true);
     expect(result.status, SettingsApplyStatus.deferred);
     expect(host.applySettingsCalls, isEmpty);
     expect(host.reconstructions, 0);
 
     final SettingsApplyResult flushed = await coordinator.flushDeferred(
       snapshot: snap(),
-      radio: idle,
-    );
+      radio: idle);
     expect(flushed.status, SettingsApplyStatus.appliedSession);
     expect(host.reconstructions, 1);
-    expect(host.applied.mode, RadioMode.linked);
   });
 
   test(
@@ -149,8 +136,7 @@ void main() {
       final FloorEngine engine = FloorEngine(
         localPeerId: 'AAA2222222',
         transport: hub.attach('AAA2222222'),
-        clock: clock,
-      );
+        clock: clock);
       engine.updateRoster(<String>{'AAA2222222'});
       engine.requestTransmit();
       addTearDown(engine.dispose);
@@ -161,16 +147,14 @@ void main() {
           snapshot: snap(engine: engine),
           radio: idle, // reducer idle must not override the engine
         ),
-        isTrue,
-      );
+        isTrue);
 
       final SettingsApplyResult result = await coordinator.propose(
         current: initial,
-        next: initial.copyWith(mode: RadioMode.linked),
+        next: initial.copyWith(totSeconds: 90),
         snapshot: snap(engine: engine),
         radio: idle,
-        confirmSession: () async => true,
-      );
+        confirmSession: () async => true);
       expect(result.status, SettingsApplyStatus.deferred);
       expect(host.applySettingsCalls, isEmpty);
 
@@ -178,38 +162,32 @@ void main() {
       expect(engine.isTransmitting, isFalse);
       final SettingsApplyResult flushed = await coordinator.flushDeferred(
         snapshot: snap(engine: engine),
-        radio: idle,
-      );
+        radio: idle);
       expect(flushed.status, SettingsApplyStatus.appliedSession);
       expect(host.reconstructions, 1);
-    },
-  );
+    });
 
   test('cancelled confirmation does not persist or reconstruct', () async {
     final SettingsApplyResult result = await coordinator.propose(
       current: initial,
-      next: initial.copyWith(mode: RadioMode.linked),
+      next: initial.copyWith(totSeconds: 90),
       snapshot: snap(),
       radio: idle,
-      confirmSession: () async => false,
-    );
+      confirmSession: () async => false);
     expect(result.status, SettingsApplyStatus.cancelled);
     expect(host.applySettingsCalls, isEmpty);
-    expect((await repo.load()).mode, RadioMode.auto);
     expect((await repo.load()).forceLocalOnly, isFalse);
   });
 
   test('force-LOCAL apply never calls joinEvent', () async {
     await coordinator.propose(
       current: initial.copyWith(forceLocalOnly: true),
-      next: initial.copyWith(forceLocalOnly: true, mode: RadioMode.linked),
+      next: initial.copyWith(forceLocalOnly: true),
       snapshot: snap(),
       radio: idle,
-      confirmSession: () async => true,
-    );
+      confirmSession: () async => true);
     expect(host.joinEventCalls, isEmpty);
     expect(host.methodLog, isNot(contains('joinEvent')));
     expect(host.applied.forceLocalOnly, isTrue);
-    expect(host.applied.mode, RadioMode.linked);
   });
 }

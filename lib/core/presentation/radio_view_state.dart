@@ -1,7 +1,7 @@
 import 'package:keryx/core/radio_host/radio_host.dart' show RadioHostSnapshot;
 import 'package:keryx/core/settings/settings_repository.dart' show KeryxSettings;
 import 'package:keryx/core/state/radio_state.dart'
-    show RadioMode, RadioPhase, RadioState;
+    show RadioPhase, RadioState, Transport;
 import 'package:keryx/services/session/session.dart' show StationInfo;
 
 import 'connection_condition.dart';
@@ -9,7 +9,6 @@ import 'presentation_cue.dart';
 import 'radio_phase_presentation.dart';
 import 'talk_target.dart';
 import 'telemetry.dart';
-import 'tuning_target.dart';
 
 /// Overlay cues for the 5 Design §4 catalogue rows that are **not** a
 /// [RadioPhase], plus the FR-023 / DS §6 TOT-warning overlay (Design §4
@@ -21,7 +20,7 @@ import 'tuning_target.dart';
 /// exactly one source.
 abstract final class OverlayCues {
   static const deniedFlash = PresentationCue(
-    label: 'Channel busy',
+    label: 'Someone is already transmitting',
     iconId: 'block',
   );
   static const latched = PresentationCue(
@@ -79,9 +78,6 @@ class RadioViewState {
     required this.connection,
     required this.permissionDenied,
     required this.serviceFaultMessage,
-    required this.channel,
-    required this.privacyCode,
-    required this.pendingTuningTarget,
     required this.activeSpeakerPeerId,
     required this.activeSpeakerCallsign,
     required this.stations,
@@ -126,8 +122,7 @@ class RadioViewState {
   /// [RadioViewState.project] always sources the real reducer flag.
   final bool totWarning;
 
-  /// Configured mode vs. effective route vs. degraded connectivity — kept
-  /// as one nested-but-still-independent value (Technical §7; UX-FR-002).
+  /// Live transport vs. degraded connectivity (Technical §6.3).
   final ConnectionCondition connection;
 
   /// Design §4 "Permission denied" row. Gates `BootCompleted` upstream
@@ -141,18 +136,6 @@ class RadioViewState {
   /// human-safe message only (Design §5) — never raw exception text
   /// (Technical §3).
   final String? serviceFaultMessage;
-
-  /// Current, authoritative channel (1–99).
-  final int channel;
-
-  /// Current, authoritative privacy code (0–38).
-  final int privacyCode;
-
-  /// Non-null while a `RadioHost.tune` call is in flight and unresolved —
-  /// the "requested target separate from the authoritative current
-  /// channel" Technical §6 requires. `null` means [channel]/[privacyCode]
-  /// are fully authoritative right now.
-  final TuningTarget? pendingTuningTarget;
 
   /// Raw peer identifier of whoever holds the floor, or `null` — mirrors
   /// `RadioState.activeSpeaker` verbatim. Never itself rendered as a
@@ -173,9 +156,9 @@ class RadioViewState {
   final List<StationInfo> stations;
 
   /// [stations]`.length` when that count is a **verified** total, or
-  /// [UnavailableRosterCount] when the active route cannot currently
-  /// guarantee completeness (Technical §1.1: "LINKED mode does not provide
-  /// a complete roster through this interface"; UX-FR-046; VT-024).
+  /// [UnavailableRosterCount] when the active transport cannot currently
+  /// guarantee completeness (Technical §1.1; UX-FR-046; VT-024). Direct
+  /// (LAN) discovery is the only path that earns a known count.
   final RosterCount rosterCount;
 
   /// Aggregate signal-quality telemetry — always [SignalQuality
@@ -245,17 +228,12 @@ class RadioViewState {
   /// `RadioHost.releaseLatch`: "a latch is owned by the UI layer") that
   /// does not live on `RadioState` or `RadioHostSnapshot` today; this
   /// projection does not invent a place to store it, only a place to
-  /// render it. [pendingTuningTarget] is likewise supplied by the caller
-  /// (whichever component actually tracks a tune request's lifecycle,
-  /// e.g. TASK-048's shell) — this projection never fabricates one from
-  /// [RadioPhase.tuning] alone, since [RadioPhase.tuning] doesn't itself
-  /// carry the destination channel/code.
+  /// render it.
   factory RadioViewState.project({
     required RadioState radioState,
     required RadioHostSnapshot hostSnapshot,
     required KeryxSettings settings,
     bool latched = false,
-    TuningTarget? pendingTuningTarget,
     TalkTarget? target,
     Map<String, PeerPresence> presenceByPeerId = const {},
   }) {
@@ -277,15 +255,11 @@ class RadioViewState {
       deniedFlash: radioState.isTransmitDenied,
       totWarning: radioState.isTotWarning,
       connection: ConnectionCondition(
-        configuredMode: settings.mode,
-        effectiveRoute: radioState.mode,
+        transport: radioState.transport,
         degraded: radioState.isNoLink || radioState.phase == RadioPhase.linkDegraded,
       ),
       permissionDenied: hostSnapshot.micPermissionDenied,
       serviceFaultMessage: hostSnapshot.serviceFaultMessage,
-      channel: radioState.channel,
-      privacyCode: radioState.privacyCode,
-      pendingTuningTarget: pendingTuningTarget,
       activeSpeakerPeerId: speakerId,
       activeSpeakerCallsign: speakerCallsign,
       stations: hostSnapshot.stations,
@@ -296,7 +270,9 @@ class RadioViewState {
       // unknown roster as zero. LOCAL discovery's own station stream is
       // authoritative for what it reports, so it alone earns a known
       // count.
-      rosterCount: radioState.mode == RadioMode.local
+      rosterCount:
+          radioState.transport == Transport.direct ||
+              radioState.transport == Transport.both
           ? KnownRosterCount(hostSnapshot.stations.length)
           : const UnavailableRosterCount(),
       signalQuality: SignalQuality.unavailable,
@@ -324,8 +300,7 @@ class RadioViewState {
       'latched: $latched, deniedFlash: $deniedFlash, totWarning: $totWarning, '
       'connection: $connection, '
       'permissionDenied: $permissionDenied, '
-      'serviceFaultMessage: $serviceFaultMessage, channel: $channel, '
-      'privacyCode: $privacyCode, pendingTuningTarget: $pendingTuningTarget, '
+      'serviceFaultMessage: $serviceFaultMessage, '
       'activeSpeakerPeerId: $activeSpeakerPeerId, '
       'activeSpeakerCallsign: $activeSpeakerCallsign, '
       'stations: ${stations.length}, rosterCount: $rosterCount, '

@@ -22,8 +22,8 @@ class DiscoveryConfig {
   /// TXT `cs`.
   final String callsign;
 
-  /// TXT `ch`. Must already be a hash prefix (see [ChannelHashPrefix] /
-  /// v2's `RoomPrefix`). This is always the *current* target's prefix;
+  /// TXT `ch`. Must already be a hash prefix (see `RoomPrefix`). This is
+  /// always the *current* target's prefix;
   /// [roomPrefixes] carries the up-to-2 additional rooms Technical §1
   /// wants advertised alongside it (e.g. recently-active groups).
   final String channelHashPrefix;
@@ -37,7 +37,7 @@ class DiscoveryConfig {
   /// v2 (Technical §1): up to `maxAdvertisedRooms - 1` additional room
   /// prefixes to advertise/resolve alongside [channelHashPrefix] — e.g. the
   /// 2 most-recently-active rooms besides the current target. Each entry
-  /// must be produced by `RoomPrefix.compute`/`ChannelHashPrefix.compute`,
+  /// must be produced by `RoomPrefix.compute`,
   /// non-empty, and distinct from [channelHashPrefix] and each other.
   /// Empty for a v1-style single-room session.
   final List<String> roomPrefixes;
@@ -65,7 +65,7 @@ class DiscoveryConfig {
       throw ArgumentError.value(
         channelHashPrefix,
         'channelHashPrefix',
-        'looks like a raw region|ch|code tuple; pass ChannelHashPrefix.compute',
+        'looks like a raw region|ch|code tuple; pass RoomPrefix.compute',
       );
     }
     if (protocolVersion < 1) {

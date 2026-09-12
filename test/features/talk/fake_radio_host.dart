@@ -44,12 +44,6 @@ class FakeRadioHost implements RadioHost {
   Future<void> powerOff() async => powerOffCalls++;
 
   @override
-  Future<TuneResult> tune(int channel, int code) async {
-    tuneCalls.add((channel, code));
-    return const TuneResult.success();
-  }
-
-  @override
   Future<void> applySettings(KeryxSettings settings) async {
     applySettingsCalls.add(settings);
   }
