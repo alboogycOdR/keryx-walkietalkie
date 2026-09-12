@@ -1,6 +1,6 @@
 ---
 plan_version: 16.0
-last_updated: 2026-09-11T19:37:03Z
+last_updated: 2026-09-12T04:16:18Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -5489,7 +5489,7 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 
 ### TASK-091
 **Title:** v2 Groups tab — list, detail with members and presence, invites, admin actions, join with a code
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.3, §4 (key rotated / removed states); PRD V2-FR-020..025; Technical §5.2 (invite link); Verification V2-VT-026, V2-VT-030 (groups goldens)
@@ -5510,10 +5510,20 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 - [2026-09-12T02:05:00Z] [S5] Resumed. Working tree already clean on task/TASK-091-s5 with all implementation/test commits from prior session present (list/detail/invite/new-group/join-with-code screens + view-model/controller/widget/golden tests per dossier work log). Re-ran verification fresh in the foreground: `flutter analyze --no-pub` → No issues found (95.6s). `flutter test --no-pub` (full suite) → All tests passed (1673 total incl. previously-flagged KRX-044 soak seeds 498/499, which passed this run — not weakened, no changes made to soak_test.dart or SafetyMonitor). Ticked all acceptance criteria as verified against the diff. Status → needs_review.
 **Artifacts:** lib/features/groups/** (group_invite_link.dart, groups_copy.dart, group_view_models.dart, groups_list_controller.dart, groups_list_screen.dart, group_detail_controller.dart, group_detail_screen.dart, group_invite_screen.dart, join_with_code_screen.dart, new_group_screen.dart); test/features/groups/** (unit/controller/widget tests + goldens)
 **Test_Evidence:** `flutter analyze --no-pub` (full project): No issues found! (95.6s). `flutter test --no-pub` (full project, foreground, 2026-09-12T02:05Z): All tests passed — 1673 total run, including KRX-044 soak seeds 498/499 (previously flagged as parked/flaky under FR-025; this run they passed with no code changes to soak logic).
-**Review_Findings:** —
+**Review_Findings:** [2026-09-12T04:16:18Z] [ORCH] **APPROVED first-pass**, merged `47e07c2`. Reviewed on claude-sonnet-5 (AUTOPILOT v2.0 wave).
+- **Process note, not charged:** this task's status went stale overnight (real commits landed, but the session ended before flipping to needs_review). ORCH corrected the status, S5's resumed session re-verified everything fresh in the foreground rather than trusting the old note, and reached needs_review honestly. First-pass stands.
+- **Territory:** clean. 28 files, entirely `lib/features/groups/**` and `test/features/groups/**`; no touch to `lib/app_shell/**`, PLAN.md, or regression tests. 7 commits, tagged.
+- **Tests:** independent run in the worktree: analyze 0; `test/features/groups` 52/52; full suite 1673 passed / 0 failed / 40 skipped (the same PARKED FR-025 markers, confirmed unmodified). The 500-seed KRX-044 soak ran as part of this and passed.
+- **Reviewed in source:**
+  - `group_invite_link.dart`: v2 link carries `{g, t, s(secret), exp?}`; decode rejects a wrong scheme/host/version, a missing/malformed/wrong-length (≠32 byte) secret, and a malformed expiry, each with a distinct reason string.
+  - `GroupDetailController.removeMember`/`rotateKey`: both mint a fresh 32-byte secret and seal it to every remaining member before calling the directory, matching TASK-085's server-side "all-or-nothing" rotation contract.
+  - List/detail controllers stream off `GroupsController`/`DirectoryClient`; admin-only actions gated on the server-reported role; last-admin state surfaced for the UI to react to.
+- **Criteria:** all five verified. Criterion 1's caveat (cap enforcement lives server-side, this task surfaces the message) is accurate and reasonable — TASK-085 already tests the actual 25-member refusal.
+- **Non-blocking:** `GroupDetailController`'s `keyPair` constructor parameter is accepted but unused (documented candidly in the class's own comment as forward-looking); fine to leave, or drop it if nothing claims it by TASK-093.
+- **Unlocks:** nothing new (TASK-093 already depended on 091/092/090/089).
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T04:16:18Z
 
 
 ### TASK-092
