@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,6 +9,8 @@ import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/presentation/talk_target.dart' show PeerPresence, TalkTarget;
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/services/directory/directory.dart';
+
+const _logName = 'keryx.app_shell.directory';
 
 /// v2 (Technical §6.4, TASK-093): the directory/contacts/groups composition
 /// root. `lib/core/contacts/**`, `lib/core/groups/**` and
@@ -31,6 +35,19 @@ Uri? directoryBaseUri(String relayUrl) {
   return relay.replace(scheme: 'https', path: '/v2', query: null);
 }
 
+/// Seam so a test can substitute how [directoryClientProvider]/
+/// [presenceClientProvider] derive the directory's base URL from
+/// `settings.relayUrl`, without ever overriding those providers themselves
+/// wholesale (this task's own test needs the REAL `directoryClientProvider`
+/// body — including its `registerIdentity` call — to run, but has no way to
+/// stand up a TLS-terminating fake backend for [directoryBaseUri]'s forced
+/// `https` upgrade). Same seam shape as `radio_host_provider.dart`'s
+/// constructor-injected platform factories (TASK-048) — production always
+/// gets the real [directoryBaseUri]; only
+/// `test/app_shell/directory_providers_test.dart` overrides this.
+final directoryBaseUriResolverProvider =
+    Provider<Uri? Function(String relayUrl)>((ref) => directoryBaseUri);
+
 /// The local device's v2 identity. A plain [FutureProvider] (not `.family`,
 /// not autoDispose) — exactly one identity exists for the app's lifetime,
 /// same convention as [radioHostProvider]'s single instance.
@@ -51,10 +68,33 @@ final directoryClientProvider = FutureProvider<DirectoryClient?>((ref) async {
   final settings = await ref.watch(settingsProvider.future);
   final identity = await ref.watch(identityProvider.future);
   final keyPair = identity.keyPair;
-  final base = directoryBaseUri(settings.relayUrl);
+  final resolveBase = ref.watch(directoryBaseUriResolverProvider);
+  final base = resolveBase(settings.relayUrl);
   if (base == null || keyPair == null) return null;
   final client = DirectoryClient(baseUrl: base, keyPair: keyPair);
   ref.onDispose(client.close);
+
+  // v2 (Technical §6.4, TASK-099): every device must register its identity
+  // with the directory before any dependent (contacts/groups/presence) call
+  // ever reaches the server — `token-svc` rejects a well-signed request from
+  // an unregistered public key with `unknown_identity` (401). The server
+  // upsert is idempotent (same pubkey + same callsign is a no-op success),
+  // so this is safe to call unconditionally on every provider build, not
+  // just once-ever. Never rethrow: directory bootstrap must not block
+  // reaching Talk (same convention as the null-return above for a missing
+  // relay/keyPair) — a failure here just leaves the device unregistered for
+  // this session, and the next successful build will retry it.
+  try {
+    await client.registerIdentity(identity.callsign.value);
+  } on Object catch (error, stack) {
+    developer.log(
+      'identity registration failed; continuing without directory registration',
+      name: _logName,
+      error: error,
+      stackTrace: stack,
+    );
+  }
+
   return client;
 });
 
@@ -62,7 +102,8 @@ final presenceClientProvider = FutureProvider<PresenceClient?>((ref) async {
   final settings = await ref.watch(settingsProvider.future);
   final identity = await ref.watch(identityProvider.future);
   final keyPair = identity.keyPair;
-  final base = directoryBaseUri(settings.relayUrl);
+  final resolveBase = ref.watch(directoryBaseUriResolverProvider);
+  final base = resolveBase(settings.relayUrl);
   if (base == null || keyPair == null) return null;
   final client = PresenceClient(baseUrl: base, keyPair: keyPair);
   ref.onDispose(client.dispose);
