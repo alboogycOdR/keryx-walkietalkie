@@ -5728,7 +5728,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-094
 **Title:** v2 deletions — channels, selector, stations, numbered Event QR, legacy face/ptt/display/settings_panel
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
@@ -5744,6 +5744,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 **Branch:** task/TASK-094-gb
 **Started_At:** 2026-09-12T08:08:02Z
 **Progress_Notes:**
+- [2026-09-12T08:43:30Z] [GB] Reclaimed TASK-094 after ORCH's second Owned_Paths widen (mobile_app_shell + settings_repository + remaining v1 tests/goldens). Same branch `task/TASK-094-gb`, Started_At unchanged. Next: merge master, preflight, then AC-3 v1-field removal + AC-2 copy cleanup in the newly granted files.
 - [2026-09-12T08:39:05Z] [GB] Deletion pass complete on `task/TASK-094-gb` (`3eeabc8`). KEEP radio_controls. Hoisted SessionHost + FacePermissionGate into `lib/core/radio_host/`; EventLinkExpiryPreset into groups; dropped joinEvent. Deleted channels/selector/stations/event_qr/event_qr_ui/face/ptt/display/settings_panel/tuning + tests + retired goldens. AC 2/3 residual: v1 RadioMode/tune fields and settings copy still present — remaining callers/tests outside Owned_Paths (mobile_app_shell, settings_repository, radio_state_test, connection_condition_test, radio_view_state_test, settings_repository_test, radio_session_controller_test, settings_screen_test, about_diagnostics_test, settings goldens). Status: needs_review.
 - [2026-09-12T09:00:00Z] [ORCH] Reviewing needs_review, found GB's disclosed residual list points to a real gap in my own first re-carve — I transcribed GB's original Blocked_Reason but dropped `mobile_app_shell.dart` and several test files (they weren't literally under a glob I'd already added). This is not a second independent OWNERSHIP_CONFLICT, it's ORCH finishing the same widening properly: added `lib/app_shell/mobile_app_shell.dart`, `lib/core/settings/settings_repository.dart`, `test/app_shell/mobile_app_shell_test.dart`, `test/core/presentation/{connection_condition,radio_view_state}_test.dart`, `test/core/state/radio_state_test.dart`, `test/core/settings/settings_repository_test.dart`, `test/services/session/radio_session_controller_test.dart`, `test/features/settings/{settings_screen,about_diagnostics}_test.dart`, `test/regression/goldens/settings_golden_test.dart` + `settings_*.png` — every remaining file GB's own residual list named, exact paths confirmed on disk. TASK-093 is done, nothing else active, no conflict. Not sending back with a rework verdict (GB's needs_review evidence for the deletion pass itself was accurate and disclosed, not wrong) — reopening to pending so GB can finish AC-3 (the actual v1-field removal) in the same session/branch. Status -> pending.
 - [2026-09-12T08:22:00Z] [GB] Reclaimed TASK-094 after ORCH re-carve (same branch `task/TASK-094-gb`, Started_At unchanged). Merged master `90090e6` into the branch. Next: re-run preflight against the widened Owned_Paths, then deletions + v1-field removal.
@@ -5804,7 +5805,7 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T08:39:05Z
+**Updated_At:** 2026-09-12T08:43:30Z
 
 
 ### TASK-095
