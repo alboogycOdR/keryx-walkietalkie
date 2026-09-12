@@ -5437,7 +5437,7 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 
 ### TASK-089
 **Title:** v2 onboarding, My code and Restore screens
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.4 (My code), §2.6 (first run), §2.7 Identity section wiring hooks; PRD V2-FR-001..004; Verification V2-VT-003, V2-VT-027, V2-VT-030 (My code, phrase goldens)
@@ -5454,12 +5454,26 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 **Started_At:** 2026-09-12T04:08:35Z
 **Progress_Notes:**
 - [2026-09-12T04:08:35Z] [GB] Claimed TASK-089. Resume check: no GB in_progress/claimed task. Depends_On TASK-083 and TASK-086 both done. Branch task/TASK-089-gb. Next: preflight_paths.py TASK-089, then implement standalone onboarding / My code / Restore widgets.
+- [2026-09-12T04:25:00Z] [GB] Status: in_progress. Branch task/TASK-089-gb created off master. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-089 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 7 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/onboarding/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/my_code/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/restore/**  -> matches nothing yet (new territory)
+  GLOB   test/features/onboarding/**  -> matches nothing yet (new territory)
+  GLOB   test/features/my_code/**  -> matches nothing yet (new territory)
+  GLOB   test/features/restore/**  -> matches nothing yet (new territory)
+  FILE   dossiers/TASK-089.md  -> exists, 13 line(s), 1233 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via in-territory MethodChannel), MyCodeScreen (keryx://id QR + https://keryx.app/c share), RestoreScreen (per-word BIP-39 + onRestored). Native Android window-flag/brightness handlers are outside Owned_Paths; Dart clients swallow MissingPluginException.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T04:08:35Z
+**Updated_At:** 2026-09-12T04:25:00Z
 
 
 ### TASK-090
