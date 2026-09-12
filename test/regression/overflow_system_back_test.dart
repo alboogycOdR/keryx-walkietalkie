@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/app_shell/app_shell.dart';
-import 'package:keryx/features/channels/channels_landing.dart';
 import 'package:keryx/features/radio_controls/radio_controls_screen.dart';
 import 'package:keryx/features/settings/settings_screen.dart';
 import 'package:keryx/features/talk/talk_screen.dart' as talkui;
@@ -18,9 +17,9 @@ void main() {
     (tester) async {
       await pumpRegressionShell(tester);
 
-      await tester.tap(tabChannels());
+      await tester.tap(tabContacts());
       await tester.pumpAndSettle();
-      expect(find.byType(ChannelsLanding), findsOneWidget);
+      expect(find.byType(ContactsTabScreen), findsOneWidget);
 
       await tester.tap(overflowMenu());
       await tester.pumpAndSettle();
@@ -38,9 +37,9 @@ void main() {
       );
       expect(find.byType(SettingsScreen), findsNothing);
       expect(
-        find.byType(ChannelsLanding),
+        find.byType(ContactsTabScreen),
         findsOneWidget,
-        reason: 'returning from overflow Settings must keep the Channels tab',
+        reason: 'returning from overflow Settings must keep the Contacts tab',
       );
       expect(find.byType(talkui.TalkScreen), findsNothing);
     },
@@ -52,7 +51,7 @@ void main() {
     (tester) async {
       await pumpRegressionShell(tester);
 
-      await tester.tap(tabStations());
+      await tester.tap(tabGroups());
       await tester.pumpAndSettle();
 
       await tester.tap(overflowMenu());
@@ -71,9 +70,9 @@ void main() {
       );
       expect(find.byType(RadioControlsScreen), findsNothing);
       expect(
-        find.byKey(ShellKeys.stations),
+        find.byType(GroupsTabScreen),
         findsOneWidget,
-        reason: 'returning from overflow Radio controls must keep Stations',
+        reason: 'returning from overflow Radio controls must keep Groups',
       );
       expect(find.byType(talkui.TalkScreen), findsNothing);
     },
