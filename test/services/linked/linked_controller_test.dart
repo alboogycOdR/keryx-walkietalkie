@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/floor/floor.dart';
 import 'package:keryx/core/state/radio_state.dart';
+import 'package:keryx/features/my_code/keryx_id_link.dart'
+    show encodeUnpaddedBase64Url;
 import 'package:keryx/services/linked/linked_controller.dart';
 import 'package:keryx/services/linked/livekit_adapter.dart';
 import 'package:keryx/services/linked/token_client.dart';
@@ -295,6 +297,63 @@ void main() {
       expect(dispatched, contains(const LinkDegraded()));
       expect(dispatched.last, const LinkResolved());
       expect(firstRoom.disconnected, isTrue); // stale room torn down, not leaked
+    });
+
+    group('TASK-101 peer_pk threading', () {
+      test('joinRoomId with peerPublicKey sends peer_pk on /token', () async {
+        final key = List<int>.generate(32, (i) => 32 - i);
+        await controller.joinRoomId(
+          roomId: 'ABCDEFGHIJKLMNOP',
+          forceLocalOnly: false,
+          peerPublicKey: key,
+        );
+
+        expect(server.lastRequestBody?['peer_pk'], encodeUnpaddedBase64Url(key));
+        expect(controller.isJoined, isTrue);
+      });
+
+      test('joinRoomId without peerPublicKey omits peer_pk (group/idle shape)', () async {
+        await controller.joinRoomId(
+          roomId: 'ABCDEFGHIJKLMNOP',
+          forceLocalOnly: false,
+        );
+
+        expect(server.lastRequestBody!.containsKey('peer_pk'), isFalse);
+        expect(controller.isJoined, isTrue);
+      });
+
+      test(
+        'a server that 403s not_member unless peer_pk is present accepts a contact join',
+        () async {
+          server.requirePeerPk = true;
+          final key = List<int>.generate(32, (i) => i);
+          await controller.joinRoomId(
+            roomId: 'ABCDEFGHIJKLMNOP',
+            forceLocalOnly: false,
+            peerPublicKey: key,
+          );
+          expect(controller.isJoined, isTrue);
+        },
+      );
+
+      test(
+        'a server that 403s not_member unless peer_pk is present refuses a group join',
+        () async {
+          server.requirePeerPk = true;
+          await expectLater(
+            controller.joinRoomId(
+              roomId: 'ABCDEFGHIJKLMNOP',
+              forceLocalOnly: false,
+            ),
+            throwsA(
+              isA<TokenRequestException>()
+                  .having((e) => e.statusCode, 'statusCode', 403)
+                  .having((e) => e.detail, 'detail', 'not_member'),
+            ),
+          );
+          expect(controller.isJoined, isFalse);
+        },
+      );
     });
 
     group('v2 E2EE (Technical §5.5 / V2-NFR-004)', () {

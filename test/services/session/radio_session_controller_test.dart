@@ -9,6 +9,8 @@ import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/protocol/protocol.dart';
 import 'package:keryx/core/settings/settings_model.dart';
 import 'package:keryx/core/state/radio_state.dart';
+import 'package:keryx/features/my_code/keryx_id_link.dart'
+    show encodeUnpaddedBase64Url;
 import 'package:keryx/services/discovery/discovered_peer.dart';
 import 'package:keryx/services/discovery/discovery_config.dart';
 import 'package:keryx/services/discovery/discovery_service.dart';
@@ -129,11 +131,59 @@ class _FastTokenClient extends TokenClient {
     required String roomId,
     required String callsign,
     String? eventToken,
+    List<int>? peerPublicKey,
   }) async => const TokenResponse(
     token: 'fake-jwt',
     identity: 'Alice#deadbeef',
     ttl: Duration(minutes: 5),
   );
+}
+
+/// TASK-101: records the [peerPublicKey] argument so switchTarget tests can
+/// prove a contact key is forwarded and a group join sends none.
+class _RecordingTokenClient extends TokenClient {
+  _RecordingTokenClient() : super(baseUrl: Uri.parse('https://token.invalid'));
+
+  final capturedPeerKeys = <List<int>?>[];
+
+  @override
+  Future<TokenResponse> requestToken({
+    required String roomId,
+    required String callsign,
+    String? eventToken,
+    List<int>? peerPublicKey,
+  }) async {
+    capturedPeerKeys.add(
+      peerPublicKey == null ? null : List<int>.from(peerPublicKey),
+    );
+    return const TokenResponse(
+      token: 'fake-jwt',
+      identity: 'Alice#deadbeef',
+      ttl: Duration(minutes: 5),
+    );
+  }
+}
+
+/// TASK-101: throws a [TokenRequestException] with a canned status/detail so
+/// session-layer tests can prove 403 `not_contacts` / 409 `room_conflict`
+/// wrap into [SessionEstablishmentFailure] without a real HTTP round trip
+/// (flutter_test stubs `HttpClient` to 400 under the widget binding).
+class _RefusingTokenClient extends TokenClient {
+  _RefusingTokenClient({required this.statusCode, required this.detail})
+      : super(baseUrl: Uri.parse('https://token.invalid'));
+
+  final int statusCode;
+  final String detail;
+
+  @override
+  Future<TokenResponse> requestToken({
+    required String roomId,
+    required String callsign,
+    String? eventToken,
+    List<int>? peerPublicKey,
+  }) async {
+    throw TokenRequestException(statusCode: statusCode, detail: detail);
+  }
 }
 
 /// No-op [DiscoveryService] — TASK-079's meter-level tests join peers
@@ -1002,6 +1052,116 @@ void main() {
             Transport.relay);
 
           await controller.dispose();
+        });
+
+      test(
+        'TASK-101: contact switchTarget forwards the 32-byte key as peer_pk; '
+        'group switchTarget sends none',
+        () async {
+          final settings = KeryxSettings(
+            squelchLevel: 5,
+            totSeconds: 120,
+            busyLockout: false,
+            latchMode: false,
+            forceLocalOnly: false,
+            relayUrl: 'wss://relay.example',
+            tokenServiceUrl: 'https://relay.example/token-svc',
+            characterDspIntensity: CharacterDspIntensity.light,
+            dimMode: DimMode.auto);
+          final peerKey = List<int>.generate(32, (i) => i + 3);
+          final peerPk = encodeUnpaddedBase64Url(peerKey);
+          final recorder = _RecordingTokenClient();
+          final controller = RadioSessionController(
+            localPeerId: 'ALFA-1',
+            callsign: 'Alice',
+            settings: settings,
+            dispatch: dispatchedEvents.add,
+            discoveryFactory: _NoopDiscoveryService.new,
+            liveKitAdapter: FakeLiveKitAdapter(),
+            tokenClientFactory: (_, {signer}) => recorder);
+
+          await controller.start();
+          await controller.switchTarget(
+            TalkTarget(
+              kind: TalkTargetKind.contact,
+              id: peerPk,
+              name: 'Peer',
+              roomId: 'ABCDEFGHIJKLMNOP',
+            ),
+            memberPeerIds: [peerPk]);
+          expect(recorder.capturedPeerKeys.single, peerKey);
+
+          await controller.switchTarget(
+            const TalkTarget(
+              kind: TalkTargetKind.group,
+              id: 'g-uuid',
+              name: 'Golf',
+              roomId: 'PQRSTUVWXYZ23456',
+            ),
+            memberPeerIds: const ['JULIET-2']);
+          expect(recorder.capturedPeerKeys, hasLength(2));
+          expect(recorder.capturedPeerKeys[0], peerKey);
+          expect(recorder.capturedPeerKeys[1], isNull);
+
+          await controller.dispose();
+        });
+
+      test(
+        'TASK-101: 403 not_contacts and 409 room_conflict surface as '
+        'SessionEstablishmentFailure with the server code in cause',
+        () async {
+          Future<void> expectCode(int status, String code) async {
+            final settings = KeryxSettings(
+              squelchLevel: 5,
+              totSeconds: 120,
+              busyLockout: false,
+              latchMode: false,
+              forceLocalOnly: false,
+              relayUrl: 'wss://relay.example',
+              tokenServiceUrl: 'https://relay.example/token-svc',
+              characterDspIntensity: CharacterDspIntensity.light,
+              dimMode: DimMode.auto);
+            final peerKey = List<int>.generate(32, (i) => 4);
+            final peerPk = encodeUnpaddedBase64Url(peerKey);
+            final controller = RadioSessionController(
+              localPeerId: 'ALFA-1',
+              callsign: 'Alice',
+              settings: settings,
+              dispatch: dispatchedEvents.add,
+              discoveryFactory: _NoopDiscoveryService.new,
+              liveKitAdapter: FakeLiveKitAdapter(),
+              tokenClientFactory: (_, {signer}) => _RefusingTokenClient(
+                    statusCode: status,
+                    detail: code,
+                  ));
+            await controller.start();
+            await expectLater(
+              controller.switchTarget(
+                TalkTarget(
+                  kind: TalkTargetKind.contact,
+                  id: peerPk,
+                  name: 'Peer',
+                  roomId: 'ABCDEFGHIJKLMNOP',
+                ),
+                memberPeerIds: [peerPk],
+              ),
+              throwsA(
+                isA<SessionEstablishmentFailure>()
+                    .having((e) => e.transport, 'transport', Transport.relay)
+                    .having(
+                      (e) => e.cause,
+                      'cause',
+                      isA<TokenRequestException>()
+                          .having((t) => t.statusCode, 'statusCode', status)
+                          .having((t) => t.detail, 'detail', code),
+                    ),
+              ),
+            );
+            await controller.dispose();
+          }
+
+          await expectCode(403, 'not_contacts');
+          await expectCode(409, 'room_conflict');
         });
     });
 

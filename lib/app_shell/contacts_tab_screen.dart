@@ -65,16 +65,25 @@ class ContactsTabScreen extends ConsumerWidget {
       myKeyPair: keyPair,
       theirEdwardsPublicKey: theirPublicKey,
     );
-    onSelectTarget(
-      TalkTarget(
-        kind: TalkTargetKind.contact,
-        id: contact.pk,
-        name: contact.callsign,
-        roomId: roomId,
-        memberPeerIds: <String>[contact.pk],
-      ),
-    );
+    onSelectTarget(talkTargetFromContact(contact: contact, roomId: roomId));
   }
+}
+
+/// Pins the TASK-101 contract: a contact [TalkTarget.id] **is**
+/// [ContactRowVm.pk] (unpadded base64url of the 32-byte Ed25519 key).
+/// [RadioSessionController.switchTarget] reads that id as `peer_pk`.
+/// Do not invent a second identifier field.
+TalkTarget talkTargetFromContact({
+  required ContactRowVm contact,
+  required String roomId,
+}) {
+  return TalkTarget(
+    kind: TalkTargetKind.contact,
+    id: contact.pk,
+    name: contact.callsign,
+    roomId: roomId,
+    memberPeerIds: <String>[contact.pk],
+  );
 }
 
 /// Decodes the v2 directory's unpadded base64url public-key wire form

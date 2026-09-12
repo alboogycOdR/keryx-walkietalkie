@@ -3,7 +3,12 @@ import 'package:keryx/core/presentation/talk_target.dart';
 import 'package:keryx/core/radio_host/radio_session_host_v2.dart';
 import 'package:keryx/core/settings/settings_model.dart';
 import 'package:keryx/core/state/radio_state.dart';
+import 'package:keryx/features/my_code/keryx_id_link.dart'
+    show encodeUnpaddedBase64Url;
+import 'package:keryx/services/linked/linked.dart';
 import 'package:keryx/services/session/radio_session_controller.dart';
+
+import '../../services/linked/fakes/fake_livekit_adapter.dart';
 
 /// v2 (Technical §6.4, TASK-088 additive scope): standalone-seam coverage —
 /// this class is not wired into `KeryxRadioHost` yet (Technical §6a), so it
@@ -110,5 +115,74 @@ void main() {
         expect(presenceCalls, 1);
         expect(dispatched.whereType<SetRoom>().last.roomId, 'v2-room-b');
       });
+
+    test(
+      'TASK-101: a contact target resolved by the host reaches requestToken '
+      'as peerPublicKey (id is the encoded key; host does not strip it)',
+      () async {
+        final peerKey = List<int>.generate(32, (i) => 5);
+        final peerPk = encodeUnpaddedBase64Url(peerKey);
+        final contact = TalkTarget(
+          kind: TalkTargetKind.contact,
+          id: peerPk,
+          name: 'Bravo',
+          roomId: 'ABCDEFGHIJKLMNOP',
+          memberPeerIds: [peerPk],
+        );
+        final recorder = _RecordingTokenClient();
+        final linked = RadioSessionController(
+          localPeerId: 'ALFA-1',
+          callsign: 'Alice',
+          settings: const KeryxSettings(
+            squelchLevel: 5,
+            totSeconds: 120,
+            busyLockout: false,
+            latchMode: false,
+            forceLocalOnly: false,
+            relayUrl: 'wss://relay.example',
+            tokenServiceUrl: 'https://relay.example/token-svc',
+            characterDspIntensity: CharacterDspIntensity.light,
+            dimMode: DimMode.auto,
+          ),
+          dispatch: dispatched.add,
+          liveKitAdapter: FakeLiveKitAdapter(),
+          tokenClientFactory: (_, {signer}) => recorder,
+        );
+        addTearDown(linked.dispose);
+
+        await linked.start();
+        final host = RadioSessionHostV2(
+          loadIdentity: () async => null,
+          openPresenceSession: () async {},
+          resolveCurrentTarget: () async => contact,
+          sessionController: linked,
+        );
+        await host.start();
+
+        expect(recorder.capturedPeerKeys, [peerKey]);
+      });
   });
+}
+
+class _RecordingTokenClient extends TokenClient {
+  _RecordingTokenClient() : super(baseUrl: Uri.parse('https://token.invalid'));
+
+  final capturedPeerKeys = <List<int>?>[];
+
+  @override
+  Future<TokenResponse> requestToken({
+    required String roomId,
+    required String callsign,
+    String? eventToken,
+    List<int>? peerPublicKey,
+  }) async {
+    capturedPeerKeys.add(
+      peerPublicKey == null ? null : List<int>.from(peerPublicKey),
+    );
+    return const TokenResponse(
+      token: 'fake-jwt',
+      identity: 'Alice#deadbeef',
+      ttl: Duration(minutes: 5),
+    );
+  }
 }

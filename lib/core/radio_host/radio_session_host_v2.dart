@@ -70,6 +70,10 @@ class RadioSessionHostV2 {
     }
     final target = await resolveCurrentTarget();
     if (target == null) return;
+    // TASK-101: contact public keys travel on [TalkTarget.id] (already
+    // `ContactRowVm.pk`). [RadioSessionController.switchTarget] reads
+    // `target.kind`/`target.id` itself to decide whether to send `peer_pk`;
+    // this host does not re-derive or strip that field.
     await sessionController.switchTarget(
       target,
       memberPeerIds: target.memberPeerIds,

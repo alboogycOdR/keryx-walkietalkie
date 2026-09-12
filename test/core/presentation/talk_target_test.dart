@@ -30,6 +30,22 @@ void main() {
       expect(a.hashCode, b.hashCode);
       expect(a, isNot(differentMembers));
     });
+
+    test(
+      'TASK-101: a contact TalkTarget.id is the public-key string — no extra '
+      'field; constructors with only id keep compiling',
+      () {
+        const pk = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+        const target = TalkTarget(
+          kind: TalkTargetKind.contact,
+          id: pk,
+          name: 'Ada',
+          roomId: 'room-1',
+        );
+        expect(target.id, pk);
+        expect(target.memberPeerIds, isEmpty);
+      },
+    );
   });
 
   group('AudienceState.compute', () {

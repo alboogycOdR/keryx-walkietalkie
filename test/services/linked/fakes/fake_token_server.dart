@@ -22,6 +22,11 @@ class FakeTokenServer {
   /// simulates the directory's "signed caller" gate on `POST /token`.
   bool requireSignature = false;
 
+  /// TASK-101: when true, a request whose body has no non-empty `peer_pk`
+  /// is refused 403 `not_member` — the v2 directory's behaviour for a 1:1
+  /// room that was never provisioned because `/token` omitted `peer_pk`.
+  bool requirePeerPk = false;
+
   static Future<FakeTokenServer> start() async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final fake = FakeTokenServer._(server);
@@ -46,6 +51,14 @@ class FakeTokenServer {
         request.response.statusCode = 401;
         request.response.headers.contentType = ContentType.json;
         request.response.write(jsonEncode({'detail': 'unsigned_request'}));
+        await request.response.close();
+        continue;
+      }
+      final peerPk = lastRequestBody?['peer_pk'];
+      if (requirePeerPk && (peerPk is! String || peerPk.isEmpty)) {
+        request.response.statusCode = 403;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({'error': 'not_member'}));
         await request.response.close();
         continue;
       }

@@ -21,7 +21,13 @@ class TalkTarget {
   /// Contact or group.
   final TalkTargetKind kind;
 
-  /// Directory-assigned identifier (a contact's peerId, or a group's uuid).
+  /// Directory-assigned identifier. For [TalkTargetKind.contact] this **is**
+  /// the contact's Ed25519 public key in unpadded base64url form
+  /// (`ContactRowVm.pk` — see `talkTargetFromContact` in
+  /// `lib/app_shell/contacts_tab_screen.dart`). [RadioSessionController.switchTarget]
+  /// sends that value as `/token` `peer_pk` so the directory can provision
+  /// the DirectRoom. For [TalkTargetKind.group] this is the group's uuid
+  /// and `peer_pk` is omitted.
   final String id;
 
   /// Display name — a contact's callsign, or a group's name.
