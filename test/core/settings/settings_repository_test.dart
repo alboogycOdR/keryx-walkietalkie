@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/audio/bed_mixer.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
-import 'package:keryx/core/state/radio_state.dart';
+
 
 void main() {
   group('SettingsRepository', () {
@@ -25,9 +25,7 @@ void main() {
       expect(settings.characterDspIntensity, CharacterDspIntensity.light);
       expect(settings.busyLockout, isTrue);
       expect(settings.forceLocalOnly, isFalse);
-      expect(settings.channelMemory, isEmpty);
       expect(settings.dimMode, DimMode.auto);
-      expect(settings.mode, RadioMode.auto);
       expect(settings.voxSensitivity, 5);
       expect(settings.voxHangTimeMs, 500);
       expect(settings.squelchLevel, 5);
@@ -42,14 +40,10 @@ void main() {
         latchMode: true,
         characterDspIntensity: CharacterDspIntensity.full,
         forceLocalOnly: true,
-        region: 'za-cpt',
         isPro: true,
-        channelMemory: [const TunedChannel(channel: 7, privacyCode: 3)],
         dimMode: DimMode.manual,
-        mode: RadioMode.local,
         voxSensitivity: 2,
-        voxHangTimeMs: 1200,
-      );
+        voxHangTimeMs: 1200);
 
       await repository.save(expected);
       final actual = await repository.load();
@@ -61,11 +55,8 @@ void main() {
       expect(actual.latchMode, expected.latchMode);
       expect(actual.characterDspIntensity, expected.characterDspIntensity);
       expect(actual.forceLocalOnly, isTrue);
-      expect(actual.region, 'za-cpt');
       expect(actual.isPro, isTrue);
-      expect(actual.channelMemory, expected.channelMemory);
       expect(actual.dimMode, DimMode.manual);
-      expect(actual.mode, RadioMode.local);
       expect(actual.voxSensitivity, 2);
       expect(actual.voxHangTimeMs, 1200);
       expect(actual.relayUrl, KeryxSettings.relayUrlDefault);
@@ -78,51 +69,26 @@ void main() {
         final saved = await repository.save(
           const KeryxSettings(
             relayUrl: ' https://not-a-websocket.example ',
-            tokenServiceUrl: 'http://not-secure.example/token',
-          ),
-        );
+            tokenServiceUrl: 'http://not-secure.example/token'));
 
         expect(saved.relayUrl, KeryxSettings.relayUrlDefault);
         expect(saved.tokenServiceUrl, KeryxSettings.tokenServiceUrlDefault);
 
         final linked = await repository.save(
-          const KeryxSettings(relayUrl: 'wss://relay.example:7880/livekit'),
-        );
+          const KeryxSettings(relayUrl: 'wss://relay.example:7880/livekit'));
         expect(linked.relayUrl, 'wss://relay.example:7880/livekit');
         expect(linked.tokenServiceUrl, KeryxSettings.tokenServiceUrlDefault);
         expect(
           linked.resolvedTokenServiceUrl,
           KeryxSettings.tokenServiceUrlDefault.isNotEmpty
               ? KeryxSettings.tokenServiceUrlDefault
-              : 'https://relay.example:7880/token',
-        );
-      },
-    );
-
-    test(
-      'keeps six most-recent unique tuned channels for quick recall',
-      () async {
-        for (var channel = 1; channel <= 7; channel++) {
-          await repository.rememberChannel(
-            TunedChannel(channel: channel, privacyCode: 0),
-          );
-        }
-        await repository.rememberChannel(
-          const TunedChannel(channel: 4, privacyCode: 0),
-        );
-
-        final memory = (await repository.load()).channelMemory;
-        expect(memory, hasLength(6));
-        expect(memory.first, const TunedChannel(channel: 4, privacyCode: 0));
-        expect(memory.map((entry) => entry.channel), [4, 7, 6, 5, 3, 2]);
-      },
-    );
+              : 'https://relay.example:7880/token');
+      });
 
     test('rejects an out-of-range TOT before persisting', () async {
       expect(
         () => repository.save(KeryxSettings(totSeconds: 29)),
-        throwsA(isA<AssertionError>()),
-      );
+        throwsA(isA<AssertionError>()));
     });
 
     test('falls back to defaults when stored data is malformed', () async {
@@ -146,39 +112,32 @@ void main() {
         await repository.save(
           const KeryxSettings(
             preferDirectOnWifi: false,
-            messageRetentionDays: 30,
-          ),
-        );
+            messageRetentionDays: 30));
         final actual = await repository.load();
         expect(actual.preferDirectOnWifi, isFalse);
         expect(actual.messageRetentionDays, 30);
-      },
-    );
+      });
 
     test(
       'a persisted value with no v2 keys defaults them rather than failing',
       () async {
         await store.write(
           SettingsRepository.storageKey,
-          jsonEncode({'totSeconds': 90}),
-        );
+          jsonEncode({'totSeconds': 90}));
         final settings = await repository.load();
         expect(settings.totSeconds, 90);
         expect(settings.preferDirectOnWifi, isTrue);
         expect(settings.messageRetentionDays, 7);
-      },
-    );
+      });
 
     test('clamps an out-of-range messageRetentionDays on read', () async {
       await store.write(
         SettingsRepository.storageKey,
-        jsonEncode({'messageRetentionDays': 9999}),
-      );
+        jsonEncode({'messageRetentionDays': 9999}));
       final settings = await repository.load();
       expect(
         settings.messageRetentionDays,
-        KeryxSettings.messageRetentionDaysMax,
-      );
+        KeryxSettings.messageRetentionDaysMax);
     });
   });
 
@@ -208,32 +167,27 @@ void main() {
         final settings = await repository.load();
         expect(settings.totSeconds, 60);
         expect(settings.squelchLevel, 5);
-        expect(settings.mode, RadioMode.auto);
       });
     }
 
     test('absent storage returns usable defaults', () async {
       final settings = await repository.load();
       expect(settings.totSeconds, KeryxSettings.totSecondsDefault);
-      expect(settings.channelMemory, isEmpty);
     });
 
     test('clamps totSeconds: 999 on read to 120, not defaults', () async {
       await store.write(
         SettingsRepository.storageKey,
-        jsonEncode(_phaseOneBlob(totSeconds: 999)),
-      );
+        jsonEncode(_phaseOneBlob(totSeconds: 999)));
 
       final settings = await repository.load();
       expect(settings.totSeconds, 120);
-      expect(settings.region, 'za-cpt');
     });
 
     test('clamps squelchLevel: 99 on read to 10', () async {
       await store.write(
         SettingsRepository.storageKey,
-        jsonEncode(_phaseOneBlob(squelchLevel: 99)),
-      );
+        jsonEncode(_phaseOneBlob(squelchLevel: 99)));
 
       expect((await repository.load()).squelchLevel, 10);
     });
@@ -241,35 +195,19 @@ void main() {
     test('clamps a negative squelchLevel on read to 0', () async {
       await store.write(
         SettingsRepository.storageKey,
-        jsonEncode(_phaseOneBlob(squelchLevel: -3)),
-      );
+        jsonEncode(_phaseOneBlob(squelchLevel: -3)));
 
       expect((await repository.load()).squelchLevel, 0);
-    });
-
-    test('enforces last-6 channel memory on the read path', () async {
-      final blob = _phaseOneBlob()
-        ..['channelMemory'] = [
-          for (var channel = 1; channel <= 9; channel++)
-            {'channel': channel, 'privacyCode': 0},
-        ];
-      await store.write(SettingsRepository.storageKey, jsonEncode(blob));
-
-      final memory = (await repository.load()).channelMemory;
-      expect(memory, hasLength(6));
-      expect(memory.map((entry) => entry.channel), [1, 2, 3, 4, 5, 6]);
     });
 
     test('unknown enum name defaults that field and keeps the rest', () async {
       await store.write(
         SettingsRepository.storageKey,
-        jsonEncode(_phaseOneBlob()..['rogerBeep'] = 'not-a-variant'),
-      );
+        jsonEncode(_phaseOneBlob()..['rogerBeep'] = 'not-a-variant'));
 
       final settings = await repository.load();
       expect(settings.rogerBeep, RogerBeepVariant.classic);
       expect(settings.totSeconds, 90);
-      expect(settings.region, 'za-cpt');
     });
 
     test(
@@ -277,19 +215,16 @@ void main() {
       () async {
         await store.write(
           SettingsRepository.storageKey,
-          jsonEncode(_legacyBlob()),
-        );
+          jsonEncode(_legacyBlob()));
 
         final settings = await repository.load();
         expect(settings.squelchLevel, 8);
         expect(settings.totSeconds, 120);
         expect(settings.forceLocalOnly, isTrue);
         expect(settings.dimMode, DimMode.auto);
-        expect(settings.mode, RadioMode.auto);
         expect(settings.voxSensitivity, 5);
         expect(settings.voxHangTimeMs, 500);
-      },
-    );
+      });
 
     test(
       'blank, whitespace, and non-wss endpoint keys fall back safely',
@@ -299,15 +234,12 @@ void main() {
           jsonEncode(
             _phaseOneBlob()
               ..['relayUrl'] = '   '
-              ..['tokenServiceUrl'] = 'wss://wrong-scheme.example/token',
-          ),
-        );
+              ..['tokenServiceUrl'] = 'wss://wrong-scheme.example/token'));
 
         final settings = await repository.load();
         expect(settings.relayUrl, KeryxSettings.relayUrlDefault);
         expect(settings.tokenServiceUrl, KeryxSettings.tokenServiceUrlDefault);
-      },
-    );
+      });
 
     test(
       'a non-empty persisted endpoint overrides the build default',
@@ -317,15 +249,12 @@ void main() {
           jsonEncode(
             _phaseOneBlob()
               ..['relayUrl'] = 'wss://saved.example'
-              ..['tokenServiceUrl'] = 'https://saved.example/token',
-          ),
-        );
+              ..['tokenServiceUrl'] = 'https://saved.example/token'));
 
         final settings = await repository.load();
         expect(settings.relayUrl, 'wss://saved.example');
         expect(settings.tokenServiceUrl, 'https://saved.example/token');
-      },
-    );
+      });
   });
 
   group('squelchNormalized', () {
@@ -338,29 +267,8 @@ void main() {
 
       expect(
         () => BedMixer.gainsFor(closed.squelchNormalized),
-        returnsNormally,
-      );
+        returnsNormally);
       expect(() => BedMixer.gainsFor(open.squelchNormalized), returnsNormally);
-    });
-  });
-
-  group('rememberChannel serialization', () {
-    test('overlapping calls do not lose an update', () async {
-      final store = _SlowStore(InMemorySettingsStore());
-      final repository = SettingsRepository(store);
-      addTearDown(repository.dispose);
-
-      final calls = <Future<KeryxSettings>>[
-        for (var channel = 1; channel <= 6; channel++)
-          repository.rememberChannel(
-            TunedChannel(channel: channel, privacyCode: 0),
-          ),
-      ];
-      await Future.wait(calls);
-
-      final memory = (await repository.load()).channelMemory;
-      expect(memory, hasLength(6));
-      expect(memory.map((entry) => entry.channel), [6, 5, 4, 3, 2, 1]);
     });
   });
 
@@ -368,8 +276,7 @@ void main() {
     test('re-emits after save without re-reading the repository', () async {
       final store = InMemorySettingsStore();
       final container = ProviderContainer(
-        overrides: [settingsStoreProvider.overrideWithValue(store)],
-      );
+        overrides: [settingsStoreProvider.overrideWithValue(store)]);
       addTearDown(container.dispose);
 
       await container.read(settingsProvider.future);
@@ -377,43 +284,17 @@ void main() {
       final seen = <int>[];
       container.listen<AsyncValue<KeryxSettings>>(settingsProvider, (
         previous,
-        next,
-      ) {
+        next) {
         final value = next.asData?.value;
         if (value != null) seen.add(value.totSeconds);
       }, fireImmediately: true);
 
       await container
           .read(settingsRepositoryProvider)
-          .save(const KeryxSettings(totSeconds: 90, region: 'za-cpt'));
+          .save(const KeryxSettings(totSeconds: 90));
 
       expect(seen, contains(90));
       expect(container.read(settingsProvider).asData!.value.totSeconds, 90);
-      expect(container.read(settingsProvider).asData!.value.region, 'za-cpt');
-    });
-
-    test('re-emits after rememberChannel', () async {
-      final store = InMemorySettingsStore();
-      final container = ProviderContainer(
-        overrides: [settingsStoreProvider.overrideWithValue(store)],
-      );
-      addTearDown(container.dispose);
-
-      await container.read(settingsProvider.future);
-
-      List<TunedChannel>? latestMemory;
-      container.listen<AsyncValue<KeryxSettings>>(settingsProvider, (
-        previous,
-        next,
-      ) {
-        latestMemory = next.asData?.value.channelMemory;
-      });
-
-      await container
-          .read(settingsProvider.notifier)
-          .rememberChannel(const TunedChannel(channel: 12, privacyCode: 4));
-
-      expect(latestMemory, [const TunedChannel(channel: 12, privacyCode: 4)]);
     });
   });
 }
@@ -452,22 +333,3 @@ Map<String, Object?> _legacyBlob() => {
     {'channel': 7, 'privacyCode': 3},
   ],
 };
-
-/// Forces overlapping read-modify-write windows so a missing lock fails.
-class _SlowStore implements SettingsStore {
-  _SlowStore(this._inner);
-
-  final SettingsStore _inner;
-
-  @override
-  Future<String?> read(String key) async {
-    await Future<void>.delayed(const Duration(milliseconds: 8));
-    return _inner.read(key);
-  }
-
-  @override
-  Future<void> write(String key, String value) async {
-    await Future<void>.delayed(const Duration(milliseconds: 8));
-    await _inner.write(key, value);
-  }
-}

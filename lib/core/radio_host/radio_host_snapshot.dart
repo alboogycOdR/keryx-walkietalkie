@@ -1,6 +1,5 @@
 import 'package:keryx/core/floor/floor.dart' show FloorEngine;
 import 'package:keryx/core/presentation/telemetry.dart' show MeterLevel;
-import 'package:keryx/core/settings/settings_repository.dart' show TunedChannel;
 import 'package:keryx/services/session/session.dart' show StationInfo;
 
 /// Host-owned side state a UI layer needs alongside `radioStateProvider`
@@ -24,7 +23,6 @@ class RadioHostSnapshot {
     this.serviceFaultMessage,
     this.floorEngine,
     this.stations = const <StationInfo>[],
-    this.channelMemory = const <TunedChannel>[],
     this.meterLevel = MeterLevel.decorative,
   });
 
@@ -56,11 +54,6 @@ class RadioHostSnapshot {
   /// why a rebuild resets this eagerly rather than leaving the previous
   /// session's roster visible.
   final List<StationInfo> stations;
-
-  /// Persisted channel-recall memory, mirrored from `SettingsRepository`
-  /// after every successful [RadioHost.tune] and refreshed once more at
-  /// [RadioHost.start] with whatever was already on disk.
-  final List<TunedChannel> channelMemory;
 
   /// RX-level telemetry (TASK-079/ADR-002 A6) — mirrors whatever the
   /// active session's own RX-level source (LOCAL mesh today; LINKED stays

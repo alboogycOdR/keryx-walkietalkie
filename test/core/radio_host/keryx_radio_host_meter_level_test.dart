@@ -9,9 +9,6 @@ import 'package:keryx/core/protocol/protocol.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
-import 'package:keryx/features/face/permission_gate.dart';
-import 'package:keryx/features/face/session_host.dart';
-import 'package:keryx/services/discovery/channel_hash_prefix.dart';
 import 'package:keryx/services/discovery/discovered_peer.dart';
 import 'package:keryx/services/discovery/discovery_config.dart';
 import 'package:keryx/services/discovery/discovery_service.dart';
@@ -97,25 +94,18 @@ void main() {
     late RadioSessionController controllerA;
     late RadioSessionController controllerB;
     late KeryxRadioHost host;
-    final channelHashPrefix = ChannelHashPrefix.compute(
-      region: 'US',
-      channel: '1',
-      code: '0',
-    );
+    const channelHashPrefix = 'AAAAAAAA';
 
     const settings = KeryxSettings(
-      region: 'US',
       squelchLevel: 5,
       totSeconds: 120,
       busyLockout: false,
       latchMode: false,
       forceLocalOnly: false,
-      mode: RadioMode.local,
       relayUrl: '',
       tokenServiceUrl: '',
       characterDspIntensity: CharacterDspIntensity.light,
-      dimMode: DimMode.auto,
-    );
+      dimMode: DimMode.auto);
 
     RadioState state = const RadioState.off();
 
@@ -131,12 +121,9 @@ void main() {
         callsign: 'Bravo',
         settings: settings,
         dispatch: (RadioEvent event) {},
-        initialChannel: 1,
-        initialCode: 0,
         endpointFactory: sigHub.endpoint,
         discoveryFactory: _NoopDiscoveryService.new,
-        rtcAdapter: adapterB,
-      );
+        rtcAdapter: adapterB);
       await controllerB.start();
 
       host = KeryxRadioHost(
@@ -146,21 +133,16 @@ void main() {
               required String callsign,
               required KeryxSettings settings,
               required void Function(RadioEvent event) dispatch,
-              required int initialChannel,
-              required int initialCode,
             }) {
               controllerA = RadioSessionController(
                 localPeerId: localPeerId,
                 callsign: callsign,
                 settings: settings,
                 dispatch: dispatch,
-                initialChannel: initialChannel,
-                initialCode: initialCode,
                 clock: clockA,
                 endpointFactory: sigHub.endpoint,
                 discoveryFactory: _NoopDiscoveryService.new,
-                rtcAdapter: adapterA,
-              );
+                rtcAdapter: adapterA);
               return RadioSessionHostAdapter(controllerA);
             },
         audioSinkFactory: () async => RecordingAudioSink(),
@@ -168,8 +150,7 @@ void main() {
         identityFactory: () async => DeviceIdentity(
           installUuid: 'uuid',
           peerId: 'ALFA-1',
-          callsign: Callsign.parse('ALFA-1'),
-        ),
+          callsign: Callsign.parse('ALFA-1')),
         permissionGateFactory: () => _FakePermissionGate(),
         radioServiceFactory: () =>
             ChannelRadioServiceController(platform: FakeRadioServicePlatform()),
@@ -182,9 +163,7 @@ void main() {
           if (fireImmediately) onChange(null, state);
           return () {};
         },
-        listenSettings: (onChange) => () {},
-        rememberChannel: (channel) async => settings,
-      );
+        listenSettings: (onChange) => () {});
       await host.start();
 
       // Real signaling handshake so controllerA's MeshController opens a
@@ -199,9 +178,7 @@ void main() {
           channelHashPrefix: channelHashPrefix,
           version: 1,
           host: '10.0.0.2',
-          port: sigB.boundPort,
-        ),
-      );
+          port: sigB.boundPort));
       sigB.onPeerFound(
         DiscoveredPeer(
           peerId: 'ALFA-1',
@@ -209,9 +186,7 @@ void main() {
           channelHashPrefix: channelHashPrefix,
           version: 1,
           host: '10.0.0.2',
-          port: sigA.boundPort,
-        ),
-      );
+          port: sigA.boundPort));
       await _flush();
       controllerA.floorEngine.updateRoster({'ALFA-1', 'BRAVO-7'});
     });
@@ -232,16 +207,13 @@ void main() {
         adapterA.connectionsCreated.single.deliverRemoteAudioTrack(
           RtcRemoteAudioTrack(
             id: 'bravo-remote',
-            readAudioLevel: () async => const RtcMeasuredAudioLevel(0.6),
-          ),
-        );
+            readAudioLevel: () async => const RtcMeasuredAudioLevel(0.6)));
 
         final snapshots = <RadioHostSnapshot>[];
         final sub = host.changes.listen(snapshots.add);
 
         adapterA.connectionsCreated.single.dataChannel!.deliver(
-          FloorCodec.encode(const TxStart(peer: 'BRAVO-7')),
-        );
+          FloorCodec.encode(const TxStart(peer: 'BRAVO-7')));
         await _flush();
         clockA.elapse(const Duration(milliseconds: 100));
         await _flush();
@@ -249,34 +221,27 @@ void main() {
         expect(host.current.meterLevel, isA<MeasuredMeterLevel>());
         expect(
           (host.current.meterLevel as MeasuredMeterLevel).value,
-          closeTo(60, 0.001),
-        );
+          closeTo(60, 0.001));
         expect(
           snapshots.any((s) => s.meterLevel is MeasuredMeterLevel),
           isTrue,
-          reason: '`changes` must have re-emitted on the meter-level update',
-        );
+          reason: '`changes` must have re-emitted on the meter-level update');
 
         adapterA.connectionsCreated.single.dataChannel!.deliver(
-          FloorCodec.encode(const TxEnd(peer: 'BRAVO-7')),
-        );
+          FloorCodec.encode(const TxEnd(peer: 'BRAVO-7')));
         await _flush();
         expect(host.current.meterLevel, MeterLevel.decorative);
 
         await sub.cancel();
-      },
-    );
+      });
 
     test('dispose cancels the meter-level subscription cleanly', () async {
       adapterA.connectionsCreated.single.deliverRemoteAudioTrack(
         RtcRemoteAudioTrack(
           id: 'bravo-remote',
-          readAudioLevel: () async => const RtcMeasuredAudioLevel(0.2),
-        ),
-      );
+          readAudioLevel: () async => const RtcMeasuredAudioLevel(0.2)));
       adapterA.connectionsCreated.single.dataChannel!.deliver(
-        FloorCodec.encode(const TxStart(peer: 'BRAVO-7')),
-      );
+        FloorCodec.encode(const TxStart(peer: 'BRAVO-7')));
       await _flush();
       clockA.elapse(const Duration(milliseconds: 100));
       await _flush();

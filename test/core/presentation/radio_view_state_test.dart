@@ -14,18 +14,15 @@ void main() {
         final view = RadioViewState.project(
           radioState: const RadioState(
             phase: RadioPhase.tx,
-            isEmergency: true,
-          ),
+            isEmergency: true),
           hostSnapshot: const RadioHostSnapshot(),
-          settings: const KeryxSettings(),
-        );
+          settings: const KeryxSettings());
 
         expect(view.phase, RadioPhase.tx);
         expect(view.emergency, isTrue);
         expect(view.phaseCue.label, 'Transmitting');
         expect(view.activeOverlayCues, contains(OverlayCues.emergency));
-      },
-    );
+      });
 
     test(
       'a denied flash does not override a currently granted TX '
@@ -34,18 +31,15 @@ void main() {
         final view = RadioViewState.project(
           radioState: const RadioState(
             phase: RadioPhase.tx,
-            isTransmitDenied: true,
-          ),
+            isTransmitDenied: true),
           hostSnapshot: const RadioHostSnapshot(),
-          settings: const KeryxSettings(),
-        );
+          settings: const KeryxSettings());
 
         expect(view.phase, RadioPhase.tx);
         expect(view.phaseCue.label, 'Transmitting');
         expect(view.deniedFlash, isTrue);
         expect(view.activeOverlayCues, contains(OverlayCues.deniedFlash));
-      },
-    );
+      });
 
     test(
       'a global connection error (linkDegraded) does not conceal an '
@@ -58,19 +52,14 @@ void main() {
         final view = RadioViewState.project(
           radioState: const RadioState(
             phase: RadioPhase.linkDegraded,
-            isNoLink: true,
-            mode: RadioMode.linked,
-          ),
+            isNoLink: true),
           hostSnapshot: const RadioHostSnapshot(),
-          settings: const KeryxSettings(mode: RadioMode.auto),
-        );
+          settings: const KeryxSettings());
 
         expect(view.phase, RadioPhase.linkDegraded);
         expect(view.connection.degraded, isTrue);
-        expect(view.connection.configuredMode, RadioMode.auto);
-        expect(view.connection.effectiveRoute, RadioMode.linked);
-      },
-    );
+        expect(view.connection.transport, Transport.none);
+      });
 
     test(
       'permission denied and service fault project independently of phase',
@@ -79,10 +68,8 @@ void main() {
           radioState: const RadioState(phase: RadioPhase.boot),
           hostSnapshot: const RadioHostSnapshot(
             micPermissionDenied: true,
-            serviceFaultMessage: 'SVC FAULT',
-          ),
-          settings: const KeryxSettings(),
-        );
+            serviceFaultMessage: 'SVC FAULT'),
+          settings: const KeryxSettings());
 
         expect(view.phase, RadioPhase.boot);
         expect(view.permissionDenied, isTrue);
@@ -92,18 +79,15 @@ void main() {
           containsAll([
             OverlayCues.permissionDenied,
             OverlayCues.serviceFault,
-          ]),
-        );
-      },
-    );
+          ]));
+      });
 
     test('latched is projected independently and does not alter phase', () {
       final view = RadioViewState.project(
         radioState: const RadioState(phase: RadioPhase.tx),
         hostSnapshot: const RadioHostSnapshot(),
         settings: const KeryxSettings(),
-        latched: true,
-      );
+        latched: true);
 
       expect(view.phase, RadioPhase.tx);
       expect(view.latched, isTrue);
@@ -117,11 +101,9 @@ void main() {
         final view = RadioViewState.project(
           radioState: const RadioState(
             phase: RadioPhase.tx,
-            isTotWarning: true,
-          ),
+            isTotWarning: true),
           hostSnapshot: const RadioHostSnapshot(),
-          settings: const KeryxSettings(),
-        );
+          settings: const KeryxSettings());
 
         expect(view.phase, RadioPhase.tx);
         expect(view.totWarning, isTrue);
@@ -131,8 +113,7 @@ void main() {
         expect(view.activeOverlayCues, contains(OverlayCues.totWarning));
         expect(OverlayCues.totWarning.label, isNotEmpty);
         expect(OverlayCues.totWarning.iconId, isNotEmpty);
-      },
-    );
+      });
 
     test(
       'totWarning is sourced from RadioState.isTotWarning, never '
@@ -141,56 +122,51 @@ void main() {
         final view = RadioViewState.project(
           radioState: const RadioState(
             phase: RadioPhase.tx,
-            isTotWarning: false,
-          ),
+            isTotWarning: false),
           hostSnapshot: const RadioHostSnapshot(),
-          settings: const KeryxSettings(),
-        );
+          settings: const KeryxSettings());
 
         expect(view.phase, RadioPhase.tx);
         expect(view.totWarning, isFalse);
         expect(view.activeOverlayCues, isNot(contains(OverlayCues.totWarning)));
-      },
-    );
+      });
   });
 
-  group('UX-FR-002 / Technical §7 — configured mode vs effective route', () {
-    test('configured AUTO does not imply the effective route is LINKED', () {
+  group('Technical §6.3 — transport vs degraded', () {
+    test('unresolved transport is Connecting, not a dual path', () {
       final view = RadioViewState.project(
-        radioState: const RadioState(
-          phase: RadioPhase.idle,
-          // Production code only ever dispatches a resolved local/linked
-          // value into this field (see
-          // `RadioSessionController._resolveEffectiveMode`) — never the
-          // raw AUTO preference. Spelled out explicitly here so the test
-          // does not rely on `RadioState`'s own default.
-          mode: RadioMode.local,
-        ),
+        radioState: const RadioState(phase: RadioPhase.idle),
         hostSnapshot: const RadioHostSnapshot(),
-        settings: const KeryxSettings(mode: RadioMode.auto),
+        settings: const KeryxSettings(),
       );
 
-      // Asserts the two fields are carried and compared independently —
-      // a configured AUTO preference must not be read back as "effective
-      // route is LINKED" (or any other specific route) just because it
-      // was the configured value.
-      expect(view.connection.configuredMode, RadioMode.auto);
-      expect(view.connection.effectiveRoute, RadioMode.local);
-      expect(view.connection.effectiveRoute, isNot(RadioMode.auto));
+      expect(view.connection.transport, Transport.none);
+      expect(view.connection.isResolved, isFalse);
+      expect(view.connection.routeLabel, 'Connecting');
     });
 
-    test('configured and effective can legitimately differ', () {
-      final view = RadioViewState.project(
+    test('direct and relay are distinct resolved paths', () {
+      final direct = RadioViewState.project(
         radioState: const RadioState(
           phase: RadioPhase.idle,
-          mode: RadioMode.local,
+          transport: Transport.direct,
         ),
         hostSnapshot: const RadioHostSnapshot(),
-        settings: const KeryxSettings(mode: RadioMode.linked),
+        settings: const KeryxSettings(),
+      );
+      final relay = RadioViewState.project(
+        radioState: const RadioState(
+          phase: RadioPhase.idle,
+          transport: Transport.relay,
+        ),
+        hostSnapshot: const RadioHostSnapshot(),
+        settings: const KeryxSettings(),
       );
 
-      expect(view.connection.configuredMode, RadioMode.linked);
-      expect(view.connection.effectiveRoute, RadioMode.local);
+      expect(direct.connection.transport, Transport.direct);
+      expect(relay.connection.transport, Transport.relay);
+      expect(direct.connection.routeLabel, 'Direct');
+      expect(relay.connection.routeLabel, 'Relay');
     });
   });
 
@@ -245,10 +221,8 @@ void main() {
         expect(designLabels, isNot(contains(OverlayCues.totWarning.label)));
         expect(
           RadioPhase.values.map((p) => p.cue.iconId),
-          isNot(contains(OverlayCues.totWarning.iconId)),
-        );
-      },
-    );
+          isNot(contains(OverlayCues.totWarning.iconId)));
+      });
 
     test(
       'a pending request never projects as granted TX — grant appears '
@@ -257,26 +231,21 @@ void main() {
         final view = RadioViewState.project(
           radioState: const RadioState(phase: RadioPhase.txRequest),
           hostSnapshot: const RadioHostSnapshot(),
-          settings: const KeryxSettings(),
-        );
+          settings: const KeryxSettings());
 
         expect(view.phase, isNot(RadioPhase.tx));
         expect(view.phaseCue.label, 'Requesting channel');
         expect(view.phaseCue.label, isNot('Transmitting'));
-      },
-    );
+      });
 
     test('receivingLabel resolves a known callsign, never a raw peer id', () {
       final view = RadioViewState.project(
         radioState: const RadioState(
           phase: RadioPhase.rxActive,
-          activeSpeaker: 'peer-1',
-        ),
+          activeSpeaker: 'peer-1'),
         hostSnapshot: const RadioHostSnapshot(
-          stations: [StationInfo(peerId: 'peer-1', callsign: 'ALPHA')],
-        ),
-        settings: const KeryxSettings(),
-      );
+          stations: [StationInfo(peerId: 'peer-1', callsign: 'ALPHA')]),
+        settings: const KeryxSettings());
 
       expect(view.receivingLabel, 'ALPHA speaking');
       expect(view.receivingLabel, isNot(contains('peer-1')));
@@ -289,23 +258,19 @@ void main() {
         final view = RadioViewState.project(
           radioState: const RadioState(
             phase: RadioPhase.rxActive,
-            activeSpeaker: 'peer-unknown',
-          ),
+            activeSpeaker: 'peer-unknown'),
           hostSnapshot: const RadioHostSnapshot(),
-          settings: const KeryxSettings(),
-        );
+          settings: const KeryxSettings());
 
         expect(view.receivingLabel, 'Someone is speaking');
         expect(view.receivingLabel, isNot(contains('peer-unknown')));
-      },
-    );
+      });
 
     test('receivingLabel is null when nobody holds the floor', () {
       final view = RadioViewState.project(
         radioState: const RadioState(phase: RadioPhase.idle),
         hostSnapshot: const RadioHostSnapshot(),
-        settings: const KeryxSettings(),
-      );
+        settings: const KeryxSettings());
 
       expect(view.receivingLabel, isNull);
     });
@@ -323,17 +288,13 @@ void main() {
               StationInfo(
                 peerId: 'peer-1',
                 callsign: 'ALPHA',
-                signalQuality: StationInfo.placeholderSignalQuality,
-              ),
-            ],
-          ),
-          settings: const KeryxSettings(),
-        );
+                signalQuality: StationInfo.placeholderSignalQuality),
+            ]),
+          settings: const KeryxSettings());
 
         expect(view.signalQuality, SignalQuality.unavailable);
         expect(view.signalQuality, isNot(isA<MeasuredSignalQuality>()));
-      },
-    );
+      });
 
     test(
       'an unknown/incomplete LINKED roster projects as unavailable, never '
@@ -341,32 +302,25 @@ void main() {
       () {
         final view = RadioViewState.project(
           radioState: const RadioState(
-            phase: RadioPhase.idle,
-            mode: RadioMode.linked,
-          ),
+            phase: RadioPhase.idle),
           hostSnapshot: const RadioHostSnapshot(stations: []),
-          settings: const KeryxSettings(mode: RadioMode.linked),
-        );
+          settings: const KeryxSettings());
 
         expect(view.rosterCount, isA<UnavailableRosterCount>());
         expect(view.rosterCount, isNot(const KnownRosterCount(0)));
-      },
-    );
+      });
 
     test('a verified LOCAL roster count is a known, not unavailable, count', () {
       final view = RadioViewState.project(
         radioState: const RadioState(
           phase: RadioPhase.idle,
-          mode: RadioMode.local,
-        ),
+          transport: Transport.direct),
         hostSnapshot: const RadioHostSnapshot(
           stations: [
             StationInfo(peerId: 'peer-1', callsign: 'ALPHA'),
             StationInfo(peerId: 'peer-2', callsign: 'BRAVO'),
-          ],
-        ),
-        settings: const KeryxSettings(mode: RadioMode.local),
-      );
+          ]),
+        settings: const KeryxSettings());
 
       expect(view.rosterCount, const KnownRosterCount(2));
     });
@@ -379,17 +333,14 @@ void main() {
           final view = RadioViewState.project(
             radioState: RadioState(phase: phase),
             hostSnapshot: const RadioHostSnapshot(),
-            settings: const KeryxSettings(),
-          );
+            settings: const KeryxSettings());
           expect(
             view.meterLevel,
             isA<DecorativeMeterLevel>(),
-            reason: 'phase $phase must not yield a measured meter level',
-          );
+            reason: 'phase $phase must not yield a measured meter level');
           expect(view.meterLevel, isNot(isA<MeasuredMeterLevel>()));
         }
-      },
-    );
+      });
 
     test(
       'TASK-079/ADR-002 A6: a real measured host sample projects as '
@@ -398,14 +349,11 @@ void main() {
         final view = RadioViewState.project(
           radioState: const RadioState(phase: RadioPhase.rxActive),
           hostSnapshot: const RadioHostSnapshot(
-            meterLevel: MeasuredMeterLevel(37),
-          ),
-          settings: const KeryxSettings(),
-        );
+            meterLevel: MeasuredMeterLevel(37)),
+          settings: const KeryxSettings());
 
         expect(view.meterLevel, const MeasuredMeterLevel(37));
-      },
-    );
+      });
 
     test(
       'TASK-079/ADR-002 A6: a stale/racing measured host sample outside '
@@ -416,34 +364,28 @@ void main() {
           final view = RadioViewState.project(
             radioState: RadioState(phase: phase),
             hostSnapshot: const RadioHostSnapshot(
-              meterLevel: MeasuredMeterLevel(80),
-            ),
-            settings: const KeryxSettings(),
-          );
+              meterLevel: MeasuredMeterLevel(80)),
+            settings: const KeryxSettings());
           expect(
             view.meterLevel,
             MeterLevel.decorative,
             reason:
                 'phase $phase must never surface a measured level even if '
-                'the host snapshot still carries a stale one',
-          );
+                'the host snapshot still carries a stale one');
         }
-      },
-    );
+      });
   });
 
   group('Technical §5.1 — projection purity', () {
     test('project() never mutates its RadioState/RadioHostSnapshot inputs', () {
       const radioState = RadioState(phase: RadioPhase.idle);
       const hostSnapshot = RadioHostSnapshot(
-        stations: [StationInfo(peerId: 'peer-1', callsign: 'ALPHA')],
-      );
+        stations: [StationInfo(peerId: 'peer-1', callsign: 'ALPHA')]);
 
       RadioViewState.project(
         radioState: radioState,
         hostSnapshot: hostSnapshot,
-        settings: const KeryxSettings(),
-      );
+        settings: const KeryxSettings());
 
       // Inputs are immutable value types; re-asserting equality to the
       // pre-call literal proves nothing was replaced/rebuilt via a
@@ -465,9 +407,6 @@ void main() {
         () {
           const base = RadioState(
             phase: RadioPhase.idle,
-            mode: RadioMode.local,
-            channel: 5,
-            privacyCode: 3,
             isNoLink: false,
             isEmergency: false,
             isPrivate: false,
@@ -480,14 +419,13 @@ void main() {
             stationCount: 1,
             activeSpeaker: 'peer-1',
             arbiterId: 'peer-1',
-            signalQuality: 5,
-          );
+            signalQuality: 5);
 
           final variants = <RadioState>[
             base.copyWith(phase: RadioPhase.tx),
-            base.copyWith(mode: RadioMode.linked),
-            base.copyWith(channel: 6),
-            base.copyWith(privacyCode: 4),
+            base.copyWith(roomId: 'r-a'),
+            base.copyWith(transport: Transport.relay),
+            base.copyWith(roomId: 'r-b'),
             base.copyWith(isNoLink: true),
             base.copyWith(isEmergency: true),
             base.copyWith(isPrivate: true),
@@ -510,14 +448,11 @@ void main() {
               reason:
                   '$variant unexpectedly compared equal to $base — this '
                   'would reopen the Technical §1.1 equality gap the '
-                  'dossier records as currently closed',
-            );
+                  'dossier records as currently closed');
             expect(variant.hashCode == base.hashCode, isFalse);
           }
-        },
-      );
-    },
-  );
+        });
+    });
 
   // v2 (Technical §6.3, TASK-088 re-scope note §6a): additive `target`/
   // `audience` coverage — every group above is unmodified.
@@ -529,13 +464,11 @@ void main() {
         final view = RadioViewState.project(
           radioState: const RadioState(phase: RadioPhase.idle),
           hostSnapshot: const RadioHostSnapshot(),
-          settings: const KeryxSettings(),
-        );
+          settings: const KeryxSettings());
 
         expect(view.target, isNull);
         expect(view.audience, AudienceState.everyoneReachable);
-      },
-    );
+      });
 
     test('projects a supplied target and computes audience from presence', () {
       const target = TalkTarget(
@@ -543,8 +476,7 @@ void main() {
         id: 'g1',
         name: 'Delta Group',
         roomId: 'room-d',
-        memberPeerIds: ['p1', 'p2'],
-      );
+        memberPeerIds: ['p1', 'p2']);
 
       final reachable = RadioViewState.project(
         radioState: const RadioState(phase: RadioPhase.idle),
@@ -554,8 +486,7 @@ void main() {
         presenceByPeerId: const {
           'p1': PeerPresence.online,
           'p2': PeerPresence.offline,
-        },
-      );
+        });
       expect(reachable.target, target);
       expect(reachable.audience.canHear, 1);
       expect(reachable.audience.reason, isNull);
@@ -568,8 +499,7 @@ void main() {
         presenceByPeerId: const {
           'p1': PeerPresence.offline,
           'p2': PeerPresence.offline,
-        },
-      );
+        });
       expect(unreachable.audience.canHear, 0);
       expect(unreachable.audience.reason, 'Nobody is listening');
     });
@@ -582,18 +512,15 @@ void main() {
           kind: TalkTargetKind.contact,
           id: 'p1',
           name: 'Echo',
-          roomId: 'room-e',
-        );
+          roomId: 'room-e');
         final view = RadioViewState.project(
           radioState: const RadioState(phase: RadioPhase.idle),
           hostSnapshot: const RadioHostSnapshot(),
           settings: const KeryxSettings(),
-          target: soloTarget,
-        );
+          target: soloTarget);
 
         expect(view.audience.canHear, 0);
         expect(view.audience.reason, 'Nobody is listening');
-      },
-    );
+      });
   });
 }

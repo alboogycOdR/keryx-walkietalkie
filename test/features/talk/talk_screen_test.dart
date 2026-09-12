@@ -42,8 +42,7 @@ FloorEngine _newEngine({String peerId = 'local'}) => FloorEngine(
   localPeerId: peerId,
   transport: _NullFloorTransport(),
   clock: const WallClock(),
-  tot: const Duration(seconds: 60),
-);
+  tot: const Duration(seconds: 60));
 
 /// v2 (TASK-092): the ring/status/latch harness below exercises the
 /// hold/latch/lifecycle safety logic (VT-010..015), which is target-
@@ -58,8 +57,7 @@ const _defaultTestTarget = TalkTarget(
   id: 'peer-1',
   name: 'Ben',
   roomId: 'room-1',
-  memberPeerIds: ['peer-1'],
-);
+  memberPeerIds: ['peer-1']);
 const _defaultTestPresence = <String, PeerPresence>{
   'peer-1': PeerPresence.online,
 };
@@ -89,8 +87,7 @@ void main() {
     container = ProviderContainer(
       overrides: <Override>[
         settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
-      ],
-    );
+      ]);
     addTearDown(container.dispose);
     final Widget talkScreen = TalkScreen(
       host: host,
@@ -105,15 +102,12 @@ void main() {
       onReplyToAlert: onReplyToAlert,
       onDismissAlert: onDismissAlert,
       target: target as TalkTarget?,
-      presenceByPeerId: presenceByPeerId,
-    );
+      presenceByPeerId: presenceByPeerId);
     return UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
         theme: keryxUxThemeData(brightness: brightness),
-        home: wrapHome == null ? talkScreen : wrapHome(talkScreen),
-      ),
-    );
+        home: wrapHome == null ? talkScreen : wrapHome(talkScreen)));
   }
 
   setUp(() {
@@ -162,23 +156,20 @@ void main() {
 
         expect(host.pressPttCalls, 0);
         final gesture = await tester.startGesture(
-          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-        );
+          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
         await tester.pump();
         expect(host.pressPttCalls, 1);
         expect(host.releasePttCalls, 0);
         // Not yet granted — the disc must not render the TX toggled state.
         final Semantics discSemantics = tester.widget<Semantics>(
-          find.byKey(const Key('keryx-talk-ptt-disc-semantics')),
-        );
+          find.byKey(const Key('keryx-talk-ptt-disc-semantics')));
         expect(discSemantics.properties.toggled, isNot(true));
 
         await gesture.up();
         await tester.pumpAndSettle();
         expect(host.releasePttCalls, 1);
         handle.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'a second, overlapping pointer on the disc causes no duplicate or '
@@ -186,8 +177,7 @@ void main() {
       (tester) async {
         await pumpReady(tester);
         final center = tester.getCenter(
-          find.byKey(const Key('keryx-talk-ptt-disc')),
-        );
+          find.byKey(const Key('keryx-talk-ptt-disc')));
         // Two genuinely distinct pointer identities, both routed by the
         // real `GestureBinding` (unlike a synthetic same-pointer replay,
         // which the framework itself would refuse to route a second time)
@@ -214,16 +204,13 @@ void main() {
         // released, must not send a second, stuck-looking release.
         expect(host.releasePttCalls, 1);
         expect(host.pressPttCalls, 1);
-      },
-    );
+      });
 
     testWidgets('a late grant after release causes no duplicate transmission', (
-      tester,
-    ) async {
+      tester) async {
       await pumpReady(tester);
       final gesture = await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-      );
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
       await tester.pump();
       await gesture.up();
       await tester.pump();
@@ -245,12 +232,10 @@ void main() {
 
   group('VT-012 — cancellation and disposal', () {
     testWidgets('pointer cancellation releases an ordinary hold safely', (
-      tester,
-    ) async {
+      tester) async {
       await pumpReady(tester);
       final gesture = await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-      );
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
       await tester.pump();
       await gesture.cancel();
       await tester.pump();
@@ -261,8 +246,7 @@ void main() {
         'latch', (tester) async {
       await pumpReady(tester);
       await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-      );
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
       await tester.pump();
       expect(host.pressPttCalls, 1);
       expect(host.releasePttCalls, 0);
@@ -276,29 +260,24 @@ void main() {
     testWidgets('permission loss mid-hold releases it safely', (tester) async {
       await pumpReady(tester);
       await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-      );
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
       await tester.pump();
       expect(host.pressPttCalls, 1);
 
       host.emit(
         RadioHostSnapshot(
           floorEngine: host.current.floorEngine,
-          micPermissionDenied: true,
-        ),
-      );
+          micPermissionDenied: true));
       await tester.pumpAndSettle();
       expect(host.releasePttCalls, 1);
     });
 
     testWidgets('engine replacement mid-hold releases it safely', (
-      tester,
-    ) async {
+      tester) async {
       final firstEngine = _newEngine();
       await pumpReady(tester, engine: firstEngine);
       await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-      );
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
       await tester.pump();
       expect(host.pressPttCalls, 1);
 
@@ -314,8 +293,7 @@ void main() {
       (tester) async {
         await pumpReady(tester);
         await tester.startGesture(
-          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-        );
+          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
         await tester.pump();
         container.read(radioStateProvider.notifier)
           ..dispatch(const PowerOn())
@@ -333,8 +311,7 @@ void main() {
         // unmounting a latched hold must not synthesize one either.
         expect(host.releasePttCalls, 0);
         expect(host.releaseLatchCalls, 0);
-      },
-    );
+      });
 
     testWidgets(
       'a deliberate latch survives route unmount and remains releasable '
@@ -342,8 +319,7 @@ void main() {
       (tester) async {
         await pumpReady(tester);
         await tester.startGesture(
-          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-        );
+          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
         await tester.pump();
         container.read(radioStateProvider.notifier)
           ..dispatch(const PowerOn())
@@ -377,11 +353,7 @@ void main() {
               home: TalkScreen(
                 host: host,
                 target: _defaultTestTarget,
-                presenceByPeerId: _defaultTestPresence,
-              ),
-            ),
-          ),
-        );
+                presenceByPeerId: _defaultTestPresence))));
         await tester.pumpAndSettle();
         expect(find.text('Transmission locked'), findsWidgets);
         expect(find.byKey(const Key('keryx-talk-unlatch')), findsOneWidget);
@@ -395,8 +367,7 @@ void main() {
         // Remounted State is not holding, so Lock must not reappear even
         // while the reducer is still in TX (TASK-074 latch-after-lift).
         expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
-      },
-    );
+      });
   });
 
   group(
@@ -406,8 +377,7 @@ void main() {
           'once', (tester) async {
         await pumpReady(tester);
         final gesture = await tester.startGesture(
-          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-        );
+          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
         await tester.pump();
         container.read(radioStateProvider.notifier)
           ..dispatch(const PowerOn())
@@ -437,8 +407,7 @@ void main() {
         (tester) async {
           await pumpReady(tester);
           final gesture = await tester.startGesture(
-            tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-          );
+            tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
           await tester.pump();
           container.read(radioStateProvider.notifier)
             ..dispatch(const PowerOn())
@@ -459,11 +428,9 @@ void main() {
           expect(find.text('Transmission locked'), findsNothing);
           expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
           final TalkPttRing ring = tester.widget<TalkPttRing>(
-            find.byType(TalkPttRing),
-          );
+            find.byType(TalkPttRing));
           expect(ring.treatment, isNot(TalkPttRingTreatment.latched));
-        },
-      );
+        });
 
       testWidgets(
         'latched TX then LinkDegraded calls releaseLatch once and drops the '
@@ -471,8 +438,7 @@ void main() {
         (tester) async {
           await pumpReady(tester);
           final gesture = await tester.startGesture(
-            tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-          );
+            tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
           await tester.pump();
           container.read(radioStateProvider.notifier)
             ..dispatch(const PowerOn())
@@ -496,11 +462,9 @@ void main() {
           expect(find.byKey(const Key('keryx-talk-unlatch')), findsNothing);
           expect(find.text('Transmission locked'), findsNothing);
           final TalkPttRing ring = tester.widget<TalkPttRing>(
-            find.byType(TalkPttRing),
-          );
+            find.byType(TalkPttRing));
           expect(ring.treatment, isNot(TalkPttRingTreatment.latched));
-        },
-      );
+        });
 
       testWidgets(
         'latched TX then EndTransmit calls releaseLatch at most once and '
@@ -508,8 +472,7 @@ void main() {
         (tester) async {
           await pumpReady(tester);
           final gesture = await tester.startGesture(
-            tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-          );
+            tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
           await tester.pump();
           container.read(radioStateProvider.notifier)
             ..dispatch(const PowerOn())
@@ -532,23 +495,19 @@ void main() {
           expect(host.releaseLatchCalls, 1);
           expect(find.text('Transmission locked'), findsNothing);
           expect(find.byKey(const Key('keryx-talk-unlatch')), findsNothing);
-        },
-      );
+        });
 
       testWidgets('the latch control is unavailable before a real grant', (
-        tester,
-      ) async {
+        tester) async {
         await pumpReady(tester);
         await tester.startGesture(
-          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-        );
+          tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
         await tester.pump();
         // Still only txRequest — never actually granted (ADR-002 A4: the lock
         // control is visible only while TX is granted, not merely disabled).
         expect(find.byKey(const Key('keryx-talk-latch')), findsNothing);
       });
-    },
-  );
+    });
 
   group('non-drag accessible alternative (ADR-002 A4)', () {
     // The visible "Start transmitting" button is gone (A4) — the non-drag
@@ -578,8 +537,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.space);
         await tester.pump();
         expect(host.releasePttCalls, 1);
-      },
-    );
+      });
 
     testWidgets(
       'the ring exposes a "Start transmitting"/"Stop transmitting" custom '
@@ -588,27 +546,21 @@ void main() {
         final handle = tester.ensureSemantics();
         await pumpReady(tester);
         final Semantics node = tester.widget<Semantics>(
-          find.byKey(const Key('keryx-talk-ptt-disc-semantics')),
-        );
+          find.byKey(const Key('keryx-talk-ptt-disc-semantics')));
         expect(
           node.properties.customSemanticsActions?.keys.map(
-            (CustomSemanticsAction a) => a.label,
-          ),
-          contains('Start transmitting'),
-        );
+            (CustomSemanticsAction a) => a.label),
+          contains('Start transmitting'));
         handle.dispose();
-      },
-    );
+      });
   });
 
   group('VT-010 — state matrix', () {
     testWidgets('a pending request never renders as granted TX', (
-      tester,
-    ) async {
+      tester) async {
       await pumpReady(tester);
       await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-      );
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
       await tester.pump();
       // A real `RadioHost.pressPtt()` forwards to `FloorEngine
       // .requestTransmit`, whose grant/deny effect the bridge dispatches
@@ -634,9 +586,7 @@ void main() {
           floorEngine: host.current.floorEngine,
           stations: const <StationInfo>[
             StationInfo(peerId: 'peer-77', callsign: 'ALPHA-1'),
-          ],
-        ),
-      );
+          ]));
       container.read(radioStateProvider.notifier)
         ..dispatch(const PowerOn())
         ..dispatch(const BootCompleted())
@@ -661,8 +611,7 @@ void main() {
     });
 
     testWidgets('a disconnected screen never shows the idle "Ready" copy', (
-      tester,
-    ) async {
+      tester) async {
       await pumpReady(tester);
       container.read(radioStateProvider.notifier)
         ..dispatch(const PowerOn())
@@ -711,8 +660,7 @@ void main() {
       // No PowerOn dispatched — phase stays RadioPhase.off.
       expect(find.text('Radio off'), findsWidgets);
       final TalkPttRing ring = tester.widget<TalkPttRing>(
-        find.byType(TalkPttRing),
-      );
+        find.byType(TalkPttRing));
       expect(ring.enabled, isFalse);
     });
 
@@ -727,11 +675,9 @@ void main() {
           ..dispatch(const BootCompleted());
         await tester.pumpAndSettle();
         final TalkPttRing ring = tester.widget<TalkPttRing>(
-          find.byType(TalkPttRing),
-        );
+          find.byType(TalkPttRing));
         expect(ring.enabled, isFalse);
-      },
-    );
+      });
 
     testWidgets('permission-denied disables the PTT surface and shows the '
         'persistent overlay message', (tester) async {
@@ -740,8 +686,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Microphone required'), findsOneWidget);
       final TalkPttRing ring = tester.widget<TalkPttRing>(
-        find.byType(TalkPttRing),
-      );
+        find.byType(TalkPttRing));
       expect(ring.enabled, isFalse);
     });
   });
@@ -761,9 +706,7 @@ void main() {
     Icon overlayIcon(WidgetTester tester, String iconId) => tester.widget<Icon>(
       find.descendant(
         of: find.byKey(Key('keryx-talk-overlay-$iconId')),
-        matching: find.byType(Icon),
-      ),
-    );
+        matching: find.byType(Icon)));
 
     testWidgets('Off: neutral treatment, PTT disabled', (tester) async {
       final engine = _newEngine();
@@ -793,8 +736,7 @@ void main() {
     });
 
     testWidgets('Ready: accent treatment, enabled, full idle copy', (
-      tester,
-    ) async {
+      tester) async {
       await pumpReady(tester);
       final tokens = KeryxUxTokens.dark;
       final ring = ringWidget(tester);
@@ -860,12 +802,10 @@ void main() {
     });
 
     testWidgets('Latched: latched treatment (lock badge), red colour', (
-      tester,
-    ) async {
+      tester) async {
       await pumpReady(tester);
       await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-      );
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
       await tester.pump();
       container.read(radioStateProvider.notifier)
         ..dispatch(const RequestTransmit())
@@ -907,8 +847,7 @@ void main() {
     });
 
     testWidgets('No link: neutral treatment on the PTT ring too', (
-      tester,
-    ) async {
+      tester) async {
       await pumpReady(tester);
       container
           .read(radioStateProvider.notifier)
@@ -936,8 +875,7 @@ void main() {
     });
 
     testWidgets('Permission denied: neutral treatment on the PTT ring too', (
-      tester,
-    ) async {
+      tester) async {
       host.emit(const RadioHostSnapshot(micPermissionDenied: true));
       await tester.pumpWidget(build());
       await tester.pumpAndSettle();
@@ -948,8 +886,7 @@ void main() {
     });
 
     testWidgets('Denied/busy overlay: amber block icon and colour', (
-      tester,
-    ) async {
+      tester) async {
       await pumpReady(tester);
       container.read(radioStateProvider.notifier)
         ..dispatch(const RequestTransmit())
@@ -965,8 +902,7 @@ void main() {
     testWidgets('Latched overlay: red lock icon and colour', (tester) async {
       await pumpReady(tester);
       await tester.startGesture(
-        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))),
-      );
+        tester.getCenter(find.byKey(const Key('keryx-talk-ptt-disc'))));
       await tester.pump();
       container.read(radioStateProvider.notifier)
         ..dispatch(const RequestTransmit())
@@ -995,8 +931,7 @@ void main() {
     });
 
     testWidgets('Permission denied overlay: mic-off icon and colour', (
-      tester,
-    ) async {
+      tester) async {
       host.emit(const RadioHostSnapshot(micPermissionDenied: true));
       await tester.pumpWidget(build());
       await tester.pumpAndSettle();
@@ -1011,9 +946,7 @@ void main() {
       host.emit(
         RadioHostSnapshot(
           floorEngine: engine,
-          serviceFaultMessage: 'Background service unavailable',
-        ),
-      );
+          serviceFaultMessage: 'Background service unavailable'));
       await tester.pumpWidget(build());
       await tester.pumpAndSettle();
       engine.dispose();
@@ -1040,7 +973,7 @@ void main() {
       container.read(radioStateProvider.notifier)
         ..dispatch(const PowerOn())
         ..dispatch(const BootCompleted())
-        ..dispatch(const SetMode(RadioMode.linked));
+        ..dispatch(const SetTransport(Transport.relay));
       await tester.pumpAndSettle();
       for (final forbidden in const [
         'Route',
@@ -1054,16 +987,13 @@ void main() {
         expect(
           find.textContaining(forbidden, findRichText: true),
           findsNothing,
-          reason: 'found forbidden v1 route/channel copy: $forbidden',
-        );
+          reason: 'found forbidden v1 route/channel copy: $forbidden');
       }
-    },
-  );
+    });
 
   group('sizing', () {
     testWidgets('the PTT disc meets the 96 dp minimum primary dimension', (
-      tester,
-    ) async {
+      tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 640));
       await pumpReady(tester);
       final size = tester.getSize(find.byKey(const Key('keryx-talk-ptt-disc')));
@@ -1101,11 +1031,9 @@ void main() {
         // it — not merely rendered off-screen and inaccessible.
         await tester.scrollUntilVisible(
           find.byKey(const Key('keryx-talk-ptt-disc')),
-          200,
-        );
+          200);
         expect(find.byKey(const Key('keryx-talk-ptt-disc')), findsOneWidget);
-      },
-    );
+      });
 
     testWidgets(
       'TASK-057: content renders without overflow in landscape at a small '
@@ -1115,8 +1043,7 @@ void main() {
         await pumpReady(tester);
         expect(tester.takeException(), isNull);
         addTearDown(() => tester.binding.setSurfaceSize(null));
-      },
-    );
+      });
 
     testWidgets(
       'TASK-074: at 360x640 dp and text scale 1.0, the channel card, PTT '
@@ -1147,11 +1074,9 @@ void main() {
             isTrue,
             reason:
                 '$key rect $rect not fully within viewport $viewport '
-                '(without scrolling)',
-          );
+                '(without scrolling)');
         }
-      },
-    );
+      });
   });
 
   group('TASK-057 round 2 — responsive matrix + rendered guidelines', () {
@@ -1204,16 +1129,13 @@ void main() {
         await tester.pumpWidget(
           build(
             onOpenTargetDetail: () => detailTaps++,
-            wrapHome: wrapWithExtraHeaderPadding,
-          ),
-        );
+            wrapHome: wrapWithExtraHeaderPadding));
         await tester.pumpAndSettle();
 
         await tester.tap(find.byKey(const Key('keryx-talk-target-detail')));
         await tester.pump();
         expect(detailTaps, 1);
-      },
-    );
+      });
 
     testWidgets(
       'a null onOpenTargetDetail renders the chevron disabled rather than '
@@ -1223,11 +1145,9 @@ void main() {
         await tester.pumpAndSettle();
 
         final IconButton detail = tester.widget<IconButton>(
-          find.byKey(const Key('keryx-talk-target-detail')),
-        );
+          find.byKey(const Key('keryx-talk-target-detail')));
         expect(detail.onPressed, isNull);
-      },
-    );
+      });
 
     testWidgets(
       'no-target state: onAddContact/onCreateGroup fire from a real tap',
@@ -1238,9 +1158,7 @@ void main() {
           build(
             target: null,
             onAddContact: () => addTaps++,
-            onCreateGroup: () => createTaps++,
-          ),
-        );
+            onCreateGroup: () => createTaps++));
         await tester.pumpAndSettle();
 
         // The no-target card shares the `keryx-talk-channel-card` key with
@@ -1255,8 +1173,7 @@ void main() {
         // that don't pass a target yet still need Talk's PTT surface).
         expect(
           find.byKey(const Key('keryx-talk-ptt-cluster')),
-          findsOneWidget,
-        );
+          findsOneWidget);
 
         await tester.tap(find.byKey(const Key('keryx-talk-add-contact')));
         await tester.pump();
@@ -1264,8 +1181,7 @@ void main() {
         await tester.pump();
         expect(addTaps, 1);
         expect(createTaps, 1);
-      },
-    );
+      });
 
     testWidgets(
       'a null onAddContact/onCreateGroup renders the no-target buttons '
@@ -1275,15 +1191,12 @@ void main() {
         await tester.pumpAndSettle();
 
         final FilledButton addContact = tester.widget<FilledButton>(
-          find.byKey(const Key('keryx-talk-add-contact')),
-        );
+          find.byKey(const Key('keryx-talk-add-contact')));
         final OutlinedButton createGroup = tester.widget<OutlinedButton>(
-          find.byKey(const Key('keryx-talk-create-group')),
-        );
+          find.byKey(const Key('keryx-talk-create-group')));
         expect(addContact.onPressed, isNull);
         expect(createGroup.onPressed, isNull);
-      },
-    );
+      });
   });
 
   group('ADR-002 A7 — denied flash expiry, copy, PTT centring', () {
@@ -1311,8 +1224,7 @@ void main() {
     });
 
     testWidgets('a second refusal after expiry shows the flash again', (
-      tester,
-    ) async {
+      tester) async {
       await pumpReady(tester);
       container
           .read(radioStateProvider.notifier)
@@ -1359,36 +1271,31 @@ void main() {
       (tester) async {
         await pumpReady(tester);
         container.read(radioStateProvider.notifier)
-          ..dispatch(const SetMode(RadioMode.local))
+          ..dispatch(const SetTransport(Transport.direct))
           ..dispatch(const TransmitDeniedIndicated());
         await pumpFlashFrame(tester);
         expect(
           find.text(TalkCopy.someoneAlreadyTransmitting),
-          findsWidgets,
-        );
+          findsWidgets);
         expect(
           tester
               .widget<Text>(find.byKey(const Key('keryx-talk-status-line')))
               .data,
-          TalkCopy.someoneAlreadyTransmitting,
-        );
+          TalkCopy.someoneAlreadyTransmitting);
 
         host.emit(
           RadioHostSnapshot(
             floorEngine: host.current.floorEngine,
             stations: const <StationInfo>[
               StationInfo(peerId: 'peer-2', callsign: 'BRAVO-2'),
-            ],
-          ),
-        );
+            ]));
         await tester.pump(const Duration(milliseconds: 1600));
         container.read(radioStateProvider.notifier)
           ..dispatch(const RequestTransmit())
           ..dispatch(const TransmitDenied());
         await pumpFlashFrame(tester);
         expect(find.text(TalkCopy.someoneAlreadyTransmitting), findsWidgets);
-      },
-    );
+      });
 
     testWidgets(
       'at 360×640 text scale 1.0 the PTT is centred in the space below '
@@ -1403,14 +1310,11 @@ void main() {
         await pumpReady(tester);
 
         final Rect card = tester.getRect(
-          find.byKey(const Key('keryx-talk-channel-card')),
-        );
+          find.byKey(const Key('keryx-talk-channel-card')));
         final Rect ring = tester.getRect(
-          find.byKey(const Key('keryx-talk-ptt-disc')),
-        );
+          find.byKey(const Key('keryx-talk-ptt-disc')));
         final Rect status = tester.getRect(
-          find.byKey(const Key('keryx-talk-status-line')),
-        );
+          find.byKey(const Key('keryx-talk-status-line')));
         final Size viewport = tester.getSize(find.byType(TalkScreen));
 
         expect(card.top, greaterThanOrEqualTo(-0.5));
@@ -1426,10 +1330,8 @@ void main() {
           lessThanOrEqualTo(viewport.height * 0.10),
           reason:
               'PTT centre ${ring.center.dy} vs remaining mid $remainingMid '
-              '(card.bottom=${card.bottom}, viewport=${viewport.height})',
-        );
-      },
-    );
+              '(card.bottom=${card.bottom}, viewport=${viewport.height})');
+      });
 
     testWidgets(
       '320×568 @ 2.0 and landscape 640×360: PTT reachable, no overflow',
@@ -1441,8 +1343,7 @@ void main() {
           await pumpReady(tester);
           expect(tester.takeException(), isNull);
           await tester.ensureVisible(
-            find.byKey(const Key('keryx-talk-ptt-disc')),
-          );
+            find.byKey(const Key('keryx-talk-ptt-disc')));
           expect(find.byKey(const Key('keryx-talk-ptt-disc')), findsOneWidget);
           expect(tester.takeException(), isNull);
         }
@@ -1453,8 +1354,7 @@ void main() {
         await check(const Size(320, 568), 2.0);
         tester.platformDispatcher.clearTextScaleFactorTestValue();
         await check(const Size(640, 360), 1.0);
-      },
-    );
+      });
   });
 
   group('V2-FR-041/044 — audience-aware ready ring, honest lone-press '
@@ -1464,8 +1364,7 @@ void main() {
       id: 'peer-2',
       name: 'Ben',
       roomId: 'room-2',
-      memberPeerIds: ['peer-2'],
-    );
+      memberPeerIds: ['peer-2']);
 
     testWidgets(
       'canHear == 0: neutral ring with the audience reason as the status '
@@ -1476,9 +1375,7 @@ void main() {
         await tester.pumpWidget(
           build(
             target: soloTarget,
-            presenceByPeerId: const {'peer-2': PeerPresence.offline},
-          ),
-        );
+            presenceByPeerId: const {'peer-2': PeerPresence.offline}));
         await tester.pumpAndSettle();
         container.read(radioStateProvider.notifier)
           ..dispatch(const PowerOn())
@@ -1486,13 +1383,11 @@ void main() {
         await tester.pumpAndSettle();
 
         final TalkPttRing ring = tester.widget<TalkPttRing>(
-          find.byType(TalkPttRing),
-        );
+          find.byType(TalkPttRing));
         expect(ring.treatment, TalkPttRingTreatment.neutral);
         expect(find.text('Ben is offline'), findsWidgets);
         engine.dispose();
-      },
-    );
+      });
 
     testWidgets(
       'a press with nobody listening never calls press(), flashes for '
@@ -1502,9 +1397,7 @@ void main() {
         await tester.pumpWidget(
           build(
             target: soloTarget,
-            presenceByPeerId: const {'peer-2': PeerPresence.offline},
-          ),
-        );
+            presenceByPeerId: const {'peer-2': PeerPresence.offline}));
         host.emit(RadioHostSnapshot(floorEngine: engine));
         await tester.pumpAndSettle();
         container.read(radioStateProvider.notifier)
@@ -1516,28 +1409,23 @@ void main() {
         await tester.pump();
         expect(host.pressPttCalls, 0);
         final TalkPttRing flashing = tester.widget<TalkPttRing>(
-          find.byType(TalkPttRing),
-        );
+          find.byType(TalkPttRing));
         expect(flashing.treatment, TalkPttRingTreatment.deniedFlash);
         expect(find.text('Ben is offline'), findsWidgets);
 
         await tester.pump(const Duration(milliseconds: 1600));
         final TalkPttRing settled = tester.widget<TalkPttRing>(
-          find.byType(TalkPttRing),
-        );
+          find.byType(TalkPttRing));
         expect(settled.treatment, TalkPttRingTreatment.neutral);
         expect(host.pressPttCalls, 0);
         engine.dispose();
-      },
-    );
+      });
 
     testWidgets('canHear > 0 keeps the ready treatment (v1-equivalent)', (
-      tester,
-    ) async {
+      tester) async {
       await pumpReady(tester);
       final TalkPttRing ring = tester.widget<TalkPttRing>(
-        find.byType(TalkPttRing),
-      );
+        find.byType(TalkPttRing));
       expect(ring.treatment, TalkPttRingTreatment.ready);
     });
   });
@@ -1548,8 +1436,7 @@ void main() {
       id: 'peer-3',
       name: 'Ben',
       roomId: 'room-3',
-      memberPeerIds: ['peer-3'],
-    );
+      memberPeerIds: ['peer-3']);
 
     testWidgets(
       'shows the exact DND headline and an Alert control that forwards '
@@ -1562,9 +1449,7 @@ void main() {
           build(
             target: dndTarget,
             presenceByPeerId: const {'peer-3': PeerPresence.dnd},
-            onAlertTarget: () => alertTaps++,
-          ),
-        );
+            onAlertTarget: () => alertTaps++));
         await tester.pumpAndSettle();
         container.read(radioStateProvider.notifier)
           ..dispatch(const PowerOn())
@@ -1574,25 +1459,20 @@ void main() {
         await tester.tap(find.byKey(const Key('keryx-talk-alert-target')));
         expect(alertTaps, 1);
         engine.dispose();
-      },
-    );
+      });
   });
 
   group('Design §4 "Alert received" banner', () {
     testWidgets('renders the sender and Reply forwards the alert', (
-      tester,
-    ) async {
+      tester) async {
       final alert = TalkAlert(
         senderLabel: 'BEN·4R2M',
-        receivedAt: DateTime(2026),
-      );
+        receivedAt: DateTime(2026));
       TalkAlert? replied;
       await tester.pumpWidget(
         build(
           pendingAlert: alert,
-          onReplyToAlert: (a) => replied = a,
-        ),
-      );
+          onReplyToAlert: (a) => replied = a));
       await tester.pumpAndSettle();
       expect(find.text('BEN·4R2M alerted you'), findsOneWidget);
       await tester.tap(find.byKey(const Key('keryx-talk-alert-reply')));
@@ -1600,16 +1480,13 @@ void main() {
     });
 
     testWidgets('auto-dismisses via onDismissAlert after 10s', (
-      tester,
-    ) async {
+      tester) async {
       var dismissed = 0;
       final alert = TalkAlert(
         senderLabel: 'BEN·4R2M',
-        receivedAt: DateTime(2026),
-      );
+        receivedAt: DateTime(2026));
       await tester.pumpWidget(
-        build(pendingAlert: alert, onDismissAlert: () => dismissed++),
-      );
+        build(pendingAlert: alert, onDismissAlert: () => dismissed++));
       await tester.pump();
       await tester.pump(const Duration(seconds: 10));
       expect(dismissed, 1);

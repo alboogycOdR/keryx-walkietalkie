@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:keryx/core/floor/floor.dart';
 import 'package:keryx/core/rooms/rooms.dart';
@@ -94,8 +96,28 @@ class LinkedController {
     required bool forceLocalOnly,
   }) async {
     _guardForceLocalOnly(forceLocalOnly);
-    final roomId = deriveNumbered(region: region, channel: channel, code: code);
+    final roomId = _legacyNumberedRoomId(
+      region: region,
+      channel: channel,
+      code: code,
+    );
     await _join(roomId, eventToken);
+  }
+
+  /// Kept so unowned `linked_controller_test` can still call [joinNumbered].
+  /// Formula matches the deleted `deriveNumbered` (HMAC-SHA256 of
+  /// `region|ch|code`). New production joins use [joinRoomId].
+  String _legacyNumberedRoomId({
+    required String region,
+    required int channel,
+    required int code,
+  }) {
+    final message = utf8.encode(
+      '${region.trim()}|${channel.toString().padLeft(2, '0')}|'
+      '${code.toString().padLeft(2, '0')}',
+    );
+    final digest = Hmac(sha256, utf8.encode(keryxContext)).convert(message);
+    return encodeRfc4648Base32(digest.bytes).substring(0, roomIdLength);
   }
 
   /// Join by keyed passphrase (FR-043). `deriveKeyed` is ~1–3s of

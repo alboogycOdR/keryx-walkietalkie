@@ -72,8 +72,6 @@ class RadioStateBridge {
           BootCompleted() ||
           BeginTuning() ||
           FinishTuning() ||
-          TuneTo() ||
-          SetMode() ||
           RequestTransmit() ||
           TransmitDenied() ||
           LinkDegraded() ||

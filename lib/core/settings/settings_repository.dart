@@ -15,17 +15,16 @@ class SettingsRepository {
   SettingsRepository(this._store);
 
   static const storageKey = 'keryx.settings.v1';
-  static const channelMemoryCapacity = SettingsMemoryCap.channelMemoryCapacity;
 
   final SettingsStore _store;
   final StreamController<KeryxSettings> _changes =
       StreamController<KeryxSettings>.broadcast();
 
-  /// Completes in FIFO order so overlapping [save]/[rememberChannel]
-  /// calls cannot lose an update (TS §6.2: 12 channel crossings/s).
+  /// Completes in FIFO order so overlapping [save] calls cannot lose an
+  /// update.
   Future<void> _writeChain = Future<void>.value();
 
-  /// Emits after every successful [save] or [rememberChannel].
+  /// Emits after every successful [save].
   Stream<KeryxSettings> get changes => _changes.stream;
 
   Future<KeryxSettings> load() async {
@@ -48,18 +47,6 @@ class SettingsRepository {
 
   Future<KeryxSettings> save(KeryxSettings settings) {
     return _serialized(() => _saveUnlocked(settings));
-  }
-
-  /// Records a tune at the head of quick recall, de-duplicating its prior slot.
-  Future<KeryxSettings> rememberChannel(TunedChannel channel) {
-    return _serialized(() async {
-      final current = await load();
-      final memory = [
-        channel,
-        ...current.channelMemory.where((entry) => entry != channel),
-      ].take(channelMemoryCapacity).toList(growable: false);
-      return _saveUnlocked(current.copyWith(channelMemory: memory));
-    });
   }
 
   void dispose() {
@@ -105,20 +92,6 @@ class SettingsRepository {
         'Must be ${KeryxSettings.totSecondsMin}–${KeryxSettings.totSecondsMax} seconds.',
       );
     }
-    if (settings.region.trim().isEmpty) {
-      throw ArgumentError.value(
-        settings.region,
-        'region',
-        'Must not be empty.',
-      );
-    }
-    if (settings.channelMemory.length > channelMemoryCapacity) {
-      throw ArgumentError.value(
-        settings.channelMemory,
-        'channelMemory',
-        'Maximum is six.',
-      );
-    }
     if (settings.voxSensitivity < KeryxSettings.voxSensitivityMin ||
         settings.voxSensitivity > KeryxSettings.voxSensitivityMax) {
       throw ArgumentError.value(
@@ -138,9 +111,8 @@ class SettingsRepository {
   }
 }
 
-/// Live settings. Re-emits after [SettingsRepository.save] and
-/// [SettingsRepository.rememberChannel] on the same repository instance,
-/// so watchers never hold a one-shot first-load snapshot.
+/// Live settings. Re-emits after [SettingsRepository.save] on the same
+/// repository instance, so watchers never hold a one-shot first-load snapshot.
 class SettingsController extends AsyncNotifier<KeryxSettings> {
   @override
   Future<KeryxSettings> build() {
@@ -154,10 +126,6 @@ class SettingsController extends AsyncNotifier<KeryxSettings> {
 
   Future<KeryxSettings> save(KeryxSettings settings) {
     return ref.read(settingsRepositoryProvider).save(settings);
-  }
-
-  Future<KeryxSettings> rememberChannel(TunedChannel channel) {
-    return ref.read(settingsRepositoryProvider).rememberChannel(channel);
   }
 }
 

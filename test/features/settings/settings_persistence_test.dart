@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
-import 'package:keryx/core/state/radio_state.dart';
+
 import 'package:keryx/features/settings/settings.dart';
 
 import '../../core/identity/memory_identity_store.dart';
@@ -31,8 +31,7 @@ void main() {
     final InMemorySettingsStore store = InMemorySettingsStore();
     await store.write(
       SettingsRepository.storageKey,
-      jsonEncode(legacySettingsBlob()),
-    );
+      jsonEncode(legacySettingsBlob()));
     final MemoryIdentityStore identityStore = MemoryIdentityStore(<String, String>{
       IdentityRepository.uuidKey: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
       IdentityRepository.callsignKey: 'BRAVO-7',
@@ -51,23 +50,16 @@ void main() {
     expect(loaded.latchMode, isTrue);
     expect(loaded.characterDspIntensity, CharacterDspIntensity.full);
     expect(loaded.forceLocalOnly, isTrue);
-    expect(loaded.region, 'za-cpt');
     expect(loaded.isPro, isTrue);
-    expect(loaded.channelMemory, <TunedChannel>[
-      const TunedChannel(channel: 7, privacyCode: 3),
-    ]);
     expect(loaded.relayUrl, 'wss://old.example/relay');
     expect(loaded.tokenServiceUrl, 'https://old.example/token');
-    // Missing keys default safely, they do not wipe the blob.
     expect(loaded.dimMode, DimMode.auto);
-    expect(loaded.mode, RadioMode.auto);
 
     final DeviceIdentity id = await identity.loadOrCreate();
     expect(id.callsign.value, 'BRAVO-7');
 
     await appearance.save(
-      const AppearancePreference(theme: AppearanceTheme.light),
-    );
+      const AppearancePreference(theme: AppearanceTheme.light));
     await repo.save(loaded.copyWith(dimMode: DimMode.manual));
 
     final KeryxSettings roundTrip = await repo.load();
@@ -78,9 +70,7 @@ void main() {
     expect(roundTrip.latchMode, isTrue);
     expect(roundTrip.characterDspIntensity, CharacterDspIntensity.full);
     expect(roundTrip.forceLocalOnly, isTrue);
-    expect(roundTrip.region, 'za-cpt');
     expect(roundTrip.isPro, isTrue);
-    expect(roundTrip.channelMemory, loaded.channelMemory);
     expect(roundTrip.relayUrl, 'wss://old.example/relay');
     expect(roundTrip.tokenServiceUrl, 'https://old.example/token');
     expect(roundTrip.dimMode, DimMode.manual);
@@ -91,8 +81,7 @@ void main() {
     // Settings JSON still has every legacy key — not a reduced object.
     final String? encoded = await store.read(SettingsRepository.storageKey);
     final Map<String, Object?> json = Map<String, Object?>.from(
-      jsonDecode(encoded!) as Map<dynamic, dynamic>,
-    );
+      jsonDecode(encoded!) as Map<dynamic, dynamic>);
     expect(
       json.keys,
       containsAll(<String>[
@@ -103,18 +92,14 @@ void main() {
         'latchMode',
         'characterDspIntensity',
         'forceLocalOnly',
-        'region',
         'isPro',
-        'channelMemory',
         'relayUrl',
         'tokenServiceUrl',
         'dimMode',
-      ]),
-    );
+      ]));
     expect(
       await store.read(AppearancePreference.storageKey),
-      isNot(SettingsRepository.storageKey),
-    );
+      isNot(SettingsRepository.storageKey));
   });
 
   test('invalid relay/token URLs are refused by the UI validator', () {

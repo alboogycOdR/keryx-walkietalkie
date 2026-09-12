@@ -7,8 +7,6 @@ import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
-import 'package:keryx/features/face/permission_gate.dart';
-import 'package:keryx/features/face/session_host.dart';
 import 'package:keryx/services/platform/platform.dart';
 import 'package:keryx/services/session/session.dart' show RadioSessionController;
 
@@ -42,8 +40,6 @@ final radioHostProvider = Provider<RadioHost>((ref) {
     loadSettings: () => ref.read(settingsProvider.future),
     dispatch: (event) => ref.read(radioStateProvider.notifier).dispatch(event),
     readRadioState: () => ref.read(radioStateProvider),
-    rememberChannel: (channel) =>
-        ref.read(settingsProvider.notifier).rememberChannel(channel),
     listenRadioState: (onChange, {bool fireImmediately = false}) {
       // `Ref.listen` (not `WidgetRef.listenManual` — this provider body
       // receives a plain `Ref`, which has no `listenManual`; `listen` is
@@ -81,16 +77,12 @@ SessionHost _defaultSessionFactory({
   required String callsign,
   required KeryxSettings settings,
   required void Function(RadioEvent event) dispatch,
-  required int initialChannel,
-  required int initialCode,
 }) => RadioSessionHostAdapter(
   RadioSessionController(
     localPeerId: localPeerId,
     callsign: callsign,
     settings: settings,
     dispatch: dispatch,
-    initialChannel: initialChannel,
-    initialCode: initialCode,
   ),
 );
 

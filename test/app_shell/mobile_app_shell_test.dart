@@ -72,15 +72,13 @@ void main() {
       expect(
         size.height,
         greaterThanOrEqualTo(KeryxUxSpacing.minTarget),
-        reason: '$label tab must meet the 48 dp target',
-      );
+        reason: '$label tab must meet the 48 dp target');
       expect(find.bySemanticsLabel(label), findsWidgets);
     }
   });
 
   testWidgets('the host is constructed and started exactly once on mount', (
-    tester,
-  ) async {
+    tester) async {
     givePhoneSurface(tester);
     await tester.pumpWidget(build());
     await tester.pumpAndSettle();
@@ -115,8 +113,7 @@ void main() {
       expect(host.startCalls, 1, reason: 'navigation must never re-start the host');
       expect(host.disposeCalls, 0, reason: 'navigation must never dispose the host');
       expect(host.tuneCalls, isEmpty, reason: 'navigation alone must never retune');
-    },
-  );
+    });
 
   testWidgets('re-tapping the active tab pops its branch to root '
       'without touching the host', (tester) async {
@@ -150,10 +147,8 @@ void main() {
         find.byKey(ShellKeys.talk),
         findsOneWidget,
         reason: 'a swipe must never be interpreted as a tab change — there '
-            'is no PageView/TabBarView anywhere in this shell',
-      );
-    },
-  );
+            'is no PageView/TabBarView anywhere in this shell');
+    });
 
   testWidgets(
     'system back on the Contacts tab root returns to Talk; on the Talk '
@@ -172,8 +167,7 @@ void main() {
         poppedFromContacts,
         isTrue,
         reason: 'the shell itself must intercept back on a non-Talk tab '
-            'root rather than letting it propagate to the platform',
-      );
+            'root rather than letting it propagate to the platform');
       expect(find.byKey(ShellKeys.talk), findsOneWidget);
 
       final bool poppedFromTalk = await tester.binding.handlePopRoute();
@@ -181,10 +175,8 @@ void main() {
       expect(
         poppedFromTalk,
         isFalse,
-        reason: 'back on the Talk root must fall through to the platform',
-      );
-    },
-  );
+        reason: 'back on the Talk root must fall through to the platform');
+    });
 
   testWidgets(
     'system back on the Groups tab root returns to Talk (TASK-077 rule '
@@ -201,13 +193,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(popped, isTrue);
       expect(find.byKey(ShellKeys.talk), findsOneWidget);
-    },
-  );
+    });
 
   testWidgets('overflow menu opens My code, Radio controls and Settings '
       'full-screen with back; returning keeps the current tab', (
-    tester,
-  ) async {
+    tester) async {
     givePhoneSurface(tester);
     await tester.pumpWidget(build());
     await tester.pumpAndSettle();
@@ -272,8 +262,7 @@ void main() {
 
       expect(host.startCalls, 1);
       expect(host.disposeCalls, 0);
-    },
-  );
+    });
 
   testWidgets(
     "KeryxUxTokens resolves non-null under the shell's real theme wiring "
@@ -287,8 +276,7 @@ void main() {
       final KeryxUxTokens? tokens = Theme.of(context).extension<KeryxUxTokens>();
       expect(tokens, isNotNull);
       expect(tokens!.brightness, Brightness.dark, reason: 'dark is the default theme (Design §3.1)');
-    },
-  );
+    });
 
   testWidgets('Talk header wires onAddContact/onCreateGroup to tab '
       'switches (Design §2.1 empty-state affordances)', (tester) async {
@@ -331,8 +319,7 @@ void main() {
         expect(
           source.contains(needle),
           isFalse,
-          reason: '$path must not import $needle (Technical §5.1)',
-        );
+          reason: '$path must not import $needle (Technical §5.1)');
       }
     }
   });
@@ -379,8 +366,7 @@ void main() {
                 'pending_in': <Object?>[],
                 'pending_out': <Object?>[],
                 'groups': <Object?>[],
-              },
-            );
+              });
           }
           return const DirectoryFakeResponse(statusCode: 200, body: <String, Object?>{});
         };
@@ -389,8 +375,7 @@ void main() {
         final container = directory.buildContainer(host: host);
         addTearDown(container.dispose);
         await tester.pumpWidget(
-          directory.pumpWithContainer(container: container, home: const MobileAppShell()),
-        );
+          directory.pumpWithContainer(container: container, home: const MobileAppShell()));
         for (var i = 0; i < 4; i++) {
           await tester.pump();
         }
@@ -425,10 +410,8 @@ void main() {
         expect(
           find.byKey(ShellKeys.talk),
           findsOneWidget,
-          reason: 'selecting a contact must switch the shell to Talk',
-        );
-      },
-    );
+          reason: 'selecting a contact must switch the shell to Talk');
+      });
 
     testWidgets('Groups tab renders the real GroupsListScreen once a '
         'directory backend is available', (tester) async {
@@ -445,8 +428,7 @@ void main() {
               'pending_in': <Object?>[],
               'pending_out': <Object?>[],
               'groups': <Object?>[],
-            },
-          );
+            });
         }
         return const DirectoryFakeResponse(statusCode: 200, body: <String, Object?>{});
       };
@@ -455,8 +437,7 @@ void main() {
       final container = directory.buildContainer(host: host);
       addTearDown(container.dispose);
       await tester.pumpWidget(
-        directory.pumpWithContainer(container: container, home: const MobileAppShell()),
-      );
+        directory.pumpWithContainer(container: container, home: const MobileAppShell()));
       // `GroupsController` refreshes from the server on construction — see
       // the contact-selection test's note on `runAsync` + real HTTP.
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));

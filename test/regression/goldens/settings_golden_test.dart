@@ -54,9 +54,7 @@ void main() {
     await settingsStore.write(
       AppearancePreference.storageKey,
       jsonEncode(
-        AppearancePreference(theme: appearanceTheme).toJson(),
-      ),
-    );
+        AppearancePreference(theme: appearanceTheme).toJson()));
 
     await tester.pumpWidget(
       ProviderScope(
@@ -67,17 +65,12 @@ void main() {
         child: MaterialApp(
           theme: keryxUxThemeData(brightness: brightness),
           home: SettingsScreen(
-            identityRepository: IdentityRepository(identityStore),
-          ),
-        ),
-      ),
-    );
+            identityRepository: IdentityRepository(identityStore)))));
     await tester.pumpAndSettle();
 
     await expectLater(
       find.byType(SettingsScreen),
-      matchesGoldenFile('goldens/settings_$name.png'),
-    );
+      matchesGoldenFile('goldens/settings_$name.png'));
   }
 
   for (final brightness in <Brightness>[Brightness.dark, Brightness.light]) {

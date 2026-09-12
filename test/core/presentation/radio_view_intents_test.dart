@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/presentation/presentation.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
-import 'package:keryx/features/event_qr/event_link.dart';
 
 /// Records every call it receives instead of doing anything — proves
 /// [RadioViewIntents] forwards exactly once, with exactly the given
@@ -26,13 +25,6 @@ class _RecordingRadioHost implements RadioHost {
     calls.add('powerOff');
   }
 
-  TuneResult tuneResult = const TuneResult.success();
-  @override
-  Future<TuneResult> tune(int channel, int code) async {
-    calls.add('tune($channel, $code)');
-    return tuneResult;
-  }
-
   KeryxSettings? appliedSettings;
   @override
   Future<void> applySettings(KeryxSettings settings) async {
@@ -40,12 +32,6 @@ class _RecordingRadioHost implements RadioHost {
     appliedSettings = settings;
   }
 
-  JoinResult joinResult = const JoinResult.success();
-  @override
-  Future<JoinResult> joinEvent(EventLinkPayload payload) async {
-    calls.add('joinEvent(${payload.roomId})');
-    return joinResult;
-  }
 
   @override
   void pressPtt() => calls.add('pressPtt');
@@ -86,14 +72,6 @@ void main() {
     expect(host.calls, ['releaseLatch']);
   });
 
-  test('tune() forwards channel/code and returns the host result verbatim', () async {
-    host.tuneResult = const TuneResult.validationFailure('bad code');
-    final result = await intents.tune(12, 7);
-
-    expect(host.calls, ['tune(12, 7)']);
-    expect(result.outcome, RadioHostOutcome.validationFailure);
-  });
-
   test('applySettings() forwards the exact settings instance', () async {
     const settings = KeryxSettings(squelchLevel: 8);
     await intents.applySettings(settings);
@@ -102,15 +80,6 @@ void main() {
     expect(host.appliedSettings, same(settings));
   });
 
-  test('joinEvent() forwards the payload and returns the host result verbatim', () async {
-    host.joinResult = const JoinResult.unavailableRoute('no LINKED session');
-    const payload = NumberedEventLink(region: 'global', channel: 4, code: 2);
-
-    final result = await intents.joinEvent(payload);
-
-    expect(host.calls, ['joinEvent(${payload.roomId})']);
-    expect(result.outcome, RadioHostOutcome.unavailableRoute);
-  });
 
   test(
     'RadioViewIntents never calls any RadioHost method other than the '
@@ -124,6 +93,5 @@ void main() {
       expect(host.calls, isNot(contains('start')));
       expect(host.calls, isNot(contains('powerOff')));
       expect(host.calls, isNot(contains('dispose')));
-    },
-  );
+    });
 }

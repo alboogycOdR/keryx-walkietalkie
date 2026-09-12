@@ -19,11 +19,8 @@ void main() {
       controller = RadioSessionController(
         localPeerId: 'ALFA-1',
         callsign: 'Alice',
-        settings: const KeryxSettings(mode: RadioMode.local),
-        dispatch: dispatched.add,
-        initialChannel: 1,
-        initialCode: 0,
-      );
+        settings: const KeryxSettings(),
+        dispatch: dispatched.add);
     });
 
     tearDown(() => controller.dispose());
@@ -37,8 +34,7 @@ void main() {
           id: 'p1',
           name: 'Bravo',
           roomId: 'v2-room-host',
-          memberPeerIds: ['BRAVO-7'],
-        );
+          memberPeerIds: ['BRAVO-7']);
 
         await controller.start();
         final host = RadioSessionHostV2(
@@ -53,8 +49,7 @@ void main() {
             calls.add('target');
             return target;
           },
-          sessionController: controller,
-        );
+          sessionController: controller);
 
         expect(host.isStarted, isFalse);
         await host.start();
@@ -62,8 +57,7 @@ void main() {
         expect(calls, ['identity', 'presence', 'target']);
         expect(host.isStarted, isTrue);
         expect(dispatched.whereType<SetRoom>().last.roomId, 'v2-room-host');
-      },
-    );
+      });
 
     test(
       'a null resolved target is a no-op (fresh install, no history)',
@@ -73,14 +67,12 @@ void main() {
           loadIdentity: () async => null,
           openPresenceSession: () async {},
           resolveCurrentTarget: () async => null,
-          sessionController: controller,
-        );
+          sessionController: controller);
 
         await host.start();
 
         expect(dispatched.whereType<SetRoom>(), isEmpty);
-      },
-    );
+      });
 
     test(
       'a second start() re-resolves the target without repeating identity/'
@@ -92,8 +84,7 @@ void main() {
           kind: TalkTargetKind.contact,
           id: 'p1',
           name: 'Bravo',
-          roomId: 'v2-room-a',
-        );
+          roomId: 'v2-room-a');
 
         await controller.start();
         final host = RadioSessionHostV2(
@@ -105,22 +96,19 @@ void main() {
             presenceCalls++;
           },
           resolveCurrentTarget: () async => currentTarget,
-          sessionController: controller,
-        );
+          sessionController: controller);
 
         await host.start();
         currentTarget = const TalkTarget(
           kind: TalkTargetKind.contact,
           id: 'p2',
           name: 'Charlie',
-          roomId: 'v2-room-b',
-        );
+          roomId: 'v2-room-b');
         await host.start();
 
         expect(identityCalls, 1);
         expect(presenceCalls, 1);
         expect(dispatched.whereType<SetRoom>().last.roomId, 'v2-room-b');
-      },
-    );
+      });
   });
 }

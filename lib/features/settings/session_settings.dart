@@ -12,23 +12,19 @@ import 'package:keryx/core/state/radio_state.dart'
 /// A drift here would either reconnect on a presentation-only toggle
 /// (VT-003 fail) or skip a real rebuild (stale session).
 bool sessionAffectingFieldsChanged(KeryxSettings a, KeryxSettings b) =>
-    a.mode != b.mode ||
     a.forceLocalOnly != b.forceLocalOnly ||
     a.relayUrl != b.relayUrl ||
     a.tokenServiceUrl != b.tokenServiceUrl ||
     a.totSeconds != b.totSeconds ||
-    a.busyLockout != b.busyLockout ||
-    a.region != b.region;
+    a.busyLockout != b.busyLockout;
 
 /// Fields whose apply rebuilds the communication session.
 const Set<String> sessionAffectingFieldNames = <String>{
-  'mode',
   'forceLocalOnly',
   'relayUrl',
   'tokenServiceUrl',
   'totSeconds',
   'busyLockout',
-  'region',
 };
 
 /// Whether applying settings now would tear down a live TX.

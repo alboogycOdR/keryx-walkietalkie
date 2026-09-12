@@ -5,8 +5,7 @@ import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/features/settings/settings.dart';
 
 RadioViewState view({
-  RadioMode configured = RadioMode.auto,
-  RadioMode effective = RadioMode.local,
+  Transport transport = Transport.direct,
   bool degraded = false,
   bool permissionDenied = false,
   String? serviceFaultMessage,
@@ -17,15 +16,11 @@ RadioViewState view({
     latched: false,
     deniedFlash: false,
     connection: ConnectionCondition(
-      configuredMode: configured,
-      effectiveRoute: effective,
+      transport: transport,
       degraded: degraded,
     ),
     permissionDenied: permissionDenied,
     serviceFaultMessage: serviceFaultMessage,
-    channel: 7,
-    privacyCode: 3,
-    pendingTuningTarget: null,
     activeSpeakerPeerId: null,
     activeSpeakerCallsign: null,
     stations: const [],
@@ -45,39 +40,27 @@ void main() {
     );
     final String all = [...about.summaryLines, ...about.detailLines].join('\n');
     expect(all, contains('1.0.0+1'));
-    expect(all, contains('Local only On'));
-    expect(all, contains('CH 07 · 03'));
+    expect(all, contains('This network only On'));
+    expect(all, contains('Active path Direct'));
     expect(all, isNot(contains('FloorEngine')));
     expect(all, isNot(contains('RadioSession')));
     expect(all, isNot(contains('Exception')));
     expect(all, isNot(contains('SVC FAULT')));
     expect(all, contains(SettingsCopy.serviceUnavailable));
+    expect(all.toUpperCase(), isNot(contains('LOCAL')));
+    expect(all.toUpperCase(), isNot(contains('LINKED')));
+    expect(all.toUpperCase(), isNot(contains('AUTO')));
+    expect(all.toLowerCase(), isNot(contains('channel')));
   });
 
-  test('unresolved effective route is Connecting, never AUTO; configured '
-      'AUTO is still named as a preference (Technical §7)', () {
+  test('unresolved path is Connecting', () {
     final AboutDiagnostics about = buildAboutDiagnostics(
-      view: view(configured: RadioMode.auto, effective: RadioMode.auto),
-      settings: const KeryxSettings(mode: RadioMode.auto),
+      view: view(transport: Transport.none),
+      settings: const KeryxSettings(),
       version: '1.0.0+1',
     );
     final String all = [...about.summaryLines, ...about.detailLines].join('\n');
-    expect(all, contains('Configured mode Auto'));
-    expect(all, contains('Effective route Connecting'));
-    expect(all, isNot(contains('Effective route Auto')));
-    expect(all, isNot(contains('Effective route AUTO')));
-  });
-
-  test('resolved LOCAL effective route matches configured-mode casing', () {
-    final AboutDiagnostics about = buildAboutDiagnostics(
-      view: view(configured: RadioMode.auto, effective: RadioMode.local),
-      settings: const KeryxSettings(mode: RadioMode.auto),
-      version: '1.0.0+1',
-    );
-    final String all = [...about.summaryLines, ...about.detailLines].join('\n');
-    expect(all, contains('Configured mode Auto'));
-    expect(all, contains('Effective route Local'));
-    expect(all, isNot(contains('Effective route LOCAL')));
+    expect(all, contains('Active path Connecting'));
   });
 
   test('sanitizeDiagnosticText strips exceptions and type names', () {

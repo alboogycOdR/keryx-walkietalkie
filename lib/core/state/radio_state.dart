@@ -11,24 +11,16 @@ enum RadioPhase {
   linkDegraded,
 }
 
-/// Routing preference selected by the user. AUTO is the product default.
-enum RadioMode { local, auto, linked }
-
-/// v2 (Technical §6.3/§7, TASK-088 re-scope note §6a): the transport(s)
-/// actually carrying audio for the current [RadioState.roomId], independent
-/// of the v1 [RadioMode]/[RadioState.mode] route. `none` before any v2
-/// target is selected; `both` when the LAN mesh and the relay room are
-/// simultaneously active for the same room (Technical §6.4's "AUTO bridge").
-/// Additive alongside [RadioMode] — v1 callers never see this value change.
+/// The transport(s) actually carrying audio for the current
+/// [RadioState.roomId] (Technical §6.3/§7). `none` before any v2 target is
+/// selected; `both` when the LAN mesh and the relay room are simultaneously
+/// active for the same room (Technical §6.4).
 enum Transport { none, direct, relay, both }
 
 /// Immutable state owned by [RadioReducer].
 class RadioState {
   const RadioState({
     required this.phase,
-    this.mode = RadioMode.auto,
-    this.channel = 1,
-    this.privacyCode = 0,
     this.isNoLink = false,
     this.isEmergency = false,
     this.isPrivate = false,
@@ -44,28 +36,17 @@ class RadioState {
     this.signalQuality = minimumSignalQuality,
     this.roomId,
     this.transport = Transport.none,
-  }) : assert(channel >= minimumChannel && channel <= maximumChannel),
-       assert(
-         privacyCode >= minimumPrivacyCode && privacyCode <= maximumPrivacyCode,
-       ),
-       assert(stationCount >= 0),
+  }) : assert(stationCount >= 0),
        assert(
          signalQuality >= minimumSignalQuality &&
              signalQuality <= maximumSignalQuality,
        );
 
-  static const int minimumChannel = 1;
-  static const int maximumChannel = 99;
-  static const int minimumPrivacyCode = 0;
-  static const int maximumPrivacyCode = 38;
   static const int minimumSignalQuality = 1;
   static const int maximumSignalQuality = 9;
 
   const RadioState.off()
     : phase = RadioPhase.off,
-      mode = RadioMode.auto,
-      channel = minimumChannel,
-      privacyCode = minimumPrivacyCode,
       isNoLink = false,
       isEmergency = false,
       isPrivate = false,
@@ -83,9 +64,6 @@ class RadioState {
       transport = Transport.none;
 
   final RadioPhase phase;
-  final RadioMode mode;
-  final int channel;
-  final int privacyCode;
   final bool isNoLink;
   final bool isEmergency;
   final bool isPrivate;
@@ -108,22 +86,15 @@ class RadioState {
   final String? arbiterId;
   final int signalQuality;
 
-  /// v2 (Technical §6a): the room ID a `RadioSessionController.switchTarget`
-  /// call is currently serving, or `null` before any v2 target has been
-  /// selected. Never derived from [channel]/[privacyCode] — a v2 session is
-  /// identified purely by [roomId].
+  /// The room ID a `RadioSessionController.switchTarget` call is currently
+  /// serving, or `null` before any v2 target has been selected.
   final String? roomId;
 
-  /// v2 (Technical §6a): which transport(s) are actually carrying audio for
-  /// [roomId]. Independent of [mode]/[Transport] naming collisions with
-  /// [RadioMode] — see [Transport]'s own dartdoc.
+  /// Which transport(s) are actually carrying audio for [roomId].
   final Transport transport;
 
   RadioState copyWith({
     RadioPhase? phase,
-    RadioMode? mode,
-    int? channel,
-    int? privacyCode,
     bool? isNoLink,
     bool? isEmergency,
     bool? isPrivate,
@@ -144,9 +115,6 @@ class RadioState {
     Transport? transport,
   }) => RadioState(
     phase: phase ?? this.phase,
-    mode: mode ?? this.mode,
-    channel: channel ?? this.channel,
-    privacyCode: privacyCode ?? this.privacyCode,
     isNoLink: isNoLink ?? this.isNoLink,
     isEmergency: isEmergency ?? this.isEmergency,
     isPrivate: isPrivate ?? this.isPrivate,
@@ -170,9 +138,6 @@ class RadioState {
   bool operator ==(Object other) =>
       other is RadioState &&
       phase == other.phase &&
-      mode == other.mode &&
-      channel == other.channel &&
-      privacyCode == other.privacyCode &&
       isNoLink == other.isNoLink &&
       isEmergency == other.isEmergency &&
       isPrivate == other.isPrivate &&
@@ -192,9 +157,6 @@ class RadioState {
   @override
   int get hashCode => Object.hashAll([
     phase,
-    mode,
-    channel,
-    privacyCode,
     isNoLink,
     isEmergency,
     isPrivate,
@@ -214,8 +176,7 @@ class RadioState {
 
   @override
   String toString() =>
-      'RadioState(phase: $phase, mode: $mode, channel: $channel, '
-      'privacyCode: $privacyCode, stationCount: $stationCount, '
+      'RadioState(phase: $phase, stationCount: $stationCount, '
       'activeSpeaker: $activeSpeaker, signalQuality: $signalQuality, '
       'isTotWarning: $isTotWarning, isTransmitDenied: $isTransmitDenied, '
       'roomId: $roomId, transport: $transport)';
@@ -246,21 +207,10 @@ class FinishTuning extends RadioEvent {
   const FinishTuning();
 }
 
-class TuneTo extends RadioEvent {
-  const TuneTo({required this.channel, required this.privacyCode});
-  final int channel;
-  final int privacyCode;
-}
-
-class SetMode extends RadioEvent {
-  const SetMode(this.mode);
-  final RadioMode mode;
-}
-
-/// v2 (Technical §6a): sets [RadioState.transport]. Accepted in any powered
-/// phase, mirroring [SetMode]'s own TASK-080 fix — session composition can
-/// resolve which transport(s) are active before the reducer reaches idle,
-/// and rejecting the event until idle would leave a stale value visible.
+/// Sets [RadioState.transport]. Accepted in any powered phase — session
+/// composition can resolve which transport(s) are active before the reducer
+/// reaches idle, and rejecting the event until idle would leave a stale
+/// value visible.
 class SetTransport extends RadioEvent {
   const SetTransport(this.transport);
   final Transport transport;
@@ -415,29 +365,6 @@ class RadioReducer {
         state.phase == RadioPhase.tuning
             ? state.copyWith(phase: RadioPhase.idle)
             : state,
-      TuneTo() =>
-        _isValidTuning(event)
-            ? state.copyWith(
-                channel: event.channel,
-                privacyCode: event.privacyCode,
-                isReplay:
-                    event.channel == state.channel &&
-                        event.privacyCode == state.privacyCode
-                    ? state.isReplay
-                    : false,
-              )
-            : state,
-      // A mode here is the concrete route selected by the session, not the
-      // user's AUTO preference. Session construction happens during boot,
-      // before BootCompleted makes the reducer idle, so rejecting it until
-      // idle leaves the default AUTO visible as a fictional active route.
-      // Route projection is safe in every powered phase; it has no floor or
-      // transport side effect. AUTO itself is never a concrete route.
-      SetMode() =>
-        state.phase != RadioPhase.off && event.mode != RadioMode.auto
-            ? state.copyWith(mode: event.mode)
-            : state,
-      // v2 (Technical §6a): same "any powered phase" acceptance as SetMode.
       SetTransport() =>
         state.phase != RadioPhase.off
             ? state.copyWith(transport: event.transport)
@@ -485,7 +412,9 @@ class RadioReducer {
         state.phase == RadioPhase.linkDegraded
             ? state.copyWith(
                 phase: RadioPhase.idle,
-                mode: event.useLocalFallback ? RadioMode.local : state.mode,
+                transport: event.useLocalFallback
+                    ? Transport.direct
+                    : state.transport,
                 isNoLink: false,
               )
             : state,
@@ -542,12 +471,6 @@ class RadioReducer {
     }
     return next;
   }
-
-  bool _isValidTuning(TuneTo event) =>
-      event.channel >= RadioState.minimumChannel &&
-      event.channel <= RadioState.maximumChannel &&
-      event.privacyCode >= RadioState.minimumPrivacyCode &&
-      event.privacyCode <= RadioState.maximumPrivacyCode;
 
   bool _isValidSignalQuality(int value) =>
       value >= RadioState.minimumSignalQuality &&

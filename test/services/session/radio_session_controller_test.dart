@@ -8,7 +8,6 @@ import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/protocol/protocol.dart';
 import 'package:keryx/core/settings/settings_model.dart';
 import 'package:keryx/core/state/radio_state.dart';
-import 'package:keryx/services/discovery/channel_hash_prefix.dart';
 import 'package:keryx/services/discovery/discovered_peer.dart';
 import 'package:keryx/services/discovery/discovery_config.dart';
 import 'package:keryx/services/discovery/discovery_service.dart';
@@ -78,18 +77,15 @@ void main() {
       dispatchedEvents = [];
 
       settingsLocal = const KeryxSettings(
-        region: 'US',
         squelchLevel: 5,
         totSeconds: 120,
         busyLockout: false,
         latchMode: false,
         forceLocalOnly: false,
-        mode: RadioMode.local,
         relayUrl: '',
         tokenServiceUrl: '',
         characterDspIntensity: CharacterDspIntensity.light,
-        dimMode: DimMode.auto,
-      );
+        dimMode: DimMode.auto);
     });
 
     // Criterion 2: Composed floor engine — verify engine exists and is accessible
@@ -99,10 +95,7 @@ void main() {
           localPeerId: 'ALFA-1',
           callsign: 'Alice',
           settings: settingsLocal,
-          dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-        );
+          dispatch: dispatchedEvents.add);
 
         await controller.start();
 
@@ -118,45 +111,34 @@ void main() {
           localPeerId: 'ALFA-1',
           callsign: 'Alice',
           settings: settingsLocal,
-          dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-        );
+          dispatch: dispatchedEvents.add);
 
         expect(() => controller.floorEngine, throwsStateError);
       });
     });
 
-    // Criterion 3: Mode matrix (8 cases)
-    group('mode matrix', () {
+    group('transport matrix', () {
       Future<void> testMode({
-        required RadioMode mode,
         required bool forceLocalOnly,
         required String relayUrl,
         required bool expectLocalBuilt,
       }) async {
         final settings = KeryxSettings(
-          region: 'US',
           squelchLevel: 5,
           totSeconds: 120,
           busyLockout: false,
           latchMode: false,
           forceLocalOnly: forceLocalOnly,
-          mode: mode,
           relayUrl: relayUrl,
           tokenServiceUrl: relayUrl.isEmpty ? '' : 'https://host/token-svc',
           characterDspIntensity: CharacterDspIntensity.light,
-          dimMode: DimMode.auto,
-        );
+          dimMode: DimMode.auto);
 
         final controller = RadioSessionController(
           localPeerId: 'ALFA-1',
           callsign: 'Alice',
           settings: settings,
-          dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-        );
+          dispatch: dispatchedEvents.add);
 
         await controller.start();
 
@@ -165,127 +147,102 @@ void main() {
           controller.debugMeshTransport != null,
           equals(expectLocalBuilt),
           reason:
-              'mode=$mode, forceLocalOnly=$forceLocalOnly, relayUrl=$relayUrl',
-        );
+              'forceLocalOnly=$forceLocalOnly, relayUrl=$relayUrl');
 
         // Criterion 3b: verify LINKED never built when forceLocalOnly=true
         if (forceLocalOnly) {
           expect(
             controller.debugLinkedController,
             isNull,
-            reason: 'forceLocalOnly=true must prevent LINKED construction',
-          );
+            reason: 'forceLocalOnly=true must prevent LINKED construction');
         }
 
         await controller.dispose();
       }
 
-      test('local mode → LOCAL only', () async {
+      test('no relay → direct only', () async {
         await testMode(
-          mode: RadioMode.local,
           forceLocalOnly: false,
-          relayUrl: 'wss://relay.example',
-          expectLocalBuilt: true,
-        );
+          relayUrl: '',
+          expectLocalBuilt: true);
       });
 
       test('local mode + forceLocalOnly → LOCAL only', () async {
         await testMode(
-          mode: RadioMode.local,
           forceLocalOnly: true,
           relayUrl: 'wss://relay.example',
-          expectLocalBuilt: true,
-        );
+          expectLocalBuilt: true);
       });
 
       test('auto mode + no relay → LOCAL only', () async {
         await testMode(
-          mode: RadioMode.auto,
           forceLocalOnly: false,
           relayUrl: '',
-          expectLocalBuilt: true,
-        );
+          expectLocalBuilt: true);
       });
 
       test('auto mode + no relay + forceLocalOnly → LOCAL only', () async {
         await testMode(
-          mode: RadioMode.auto,
           forceLocalOnly: true,
           relayUrl: '',
-          expectLocalBuilt: true,
-        );
+          expectLocalBuilt: true);
       });
 
       test('forceLocalOnly=true prevents LINKED even in linked mode', () async {
         await testMode(
-          mode: RadioMode.linked,
           forceLocalOnly: true,
           relayUrl: 'wss://relay.example',
-          expectLocalBuilt: true,
-        );
+          expectLocalBuilt: true);
       });
     });
 
-    // Criterion 4: SetMode dispatched on start
-    group('SetMode routing', () {
-      test('SetMode dispatched on successful start', () async {
+    group('SetTransport routing', () {
+      test('SetTransport dispatched on successful start', () async {
         dispatchedEvents.clear();
 
         final controller = RadioSessionController(
           localPeerId: 'ALFA-1',
           callsign: 'Alice',
           settings: settingsLocal,
-          dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-        );
+          dispatch: dispatchedEvents.add);
 
         await controller.start();
 
-        final setModes = dispatchedEvents.whereType<SetMode>().toList();
+        final setModes = dispatchedEvents.whereType<SetTransport>().toList();
         expect(
           setModes,
           isNotEmpty,
-          reason: 'SetMode must be dispatched on start',
-        );
-        expect(setModes.first.mode, equals(RadioMode.local));
+          reason: 'SetTransport must be dispatched on start');
+        expect(setModes.first.transport, equals(Transport.direct));
 
         await controller.dispose();
       });
 
-      test('SetMode reflects actual constructed mode', () async {
+      test('SetTransport reflects forceLocalOnly override', () async {
         dispatchedEvents.clear();
 
         final controller = RadioSessionController(
           localPeerId: 'ALFA-1',
           callsign: 'Alice',
           settings: const KeryxSettings(
-            region: 'US',
             squelchLevel: 5,
             totSeconds: 120,
             busyLockout: false,
             latchMode: false,
             forceLocalOnly: true,
-            mode: RadioMode.linked,
             relayUrl: 'wss://relay.example',
             tokenServiceUrl: 'https://relay.example/token-svc',
             characterDspIntensity: CharacterDspIntensity.light,
-            dimMode: DimMode.auto,
-          ),
-          dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-        );
+            dimMode: DimMode.auto),
+          dispatch: dispatchedEvents.add);
 
         await controller.start();
 
-        final setModes = dispatchedEvents.whereType<SetMode>().toList();
-        // Even though mode=linked in settings, forceLocalOnly forces LOCAL
+        final setModes = dispatchedEvents.whereType<SetTransport>().toList();
         expect(
-          setModes.last.mode,
-          equals(RadioMode.local),
-          reason: 'SetMode must reflect forceLocalOnly override',
-        );
+          setModes.last.transport,
+          equals(Transport.direct),
+          reason: 'SetTransport must reflect forceLocalOnly override');
 
         await controller.dispose();
       });
@@ -298,10 +255,7 @@ void main() {
           localPeerId: 'ALFA-1',
           callsign: 'Alice',
           settings: settingsLocal,
-          dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-        );
+          dispatch: dispatchedEvents.add);
 
         await controller.start();
 
@@ -319,10 +273,7 @@ void main() {
           localPeerId: 'ALFA-1',
           callsign: 'Alice',
           settings: settingsLocal,
-          dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-        );
+          dispatch: dispatchedEvents.add);
 
         await controller.start();
         await controller.dispose();
@@ -339,24 +290,19 @@ void main() {
           localPeerId: 'ALFA-1',
           callsign: 'Alice',
           settings: settingsLocal,
-          dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-        );
+          dispatch: dispatchedEvents.add);
 
         // start should complete
         await expectLater(
           controller.start(),
           completes,
-          reason: 'start() must complete',
-        );
+          reason: 'start() must complete');
 
         // dispose should complete
         await expectLater(
           controller.dispose(),
           completes,
-          reason: 'dispose() must complete',
-        );
+          reason: 'dispose() must complete');
       });
 
       test('retune rebuilds engine', () async {
@@ -364,10 +310,7 @@ void main() {
           localPeerId: 'ALFA-1',
           callsign: 'Alice',
           settings: settingsLocal,
-          dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-        );
+          dispatch: dispatchedEvents.add);
 
         await controller.start();
         final engine1 = controller.floorEngine;
@@ -376,7 +319,15 @@ void main() {
         expect(engine1, isNotNull);
         expect(engine1, isA<FloorEngine>());
 
-        await controller.retune(channel: 2, code: 5);
+        await controller.switchTarget(
+          const TalkTarget(
+            kind: TalkTargetKind.contact,
+            id: 'p2',
+            name: 'Peer',
+            roomId: 'ABCDEFGHIJKLMNOP',
+          ),
+          memberPeerIds: const [],
+        );
         final engine2 = controller.floorEngine;
 
         // Retune should create a new engine
@@ -392,10 +343,7 @@ void main() {
           localPeerId: 'ALFA-1',
           callsign: 'Alice',
           settings: settingsLocal,
-          dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-        );
+          dispatch: dispatchedEvents.add);
 
         await controller.start();
         await controller.dispose();
@@ -403,14 +351,20 @@ void main() {
         expect(
           () => controller.floorEngine,
           throwsStateError,
-          reason: 'floorEngine must throw after dispose',
-        );
+          reason: 'floorEngine must throw after dispose');
 
         expect(
-          () async => await controller.retune(channel: 2, code: 0),
+          () async => await controller.switchTarget(
+            const TalkTarget(
+              kind: TalkTargetKind.contact,
+              id: 'p2',
+              name: 'Peer',
+              roomId: 'ABCDEFGHIJKLMNOP',
+            ),
+            memberPeerIds: const [],
+          ),
           throwsStateError,
-          reason: 'retune() must throw after dispose',
-        );
+          reason: 'retune() must throw after dispose');
       });
     });
 
@@ -433,11 +387,7 @@ void main() {
       late FakeRtcAdapter adapterB;
       late RadioSessionController controllerA;
       late RadioSessionController controllerB;
-      final channelHashPrefix = ChannelHashPrefix.compute(
-        region: 'US',
-        channel: '1',
-        code: '0',
-      );
+      final channelHashPrefix = 'AAAAAAAA';
 
       RadioSessionController buildController({
         required String peerId,
@@ -451,13 +401,10 @@ void main() {
           callsign: callsign,
           settings: settingsLocal,
           dispatch: (RadioEvent event) {},
-          initialChannel: 1,
-          initialCode: 0,
           clock: clock,
           endpointFactory: hub.endpoint,
           discoveryFactory: _NoopDiscoveryService.new,
-          rtcAdapter: adapter,
-        );
+          rtcAdapter: adapter);
       }
 
       Future<void> joinPeers() async {
@@ -470,9 +417,7 @@ void main() {
             channelHashPrefix: channelHashPrefix,
             version: 1,
             host: '10.0.0.2',
-            port: sigB.boundPort,
-          ),
-        );
+            port: sigB.boundPort));
         sigB.onPeerFound(
           DiscoveredPeer(
             peerId: 'ALFA-1',
@@ -480,9 +425,7 @@ void main() {
             channelHashPrefix: channelHashPrefix,
             version: 1,
             host: '10.0.0.2',
-            port: sigA.boundPort,
-          ),
-        );
+            port: sigA.boundPort));
         await _flush();
       }
 
@@ -513,14 +456,12 @@ void main() {
           callsign: 'Alice',
           hub: sigHub,
           adapter: adapterA,
-          clock: clockA,
-        );
+          clock: clockA);
         controllerB = buildController(
           peerId: 'BRAVO-7',
           callsign: 'Bravo',
           hub: sigHub,
-          adapter: adapterB,
-        );
+          adapter: adapterB);
         await controllerA.start();
         await controllerB.start();
         await joinPeers();
@@ -542,9 +483,7 @@ void main() {
         adapterA.connectionsCreated.single.deliverRemoteAudioTrack(
           RtcRemoteAudioTrack(
             id: 'bravo-remote',
-            readAudioLevel: () async => RtcMeasuredAudioLevel(level),
-          ),
-        );
+            readAudioLevel: () async => RtcMeasuredAudioLevel(level)));
 
         final seen = <MeterLevel>[];
         final sub = controllerA.meterLevelChanges.listen(seen.add);
@@ -553,8 +492,7 @@ void main() {
         expect(
           controllerA.floorEngine.holder,
           'BRAVO-7',
-          reason: 'sanity: TxStart must have installed BRAVO-7 as holder',
-        );
+          reason: 'sanity: TxStart must have installed BRAVO-7 as holder');
         await _flush();
         // First poll tick fires 100ms after RemoteFloorStarted scheduled it.
         clockA.elapse(const Duration(milliseconds: 100));
@@ -563,12 +501,10 @@ void main() {
         expect(
           controllerA.meterLevel,
           isA<MeasuredMeterLevel>(),
-          reason: 'RemoteFloorStarted on A must begin polling BRAVO-7',
-        );
+          reason: 'RemoteFloorStarted on A must begin polling BRAVO-7');
         expect(
           (controllerA.meterLevel as MeasuredMeterLevel).value,
-          closeTo(10, 0.001),
-        );
+          closeTo(10, 0.001));
 
         // Advance one more poll tick with a different level to confirm
         // the ~10 Hz self-reschedule is actually live, not a one-shot.
@@ -577,8 +513,7 @@ void main() {
         await _flush();
         expect(
           (controllerA.meterLevel as MeasuredMeterLevel).value,
-          closeTo(50, 0.001),
-        );
+          closeTo(50, 0.001));
 
         deliverRemoteEnd('BRAVO-7');
         await _flush();
@@ -586,8 +521,7 @@ void main() {
         expect(
           controllerA.meterLevel,
           MeterLevel.decorative,
-          reason: 'RemoteFloorEnded must stop polling and go decorative',
-        );
+          reason: 'RemoteFloorEnded must stop polling and go decorative');
 
         // No leaked timer: further clock elapses must not resurrect a
         // measured value now that polling has stopped.
@@ -599,8 +533,7 @@ void main() {
         expect(
           seen.any((l) => l is MeasuredMeterLevel),
           isTrue,
-          reason: 'meterLevelChanges must have emitted the measured value',
-        );
+          reason: 'meterLevelChanges must have emitted the measured value');
         await sub.cancel();
       });
 
@@ -629,9 +562,7 @@ void main() {
                 return reads == 1
                     ? firstRead.future
                     : Future.value(const RtcMeasuredAudioLevel(0.4));
-              },
-            ),
-          );
+              }));
 
           deliverRemoteStart('BRAVO-7');
           clockA.elapse(const Duration(milliseconds: 100));
@@ -651,8 +582,7 @@ void main() {
           clockA.elapse(const Duration(milliseconds: 100));
           await _flush();
           expect(reads, 3, reason: 'there is exactly one poll per interval');
-        },
-      );
+        });
 
       test(
         'a throwing audio-level read stays decorative and polling continues',
@@ -667,9 +597,7 @@ void main() {
                   return Future<RtcAudioLevel>.error(StateError('closing'));
                 }
                 return Future.value(const RtcMeasuredAudioLevel(0.6));
-              },
-            ),
-          );
+              }));
 
           deliverRemoteStart('BRAVO-7');
           clockA.elapse(const Duration(milliseconds: 100));
@@ -681,18 +609,14 @@ void main() {
           expect(reads, 2);
           expect(
             (controllerA.meterLevel as MeasuredMeterLevel).value,
-            closeTo(60, 0.001),
-          );
-        },
-      );
+            closeTo(60, 0.001));
+        });
 
       test('retune stops polling and does not leak a timer', () async {
         adapterA.connectionsCreated.single.deliverRemoteAudioTrack(
           RtcRemoteAudioTrack(
             id: 'bravo-remote',
-            readAudioLevel: () async => const RtcMeasuredAudioLevel(0.3),
-          ),
-        );
+            readAudioLevel: () async => const RtcMeasuredAudioLevel(0.3)));
 
         deliverRemoteStart('BRAVO-7');
         await _flush();
@@ -700,7 +624,15 @@ void main() {
         await _flush();
         expect(controllerA.meterLevel, isA<MeasuredMeterLevel>());
 
-        await controllerA.retune(channel: 2, code: 0);
+        await controllerA.switchTarget(
+          const TalkTarget(
+            kind: TalkTargetKind.contact,
+            id: 'p2',
+            name: 'Peer',
+            roomId: 'ABCDEFGHIJKLMNOP',
+          ),
+          memberPeerIds: const [],
+        );
         await _flush();
 
         expect(controllerA.meterLevel, MeterLevel.decorative);
@@ -717,9 +649,7 @@ void main() {
         adapterA.connectionsCreated.single.deliverRemoteAudioTrack(
           RtcRemoteAudioTrack(
             id: 'bravo-remote',
-            readAudioLevel: () async => const RtcMeasuredAudioLevel(0.3),
-          ),
-        );
+            readAudioLevel: () async => const RtcMeasuredAudioLevel(0.3)));
         deliverRemoteStart('BRAVO-7');
         await _flush();
         clockA.elapse(const Duration(milliseconds: 100));
@@ -747,29 +677,23 @@ void main() {
             callsign: 'Alice',
             settings: settingsLocal,
             dispatch: dispatchedEvents.add,
-            initialChannel: 1,
-            initialCode: 0,
-            discoveryFactory: _NoopDiscoveryService.new,
-          );
+            discoveryFactory: _NoopDiscoveryService.new);
 
           await controller.start();
           dispatchedEvents.clear();
 
           final stationIds = <String>[];
           final sub = controller.stations.listen(
-            (list) => stationIds.addAll(list.map((s) => s.peerId)),
-          );
+            (list) => stationIds.addAll(list.map((s) => s.peerId)));
 
           const target = TalkTarget(
             kind: TalkTargetKind.group,
             id: 'g1',
             name: 'Golf Group',
-            roomId: 'v2-room-id-01',
-          );
+            roomId: 'v2-room-id-01');
           await controller.switchTarget(
             target,
-            memberPeerIds: const ['BRAVO-7', 'CHARLIE-9'],
-          );
+            memberPeerIds: const ['BRAVO-7', 'CHARLIE-9']);
 
           // Roster (self + members) is live before switchTarget returns —
           // no need to wait for a peer-joined stream (v1's discovery path).
@@ -778,16 +702,14 @@ void main() {
           expect(dispatchedEvents.whereType<SetRoom>().last.roomId, 'v2-room-id-01');
           expect(
             dispatchedEvents.whereType<SetTransport>().last.transport,
-            Transport.direct,
-          );
+            Transport.direct);
 
           await _flush();
           await sub.cancel();
           expect(stationIds, containsAll(['BRAVO-7', 'CHARLIE-9']));
 
           await controller.dispose();
-        },
-      );
+        });
 
       test('a solo target (no members) still updates the roster to size 1', () async {
         final controller = RadioSessionController(
@@ -795,18 +717,14 @@ void main() {
           callsign: 'Alice',
           settings: settingsLocal,
           dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-          discoveryFactory: _NoopDiscoveryService.new,
-        );
+          discoveryFactory: _NoopDiscoveryService.new);
         await controller.start();
 
         const soloTarget = TalkTarget(
           kind: TalkTargetKind.contact,
           id: 'p1',
           name: 'Hotel',
-          roomId: 'v2-room-id-02',
-        );
+          roomId: 'v2-room-id-02');
         await controller.switchTarget(soloTarget, memberPeerIds: const []);
 
         expect(dispatchedEvents.whereType<RosterUpdated>().last.stationCount, 1);
@@ -820,28 +738,40 @@ void main() {
           callsign: 'Alice',
           settings: settingsLocal,
           dispatch: dispatchedEvents.add,
-          initialChannel: 1,
-          initialCode: 0,
-          discoveryFactory: _NoopDiscoveryService.new,
-        );
+          discoveryFactory: _NoopDiscoveryService.new);
         await controller.start();
 
-        await controller.retune(channel: 9, code: 3);
+        await controller.switchTarget(
+          const TalkTarget(
+            kind: TalkTargetKind.contact,
+            id: 'p9',
+            name: 'Peer',
+            roomId: 'ABCDEFGHIJKLMNOP',
+          ),
+          memberPeerIds: const [],
+        );
         expect(controller.floorEngine, isNotNull);
 
         const target = TalkTarget(
           kind: TalkTargetKind.group,
           id: 'g2',
           name: 'India Group',
-          roomId: 'v2-room-id-03',
-        );
+          roomId: 'v2-room-id-03');
         dispatchedEvents.clear();
         await controller.switchTarget(target, memberPeerIds: const ['JULIET-2']);
         expect(dispatchedEvents.whereType<RosterUpdated>().last.stationCount, 2);
 
         // retune remains callable afterwards — switchTarget did not remove
         // or rename it.
-        await controller.retune(channel: 11, code: 4);
+        await controller.switchTarget(
+          const TalkTarget(
+            kind: TalkTargetKind.contact,
+            id: 'p11',
+            name: 'Peer',
+            roomId: 'PQRSTUVWXYZ23456',
+          ),
+          memberPeerIds: const [],
+        );
         expect(controller.floorEngine, isNotNull);
 
         await controller.dispose();

@@ -84,27 +84,11 @@ const List<SettingsInventoryEntry> settingsInventory =
         sessionAffecting: false,
       ),
       SettingsInventoryEntry(
-        legacyLabel: 'RADIO MODE',
-        legacySection: 'NETWORK',
-        newLabel: 'Radio mode',
-        newSection: 'Connectivity',
-        field: 'mode',
-        sessionAffecting: true,
-      ),
-      SettingsInventoryEntry(
         legacyLabel: 'LOCAL ONLY',
         legacySection: 'NETWORK',
-        newLabel: 'Local only',
+        newLabel: 'This network only',
         newSection: 'Connectivity',
         field: 'forceLocalOnly',
-        sessionAffecting: true,
-      ),
-      SettingsInventoryEntry(
-        legacyLabel: 'REGION',
-        legacySection: 'NETWORK',
-        newLabel: 'Region',
-        newSection: 'Radio',
-        field: 'region',
         sessionAffecting: true,
       ),
       SettingsInventoryEntry(
@@ -174,9 +158,7 @@ const Set<String> legacySettingsFields = <String>{
   'busyLockout',
   'characterDspIntensity',
   'dimMode',
-  'mode',
   'forceLocalOnly',
-  'region',
   'relayUrl',
   'tokenServiceUrl',
 };

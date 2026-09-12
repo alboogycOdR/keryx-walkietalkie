@@ -4,10 +4,9 @@ import 'package:keryx/core/state/radio_state.dart';
 
 void main() {
   group('ConnectionCondition', () {
-    test('uses an explicit unresolved state before a route is selected', () {
+    test('uses an explicit unresolved state before a path is selected', () {
       const condition = ConnectionCondition(
-        configuredMode: RadioMode.auto,
-        effectiveRoute: RadioMode.auto,
+        transport: Transport.none,
         degraded: false,
       );
 
@@ -15,49 +14,42 @@ void main() {
       expect(condition.routeLabel, 'Connecting');
     });
 
-    test('keeps configured AUTO distinct from a resolved route', () {
+    test('labels a resolved relay path', () {
       const condition = ConnectionCondition(
-        configuredMode: RadioMode.auto,
-        effectiveRoute: RadioMode.linked,
+        transport: Transport.relay,
         degraded: false,
       );
 
       expect(condition.isResolved, isTrue);
-      expect(condition.effectiveRoute, RadioMode.linked);
+      expect(condition.transport, Transport.relay);
+      expect(condition.routeLabel, 'Relay');
     });
 
-    test('never labels an unresolved AUTO preference as an active route', () {
-      const condition = ConnectionCondition(
-        configuredMode: RadioMode.auto,
-        effectiveRoute: RadioMode.auto,
-        degraded: false,
-      );
-
-      expect(condition.routeLabel, isNot('AUTO'));
-    });
-
-    // v2 (Technical §6.3/§7, TASK-088 re-scope note §6a): additive
-    // `transport` getter — every test above is unmodified.
-    test('transport maps local/linked/unresolved to direct/relay/none', () {
-      const local = ConnectionCondition(
-        configuredMode: RadioMode.auto,
-        effectiveRoute: RadioMode.local,
-        degraded: false,
-      );
-      const linked = ConnectionCondition(
-        configuredMode: RadioMode.auto,
-        effectiveRoute: RadioMode.linked,
-        degraded: false,
-      );
+    test('never uses v1 LOCAL/LINKED/AUTO words', () {
       const unresolved = ConnectionCondition(
-        configuredMode: RadioMode.auto,
-        effectiveRoute: RadioMode.auto,
+        transport: Transport.none,
+        degraded: false,
+      );
+      const direct = ConnectionCondition(
+        transport: Transport.direct,
+        degraded: false,
+      );
+      const relay = ConnectionCondition(
+        transport: Transport.relay,
+        degraded: false,
+      );
+      const both = ConnectionCondition(
+        transport: Transport.both,
         degraded: false,
       );
 
-      expect(local.transport, Transport.direct);
-      expect(linked.transport, Transport.relay);
-      expect(unresolved.transport, Transport.none);
+      for (final condition in [unresolved, direct, relay, both]) {
+        expect(condition.routeLabel.toUpperCase(), isNot('LOCAL'));
+        expect(condition.routeLabel.toUpperCase(), isNot('LINKED'));
+        expect(condition.routeLabel.toUpperCase(), isNot('AUTO'));
+      }
+      expect(direct.routeLabel, 'Direct');
+      expect(both.routeLabel, 'Direct and relay');
     });
   });
 }
