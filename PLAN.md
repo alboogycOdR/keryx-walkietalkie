@@ -5610,7 +5610,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 
 ### TASK-092
 **Title:** v2 Talk — target card, audience-aware ready ring, honest lone-press refusal, status control, Alert banner
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.1, §4; PRD V2-FR-040..045, V2-FR-033; Verification V2-VT-022 (UI half), V2-VT-024, V2-VT-030 (talk goldens); ADR-002 A3/A7 (ring and flash carried). **(ORCH 2026-09-12: this task also carries the TASK-088 review's disclosed debt — TASK-079(e)/TASK-082(a) remount-while-denied flash-timer seed — since it lives in `talk_screen.dart`; see TASK-082's Design A7 fix for context.)**
@@ -5628,6 +5628,17 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 **Started_At:** 2026-09-12T09:00:00Z
 **Progress_Notes:**
 - [2026-09-12T09:00:00Z] [S5] Claimed TASK-092. Resume check: no S5 in_progress/claimed task found (checkpoint referenced TASK-088, already done/merged). Depends_On TASK-088, done. Branch task/TASK-092-s5 to be created off current master tip (55b0856). Next: preflight_paths.py TASK-092, then read Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, current lib/features/talk/**, and TASK-082's flash-timer fix before writing.
+- [2026-09-12T09:05:00Z] [S5] Status: in_progress. Branch task/TASK-092-s5 created off master (55b0856). Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-092 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx
+[preflight] 5 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/talk/**  -> 5 file(s): talk_channel_card.dart, talk_copy.dart, talk_latch_state.dart, talk_ptt_ring.dart, talk_screen.dart
+  GLOB   test/features/talk/**  -> 5 file(s): a11y_matrix_support.dart, fake_radio_host.dart, talk_channel_card_test.dart, talk_ptt_ring_test.dart, talk_screen_test.dart
+  GLOB   test/regression/goldens/goldens/talk_*.png  -> 18 file(s)
+  FILE   test/regression/goldens/talk_states_golden_test.dart  -> exists, 236 line(s), 7694 bytes
+  FILE   dossiers/TASK-092.md  -> exists, 13 line(s), 1258 bytes
+```
+Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TASK-088's talk_target.dart/AudienceState, TASK-082's flash-timer fix, and current lib/features/talk/** before writing any code.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
