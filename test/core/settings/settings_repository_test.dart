@@ -130,6 +130,56 @@ void main() {
 
       expect((await repository.load()).totSeconds, 60);
     });
+
+    // v2 (Technical §7, TASK-088): additive coverage for
+    // preferDirectOnWifi/messageRetentionDays — every test above is
+    // unmodified.
+    test('defaults preferDirectOnWifi and messageRetentionDays', () async {
+      final settings = await repository.load();
+      expect(settings.preferDirectOnWifi, isTrue);
+      expect(settings.messageRetentionDays, 7);
+    });
+
+    test(
+      'round-trips preferDirectOnWifi/messageRetentionDays through the store',
+      () async {
+        await repository.save(
+          const KeryxSettings(
+            preferDirectOnWifi: false,
+            messageRetentionDays: 30,
+          ),
+        );
+        final actual = await repository.load();
+        expect(actual.preferDirectOnWifi, isFalse);
+        expect(actual.messageRetentionDays, 30);
+      },
+    );
+
+    test(
+      'a persisted value with no v2 keys defaults them rather than failing',
+      () async {
+        await store.write(
+          SettingsRepository.storageKey,
+          jsonEncode({'totSeconds': 90}),
+        );
+        final settings = await repository.load();
+        expect(settings.totSeconds, 90);
+        expect(settings.preferDirectOnWifi, isTrue);
+        expect(settings.messageRetentionDays, 7);
+      },
+    );
+
+    test('clamps an out-of-range messageRetentionDays on read', () async {
+      await store.write(
+        SettingsRepository.storageKey,
+        jsonEncode({'messageRetentionDays': 9999}),
+      );
+      final settings = await repository.load();
+      expect(
+        settings.messageRetentionDays,
+        KeryxSettings.messageRetentionDaysMax,
+      );
+    });
   });
 
   group('load() is total', () {

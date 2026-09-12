@@ -518,4 +518,82 @@ void main() {
       );
     },
   );
+
+  // v2 (Technical §6.3, TASK-088 re-scope note §6a): additive `target`/
+  // `audience` coverage — every group above is unmodified.
+  group('v2 target/audience (additive)', () {
+    test(
+      'defaults to null target and everyoneReachable audience for every '
+      'existing v1 caller (no target/presence supplied)',
+      () {
+        final view = RadioViewState.project(
+          radioState: const RadioState(phase: RadioPhase.idle),
+          hostSnapshot: const RadioHostSnapshot(),
+          settings: const KeryxSettings(),
+        );
+
+        expect(view.target, isNull);
+        expect(view.audience, AudienceState.everyoneReachable);
+      },
+    );
+
+    test('projects a supplied target and computes audience from presence', () {
+      const target = TalkTarget(
+        kind: TalkTargetKind.group,
+        id: 'g1',
+        name: 'Delta Group',
+        roomId: 'room-d',
+        memberPeerIds: ['p1', 'p2'],
+      );
+
+      final reachable = RadioViewState.project(
+        radioState: const RadioState(phase: RadioPhase.idle),
+        hostSnapshot: const RadioHostSnapshot(),
+        settings: const KeryxSettings(),
+        target: target,
+        presenceByPeerId: const {
+          'p1': PeerPresence.online,
+          'p2': PeerPresence.offline,
+        },
+      );
+      expect(reachable.target, target);
+      expect(reachable.audience.canHear, 1);
+      expect(reachable.audience.reason, isNull);
+
+      final unreachable = RadioViewState.project(
+        radioState: const RadioState(phase: RadioPhase.idle),
+        hostSnapshot: const RadioHostSnapshot(),
+        settings: const KeryxSettings(),
+        target: target,
+        presenceByPeerId: const {
+          'p1': PeerPresence.offline,
+          'p2': PeerPresence.offline,
+        },
+      );
+      expect(unreachable.audience.canHear, 0);
+      expect(unreachable.audience.reason, 'Nobody is listening');
+    });
+
+    test(
+      'a solo target (empty member list) reads canHear 0 / Nobody is '
+      'listening (V2-FR-044; V2-VT-021)',
+      () {
+        const soloTarget = TalkTarget(
+          kind: TalkTargetKind.contact,
+          id: 'p1',
+          name: 'Echo',
+          roomId: 'room-e',
+        );
+        final view = RadioViewState.project(
+          radioState: const RadioState(phase: RadioPhase.idle),
+          hostSnapshot: const RadioHostSnapshot(),
+          settings: const KeryxSettings(),
+          target: soloTarget,
+        );
+
+        expect(view.audience.canHear, 0);
+        expect(view.audience.reason, 'Nobody is listening');
+      },
+    );
+  });
 }

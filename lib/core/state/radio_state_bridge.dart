@@ -91,7 +91,10 @@ class RadioStateBridge {
           VoxChanged() ||
           TotWarningRaised() ||
           TotWarningCleared() ||
-          TransmitDeniedIndicated():
+          TransmitDeniedIndicated() ||
+          // v2 (Technical §6a, TASK-088): no floor-event projection needed.
+          SetTransport() ||
+          SetRoom():
         break;
     }
   }

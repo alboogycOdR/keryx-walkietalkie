@@ -8,5 +8,6 @@ export 'presentation_cue.dart';
 export 'radio_phase_presentation.dart';
 export 'radio_view_intents.dart';
 export 'radio_view_state.dart';
+export 'talk_target.dart';
 export 'telemetry.dart';
 export 'tuning_target.dart';

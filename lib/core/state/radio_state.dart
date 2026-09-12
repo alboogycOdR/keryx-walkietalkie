@@ -14,6 +14,14 @@ enum RadioPhase {
 /// Routing preference selected by the user. AUTO is the product default.
 enum RadioMode { local, auto, linked }
 
+/// v2 (Technical §6.3/§7, TASK-088 re-scope note §6a): the transport(s)
+/// actually carrying audio for the current [RadioState.roomId], independent
+/// of the v1 [RadioMode]/[RadioState.mode] route. `none` before any v2
+/// target is selected; `both` when the LAN mesh and the relay room are
+/// simultaneously active for the same room (Technical §6.4's "AUTO bridge").
+/// Additive alongside [RadioMode] — v1 callers never see this value change.
+enum Transport { none, direct, relay, both }
+
 /// Immutable state owned by [RadioReducer].
 class RadioState {
   const RadioState({
@@ -34,6 +42,8 @@ class RadioState {
     this.activeSpeaker,
     this.arbiterId,
     this.signalQuality = minimumSignalQuality,
+    this.roomId,
+    this.transport = Transport.none,
   }) : assert(channel >= minimumChannel && channel <= maximumChannel),
        assert(
          privacyCode >= minimumPrivacyCode && privacyCode <= maximumPrivacyCode,
@@ -68,7 +78,9 @@ class RadioState {
       stationCount = 0,
       activeSpeaker = null,
       arbiterId = null,
-      signalQuality = minimumSignalQuality;
+      signalQuality = minimumSignalQuality,
+      roomId = null,
+      transport = Transport.none;
 
   final RadioPhase phase;
   final RadioMode mode;
@@ -96,6 +108,17 @@ class RadioState {
   final String? arbiterId;
   final int signalQuality;
 
+  /// v2 (Technical §6a): the room ID a `RadioSessionController.switchTarget`
+  /// call is currently serving, or `null` before any v2 target has been
+  /// selected. Never derived from [channel]/[privacyCode] — a v2 session is
+  /// identified purely by [roomId].
+  final String? roomId;
+
+  /// v2 (Technical §6a): which transport(s) are actually carrying audio for
+  /// [roomId]. Independent of [mode]/[Transport] naming collisions with
+  /// [RadioMode] — see [Transport]'s own dartdoc.
+  final Transport transport;
+
   RadioState copyWith({
     RadioPhase? phase,
     RadioMode? mode,
@@ -116,6 +139,9 @@ class RadioState {
     String? arbiterId,
     bool clearArbiterId = false,
     int? signalQuality,
+    String? roomId,
+    bool clearRoomId = false,
+    Transport? transport,
   }) => RadioState(
     phase: phase ?? this.phase,
     mode: mode ?? this.mode,
@@ -136,6 +162,8 @@ class RadioState {
         : activeSpeaker ?? this.activeSpeaker,
     arbiterId: clearArbiterId ? null : arbiterId ?? this.arbiterId,
     signalQuality: signalQuality ?? this.signalQuality,
+    roomId: clearRoomId ? null : roomId ?? this.roomId,
+    transport: transport ?? this.transport,
   );
 
   @override
@@ -157,7 +185,9 @@ class RadioState {
       stationCount == other.stationCount &&
       activeSpeaker == other.activeSpeaker &&
       arbiterId == other.arbiterId &&
-      signalQuality == other.signalQuality;
+      signalQuality == other.signalQuality &&
+      roomId == other.roomId &&
+      transport == other.transport;
 
   @override
   int get hashCode => Object.hashAll([
@@ -178,6 +208,8 @@ class RadioState {
     activeSpeaker,
     arbiterId,
     signalQuality,
+    roomId,
+    transport,
   ]);
 
   @override
@@ -185,7 +217,8 @@ class RadioState {
       'RadioState(phase: $phase, mode: $mode, channel: $channel, '
       'privacyCode: $privacyCode, stationCount: $stationCount, '
       'activeSpeaker: $activeSpeaker, signalQuality: $signalQuality, '
-      'isTotWarning: $isTotWarning, isTransmitDenied: $isTransmitDenied)';
+      'isTotWarning: $isTotWarning, isTransmitDenied: $isTransmitDenied, '
+      'roomId: $roomId, transport: $transport)';
 }
 
 /// Inputs accepted by the pure [RadioReducer].
@@ -222,6 +255,22 @@ class TuneTo extends RadioEvent {
 class SetMode extends RadioEvent {
   const SetMode(this.mode);
   final RadioMode mode;
+}
+
+/// v2 (Technical §6a): sets [RadioState.transport]. Accepted in any powered
+/// phase, mirroring [SetMode]'s own TASK-080 fix — session composition can
+/// resolve which transport(s) are active before the reducer reaches idle,
+/// and rejecting the event until idle would leave a stale value visible.
+class SetTransport extends RadioEvent {
+  const SetTransport(this.transport);
+  final Transport transport;
+}
+
+/// v2 (Technical §6a): sets [RadioState.roomId]. `null` clears it (leaving a
+/// v2 target). Accepted in any powered phase, same reasoning as [SetTransport].
+class SetRoom extends RadioEvent {
+  const SetRoom(this.roomId);
+  final String? roomId;
 }
 
 class RequestTransmit extends RadioEvent {
@@ -387,6 +436,18 @@ class RadioReducer {
       SetMode() =>
         state.phase != RadioPhase.off && event.mode != RadioMode.auto
             ? state.copyWith(mode: event.mode)
+            : state,
+      // v2 (Technical §6a): same "any powered phase" acceptance as SetMode.
+      SetTransport() =>
+        state.phase != RadioPhase.off
+            ? state.copyWith(transport: event.transport)
+            : state,
+      SetRoom() =>
+        state.phase != RadioPhase.off
+            ? state.copyWith(
+                roomId: event.roomId,
+                clearRoomId: event.roomId == null,
+              )
             : state,
       RequestTransmit() =>
         state.phase == RadioPhase.idle
