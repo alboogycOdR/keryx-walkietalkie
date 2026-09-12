@@ -1,8 +1,10 @@
 ---
-plan_version: 17.0
-last_updated: 2026-09-12T05:11:42Z
+plan_version: 17.1
+last_updated: 2026-09-12T14:40:00Z
 overall_status: in_progress
-orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
+orchestrator_notes: "**TASK-097/098 CREATED 2026-09-12T14:40Z from live owner field-testing of the v2.0 release build** (not yet dispatched, TBD backlog): TASK-097 (high) — radio boot can hang forever on 'Starting radio' because `RadioSessionController.start()` has no timeout on either the LOCAL or LINKED path, so an unreachable LAN peer/relay leaves `BootCompleted` never dispatched; owner hit this live with 'This network only' on and no peer reachable. TASK-098 (high) — adding a contact by QR silently fails: `ScanIdScreen` pops immediately after firing the request, `contacts_tab.dart` wires it `unawaited`, and `sendRequestFromId` has no try/catch, so a `sendRequest` failure vanishes with nothing shown; also bundles a Settings copy fix so 'This network only' names contacts/presence as affected. Both territory-disjoint from each other and from everything else; owner confirmed 'yes' to logging both plus the boot-hang blocker. TASK-059/060/061/062 remain blocked/SUPERSEDED by ADR-003 (v2.0), not reactivated by this — see the 2026-09-11T17:20Z line below.
+
+Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
 FROZEN territories (merged, never reopen without a successor task): pubspec/analysis_options/.github/.gitignore/README, lib/core/theme, android+lib/services/discovery, lib/core/floor, lib/core/settings, lib/core/protocol, lib/core/audio, lib/core/identity, lib/core/rooms, lib/core/state, lib/services/signaling, lib/features/display, lib/features/ptt, lib/features/face+lib/main.dart+lib/app.dart. lib/features/knob and lib/features/grille no longer exist (deleted by TASK-041, Phase 2 PTT redesign) — do not reference or recreate without a successor task. Serial chains: android 001→019→026 (DONE), audio 010→011 (DONE), Phase 2 redesign 041+042→043 (DONE, plan v11.0, re-froze 2026-09-06). Dossiers in dossiers/.
 
@@ -6082,3 +6084,57 @@ Existing channel names (must not collide or rename): `za.co.basileia.keryx/nsd`,
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-12T07:41:00Z
+
+
+### TASK-097
+**Title:** Radio boot must not hang forever when session start stalls
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** Owner field report 2026-09-12 (screenshot: PTT stuck on "Starting radio" indefinitely, Settings showing "This network only" ON with "Active path: Connecting" never resolving) — traced live in-session to `lib/core/radio_host/keryx_radio_host.dart:297-299` (`BootCompleted` only dispatches after `_startSession` returns; no timeout) and `lib/services/session/radio_session_controller.dart:170-284` (`start()` → `_startLocal()`/`_startLinked()`, both a plain `await` chain with no bound — `_startLocal`'s `await signaling.start(...)`/`await discovery.start(...)`/`await discovery.onTuned()` and `_startLinked`'s `await linked.joinRoomId(...)` can all suspend indefinitely on an unreachable LAN peer or relay). Confirmed this is not the pre-existing mic-permission telltale (`RadioPhase.boot`'s "Starting radio" and the ring's neutral `mic_off` icon show even when `RadioHostSnapshot.micPermissionDenied` is false — `radio_view_state.dart:128-132`, `talk_screen.dart:697-699` would show "Microphone permission required" instead if it were).
+**Owned_Paths:** lib/core/radio_host/**, lib/services/session/radio_session_controller.dart, lib/core/state/radio_state.dart, lib/core/presentation/radio_view_state.dart, lib/core/presentation/radio_phase_presentation.dart, test/core/radio_host/**, test/services/session/**, test/core/state/**, test/core/presentation/**, dossiers/TASK-097.md
+**Depends_On:** —
+**Description:** `RadioHost.start()`'s boot sequence has no bound on how long session establishment may take — `RadioSessionController.start()` (LOCAL via `_startLocal`'s signaling/discovery chain, LINKED via `_startLinked`'s `LinkedController.joinRoomId`) is a plain `await` with no timeout anywhere upstream. When it stalls (no reachable LAN peer with local-only forced, an unreachable relay, a hung platform call), `BootCompleted` never dispatches, `RadioPhase` never leaves `boot`, and the UI is stuck on "Starting radio" forever with zero error surfaced and no way to recover short of a restart. Add a bounded timeout around session establishment (both the LOCAL and LINKED paths) and, on timeout or a thrown failure, transition out of `boot` into a distinct, honestly-labeled failure state — reuse or extend the existing overlay-cue mechanism (`OverlayCues`/`RadioViewState.activeOverlayCues`) rather than silently falling through to a happy-path `idle`; PTT must stay disabled (`ptteEnabled` already gates on `floorEngine != null`, which a failed session start correctly leaves null) and the reason must be visible on screen, not just logged. Do not touch the mic-permission-denied path (`_micPermissionDenied`/`OverlayCues.permissionDenied`) — this is a separate failure mode from a separate cause and must remain distinguishable from it on screen.
+**Acceptance_Criteria:**
+- [ ] `RadioSessionController.start()` (both `_startLocal` and `_startLinked` paths) is bounded by a timeout; a test that fakes a signaling/discovery/LiveKit dependency which never resolves proves `start()` completes (successfully or with a thrown failure) within the bound rather than hanging
+- [ ] On session-start timeout or thrown failure, `RadioHost` reaches a real, user-visible failure state within a bounded time from `PowerOn` — never stuck in `RadioPhase.boot` — verified by a test that injects the same never-resolving dependency and asserts the phase/overlay state the UI would render
+- [ ] The new failure state is visually and textually distinct from `OverlayCues.permissionDenied` (mic-denied) and from normal `idle`/`rxActive` — a screenshot or widget test shows the copy naming the actual problem (e.g. "couldn't find anyone nearby" / "couldn't reach the relay"), not a generic or silent hang
+- [ ] PTT stays disabled while in this failure state (`floorEngine` remains null; `ptteEnabled` in `talk_screen.dart` already covers this — add a regression test pinning it for the new state specifically)
+- [ ] Existing mic-permission-denied behavior and its tests are unmodified and still pass
+- [ ] Full test suite green; `flutter analyze` clean
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T14:40:00Z
+
+
+### TASK-098
+**Title:** Contact-request failures are silently swallowed; local-only mode gives no warning it blocks contacts
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** Owner field report 2026-09-12 (QR scan of another device's KERYX ID "just exits and does not add it") — traced live in-session to three compounding gaps: `lib/features/contacts/scan_id_screen.dart:59-61` (`_onRaw` calls `widget.onRaw(raw)` then immediately `Navigator.maybePop()`s, without waiting to learn whether the request succeeded), `lib/features/contacts/contacts_tab.dart:99` (wires that callback to `unawaited(widget.controller.sendRequestFromId(raw))` — fire-and-forget), and `lib/features/contacts/contacts_list_controller.dart:87-93` (`sendRequestFromId`'s `await _contacts.sendRequest(...)` has no try/catch, so any failure throws into the discarded `unawaited` future and is never surfaced to the UI). Separately, Settings' "This network only" toggle (`forceLocalOnly`) very likely causes the underlying failure — it is relay-backed (KERYX ID directory), and Settings' own copy ("This-network-only is on. Relay settings are stored but no internet call is made") gives no indication that this also blocks adding contacts.
+**Owned_Paths:** lib/features/contacts/**, lib/features/settings/settings_screen.dart, lib/features/settings/settings_copy.dart, test/features/contacts/**, test/features/settings/**, dossiers/TASK-098.md
+**Depends_On:** —
+**Description:** Two related UX defects in the add-contact-by-QR/code flow. (1) A failed `sendRequest` (network error, unreachable directory, anything `_contacts.sendRequest` can throw) is currently indistinguishable from success: the scan screen has already popped, no error reaches the contacts list, and the pending/contact list simply never gains an entry. Fix the flow so a failure is caught and surfaced — e.g. `ScanIdScreen` waits for the outcome before dismissing (or dismisses but the caller shows a visible error banner/snackbar on the Contacts tab), and `sendRequestFromId`/its call site catch and report the failure rather than letting it vanish into an unawaited future. Check `add_contact_sheet.dart`'s manual-entry path (`parseContactId` at line 41) for the same swallow pattern and fix identically if present. (2) When `forceLocalOnly` is on, warn the user that contacts/presence (relay-backed) will not work while it's enabled — at minimum, update Settings' "This network only" description copy to name contacts explicitly; better, surface a persistent, dismissable notice on the Contacts/scan screens themselves when `forceLocalOnly` is on. Keep both fixes scoped to these files — do not touch `lib/core/settings/settings_model.dart` (frozen) or the directory/session layer itself; this task is UI-surface honesty, not a network-layer change.
+**Acceptance_Criteria:**
+- [ ] A `sendRequest` failure (simulated via a fake/throwing directory client in a test) results in a visible, specific error shown to the user — never a silent no-op
+- [ ] The scan screen's dismissal is tied to a known outcome (success or reported failure), not to the scan merely having parsed — a test asserts the screen does not simply vanish on a request that is later going to fail
+- [ ] `add_contact_sheet.dart`'s manual-entry path is checked and fixed the same way if it has the same swallow bug (or the dossier states explicitly why it doesn't need it)
+- [ ] Settings' "This network only" row's description names contacts/presence as affected while it's on (exact copy at the builder's discretion, reviewed against `settings_copy.dart` conventions)
+- [ ] A widget test confirms a user-visible warning is shown on the Contacts add/scan path when `forceLocalOnly` is true
+- [ ] Full test suite green; `flutter analyze` clean
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T14:40:00Z
