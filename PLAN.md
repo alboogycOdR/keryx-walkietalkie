@@ -6303,7 +6303,7 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 
 ### TASK-101
 **Title:** 1:1 relay rooms — send `peer_pk` on `/token` so the directory provisions the DirectRoom
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §5.4 (1:1 room: `roomId = deriveKeyed(base64(x25519(myPriv, theirPub)))`, symmetric — both peers derive the same id; implemented at `lib/core/rooms/derivation.dart:61-84`), §4.2 (`POST /token` "now checks the signed caller is a member of `room_id`"). Server contract, verified at source 2026-09-12: `token-svc/app/models.py:15-24` (`TokenRequest.peer_pk: str | None`), `token-svc/app/main.py:176-180` (if `peer_pk` present → `ensure_direct_room(actor, peer, room_id)` then `assert_room_member`), `token-svc/app/groups.py:354-379` (`ensure_direct_room`: 422 if peer == self, **403 `not_contacts`** unless the pair are accepted contacts, creates/reuses `DirectRoom(a,b,room_id)`, **409 `room_conflict`** if the pair already has a different room_id), `token-svc/app/encoding.py:40-44` (`parse_pubkey`: unpadded base64url of exactly 32 bytes, else 401 `invalid_key` — the same encoding `KeryxIdLink.encodedKey`/`encodeUnpaddedBase64Url` in `lib/features/my_code/keryx_id_link.dart:103-107` already produce). Client gap: `lib/services/linked/token_client.dart:58-69` (`requestToken` body is `room_id`/`callsign`/`event_token` only — no `peer_pk`), `lib/services/linked/linked_controller.dart:149,235-238` (`joinRoomId` → `requestToken` without it), `lib/services/session/radio_session_controller.dart:250-274` (`switchTarget(target, memberPeerIds)` has no public key to pass), `lib/core/presentation/talk_target.dart:13-38` (`TalkTarget{kind,id,name,roomId,memberPeerIds}` — carries no contact public key; `id` for a contact MAY already be the pk — `lib/app_shell/contacts_tab_screen.dart:70` builds it — verify, never assume), `lib/core/radio_host/radio_session_host_v2.dart:73` (the one `switchTarget` caller). Without `peer_pk` the server never creates the DirectRoom, so every contact call over relay is 403 `not_member` — groups are unaffected (`/v2/groups` creates `Group`+`GroupMember` rows).
@@ -6311,13 +6311,13 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 **Depends_On:** TASK-100
 **Description:** Thread the contact's public key from the contacts data through `TalkTarget` → `RadioSessionController.switchTarget` → `LinkedController.joinRoomId` → `TokenClient.requestToken` → `/token` body `peer_pk`, for `TalkTargetKind.contact` only (groups and the idle session send none). Encoding is the repo's existing unpadded base64url of the raw 32-byte Ed25519 key (reuse `encodeUnpaddedBase64Url`, do not reimplement). First establish, with evidence in the dossier, what `TalkTarget.id` actually holds for a contact at `contacts_tab_screen.dart:70` — if it is already the pk, add no field, assert it in a test and document; if not, add an explicit optional `peerPublicKey` (or equivalent) to `TalkTarget` with a default so every out-of-territory constructor keeps compiling (same convention as `TalkTarget.memberPeerIds`). The room id sent is the client-derived §5.4 x25519 id — unchanged — which is what the server records on first provision and checks with 409 `room_conflict` thereafter. Handle the two new server refusals honestly: 403 `not_contacts` and 409 `room_conflict` must surface through the existing `TokenRequestException.detail` (already parsed correctly since `bd5222d`) into the existing `SessionEstablishmentFailure`/"Couldn't reach the relay" path — do not add new UI; do not swallow. This task is the last server-contract gap for relay voice between two contacts; TASK-100 must be `done` first because both touch `radio_session_controller.dart`.
 **Acceptance_Criteria:**
-- [ ] `TokenClient.requestToken` accepts an optional peer public key and, when given, sends `peer_pk` as unpadded base64url of the 32-byte key; when null the body is byte-identical to today (test both, via the existing `token_client_test.dart` fake server)
-- [ ] `LinkedController.joinRoomId` threads it through; `RadioSessionController.switchTarget` passes the contact's key for `TalkTargetKind.contact` and nothing for `TalkTargetKind.group` (tests via the existing injectable `tokenClientFactory`, recording the body)
-- [ ] The contact's key reaches `TalkTarget` from the contacts data (`ContactRowVm.pk`) at `contacts_tab_screen.dart` — either proven to already be `id` (asserted) or added as an explicit field; a widget/unit test pins it
-- [ ] A test with a fake token server that returns 403 `not_member` unless `peer_pk` is present proves a contact join succeeds and a group join (no `peer_pk`) is unchanged
-- [ ] 403 `not_contacts` / 409 `room_conflict` from `/token` surface as a typed `SessionEstablishmentFailure` with the server code in `cause` (test), no new copy/UI
-- [ ] No change outside Owned_Paths; `deriveKeyed`/`lib/core/rooms/**` untouched
-- [ ] Full test suite green; `flutter analyze` clean
+- [x] `TokenClient.requestToken` accepts an optional peer public key and, when given, sends `peer_pk` as unpadded base64url of the 32-byte key; when null the body is byte-identical to today (test both, via the existing `token_client_test.dart` fake server)
+- [x] `LinkedController.joinRoomId` threads it through; `RadioSessionController.switchTarget` passes the contact's key for `TalkTargetKind.contact` and nothing for `TalkTargetKind.group` (tests via the existing injectable `tokenClientFactory`, recording the body)
+- [x] The contact's key reaches `TalkTarget` from the contacts data (`ContactRowVm.pk`) at `contacts_tab_screen.dart` — either proven to already be `id` (asserted) or added as an explicit field; a widget/unit test pins it
+- [x] A test with a fake token server that returns 403 `not_member` unless `peer_pk` is present proves a contact join succeeds and a group join (no `peer_pk`) is unchanged
+- [x] 403 `not_contacts` / 409 `room_conflict` from `/token` surface as a typed `SessionEstablishmentFailure` with the server code in `cause` (test), no new copy/UI
+- [x] No change outside Owned_Paths; `deriveKeyed`/`lib/core/rooms/**` untouched
+- [x] Full test suite green; `flutter analyze` clean
 **Branch:** task/TASK-101-gb
 **Started_At:** 2026-09-12T21:35:00Z
 **Progress_Notes:**
@@ -6347,9 +6347,14 @@ Territory matches expectation: task's own controller/host/state/presentation fil
   NEW    dossiers/TASK-101.md  -> does not exist; parent dossiers/ exists
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-12T21:50:00Z] [GB] `TalkTarget.id` is already `ContactRowVm.pk` (no extra field). `peer_pk` threaded TokenClient → LinkedController.joinRoomId (incl. reconnect) → switchTarget for contacts only. 403 `not_contacts` / 409 `room_conflict` wrap as SessionEstablishmentFailure.cause. Mutation of TokenClient omitting `peer_pk` turned the encoding test red; restored. Ready for review.
+**Artifacts:** lib/services/linked/token_client.dart, lib/services/linked/linked_controller.dart, lib/services/session/radio_session_controller.dart, lib/core/presentation/talk_target.dart, lib/core/radio_host/radio_session_host_v2.dart, lib/app_shell/contacts_tab_screen.dart, test/services/linked/token_client_test.dart, test/services/linked/linked_controller_test.dart, test/services/linked/fakes/fake_token_server.dart, test/services/session/radio_session_controller_test.dart, test/core/presentation/talk_target_test.dart, test/core/radio_host/radio_session_host_v2_test.dart, test/app_shell/contacts_tab_screen_test.dart, dossiers/TASK-101.md
+**Test_Evidence:**
+- [2026-09-12T21:50:00Z] [GB] `flutter analyze --no-pub` → No issues found (16.1s).
+- [2026-09-12T21:50:00Z] [GB] Scoped: `flutter test --no-pub` token_client + linked_controller + radio_session_controller + talk_target + radio_session_host_v2 + contacts_tab_screen_test → 87/87 passed.
+- [2026-09-12T21:50:00Z] [GB] Full suite `flutter test --no-pub` → **1458 passed / 40 skipped / 0 failed** (1446 at TASK-100 merge + 12 new TASK-101 tests). Skips are the parked FR-025 soak seeds.
+- [2026-09-12T21:50:00Z] [GB] Revert-mutation: omit `peer_pk` from TokenClient body → encoding test red (`Expected: 'AQID…' Actual: <null>`); restored, test green.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T21:42:00Z
+**Updated_At:** 2026-09-12T21:50:00Z
