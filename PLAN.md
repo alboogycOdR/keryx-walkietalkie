@@ -5545,7 +5545,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 
 ### TASK-090
 **Title:** v2 Contacts tab — requests, contacts list with presence, add-contact sheet, Alert/Remove/Block
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.2, §2.5, §3 (presence visuals), §4 (request/alert states), §5 copy; PRD V2-FR-010..014, V2-FR-030..033, V2-FR-050; Verification V2-VT-025, V2-VT-030 (contacts goldens)
@@ -5558,15 +5558,16 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 - [ ] Scan and paste both produce a request through the client; a tampered QR is refused locally (V2-FR-010; V2-VT-003)
 - [ ] Alert is rate-limited in the UI to match the server (disabled for 10 min after use) and Block requires a second tap (V2-FR-050; Design §2.5)
 - [ ] Goldens: empty, populated, with requests, dark and light (V2-VT-030); `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-090-gb
+**Started_At:** 2026-09-12T06:10:00Z
+**Progress_Notes:**
+- [2026-09-12T06:10:00Z] [GB] Claimed TASK-090. Resume check: no GB in_progress/claimed task. Depends_On TASK-086 is done. Branch task/TASK-090-gb. Next: preflight_paths.py TASK-090, then implement the embedded Contacts tab against Design §2.2/§2.5/§3.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-12T06:10:00Z
 
 
 ### TASK-091
