@@ -6090,7 +6090,7 @@ Existing channel names (must not collide or rename): `za.co.basileia.keryx/nsd`,
 
 ### TASK-097
 **Title:** Radio boot must not hang forever when session start stalls
-**Status:** pending
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** Owner field report 2026-09-12 (screenshot: PTT stuck on "Starting radio" indefinitely, Settings showing "This network only" ON with "Active path: Connecting" never resolving) — traced live in-session to `lib/core/radio_host/keryx_radio_host.dart:297-299` (`BootCompleted` only dispatches after `_startSession` returns; no timeout) and `lib/services/session/radio_session_controller.dart:170-284` (`start()` → `_startLocal()`/`_startLinked()`, both a plain `await` chain with no bound — `_startLocal`'s `await signaling.start(...)`/`await discovery.start(...)`/`await discovery.onTuned()` and `_startLinked`'s `await linked.joinRoomId(...)` can all suspend indefinitely on an unreachable LAN peer or relay). Confirmed this is not the pre-existing mic-permission telltale (`RadioPhase.boot`'s "Starting radio" and the ring's neutral `mic_off` icon show even when `RadioHostSnapshot.micPermissionDenied` is false — `radio_view_state.dart:128-132`, `talk_screen.dart:697-699` would show "Microphone permission required" instead if it were).
@@ -6108,12 +6108,28 @@ Existing channel names (must not collide or rename): `za.co.basileia.keryx/nsd`,
 **Started_At:** 2026-09-12T14:50:00Z
 **Progress_Notes:**
 - [2026-09-12T14:50:00Z] [S5] Claimed TASK-097. Resume check: no other S5 in_progress/claimed task found (TASK-093 is already done/merged at 9909819; stale PreCompact checkpoint referencing it deleted). Depends_On: none. Branch task/TASK-097-s5 to be created off master. Next: preflight_paths.py TASK-097, then read keryx_radio_host.dart:297-299 and radio_session_controller.dart:170-284 in full before touching anything.
+- [2026-09-12T15:00:00Z] [S5] Branch task/TASK-097-s5 created off master (9ac333c). Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-097 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx
+[preflight] 10 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/core/radio_host/**  -> 7 file(s): keryx_radio_host.dart, permission_gate.dart, radio_host.dart, radio_host_contract.dart, radio_host_snapshot.dart, radio_session_host_v2.dart, session_host.dart
+  FILE   lib/services/session/radio_session_controller.dart  -> exists, 495 line(s), 19307 bytes
+  FILE   lib/core/state/radio_state.dart  -> exists, 478 line(s), 15065 bytes
+  FILE   lib/core/presentation/radio_view_state.dart  -> exists, 309 line(s), 14221 bytes
+  FILE   lib/core/presentation/radio_phase_presentation.dart  -> exists, 54 line(s), 2046 bytes
+  GLOB   test/core/radio_host/**  -> 4 file(s): keryx_radio_host_meter_level_test.dart, keryx_radio_host_test.dart, permission_gate_test.dart, radio_session_host_v2_test.dart
+  GLOB   test/services/session/**  -> 1 file(s): radio_session_controller_test.dart
+  GLOB   test/core/state/**  -> 1 file(s): radio_state_test.dart
+  GLOB   test/core/presentation/**  -> 4 file(s): connection_condition_test.dart, radio_view_intents_test.dart, radio_view_state_test.dart, talk_target_test.dart
+  NEW    dossiers/TASK-097.md  -> does not exist; parent dossiers/ exists
+```
+Territory matches expectation: task's own controller/host/state/presentation files plus their tests, dossier is new. Note line counts differ slightly from the task description's cited line numbers (radio_session_controller.dart now 495 lines not ~621 — TASK-094 shrank it deleting v1 fields; keryx_radio_host.dart line numbers to be re-verified by reading, not assumed). Status -> in_progress. Next: read keryx_radio_host.dart in full (boot sequence, BootCompleted dispatch) and radio_session_controller.dart's start()/_startLocal()/_startLinked(), then design the timeout+failure-state approach before writing code.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** S5
-**Updated_At:** 2026-09-12T14:50:00Z
+**Updated_At:** 2026-09-12T15:00:00Z
 
 
 ### TASK-098
