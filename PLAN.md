@@ -1,6 +1,6 @@
 ---
-plan_version: 16.0
-last_updated: 2026-09-12T04:16:18Z
+plan_version: 16.1
+last_updated: 2026-09-12T05:20:00Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -5456,7 +5456,7 @@ Process note: during this claim I caused a coordination incident and reported it
 
 ### TASK-089
 **Title:** v2 onboarding, My code and Restore screens
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.4 (My code), §2.6 (first run), §2.7 Identity section wiring hooks; PRD V2-FR-001..004; Verification V2-VT-003, V2-VT-027, V2-VT-030 (My code, phrase goldens)
@@ -5500,10 +5500,20 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 - [2026-09-12T05:10:00Z] [GB] `flutter analyze --no-pub` (full repo): No issues found! (55.3s)
 - [2026-09-12T05:10:00Z] [GB] `flutter test --no-pub` (full repo): **1695 passed, 0 failed, 40 skipped** (same PARKED FR-025 soak seeds). Scoped `test/features/{onboarding,my_code,restore}`: 22/22. Baseline after TASK-091 was 1673; +22 new tests.
 - [2026-09-12T05:12:00Z] [GB] Revert-mutation: `KeryxIdLink.shareUrl` host `keryx.app`→`example.com` → `keryx_id_link_test` 4/5, only the §3.1 share-URL test red; restored, 5/5.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-12T04:35:15Z] [ORCH] **APPROVED first-pass**, merged `147d294`. Reviewed on claude-sonnet-5 (AUTOPILOT v2.0 wave).
+- **Territory:** clean. 32 files, entirely under `lib/features/{onboarding,my_code,restore}/**` and their tests; single tagged commit.
+- **Tests:** independent run: analyze 0; targeted 21/21; full suite 1695 passed / 0 failed / 40 skipped (+22 over the 1673 baseline).
+- **Reviewed in source:**
+  - `RecoveryPhraseScreen`: sets the screenshot guard secure in `initState`, clears it in `dispose` — correct lifecycle regardless of how the screen is left. `PopScope(canPop: confirmed)` means the confirmation tap is the only forward exit; system back returns to callsign entry rather than skipping the gate.
+  - `KeryxIdLink`: `qrPayload`/`shareUrl` match Technical §3.1's `keryx://id?...` and `https://keryx.app/c/<callsign>-<code>?k=...` shapes exactly; `parse` round-trips both forms and rejects a missing callsign/key, bad version, or malformed base64url. GB's own revert-mutation (renaming the share host) turned exactly the §3.1 test red, confirming the test isn't vacuous.
+  - `RestoreScreen`: 12 BIP-39 fields with inline per-word validation, a distinct checksum-failure message, and `_defaultRestore` deriving the same `peerId`/`shortCode`/key pair the original install would have produced from the same phrase.
+- **Criteria:** all five verified as stated.
+- **DISCLOSED GAP, not a defect of this task — carried as a new task rather than reworked:** `ScreenshotGuard`/the brightness channel call `za.co.basileia.keryx/screenshot_guard` and `.../screen_brightness`, but no native Android handler exists anywhere in the repo (confirmed: no match for either channel name under `android/`). Both calls currently no-op via a deliberately swallowed `MissingPluginException`, so **screenshots of the recovery phrase are not actually blocked on a real device today**. `android/**` is outside this task's Owned_Paths, so GB structurally could not add the native side, and it disclosed this plainly in the dossier rather than hiding it or claiming the criterion falsely. This is security-relevant enough to require a real fix before release, not just a caveat: **TASK-096 created** (native `FLAG_SECURE` + brightness handlers), `critical` priority, depends on this task, and is added as a dependency of TASK-095 (the release gate) so it cannot ship silently unfixed.
+- **Non-blocking:** `MyCodeScreen` keeps a visible copy affordance per Design §2.4 (this is intentional — only the recovery phrase forbids copy, not the public ID).
+- **Unlocks:** nothing new directly; TASK-093 already depended on 089.
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-12T05:15:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T04:35:15Z
 
 
 ### TASK-090
@@ -5658,7 +5668,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Verification_v1.0.md §5 (V2-VT-030 full golden set), §6 (device matrix rows A–I, `ops/FIELD_TEST_V2.md`), §7 (safety regression), §8 gates G1–G3; PRD §5, V2-NFR-005/006
 **Owned_Paths:** test/regression/**, ops/FIELD_TEST_V2.md, ops/REGRESSION_V2.md, dossiers/TASK-095.md
-**Depends_On:** TASK-094
+**Depends_On:** TASK-094, TASK-096
 **Description:** Evidence gate for v2.0. Complete the golden set of V2-VT-030 for every surface in dark and light, extend the layout matrix and real-back tests to the v2 shell, re-run the R1 safety sweep (§7) including the manifest check for no contacts permission and the network-host allowlist, write `ops/FIELD_TEST_V2.md` as the owner's step-by-step runbook for rows A–I with evidence slots, and produce `ops/REGRESSION_V2.md` with counts reconciled against R2 (1526). Build `flutter build apk --release --split-per-abi`; record the arm64 size (must be < 60 MB) and sha256. Do not install or send anything; ORCH hands it to the owner.
 **Acceptance_Criteria:**
 - [ ] Every V2-VT-030 golden exists in dark and light and the layout matrix passes on the v2 shell at all seven sizes (Verification §5, §6 of R1)
@@ -5675,3 +5685,29 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-11T17:20:00Z
+
+
+### TASK-096
+**Title:** Android FLAG_SECURE + brightness native handlers for the recovery-phrase and My-code screens
+**Status:** pending
+**Assigned_To:** GB
+**Priority:** critical
+**Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.6 ("`FLAG_SECURE` on Android via the existing platform channel or a small new one"); PRD V2-FR-002 ("No copy of the private key ever leaves the phone"); TASK-089's own dossier disclosure ("Native FLAG_SECURE/brightness window flags still need an Android plugin owner — Dart clients are ready")
+**Owned_Paths:** android/app/src/main/kotlin/**, dossiers/TASK-096.md
+**Depends_On:** TASK-089
+**Description:** TASK-089's Dart side calls two MethodChannels that currently have no native handler, so both calls silently no-op (`MissingPluginException` swallowed by design, so onboarding is never blocked — but the security control does nothing on a real phone today): `za.co.basileia.keryx/screenshot_guard` (`setSecure(bool)` → `FLAG_SECURE` on/off) called around the recovery-phrase screen, and `za.co.basileia.keryx/screen_brightness` used by My Code while its QR is shown. Add a `MethodChannel` handler in `MainActivity.kt` (or a small dedicated plugin class) for each: `setSecure(true)` sets `WindowManager.LayoutParams.FLAG_SECURE` on the activity window (blocks screenshots and screen recording, including in the recents-apps thumbnail); `setSecure(false)` clears it. Brightness: read/write the activity window's `attributes.screenBrightness`, restoring the previous value on the "off" call rather than hardcoding a return-to-default. Confirm neither channel name collides with an existing handler.
+**Acceptance_Criteria:**
+- [ ] A signed debug build, tested on a real or emulated Android device: attempting a screenshot while the recovery-phrase screen is shown is blocked by the OS (or the recents-apps thumbnail is blanked); a screenshot succeeds normally on every other screen
+- [ ] Screen brightness visibly increases while My Code's QR is shown and returns to exactly its prior value (not a hardcoded default) when the screen is left
+- [ ] `flutter test --no-pub test/features/onboarding test/features/my_code` still pass unmodified (the injected fake guards in those tests are untouched by this native-only task)
+- [ ] No other MethodChannel name in `android/app/src/main/kotlin/**` is touched or renamed
+- [ ] Manual verification recorded in the dossier with device model and Android version, since this criterion cannot be proven by a Flutter widget test
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T05:20:00Z
