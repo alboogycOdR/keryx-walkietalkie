@@ -5728,7 +5728,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-094
 **Title:** v2 deletions — channels, selector, stations, numbered Event QR, legacy face/ptt/display/settings_panel
-**Status:** claimed
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
@@ -5736,14 +5736,15 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 **Depends_On:** TASK-093
 **Description:** (ORCH 2026-09-11: also completes TASK-088's deferred v1-field removal, see below.) Delete what v2 replaced, after the shell no longer references it. Before deleting each module, list in the dossier every behavioural test it carried and where the surviving behaviour is now tested (Verification §0 rule); only presentation-only tests are dropped. `radio_controls` survives only if the shell still pushes it — if TASK-093 kept it, keep the module and drop it from this task's deletion list in the dossier; `tuning/` haptics that Talk still uses must be moved into `lib/features/talk/` by TASK-092 first (coordinate via the dossier, do not edit talk). Event QR: the keyed invite path now lives in TASK-091's groups feature; delete both `event_qr` directories. Then run V2-VT-028 repo-wide.
 **Acceptance_Criteria:**
-- [ ] Every directory in Owned_Paths that the shell no longer imports is deleted, and a repo-wide grep for `features/channels`, `channel_selector`, `features/stations`, `features/face`, `features/ptt`, `features/display`, `settings_panel`, `event_qr` finds no imports (Technical §6.2; ADR-001 §6)
-- [ ] Repo-wide grep of `lib/` user-facing strings for channel, privacy code, tune, station, LOCAL, LINKED, AUTO returns nothing (V2-VT-028)
-- [ ] The dossier reconciles deleted tests: every behavioural assertion names its successor test; before/after suite counts explained (Verification §0) Additionally, **remove the v1 fields TASK-088 deliberately left in place**: `RadioMode`/`channel`/`privacyCode`/`SetMode`/`TuneTo` from `lib/core/state/radio_state.dart`; `mode`/`region`/`channel`/`privacyCode` from `KeryxSettings`; the v1 `retune(channel, code)`/`tune(channel, code)` surface on `RadioHost`/`SessionHost` once TASK-093's shell no longer calls it; and `ConnectionCondition.effectiveRoute`/`configuredMode`/`isResolved` once every caller uses `.transport`. This is the removal half of the additive fields TASK-088/080/081 introduced — do it in the same pass as the rest of this task's deletions, verified by the same repo-wide grep.
+- [x] Every directory in Owned_Paths that the shell no longer imports is deleted, and a repo-wide grep for `features/channels`, `channel_selector`, `features/stations`, `features/face`, `features/ptt`, `features/display`, `settings_panel`, `event_qr` finds no imports (Technical §6.2; ADR-001 §6)
+- [~] Repo-wide grep of `lib/` user-facing strings for channel, privacy code, tune, station, LOCAL, LINKED, AUTO returns nothing (V2-VT-028) — Radio Controls copy cleaned; remaining hits are `settings_copy`/`about_diagnostics`/`ConnectionCondition.routeLabel`, locked by unowned settings goldens/tests
+- [~] The dossier reconciles deleted tests: every behavioural assertion names its successor test; before/after suite counts explained (Verification §0). **v1 fields not removed this pass** — `mobile_app_shell.dart`, `settings_repository.dart`, and the v1 state/settings/session tests + settings goldens are still outside Owned_Paths (full list in dossier Residual).
 
-- [ ] Retired goldens removed; `flutter analyze` clean; full suite green; `flutter build apk --debug` succeeds
+- [x] Retired goldens removed; `flutter analyze` clean; full suite green; `flutter build apk --debug` succeeds
 **Branch:** task/TASK-094-gb
 **Started_At:** 2026-09-12T08:08:02Z
 **Progress_Notes:**
+- [2026-09-12T08:39:05Z] [GB] Deletion pass complete on `task/TASK-094-gb` (`3eeabc8`). KEEP radio_controls. Hoisted SessionHost + FacePermissionGate into `lib/core/radio_host/`; EventLinkExpiryPreset into groups; dropped joinEvent. Deleted channels/selector/stations/event_qr/event_qr_ui/face/ptt/display/settings_panel/tuning + tests + retired goldens. AC 2/3 residual: v1 RadioMode/tune fields and settings copy still present — remaining callers/tests outside Owned_Paths (mobile_app_shell, settings_repository, radio_state_test, connection_condition_test, radio_view_state_test, settings_repository_test, radio_session_controller_test, settings_screen_test, about_diagnostics_test, settings goldens). Status: needs_review.
 - [2026-09-12T08:22:00Z] [GB] Reclaimed TASK-094 after ORCH re-carve (same branch `task/TASK-094-gb`, Started_At unchanged). Merged master `90090e6` into the branch. Next: re-run preflight against the widened Owned_Paths, then deletions + v1-field removal.
 - [2026-09-12T08:20:00Z] [ORCH] Re-carved territory once, per protocol §7 (same class of correctly-detected conflict as TASK-088 earlier in this wave — a v1-field/surface removal inherently forces touching every remaining caller in one atomic pass, which is exactly why TASK-088 deferred this exact work to this task). Widened Owned_Paths to every file GB's Blocked_Reason/dossier listed: lib/app.dart, lib/app_shell/shell_routes.dart + radio_host_provider.dart, lib/core/radio_host/**, lib/core/presentation/{radio_view_intents,connection_condition,radio_view_state}.dart, lib/core/state/{radio_state,radio_state_bridge}.dart, lib/core/settings/settings_model.dart, lib/services/session/radio_session_controller.dart, lib/features/groups/{group_invite_link,group_invite_screen}.dart, lib/features/settings/{settings_screen,about_diagnostics,settings_copy,settings_inventory,settings_keys}.dart, plus the corresponding test files. No other task is currently active, so this conflicts with nothing. GB's branch (`task/TASK-094-gb`, dossier-only commit so far) and preflight stay intact — resuming, not resetting. Status -> pending for GB to reclaim.
 - [2026-09-12T08:08:02Z] [GB] Claimed TASK-094. Resume check: no GB in_progress/claimed task. Depends_On TASK-093 is done. Branch task/TASK-094-gb. Next: preflight_paths.py TASK-094, then map remaining shell/core imports before deleting.
@@ -5789,12 +5790,20 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 ```
 No deletions made. TASK-093 left live imports of the retirement set outside this task's Owned_Paths; deleting in-territory would not compile. KEEP radio_controls (shell still pushes it). Talk does not import tuning. Paths needed (TASK-074 lesson): lib/app.dart; lib/app_shell/{shell_routes,radio_host_provider,mobile_app_shell}.dart; lib/core/radio_host/**; lib/core/presentation/{radio_view_intents,connection_condition,radio_view_state}.dart; lib/core/state/{radio_state,radio_state_bridge}.dart; lib/core/settings/settings_model.dart; lib/services/session/radio_session_controller.dart; lib/features/groups/{group_invite_link,group_invite_screen}.dart; lib/features/settings/{settings_screen,about_diagnostics,settings_copy,settings_inventory,settings_keys}.dart; plus tests: test/app_shell/fake_radio_host.dart, test/core/radio_host/**, test/core/presentation/radio_view_intents_test.dart, test/features/{talk,settings,radio_controls}/fake_radio_host.dart, test/features/groups/group_invite_screen_test.dart, test/regression/real_composition_test.dart. Full table in dossiers/TASK-094.md. Ask: widen Owned_Paths or split extract/hoist + delete + v1-field-removal. Idle until re-carve.
 **Artifacts:**
+- lib/core/radio_host/{session_host,permission_gate}.dart (hoisted)
+- lib/features/groups/group_invite_link.dart (expiry presets)
+- lib/app.dart, lib/app_shell/{shell_routes,radio_host_provider}.dart
+- deleted: lib/features/{channels,channel_selector,stations,event_qr,event_qr_ui,face,ptt,display,settings_panel,tuning}/**
 - dossiers/TASK-094.md
-**Test_Evidence:** —
+**Test_Evidence:**
+- [2026-09-12T08:39:05Z] [GB] `python scripts/preflight_paths.py TASK-094` — 59 FILE/DIR/GLOB entries, all existing (widened territory).
+- [2026-09-12T08:39:05Z] [GB] `flutter analyze --no-pub` — No issues found!
+- [2026-09-12T08:39:05Z] [GB] `flutter test --no-pub` — **1406 passed / 0 failed / 40 skipped** (PARKED FR-025 soak seeds unmodified). Baseline after TASK-093 was 1754/0/40; Δ −348 presentation tests of deleted modules.
+- [2026-09-12T08:39:05Z] [GB] `flutter build apk --debug` — SUCCESS, `app-debug.apk` 226,749,955 bytes.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T08:22:00Z
+**Updated_At:** 2026-09-12T08:39:05Z
 
 
 ### TASK-095
