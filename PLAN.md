@@ -6134,7 +6134,7 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 
 ### TASK-098
 **Title:** Contact-request failures are silently swallowed; local-only mode gives no warning it blocks contacts
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** Owner field report 2026-09-12 (QR scan of another device's KERYX ID "just exits and does not add it") — traced live in-session to three compounding gaps: `lib/features/contacts/scan_id_screen.dart:59-61` (`_onRaw` calls `widget.onRaw(raw)` then immediately `Navigator.maybePop()`s, without waiting to learn whether the request succeeded), `lib/features/contacts/contacts_tab.dart:99` (wires that callback to `unawaited(widget.controller.sendRequestFromId(raw))` — fire-and-forget), and `lib/features/contacts/contacts_list_controller.dart:87-93` (`sendRequestFromId`'s `await _contacts.sendRequest(...)` has no try/catch, so any failure throws into the discarded `unawaited` future and is never surfaced to the UI). **Confirmed by a second owner report, same session:** pasting the identical contact link into "Paste an ID" correctly shows "Couldn't send that request." (`contacts_copy.dart:33`, `requestFailed`) — because `contacts_tab.dart:83-91`'s `_onPaste` already does `try { await controller.sendRequestFromId(raw); } catch (_) { return ContactsCopy.requestFailed; }`. This proves two things: (a) the paste path's error handling is already correct — the fix for the scan path is to mirror `_onPaste`'s exact pattern into `_openScan`/`ScanIdScreen`, not to invent a new mechanism; (b) `sendRequest` is genuinely failing over the network for this link (local parse already succeeded — a parse failure would show `ContactsCopy.tamperedId`/`invalidId` instead, not `requestFailed`), which corroborates the `forceLocalOnly`-blocks-contacts theory from TASK-097's sibling finding rather than a QR/URL-format defect. Settings' "This network only" copy ("This-network-only is on. Relay settings are stored but no internet call is made") still gives no indication that this also blocks adding contacts.
@@ -6148,12 +6148,57 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 - [ ] Settings' "This network only" row's description names contacts/presence as affected while it's on (exact copy at the builder's discretion, reviewed against `settings_copy.dart` conventions)
 - [ ] A widget test confirms a user-visible warning is shown on the Contacts add/scan path when `forceLocalOnly` is true
 - [ ] Full test suite green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-098-gb
+**Started_At:** 2026-09-12T13:52:19Z
+**Progress_Notes:**
+- [2026-09-12T13:52:19Z] [GB] Claimed TASK-098. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-098 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 6 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/contacts/**  -> 13 file(s):
+           lib/features/contacts/README.md
+           lib/features/contacts/add_contact_sheet.dart
+           lib/features/contacts/contact_actions_sheet.dart
+           lib/features/contacts/contact_view_models.dart
+           lib/features/contacts/contacts.dart
+           lib/features/contacts/contacts_copy.dart
+           lib/features/contacts/contacts_keys.dart
+           lib/features/contacts/contacts_list_controller.dart
+           lib/features/contacts/contacts_screen.dart
+           lib/features/contacts/contacts_tab.dart
+           lib/features/contacts/incoming_request_sheet.dart
+           lib/features/contacts/presence_badge.dart
+           ... and 1 more
+  FILE   lib/features/settings/settings_screen.dart  -> exists, 747 line(s), 28159 bytes
+  FILE   lib/features/settings/settings_copy.dart  -> exists, 204 line(s), 8959 bytes
+  GLOB   test/features/contacts/**  -> 15 file(s):
+           test/features/contacts/add_contact_sheet_test.dart
+           test/features/contacts/contact_actions_sheet_test.dart
+           test/features/contacts/contact_view_models_test.dart
+           test/features/contacts/contacts_golden_test.dart
+           test/features/contacts/contacts_list_controller_test.dart
+           test/features/contacts/contacts_screen_test.dart
+           test/features/contacts/goldens/contacts_empty_dark.png
+           test/features/contacts/goldens/contacts_empty_light.png
+           test/features/contacts/goldens/contacts_populated_dark.png
+           test/features/contacts/goldens/contacts_populated_light.png
+           test/features/contacts/goldens/contacts_requests_dark.png
+           test/features/contacts/goldens/contacts_requests_light.png
+           ... and 3 more
+  GLOB   test/features/settings/**  -> 6 file(s):
+           test/features/settings/about_diagnostics_test.dart
+           test/features/settings/fake_radio_host.dart
+           test/features/settings/settings_apply_test.dart
+           test/features/settings/settings_inventory_test.dart
+           test/features/settings/settings_persistence_test.dart
+           test/features/settings/settings_screen_test.dart
+  NEW    dossiers/TASK-098.md  -> does not exist; parent dossiers/ exists
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+`add_contact_sheet.dart` confirmed in-territory but out of scope (paste path already correct). Dossier is NEW. Implementing scan-path await/catch mirroring `_onPaste`, Settings copy naming contacts/presence, and a dismissable local-only notice on Contacts/scan.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-12T14:40:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-12T13:52:19Z
