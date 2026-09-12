@@ -1,5 +1,5 @@
 ---
-plan_version: 16.10
+plan_version: 17.0
 last_updated: 2026-09-12T05:11:42Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
@@ -5959,7 +5959,7 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 
 ### TASK-095
 **Title:** v2.0 regression pass, device-matrix runbook and release build
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Verification_v1.0.md §5 (V2-VT-030 full golden set), §6 (device matrix rows A–I, `ops/FIELD_TEST_V2.md`), §7 (safety regression), §8 gates G1–G3; PRD §5, V2-NFR-005/006
@@ -6001,6 +6001,7 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 ```
 Existing Talk goldens cover no-target/nobody-listening/alert-banner plus idle (ready-equivalent). Missing V2-VT-030 surfaces: Talk DND + explicit ready, Contacts/Groups/group-detail/My-code/phrase. Layout matrix still uses Channels/Stations aliases. Next: those goldens, v2 layout/back, safety sweep, runbooks, release APK.
 - [2026-09-12T10:00:31Z] [GB] Status: needs_review. Branch `task/TASK-095-gb` (`ecc58c9`). V2-VT-030 goldens frozen (Talk ready/DND + Contacts/Groups/detail/My code/phrase, dark+light). Layout matrix on Talk/Contacts/Groups at seven sizes. Overflow system-back includes My code. Safety sweep: no contacts permission, no analytics SDK, HttpClient=token+directory, WebSocket=presence+LAN, only hardcoded https host is keryx.app, mute-before-publish on linked+mesh (allowlist test mutation-checked). `ops/FIELD_TEST_V2.md` rows A–I. `ops/REGRESSION_V2.md` reconciles 1519 (R2 report) / 1526 (PLAN estimate) → 1379 (TASK-094) → 1407 (this task, +28). Arm64 release 45,158,532 bytes (43.1 MB) sha256 `6C8D9518F65280295EAE1B887D46C54E98D5E73F539A3ECD7F121F311F463DFF`. Not installed or sent.
+- [2026-09-12T10:05:43Z] [ORCH] Reviewed on claude-sonnet-5 (v2.0 wave). Territory clean (30 files, test/regression + ops + dossier only, zero production files). Independent run: analyze 0; full suite 1407 total/0 failed/40 skipped, matches GB exactly. Safety sweep source read directly — real static checks against actual manifest/pubspec/lib source, not mocks, mutation-tested. `ops/REGRESSION_V2.md` reconciliation is honest, attributing the count drop to TASK-094 rather than this task. **Release APK independently re-verified**: arm64 APK still present in the worktree, size and sha256 both re-checked myself and match GB's claim exactly (`6C8D9518F65280295EAE1B887D46C54E98D5E73F539A3ECD7F121F311F463DFF`, 43.1 MB, under the 60 MB gate). **APPROVED, merged `d77837e`.** Status: done. **v2.0 WAVE COMPLETE — 14/14 tasks done.**
 **Artifacts:**
 - test/regression/goldens/v2_vt030_surfaces_golden_test.dart
 - test/regression/goldens/v2_group_detail_golden_test.dart
@@ -6026,10 +6027,10 @@ Existing Talk goldens cover no-target/nobody-listening/alert-banner plus idle (r
 - [2026-09-12T10:00:31Z] [GB] `flutter test --no-pub` — **1407 passed / 0 failed / 40 skipped** (PARKED FR-025 soak seeds).
 - [2026-09-12T10:00:31Z] [GB] `flutter build apk --release --split-per-abi` — SUCCESS. arm64 45158532 bytes (43.1 MB) sha256 `6C8D9518F65280295EAE1B887D46C54E98D5E73F539A3ECD7F121F311F463DFF` (< 60 MB). v7a 33.4 MB, x86_64 49.5 MB; those two deleted after hashing.
 - [2026-09-12T10:00:31Z] [GB] Revert-mutation: expected https-host set changed to `mutation-should-fail.example` → allowlist test failed (actual `{keryx.app}`); restored.
-**Review_Findings:** —
+**Review_Findings:** APPROVED. See REVIEW.md row and ORCH progress note above. v2.0 wave complete.
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-12T10:00:31Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T10:05:43Z
 
 
 ### TASK-096
