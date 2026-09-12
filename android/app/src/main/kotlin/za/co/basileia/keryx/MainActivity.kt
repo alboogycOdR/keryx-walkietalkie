@@ -8,5 +8,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine.plugins.add(NsdPlugin())
         flutterEngine.plugins.add(RadioServicePlugin())
+        flutterEngine.plugins.add(ScreenshotGuardPlugin())
+        flutterEngine.plugins.add(ScreenBrightnessPlugin())
     }
 }
