@@ -1,4 +1,5 @@
-import 'package:keryx/core/radio_host/radio_host.dart' show RadioHostSnapshot;
+import 'package:keryx/core/radio_host/radio_host.dart'
+    show RadioHostSnapshot, SessionFailureKind;
 import 'package:keryx/core/settings/settings_repository.dart' show KeryxSettings;
 import 'package:keryx/core/state/radio_state.dart'
     show RadioPhase, RadioState, Transport;
@@ -13,11 +14,13 @@ import 'telemetry.dart';
 /// Overlay cues for the 5 Design §4 catalogue rows that are **not** a
 /// [RadioPhase], plus the FR-023 / DS §6 TOT-warning overlay (Design §4
 /// has no dedicated "TX time-out warning" row; TX granted's treatment is
-/// "Red + timer if authoritative"). Each is an independent boolean/nullable
-/// field on [RadioViewState], never folded into a single priority switch
-/// (Technical §5.2; Design §4's closing paragraph). Kept as static
-/// constants here (rather than duplicated inline) so their copy has
-/// exactly one source.
+/// "Red + timer if authoritative") and the TASK-097 session-establishment
+/// failure pair ([localSessionFailed]/[linkedSessionFailed] — also not a
+/// Design §4 catalogue row; a field report, not the original spec, drove
+/// this one). Each is an independent boolean/nullable field on
+/// [RadioViewState], never folded into a single priority switch (Technical
+/// §5.2; Design §4's closing paragraph). Kept as static constants here
+/// (rather than duplicated inline) so their copy has exactly one source.
 abstract final class OverlayCues {
   static const deniedFlash = PresentationCue(
     label: 'Someone is already transmitting',
@@ -38,6 +41,23 @@ abstract final class OverlayCues {
   static const serviceFault = PresentationCue(
     label: 'Background service unavailable',
     iconId: 'error',
+  );
+
+  /// TASK-097: LOCAL session establishment timed out or failed (typically
+  /// no reachable LAN peer). Reuses `linkDegraded`'s own `wifi_off` icon —
+  /// both name "no usable link right now", same disclosed icon-reuse
+  /// convention this file already applies to colour (see
+  /// `talk_screen.dart`'s `_overlayColorFor` dartdoc).
+  static const localSessionFailed = PresentationCue(
+    label: "Couldn't find anyone nearby",
+    iconId: 'wifi_off',
+  );
+
+  /// TASK-097: LINKED session establishment timed out or failed (typically
+  /// an unreachable relay or token service).
+  static const linkedSessionFailed = PresentationCue(
+    label: "Couldn't reach the relay",
+    iconId: 'wifi_off',
   );
 
   /// FR-023 T-5 s TOT warning (DS §6 "TX time-out warning"). Not a Design
@@ -78,6 +98,7 @@ class RadioViewState {
     required this.connection,
     required this.permissionDenied,
     required this.serviceFaultMessage,
+    this.sessionFailureKind,
     required this.activeSpeakerPeerId,
     required this.activeSpeakerCallsign,
     required this.stations,
@@ -136,6 +157,15 @@ class RadioViewState {
   /// human-safe message only (Design §5) — never raw exception text
   /// (Technical §3).
   final String? serviceFaultMessage;
+
+  /// TASK-097: non-null exactly when the most recent session-establishment
+  /// attempt (LOCAL or LINKED) timed out or threw — mirrors
+  /// `RadioHostSnapshot.sessionFailureKind` verbatim. Independent of
+  /// [permissionDenied]/[serviceFaultMessage]/[phase]: a screen renders
+  /// whichever apply, never collapsing them into one state (Technical
+  /// §5.2). Defaults to `null` so out-of-territory direct constructors keep
+  /// compiling (same convention as [totWarning]'s default).
+  final SessionFailureKind? sessionFailureKind;
 
   /// Raw peer identifier of whoever holds the floor, or `null` — mirrors
   /// `RadioState.activeSpeaker` verbatim. Never itself rendered as a
@@ -201,6 +231,10 @@ class RadioViewState {
   List<PresentationCue> get activeOverlayCues => [
     if (permissionDenied) OverlayCues.permissionDenied,
     if (serviceFaultMessage != null) OverlayCues.serviceFault,
+    if (sessionFailureKind == SessionFailureKind.local)
+      OverlayCues.localSessionFailed,
+    if (sessionFailureKind == SessionFailureKind.linked)
+      OverlayCues.linkedSessionFailed,
     if (emergency) OverlayCues.emergency,
     if (deniedFlash) OverlayCues.deniedFlash,
     if (totWarning) OverlayCues.totWarning,
@@ -260,6 +294,7 @@ class RadioViewState {
       ),
       permissionDenied: hostSnapshot.micPermissionDenied,
       serviceFaultMessage: hostSnapshot.serviceFaultMessage,
+      sessionFailureKind: hostSnapshot.sessionFailureKind,
       activeSpeakerPeerId: speakerId,
       activeSpeakerCallsign: speakerCallsign,
       stations: hostSnapshot.stations,
@@ -301,6 +336,7 @@ class RadioViewState {
       'connection: $connection, '
       'permissionDenied: $permissionDenied, '
       'serviceFaultMessage: $serviceFaultMessage, '
+      'sessionFailureKind: $sessionFailureKind, '
       'activeSpeakerPeerId: $activeSpeakerPeerId, '
       'activeSpeakerCallsign: $activeSpeakerCallsign, '
       'stations: ${stations.length}, rosterCount: $rosterCount, '

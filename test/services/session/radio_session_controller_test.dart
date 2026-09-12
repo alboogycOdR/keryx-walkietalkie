@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/floor/clock.dart';
@@ -12,11 +13,127 @@ import 'package:keryx/services/discovery/discovered_peer.dart';
 import 'package:keryx/services/discovery/discovery_config.dart';
 import 'package:keryx/services/discovery/discovery_service.dart';
 import 'package:keryx/services/discovery/discovery_state.dart';
+import 'package:keryx/services/linked/linked.dart';
 import 'package:keryx/services/mesh/rtc_adapter.dart';
 import 'package:keryx/services/session/radio_session_controller.dart';
 import 'package:keryx/services/signaling/in_process_endpoint.dart';
 
 import '../mesh/fakes/fake_rtc_adapter.dart';
+
+/// TASK-097: `start()` (LOCAL) `-> discovery.start()` never resolves —
+/// simulates the field-reported hung NSD/platform-channel call. Unlike the
+/// real `NsdDiscoveryService.production()` default (whose platform channel
+/// calls resolve immediately under `flutter_test`'s auto-mocked messenger,
+/// so it cannot reproduce the hang), this fake genuinely never completes,
+/// proving `RadioSessionController`'s own bound — not the test harness —
+/// is what stops the wait.
+class _HangingDiscoveryService implements DiscoveryService {
+  final _found = StreamController<DiscoveredPeer>.broadcast();
+  final _lost = StreamController<DiscoveredPeer>.broadcast();
+  final _states = StreamController<DiscoveryState>.broadcast();
+  final Completer<void> _neverCompletes = Completer<void>();
+
+  @override
+  Stream<DiscoveredPeer> get peersFound => _found.stream;
+
+  @override
+  Stream<DiscoveredPeer> get peersLost => _lost.stream;
+
+  @override
+  Stream<DiscoveryState> get states => _states.stream;
+
+  @override
+  DiscoveryState get state => DiscoveryState.idle;
+
+  @override
+  Future<void> start(DiscoveryConfig config) => _neverCompletes.future;
+
+  @override
+  Future<void> onTuned() async {}
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Future<void> dispose() async {
+    await _found.close();
+    await _lost.close();
+    await _states.close();
+  }
+}
+
+/// TASK-097: `discovery.start()` throws a real (non-timeout) failure —
+/// proves the bound's catch-all covers "a thrown failure", not only a
+/// timeout (acceptance criterion 1's "successfully or with a thrown
+/// failure").
+class _ThrowingDiscoveryService implements DiscoveryService {
+  final _found = StreamController<DiscoveredPeer>.broadcast();
+  final _lost = StreamController<DiscoveredPeer>.broadcast();
+  final _states = StreamController<DiscoveryState>.broadcast();
+
+  @override
+  Stream<DiscoveredPeer> get peersFound => _found.stream;
+
+  @override
+  Stream<DiscoveredPeer> get peersLost => _lost.stream;
+
+  @override
+  Stream<DiscoveryState> get states => _states.stream;
+
+  @override
+  DiscoveryState get state => DiscoveryState.idle;
+
+  @override
+  Future<void> start(DiscoveryConfig config) async {
+    throw StateError('simulated nsd platform failure');
+  }
+
+  @override
+  Future<void> onTuned() async {}
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Future<void> dispose() async {
+    await _found.close();
+    await _lost.close();
+    await _states.close();
+  }
+}
+
+/// TASK-097: `LiveKitAdapter.connect()` never resolves — simulates a
+/// reachable-but-wedged relay on the LINKED path (`TokenClient`'s own
+/// request already has a 10 s bound of its own; this fake proves the
+/// *adapter connect/publish* step, which had no bound at all, is now
+/// covered too).
+class _HangingLiveKitAdapter implements LiveKitAdapter {
+  @override
+  Future<LiveKitRoom> connect({
+    required String url,
+    required String jwt,
+    Uint8List? e2eeKey,
+  }) => Completer<LiveKitRoom>().future;
+}
+
+/// TASK-097: a `TokenClient` that resolves instantly with a fake JWT so a
+/// LINKED-path test reaches `LiveKitAdapter.connect()` without a real
+/// network round trip. `requestToken` is a public, overridable instance
+/// method — no mock framework needed.
+class _FastTokenClient extends TokenClient {
+  _FastTokenClient() : super(baseUrl: Uri.parse('https://token.invalid'));
+
+  @override
+  Future<TokenResponse> requestToken({
+    required String roomId,
+    required String callsign,
+    String? eventToken,
+  }) async => const TokenResponse(
+    token: 'fake-jwt',
+    identity: 'Alice#deadbeef',
+    ttl: Duration(minutes: 5),
+  );
+}
 
 /// No-op [DiscoveryService] — TASK-079's meter-level tests join peers
 /// directly through `RadioSessionController.debugSignaling.onPeerFound`
@@ -776,6 +893,146 @@ void main() {
 
         await controller.dispose();
       });
+    });
+
+    // TASK-097: session establishment must be bounded — see the class's
+    // own `_startLocal`/`_startLinked` dartdoc for the disclosed
+    // uncancellable-native-call limitation this bound does NOT claim to fix.
+    group('session-establishment bound (TASK-097)', () {
+      test(
+        'LOCAL: a never-resolving discovery.start() does not hang start() '
+        'forever — completes with a thrown SessionEstablishmentFailure '
+        'naming the LOCAL transport, within the injected bound',
+        () async {
+          final controller = RadioSessionController(
+            localPeerId: 'ALFA-1',
+            callsign: 'Alice',
+            settings: settingsLocal,
+            dispatch: dispatchedEvents.add,
+            discoveryFactory: _HangingDiscoveryService.new,
+            sessionStartTimeout: const Duration(milliseconds: 50));
+
+          await expectLater(
+            controller.start(),
+            throwsA(
+              isA<SessionEstablishmentFailure>().having(
+                (e) => e.transport,
+                'transport',
+                Transport.direct)));
+
+          // No live session was ever adopted — a failed start must never
+          // leave a half-built engine reachable (mirrors `floorEngine
+          // throws before start`'s existing lifecycle guarantee).
+          expect(() => controller.floorEngine, throwsStateError);
+
+          await controller.dispose();
+        },
+        timeout: const Timeout(Duration(seconds: 5)));
+
+      test(
+        'LOCAL: a thrown (non-timeout) discovery.start() failure also '
+        'surfaces as a typed SessionEstablishmentFailure, not a hang and '
+        'not a raw StateError',
+        () async {
+          final controller = RadioSessionController(
+            localPeerId: 'ALFA-1',
+            callsign: 'Alice',
+            settings: settingsLocal,
+            dispatch: dispatchedEvents.add,
+            discoveryFactory: _ThrowingDiscoveryService.new,
+            sessionStartTimeout: const Duration(seconds: 5));
+
+          await expectLater(
+            controller.start(),
+            throwsA(isA<SessionEstablishmentFailure>()));
+
+          await controller.dispose();
+        },
+        timeout: const Timeout(Duration(seconds: 5)));
+
+      test(
+        'LINKED: a never-resolving LiveKitAdapter.connect() does not hang '
+        'start() forever — completes with a thrown SessionEstablishmentFailure '
+        'naming the LINKED transport, within the injected bound',
+        () async {
+          final settings = KeryxSettings(
+            squelchLevel: 5,
+            totSeconds: 120,
+            busyLockout: false,
+            latchMode: false,
+            forceLocalOnly: false,
+            relayUrl: 'wss://relay.example',
+            tokenServiceUrl: 'https://relay.example/token-svc',
+            characterDspIntensity: CharacterDspIntensity.light,
+            dimMode: DimMode.auto);
+
+          final controller = RadioSessionController(
+            localPeerId: 'ALFA-1',
+            callsign: 'Alice',
+            settings: settings,
+            dispatch: dispatchedEvents.add,
+            liveKitAdapter: _HangingLiveKitAdapter(),
+            tokenClientFactory: (_) => _FastTokenClient(),
+            sessionStartTimeout: const Duration(milliseconds: 50));
+
+          await expectLater(
+            controller.start(),
+            throwsA(
+              isA<SessionEstablishmentFailure>().having(
+                (e) => e.transport,
+                'transport',
+                Transport.relay)));
+
+          expect(() => controller.floorEngine, throwsStateError);
+
+          await controller.dispose();
+        },
+        timeout: const Timeout(Duration(seconds: 5)));
+
+      test(
+        'switchTarget shares the same bound as start() — a hung target '
+        'switch also fails fast rather than hanging forever',
+        () async {
+          // First call (inside `start()`) returns a working no-op
+          // discovery; the second call (inside `switchTarget()`'s own
+          // `_startLocal`) returns one that never resolves — proves the
+          // bound lives in `_startLocal` itself, reached from either
+          // caller, not just the one `start()` call site.
+          var calls = 0;
+          DiscoveryService discoveryFactory() {
+            calls++;
+            return calls == 1
+                ? _NoopDiscoveryService()
+                : _HangingDiscoveryService();
+          }
+
+          final controller = RadioSessionController(
+            localPeerId: 'ALFA-1',
+            callsign: 'Alice',
+            settings: settingsLocal,
+            dispatch: dispatchedEvents.add,
+            discoveryFactory: discoveryFactory,
+            sessionStartTimeout: const Duration(milliseconds: 50));
+
+          await controller.start();
+          expect(calls, 1);
+
+          await expectLater(
+            controller.switchTarget(
+              const TalkTarget(
+                kind: TalkTargetKind.contact,
+                id: 'p2',
+                name: 'Peer',
+                roomId: 'ABCDEFGHIJKLMNOP',
+              ),
+              memberPeerIds: const [],
+            ),
+            throwsA(isA<SessionEstablishmentFailure>()));
+          expect(calls, 2);
+
+          await controller.dispose();
+        },
+        timeout: const Timeout(Duration(seconds: 5)));
     });
   });
 }
