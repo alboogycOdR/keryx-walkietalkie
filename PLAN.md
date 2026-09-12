@@ -5728,7 +5728,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-094
 **Title:** v2 deletions — channels, selector, stations, numbered Event QR, legacy face/ptt/display/settings_panel
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
@@ -5744,6 +5744,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 **Branch:** task/TASK-094-gb
 **Started_At:** 2026-09-12T08:08:02Z
 **Progress_Notes:**
+- [2026-09-12T08:50:00Z] [GB] Reclaimed TASK-094 after ORCH's third Owned_Paths widen. Same branch `task/TASK-094-gb`, Started_At unchanged. Next: merge master, preflight, then re-grep RadioMode/SetMode/TuneTo/deriveNumbered across lib/**+test/** before any v1-field removal.
 - [2026-09-12T09:15:00Z] [ORCH] Third and final widen for this task, from GB's own exhaustive dossier grep of `RadioMode`/`SetMode`/`TuneTo`/`deriveNumbered` across all of `lib/**`+`test/**` (not a guess-list this time — GB's own comprehensive search): added `lib/features/settings/session_settings.dart`, `lib/core/rooms/derivation.dart`, `lib/services/discovery/{channel_hash_prefix,discovery,discovery_config,room_prefix}.dart`, `lib/services/linked/linked_controller.dart`, `lib/core/presentation/tuning_target.dart`, `lib/core/settings/README.md`, `test/features/talk/talk_screen_test.dart`, `test/features/settings/{settings_apply,settings_persistence}_test.dart`, `test/core/rooms/{derivation,vectors}_test.dart`, `test/services/discovery/channel_hash_prefix_test.dart`. No other task owns any of this (TASK-087/093 both done). **Before touching anything, re-run GB's own grep for those four symbols once more across the whole repo to confirm this list is now actually exhaustive** — if it isn't, stop and report the residual rather than deleting partially again; three rounds is enough guessing, the fourth should be a real completion. Status -> pending.
 - [2026-09-12T08:46:19Z] [GB] Status: blocked, Blocked_Reason: OWNERSHIP_CONFLICT. Merged master (`c975103`). No v1-field removal written — an honest AC-3 pass still cannot compile. Second widen granted every file named in the last Residual list; grep of live `lib/`+`test/` found a further caller set that list missed. Preflight (c8b9872 filesystem check):
 ```
@@ -5867,9 +5868,9 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 - [2026-09-12T08:39:05Z] [GB] `flutter test --no-pub` — **1406 passed / 0 failed / 40 skipped** (PARKED FR-025 soak seeds unmodified). Baseline after TASK-093 was 1754/0/40; Δ −348 presentation tests of deleted modules.
 - [2026-09-12T08:39:05Z] [GB] `flutter build apk --debug` — SUCCESS, `app-debug.apk` 226,749,955 bytes.
 **Review_Findings:** —
-**Blocked_Reason:** OWNERSHIP_CONFLICT
+**Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T08:46:19Z
+**Updated_At:** 2026-09-12T08:50:00Z
 
 
 ### TASK-095
