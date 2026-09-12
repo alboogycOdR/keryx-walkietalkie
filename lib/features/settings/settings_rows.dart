@@ -514,3 +514,45 @@ class SettingsReadOnlyRow extends StatelessWidget {
     );
   }
 }
+
+/// v2 (Design §2.7): a label/description row with a single trailing action
+/// button — "Show recovery phrase" and "Restore from phrase" (Identity), not
+/// a value the user edits in place.
+class SettingsActionRow extends StatelessWidget {
+  const SettingsActionRow({
+    super.key,
+    required this.label,
+    required this.description,
+    required this.actionLabel,
+    required this.onPressed,
+    this.destructive = false,
+  });
+
+  final String label;
+  final String description;
+  final String actionLabel;
+  final VoidCallback onPressed;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final KeryxUxTokens tokens = KeryxUxTokens.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: KeryxUxSpacing.controlGap),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: SettingsRowHeader(label: label, description: description),
+          ),
+          TextButton(
+            onPressed: onPressed,
+            style: destructive
+                ? TextButton.styleFrom(foregroundColor: tokens.stateWarning)
+                : null,
+            child: Text(actionLabel),
+          ),
+        ],
+      ),
+    );
+  }
+}

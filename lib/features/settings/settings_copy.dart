@@ -24,7 +24,11 @@ abstract final class SettingsCopy {
 
   static const String identitySection = 'Identity';
   static const String identitySectionDescription =
-      'The name other stations see.';
+      'The name other stations see, and your KERYX ID.';
+
+  static const String messagesSection = 'Messages';
+  static const String messagesSectionDescription =
+      'Voice messages arrive in v2.1. Retention applies from then.';
 
   static const String appearanceSection = 'Appearance';
   static const String appearanceSectionDescription =
@@ -96,6 +100,47 @@ abstract final class SettingsCopy {
       '2–12 letters, digits or hyphens. This is a display name, not an account.';
   static const String callsignInvalid =
       'Callsign must be 2–12 letters, digits or hyphens.';
+
+  static const String showRecoveryPhraseLabel = 'Show recovery phrase';
+  static const String showRecoveryPhraseDescription =
+      'The 12 words that are the only way to get your KERYX ID back. Kept '
+      'behind a confirmation and screenshots are blocked while shown.';
+  static const String showRecoveryPhraseAction = 'Show';
+  static const String showRecoveryPhraseUnavailable =
+      'No recovery phrase was saved on this device (a restored identity '
+      "keeps whichever phrase restored it — this device's copy isn't it).";
+  static const String recoveryPhraseTitle = 'Your recovery phrase';
+  static const String recoveryPhraseWarning =
+      'Write these 12 words down and keep them safe. They are the only way '
+      'to get your KERYX ID back.';
+  static const String recoveryPhraseConfirmTitle = 'Show recovery phrase?';
+  static const String recoveryPhraseConfirmBody =
+      'Anyone who sees these 12 words can restore your KERYX ID on another '
+      'device. Make sure nobody can see this screen.';
+  static const String recoveryPhraseConfirmShow = 'Show';
+
+  static const String restoreFromPhraseLabel = 'Restore from phrase';
+  static const String restoreFromPhraseDescription =
+      'Replaces this KERYX ID with one restored from a 12-word phrase.';
+  static const String restoreFromPhraseAction = 'Restore';
+  static const String restoreConfirmTitle = 'Replace this KERYX ID?';
+  static const String restoreConfirmBody =
+      'Restoring replaces the identity on this device. Contacts and groups '
+      'made with the current ID stay with that ID, not the restored one.';
+  static const String restoreConfirmContinue = 'Continue';
+  static const String restoreDone =
+      'Identity restored. Restart KERYX for the change to take full effect.';
+
+  static const String preferDirectLabel = 'Prefer direct on Wi-Fi';
+  static const String preferDirectDescription =
+      'Use a local network path instead of the relay when both are '
+      'available for the current room.';
+
+  static const String messageRetentionLabel = 'Message retention';
+  static const String messageRetentionDescription =
+      'Local retention window before voice messages are purged. Used from '
+      'v2.1.';
+  static String messageRetentionValueLabel(int days) => '$days d';
 
   static const String themeLabel = 'Theme';
   static const String themeDescription =

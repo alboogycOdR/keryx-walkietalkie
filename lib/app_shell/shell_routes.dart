@@ -6,9 +6,11 @@ import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/features/channel_selector/channel_selector_screen.dart';
 import 'package:keryx/features/event_qr_ui/event_qr_ui_export_screen.dart';
 import 'package:keryx/features/event_qr_ui/event_qr_ui_scan_screen.dart';
+import 'package:keryx/features/my_code/my_code_screen.dart';
 import 'package:keryx/features/radio_controls/radio_controls_screen.dart';
 import 'package:keryx/features/settings/settings_screen.dart';
 
+import 'directory_providers.dart';
 import 'shell_keys.dart';
 
 /// Pushes the Wave-4/R2 screens this shell owns onto the caller's
@@ -63,6 +65,36 @@ abstract final class ShellRoutes {
     return Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) => const SettingsScreen(key: ShellKeys.settings),
+      ),
+    );
+  }
+
+  /// Pushes My code (Design §2.4) full-screen from the ⋮ menu, above Radio
+  /// controls and Settings (Design §1). Reads the real identity via
+  /// [identityProvider] — a still-loading/absent key pair renders nothing
+  /// rather than pushing a broken screen (a fresh install's identity is
+  /// created synchronously by [radioHostProvider]'s own boot, so this is
+  /// only ever hit in the sub-second window before that completes).
+  static Future<void> openMyCode(BuildContext context) {
+    return Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (BuildContext routeContext) => Consumer(
+          builder: (context, WidgetRef ref, _) {
+            final identityAsync = ref.watch(identityProvider);
+            final identity = identityAsync.valueOrNull;
+            final publicKey = identity?.keyPair?.publicKey;
+            if (identity == null || publicKey == null) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return MyCodeScreen(
+              key: ShellKeys.myCode,
+              callsign: identity.callsign.value,
+              publicKey: publicKey,
+            );
+          },
+        ),
       ),
     );
   }

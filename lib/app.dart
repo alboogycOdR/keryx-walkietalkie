@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:keryx/core/identity/identity.dart'
+    show IdentityRepository, IdentityStore;
 import 'package:keryx/core/theme/ux_tokens.dart' show keryxUxThemeData;
-import 'package:keryx/features/face/face.dart' show FaceScreen;
 import 'package:keryx/features/settings_panel/back_panel_screen.dart';
 
 import 'app_shell/app_shell.dart';
@@ -17,18 +17,30 @@ import 'app_shell/app_shell.dart';
 /// scope required) — `main.dart` doesn't need to supply one. Exactly one
 /// `ProviderScope` exists anywhere in the tree (Technical §1/§2).
 class KeryxApp extends StatelessWidget {
-  const KeryxApp({super.key});
+  const KeryxApp({super.key, this.identityStore});
+
+  /// Test seam for [OnboardingGate]'s fresh-install check — production
+  /// leaves this `null`, which lets `OnboardingGate` construct its own
+  /// real `SecureIdentityStore()`-backed `IdentityRepository` (Technical
+  /// §8). A real-composition test that needs to boot straight through to
+  /// `MobileAppShell` (a keyed install) passes an in-memory store seeded
+  /// with `IdentityRepository.privateKeySeedKey` instead of exercising the
+  /// real `flutter_secure_storage` platform channel, which has no mock
+  /// handler under `flutter test`.
+  final IdentityStore? identityStore;
 
   @override
   Widget build(BuildContext context) {
-    return const ProviderScope(
-      child: _KeryxMaterialShell(),
+    return ProviderScope(
+      child: _KeryxMaterialShell(identityStore: identityStore),
     );
   }
 }
 
 class _KeryxMaterialShell extends StatelessWidget {
-  const _KeryxMaterialShell();
+  const _KeryxMaterialShell({this.identityStore});
+
+  final IdentityStore? identityStore;
 
   @override
   Widget build(BuildContext context) {
@@ -46,21 +58,25 @@ class _KeryxMaterialShell extends StatelessWidget {
       // hard-coded `KeryxTheme` statics, not `Theme.of(context)`, so this
       // swap does not touch its rendering.
       theme: keryxUxThemeData(),
-      home: const MobileAppShell(),
+      // v2 (TASK-093, Design §2.6): first launch routes through
+      // `OnboardingGate` before the shell — a keyed install (including a
+      // migrated v1 install) passes straight through to `MobileAppShell`.
+      home: OnboardingGate(
+        store: identityStore,
+        identityRepository:
+            identityStore == null ? null : IdentityRepository(identityStore!),
+      ),
       // Route registration lives here and nowhere else (Technical §9).
-      // `backPanelRouteName` stays registered because the dev-only legacy
-      // `FaceScreen` below still navigates to it by name (its own `⚙` key)
-      // — `MobileAppShell`'s own Settings destination embeds
-      // `BackPanelScreen` directly rather than pushing this route.
+      // `backPanelRouteName` stays registered — `MobileAppShell`'s own
+      // Settings destination embeds `BackPanelScreen` directly rather than
+      // pushing this route, but it is still reachable by name for whatever
+      // still expects it.
       //
-      // `legacyFaceRouteName` (Technical §10) is registered only in debug
-      // builds and is never linked from any widget in `lib/app_shell/**` —
-      // it exists purely so the pre-redesign face stays reachable by name
-      // during the migration; TASK-061 deletes both the legacy face and
-      // this registration.
+      // The dev-only `legacyFaceRouteName` registration (Technical §10) is
+      // deleted by this task per its own Description: the debug legacy-face
+      // route this shell no longer links from anywhere.
       routes: <String, WidgetBuilder>{
         backPanelRouteName: (context) => const BackPanelScreen(),
-        if (kDebugMode) legacyFaceRouteName: (context) => const FaceScreen(),
       },
     );
   }

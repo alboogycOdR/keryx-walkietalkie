@@ -77,6 +77,7 @@ void main() {
           theme: keryxUxThemeData(brightness: brightness),
           home: SettingsScreen(
             identityRepository: IdentityRepository(identityStore),
+            recoveryPhraseStore: identityStore,
             confirm: useProductionConfirm
                 ? null
                 : confirm ??
@@ -89,13 +90,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('six sections and every legacy control render', (tester) async {
+  testWidgets('six sections and their v2 controls render (Design §2.6)', (
+    tester,
+  ) async {
     await pumpSettings(tester);
     expect(find.text('Settings'), findsOneWidget);
     expect(find.byKey(SettingsKeys.radioSection), findsOneWidget);
     expect(find.byKey(SettingsKeys.audioSection), findsOneWidget);
     expect(find.byKey(SettingsKeys.connectivitySection), findsOneWidget);
     expect(find.byKey(SettingsKeys.identitySection), findsOneWidget);
+    expect(find.byKey(SettingsKeys.messagesSection), findsOneWidget);
     expect(find.byKey(SettingsKeys.appearanceSection), findsOneWidget);
     expect(find.byKey(SettingsKeys.aboutSection), findsOneWidget);
 
@@ -106,17 +110,23 @@ void main() {
     expect(find.text('Busy lockout'), findsOneWidget);
     expect(find.text('Character DSP'), findsOneWidget);
     expect(find.text('Dim'), findsOneWidget);
-    expect(find.text('Radio mode'), findsOneWidget);
     expect(find.text('Local only'), findsOneWidget);
-    expect(find.text('Region'), findsOneWidget);
     expect(find.text('Relay URL'), findsOneWidget);
     expect(find.text('Token URL'), findsOneWidget);
+    expect(find.text('Prefer direct on Wi-Fi'), findsOneWidget);
     expect(find.text('Callsign'), findsOneWidget);
+    expect(find.text('Show recovery phrase'), findsOneWidget);
+    expect(find.text('Restore from phrase'), findsOneWidget);
+    expect(find.text('Message retention'), findsOneWidget);
     expect(find.text('Effective route'), findsOneWidget);
     expect(find.text('Audio routing'), findsOneWidget);
     expect(find.text('Device default'), findsOneWidget);
     expect(find.text('BRAVO-7'), findsOneWidget);
     expect(find.text(SettingsCopy.appVersion), findsWidgets);
+
+    // Removed by TASK-093 (Design §2.6/§2.7): no Radio mode or Region rows.
+    expect(find.text('Radio mode'), findsNothing);
+    expect(find.text('Region'), findsNothing);
   });
 
   testWidgets(
@@ -132,7 +142,7 @@ void main() {
       );
       expect(
         find.descendant(
-          of: find.byKey(SettingsKeys.mode),
+          of: find.byKey(SettingsKeys.forceLocal),
           matching: find.text(SettingsCopy.reconnectsRadio),
         ),
         findsOneWidget,
@@ -158,6 +168,14 @@ void main() {
         ),
         findsNothing,
       );
+      expect(
+        find.descendant(
+          of: find.byKey(SettingsKeys.preferDirect),
+          matching: find.text(SettingsCopy.reconnectsRadio),
+        ),
+        findsNothing,
+        reason: 'Prefer direct on Wi-Fi is not marked sessionAffecting',
+      );
     },
   );
 
@@ -173,34 +191,32 @@ void main() {
     expect(host.applySettingsCalls, isNotEmpty);
   });
 
-  testWidgets('mode change shows confirmation; cancel does not apply', (
-    tester,
-  ) async {
+  testWidgets('a session-affecting toggle (Local only) shows confirmation; '
+      'cancel does not apply', (tester) async {
     await pumpSettings(
       tester,
       confirm: ({required String title, required String body}) async => false,
     );
-    await tester.tap(rowChild(SettingsKeys.mode, find.text('Linked')));
+    await tester.tap(rowChild(SettingsKeys.forceLocal, find.byType(Switch)));
     await tester.pumpAndSettle();
     expect(host.applySettingsCalls, isEmpty);
     expect(host.reconstructions, 0);
   });
 
-  testWidgets('mode change confirm reconstructs once with the new mode', (
-    tester,
-  ) async {
+  testWidgets('a session-affecting toggle confirm reconstructs once with '
+      'the new value', (tester) async {
     await pumpSettings(tester);
-    await tester.tap(rowChild(SettingsKeys.mode, find.text('Linked')));
+    await tester.tap(rowChild(SettingsKeys.forceLocal, find.byType(Switch)));
     await tester.pumpAndSettle();
     expect(host.reconstructions, 1);
-    expect(host.applied.mode, RadioMode.linked);
+    expect(host.applied.forceLocalOnly, isTrue);
     expect(host.disposedSessions, hasLength(1));
     expect(host.disposedSessions.single.changes.isClosed, isTrue);
   });
 
   testWidgets('real confirmation dialog is cancellable', (tester) async {
     await pumpSettings(tester, useProductionConfirm: true);
-    await tester.tap(rowChild(SettingsKeys.mode, find.text('Linked')));
+    await tester.tap(rowChild(SettingsKeys.forceLocal, find.byType(Switch)));
     await tester.pumpAndSettle();
     expect(find.byKey(SettingsKeys.confirmDialog), findsOneWidget);
     expect(find.text(SettingsCopy.confirmBody), findsOneWidget);
@@ -214,7 +230,7 @@ void main() {
       tester,
       radioState: const RadioState(phase: RadioPhase.tx, mode: RadioMode.local),
     );
-    await tester.tap(rowChild(SettingsKeys.mode, find.text('Linked')));
+    await tester.tap(rowChild(SettingsKeys.forceLocal, find.byType(Switch)));
     await tester.pumpAndSettle();
     expect(host.applySettingsCalls, isEmpty);
     expect(find.byKey(SettingsKeys.deferredBanner), findsOneWidget);
@@ -222,43 +238,12 @@ void main() {
     radio.seed(const RadioState(phase: RadioPhase.idle, mode: RadioMode.local));
     await tester.pumpAndSettle();
     expect(host.reconstructions, 1);
-    expect(host.applied.mode, RadioMode.linked);
+    expect(host.applied.forceLocalOnly, isTrue);
     expect(find.byKey(SettingsKeys.deferredBanner), findsNothing);
   });
 
   testWidgets(
-    'VT-022: configured, effective and Local only are distinct; force-LOCAL blocks WAN',
-    (tester) async {
-      await pumpSettings(
-        tester,
-        settings: const KeryxSettings(
-          mode: RadioMode.auto,
-          forceLocalOnly: true,
-        ),
-        radioState: const RadioState(
-          phase: RadioPhase.idle,
-          mode: RadioMode.local,
-        ),
-      );
-      expect(rowChild(SettingsKeys.mode, find.text('Auto')), findsOneWidget);
-      expect(
-        rowChild(SettingsKeys.effectiveRoute, find.text('Local')),
-        findsOneWidget,
-      );
-      expect(find.byKey(SettingsKeys.forceLocalNote), findsOneWidget);
-
-      await tester.tap(rowChild(SettingsKeys.mode, find.text('Linked')));
-      await tester.pumpAndSettle();
-      expect(host.joinEventCalls, isEmpty);
-      expect(host.methodLog, isNot(contains('joinEvent')));
-      expect(host.applied.forceLocalOnly, isTrue);
-      expect(host.applied.mode, RadioMode.linked);
-    },
-  );
-
-  testWidgets(
-    'unresolved effective route is Connecting, never AUTO; configured '
-    'preference still shows Auto (Technical §7)',
+    'unresolved effective route is Connecting, never AUTO (Technical §7)',
     (tester) async {
       await pumpSettings(
         tester,
@@ -268,17 +253,12 @@ void main() {
           mode: RadioMode.auto,
         ),
       );
-      expect(rowChild(SettingsKeys.mode, find.text('Auto')), findsOneWidget);
       expect(
         rowChild(SettingsKeys.effectiveRoute, find.text('Connecting')),
         findsOneWidget,
       );
       expect(
         rowChild(SettingsKeys.effectiveRoute, find.text('AUTO')),
-        findsNothing,
-      );
-      expect(
-        rowChild(SettingsKeys.effectiveRoute, find.text('Auto')),
         findsNothing,
       );
     },
@@ -322,6 +302,111 @@ void main() {
       identityStore,
     ).loadOrCreate();
     expect(identity.callsign.value, 'BRAVO-7');
+  });
+
+  group('TASK-093 — Identity: show recovery phrase / restore', () {
+    testWidgets(
+      'Show recovery phrase with no saved phrase shows the unavailable '
+      'snack bar rather than a broken screen',
+      (tester) async {
+        await pumpSettings(tester);
+        await tester.tap(
+          rowChild(SettingsKeys.showRecoveryPhrase, find.text('Show')),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text(SettingsCopy.showRecoveryPhraseUnavailable),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Show recovery phrase with a saved phrase requires confirmation, '
+      'then displays the 12 words',
+      (tester) async {
+        await pumpSettings(tester);
+        await identityStore.write(
+          'keryx.v2.recovery_phrase_words',
+          jsonEncode(List<String>.generate(12, (i) => 'word$i')),
+        );
+
+        await tester.tap(
+          rowChild(SettingsKeys.showRecoveryPhrase, find.text('Show')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(SettingsKeys.recoveryPhraseGate), findsOneWidget);
+        expect(
+          find.text(SettingsCopy.recoveryPhraseConfirmBody),
+          findsOneWidget,
+        );
+
+        await tester.tap(
+          rowChild(
+            SettingsKeys.recoveryPhraseGate,
+            find.text(SettingsCopy.recoveryPhraseConfirmShow),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.textContaining('word0'), findsOneWidget);
+        expect(find.textContaining('word11'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Restore from phrase requires confirmation before navigating away',
+      (tester) async {
+        await pumpSettings(tester);
+        await tester.tap(
+          rowChild(SettingsKeys.restoreFromPhrase, find.text('Restore')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(SettingsKeys.restoreConfirm), findsOneWidget);
+        expect(find.text(SettingsCopy.restoreConfirmBody), findsOneWidget);
+
+        await tester.tap(find.text(SettingsCopy.confirmCancel));
+        await tester.pumpAndSettle();
+        expect(find.byType(SettingsScreen), findsOneWidget);
+      },
+    );
+  });
+
+  group('TASK-093 — Messages section', () {
+    testWidgets('shows the retention value and the "used from v2.1" label '
+        '(Design §2.7)', (tester) async {
+      await pumpSettings(
+        tester,
+        settings: const KeryxSettings(messageRetentionDays: 30),
+      );
+      expect(
+        rowChild(SettingsKeys.messageRetention, find.text('30 d')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(SettingsKeys.messagesSection),
+          matching: find.textContaining('v2.1'),
+        ),
+        findsWidgets,
+      );
+    });
+  });
+
+  group('TASK-093 — Connectivity: Prefer direct on Wi-Fi', () {
+    testWidgets('toggling does not reconstruct the session (not '
+        'sessionAffecting)', (tester) async {
+      await pumpSettings(tester);
+      await tester.tap(rowChild(SettingsKeys.preferDirect, find.byType(Switch)));
+      await tester.pumpAndSettle();
+      expect(host.reconstructions, 0);
+      expect(host.applySettingsCalls, isNotEmpty);
+      final KeryxSettings persisted = await SettingsRepository(store).load();
+      expect(
+        persisted.preferDirectOnWifi,
+        isFalse,
+        reason: 'preferDirectOnWifi defaults to true (Technical §7)',
+      );
+    });
   });
 
   testWidgets('theme save does not drop a legacy settings fixture', (

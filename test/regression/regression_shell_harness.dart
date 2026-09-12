@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/app_shell/app_shell.dart';
+import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
@@ -34,6 +35,17 @@ Future<({FakeRadioHost host, ProviderContainer container})> pumpRegressionShell(
     overrides: <Override>[
       radioHostProvider.overrideWithValue(host),
       settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
+      // v2 (TASK-093): identityProvider's production default hits the real
+      // flutter_secure_storage platform channel, which never replies under
+      // `flutter test` — every pumpAndSettle here hangs without this stub.
+      // Mirrors test/app_shell/shell_harness.dart's own override.
+      identityProvider.overrideWith(
+        (ref) async => DeviceIdentity(
+          installUuid: '00000000-0000-4000-8000-000000000000',
+          peerId: 'stub-peer',
+          callsign: Callsign.parse('STUB-1'),
+        ),
+      ),
     ],
   );
   addTearDown(container.dispose);
@@ -62,7 +74,13 @@ Future<({FakeRadioHost host, ProviderContainer container})> pumpRegressionShell(
 }
 
 Finder tabTalk() => find.byKey(ShellKeys.tabTalk);
-Finder tabChannels() => find.byKey(ShellKeys.tabChannels);
-Finder tabStations() => find.byKey(ShellKeys.tabStations);
+Finder tabContacts() => find.byKey(ShellKeys.tabContacts);
+Finder tabGroups() => find.byKey(ShellKeys.tabGroups);
+
+// v2 (TASK-093) renamed the second/third tabs Contacts/Groups. These aliases
+// keep `test/regression/layout_matrix_test.dart` (outside this task's
+// Owned_Paths) compiling until a fast-follow renames its call sites too.
+Finder tabChannels() => tabContacts();
+Finder tabStations() => tabGroups();
 Finder overflowMenu() => find.byKey(ShellKeys.overflowMenu);
 Finder pttDisc() => find.byKey(const Key('keryx-talk-ptt-disc'));

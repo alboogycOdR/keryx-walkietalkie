@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert' show base64Encode;
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,14 +15,18 @@ import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
-import 'package:keryx/features/channels/channels_landing.dart';
 import 'package:keryx/features/event_qr/event_link.dart';
 import 'package:keryx/features/face/permission_gate.dart';
 import 'package:keryx/features/face/session_host.dart';
 import 'package:keryx/features/settings/settings_screen.dart';
 import 'package:keryx/features/talk/talk_screen.dart' as talkui;
+import 'package:keryx/services/directory/directory.dart';
 import 'package:keryx/services/platform/platform.dart';
 import 'package:keryx/services/session/session.dart' show StationInfo;
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../core/identity/memory_identity_store.dart';
+import '../services/directory/fakes/fake_directory_server.dart';
 
 /// TASK-058 — Verification §9: "A scoped mock test is not sufficient
 /// evidence for a production wiring change; include a test that exercises
@@ -46,11 +52,44 @@ import 'package:keryx/services/session/session.dart' show StationInfo;
 /// `MobileAppShell`, both Wave-4 destinations, `KeryxRadioHost`'s own
 /// lifecycle logic, `radioStateProvider`, `settingsProvider` — is the real
 /// production class, not a test double.
+
+/// A keyed-install identity store (Technical §8) — `OnboardingGate` skips
+/// straight to `MobileAppShell` when `IdentityRepository.privateKeySeedKey`
+/// already has a value, which is what every test below needs to reach Talk
+/// without going through the onboarding chooser/create/restore flow this
+/// task's own `Owned_Paths` covers separately (`onboarding_gate.dart`).
+MemoryIdentityStore _keyedInstallIdentityStore() => MemoryIdentityStore(<String, String>{
+      IdentityRepository.privateKeySeedKey:
+          base64Encode(List<int>.filled(32, 7)),
+      IdentityRepository.callsignKey: 'TEST-01',
+    });
+
 void main() {
+  setUp(() {
+    // `contactsControllerProvider`/`groupsControllerProvider` (built
+    // unconditionally by `MobileAppShell`'s `IndexedStack`, regardless of
+    // which tab is active) both read `SharedPreferences.getInstance()` —
+    // mock its platform channel or that future never resolves under
+    // `flutter test`.
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   Widget buildRealApp({required _RealCompositionHarness harness}) {
     return ProviderScope(
       overrides: <Override>[
         settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
+        // `MobileAppShell`'s `IndexedStack` always builds Contacts/Groups —
+        // stub `identityProvider` so that build never reaches the real
+        // `flutter_secure_storage` platform channel (no mock handler under
+        // `flutter test`; see `test/app_shell/shell_harness.dart`'s own
+        // fix for the identical hang).
+        identityProvider.overrideWith(
+          (ref) async => DeviceIdentity(
+            installUuid: '00000000-0000-4000-8000-000000000000',
+            peerId: 'real-composition-stub-peer',
+            callsign: Callsign.parse('STUB-1'),
+          ),
+        ),
         // The only override in this file that touches `radioHostProvider`
         // itself — and it still constructs a real `KeryxRadioHost`, wired
         // to the same `settingsProvider`/`radioStateProvider` the
@@ -93,8 +132,10 @@ void main() {
         }),
       ],
       // The real `KeryxApp` — its own `MaterialApp`, theming, route table
-      // and `MobileAppShell` composition, completely unmodified.
-      child: const KeryxApp(),
+      // and `MobileAppShell` composition, completely unmodified. A keyed
+      // identity store so `OnboardingGate` passes straight through to
+      // `MobileAppShell` (see `_keyedInstallIdentityStore`'s doc).
+      child: KeryxApp(identityStore: _keyedInstallIdentityStore()),
     );
   }
 
@@ -117,7 +158,7 @@ void main() {
         reason: 'the real composition must not throw during boot',
       );
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
-      expect(find.byType(ChannelsLanding), findsNothing);
+      expect(find.textContaining('Contacts need a relay address'), findsNothing);
       expect(
         harness.sessionHostsCreated,
         1,
@@ -128,7 +169,7 @@ void main() {
   );
 
   testWidgets(
-    'navigating Talk -> Channels -> Settings -> Talk through the real '
+    'navigating Talk -> Contacts -> Settings -> Talk through the real '
     'composition performs exactly one real session start and zero real '
     'retunes/disposals (VT-001, real KeryxRadioHost)',
     (tester) async {
@@ -142,9 +183,9 @@ void main() {
       expect(harness.session!.startCalled, isTrue);
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
 
-      await tester.tap(find.byKey(ShellKeys.tabChannels));
+      await tester.tap(find.byKey(ShellKeys.tabContacts));
       await tester.pumpAndSettle();
-      expect(find.byType(ChannelsLanding), findsOneWidget);
+      expect(find.textContaining('Contacts need a relay address'), findsOneWidget);
 
       await tester.tap(find.byKey(ShellKeys.overflowMenu));
       await tester.pumpAndSettle();
@@ -154,7 +195,7 @@ void main() {
 
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(find.byType(ChannelsLanding), findsOneWidget);
+      expect(find.textContaining('Contacts need a relay address'), findsOneWidget);
 
       await tester.tap(find.byKey(ShellKeys.tabTalk));
       await tester.pumpAndSettle();
@@ -268,9 +309,9 @@ void main() {
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
       expect(harness.serviceController!.isRunning, isTrue);
 
-      await tester.tap(find.byKey(ShellKeys.tabChannels));
+      await tester.tap(find.byKey(ShellKeys.tabContacts));
       await tester.pumpAndSettle();
-      expect(find.byType(ChannelsLanding), findsOneWidget);
+      expect(find.textContaining('Contacts need a relay address'), findsOneWidget);
 
       expect(
         harness.serviceController!.isRunning,
@@ -281,6 +322,129 @@ void main() {
             'while off-screen (IndexedStack keeps Talk mounted, not '
             'disposed)',
       );
+    },
+  );
+
+  testWidgets(
+    'the real KeryxApp boots against a stubbed directory backend and '
+    'reaches Talk (Verification G3)',
+    (tester) async {
+      HttpOverrides.global = null;
+      late FakeDirectoryServer server;
+      late IdentityKeyPair keyPair;
+      late DirectoryClient directoryClient;
+      late PresenceClient presenceClient;
+      // Real `dart:io` socket setup/teardown must run inside `runAsync`'s
+      // real zone, including `close()` — an `addTearDown`d async close ran
+      // inside the fake-async test zone left a pending `HttpServer` idle
+      // timer that failed this test's own invariant check on other runs.
+      await tester.runAsync(() async {
+        server = await FakeDirectoryServer.start();
+        keyPair = await IdentityKeyPair.generate();
+        directoryClient = DirectoryClient(baseUrl: server.baseUrl, keyPair: keyPair);
+        presenceClient = PresenceClient(baseUrl: server.baseUrl, keyPair: keyPair);
+      });
+      addTearDown(() => tester.runAsync(() async {
+            directoryClient.close();
+            presenceClient.dispose();
+            await server.close();
+          }));
+      server.responder = (RecordedDirectoryRequest req) {
+        if (req.method == 'GET' && req.path == '/v2/identity/me') {
+          return const DirectoryFakeResponse(
+            statusCode: 200,
+            body: <String, Object?>{
+              'pk': 'me',
+              'callsign': 'STUB-1',
+              'status': 'available',
+              'contacts': <Object?>[],
+              'pending_in': <Object?>[],
+              'pending_out': <Object?>[],
+              'groups': <Object?>[],
+            },
+          );
+        }
+        return const DirectoryFakeResponse(statusCode: 200, body: <String, Object?>{});
+      };
+
+      final harness = _RealCompositionHarness();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
+            identityProvider.overrideWith(
+              (ref) async => DeviceIdentity(
+                installUuid: '00000000-0000-4000-8000-000000000000',
+                peerId: derivePeerId(keyPair.publicKey),
+                callsign: Callsign.parse('STUB-1'),
+                keyPair: keyPair,
+              ),
+            ),
+            directoryClientProvider.overrideWith((ref) async => directoryClient),
+            presenceClientProvider.overrideWith((ref) async => presenceClient),
+            radioHostProvider.overrideWith((ref) {
+              final host = KeryxRadioHost(
+                sessionFactory: harness.sessionFactory,
+                audioSinkFactory: harness.audioSinkFactory,
+                audioSinkDisposer: harness.audioSinkDisposer,
+                identityFactory: harness.identityFactory,
+                permissionGateFactory: harness.permissionGateFactory,
+                radioServiceFactory: harness.radioServiceFactory,
+                loadSettings: () => ref.read(settingsProvider.future),
+                dispatch: (event) =>
+                    ref.read(radioStateProvider.notifier).dispatch(event),
+                readRadioState: () => ref.read(radioStateProvider),
+                rememberChannel: (channel) =>
+                    ref.read(settingsProvider.notifier).rememberChannel(channel),
+                listenRadioState: (onChange, {bool fireImmediately = false}) {
+                  final subscription = ref.listen<RadioState>(
+                    radioStateProvider,
+                    (previous, next) => onChange(previous, next),
+                    fireImmediately: fireImmediately,
+                  );
+                  return subscription.close;
+                },
+                listenSettings: (onChange) {
+                  final subscription = ref.listen<AsyncValue<KeryxSettings>>(
+                    settingsProvider,
+                    (previous, next) {
+                      final settings = next.valueOrNull;
+                      if (settings != null) onChange(settings);
+                    },
+                  );
+                  return subscription.close;
+                },
+              );
+              ref.onDispose(() => unawaited(host.dispose()));
+              return host;
+            }),
+          ],
+          child: KeryxApp(identityStore: _keyedInstallIdentityStore()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'a stubbed directory backend must not throw during boot',
+      );
+      expect(find.byType(talkui.TalkScreen), findsOneWidget);
+
+      await tester.tap(find.byKey(ShellKeys.tabContacts));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Contacts need a relay address'),
+        findsNothing,
+        reason: 'a stubbed directory client must reach the real Contacts '
+            'tab body, not the no-relay empty state',
+      );
+
+      await tester.tap(find.byKey(ShellKeys.tabTalk));
+      await tester.pumpAndSettle();
+      expect(find.byType(talkui.TalkScreen), findsOneWidget);
     },
   );
 }
