@@ -6303,7 +6303,7 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 
 ### TASK-101
 **Title:** 1:1 relay rooms — send `peer_pk` on `/token` so the directory provisions the DirectRoom
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §5.4 (1:1 room: `roomId = deriveKeyed(base64(x25519(myPriv, theirPub)))`, symmetric — both peers derive the same id; implemented at `lib/core/rooms/derivation.dart:61-84`), §4.2 (`POST /token` "now checks the signed caller is a member of `room_id`"). Server contract, verified at source 2026-09-12: `token-svc/app/models.py:15-24` (`TokenRequest.peer_pk: str | None`), `token-svc/app/main.py:176-180` (if `peer_pk` present → `ensure_direct_room(actor, peer, room_id)` then `assert_room_member`), `token-svc/app/groups.py:354-379` (`ensure_direct_room`: 422 if peer == self, **403 `not_contacts`** unless the pair are accepted contacts, creates/reuses `DirectRoom(a,b,room_id)`, **409 `room_conflict`** if the pair already has a different room_id), `token-svc/app/encoding.py:40-44` (`parse_pubkey`: unpadded base64url of exactly 32 bytes, else 401 `invalid_key` — the same encoding `KeryxIdLink.encodedKey`/`encodeUnpaddedBase64Url` in `lib/features/my_code/keryx_id_link.dart:103-107` already produce). Client gap: `lib/services/linked/token_client.dart:58-69` (`requestToken` body is `room_id`/`callsign`/`event_token` only — no `peer_pk`), `lib/services/linked/linked_controller.dart:149,235-238` (`joinRoomId` → `requestToken` without it), `lib/services/session/radio_session_controller.dart:250-274` (`switchTarget(target, memberPeerIds)` has no public key to pass), `lib/core/presentation/talk_target.dart:13-38` (`TalkTarget{kind,id,name,roomId,memberPeerIds}` — carries no contact public key; `id` for a contact MAY already be the pk — `lib/app_shell/contacts_tab_screen.dart:70` builds it — verify, never assume), `lib/core/radio_host/radio_session_host_v2.dart:73` (the one `switchTarget` caller). Without `peer_pk` the server never creates the DirectRoom, so every contact call over relay is 403 `not_member` — groups are unaffected (`/v2/groups` creates `Group`+`GroupMember` rows).
@@ -6322,9 +6322,34 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 **Started_At:** 2026-09-12T21:35:00Z
 **Progress_Notes:**
 - [2026-09-12T21:35:00Z] [GB] Claimed TASK-101. TASK-100 is done (`51124db`); resuming from a clean worktree at master. Next: preflight, then thread `peer_pk` through TokenClient → LinkedController → switchTarget for contact targets only.
+- [2026-09-12T21:42:00Z] [GB] Preflight (c8b9872 filesystem check) — `TalkTarget.id` is already `contact.pk` at `contacts_tab_screen.dart:70`; no new TalkTarget field. Implementing `peer_pk` threading.
+```
+[preflight] TASK-101 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 12 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  FILE   lib/services/linked/token_client.dart  -> exists, 223 line(s), 8931 bytes
+  FILE   lib/services/linked/linked_controller.dart  -> exists, 337 line(s), 13106 bytes
+  FILE   lib/services/session/radio_session_controller.dart  -> exists, 610 line(s), 25837 bytes
+  FILE   lib/core/presentation/talk_target.dart  -> exists, 150 line(s), 5912 bytes
+  FILE   lib/core/radio_host/radio_session_host_v2.dart  -> exists, 78 line(s), 3744 bytes
+  FILE   lib/app_shell/contacts_tab_screen.dart  -> exists, 111 line(s), 4079 bytes
+  GLOB   test/services/linked/**  -> 6 file(s):
+           test/services/linked/fakes/fake_livekit_adapter.dart
+           test/services/linked/fakes/fake_token_server.dart
+           test/services/linked/link_monitor_test.dart
+           test/services/linked/linked_controller_test.dart
+           test/services/linked/linked_floor_transport_test.dart
+           test/services/linked/token_client_test.dart
+  GLOB   test/services/session/**  -> 1 file(s):
+           test/services/session/radio_session_controller_test.dart
+  FILE   test/core/presentation/talk_target_test.dart  -> exists, 175 line(s), 5185 bytes
+  FILE   test/core/radio_host/radio_session_host_v2_test.dart  -> exists, 114 line(s), 3726 bytes
+  NEW    test/app_shell/contacts_tab_screen_test.dart  -> does not exist; parent test/app_shell/ exists
+  NEW    dossiers/TASK-101.md  -> does not exist; parent dossiers/ exists
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T21:35:00Z
+**Updated_At:** 2026-09-12T21:42:00Z
