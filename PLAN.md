@@ -5728,7 +5728,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-094
 **Title:** v2 deletions — channels, selector, stations, numbered Event QR, legacy face/ptt/display/settings_panel
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
@@ -5741,15 +5741,16 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 - [ ] The dossier reconciles deleted tests: every behavioural assertion names its successor test; before/after suite counts explained (Verification §0) Additionally, **remove the v1 fields TASK-088 deliberately left in place**: `RadioMode`/`channel`/`privacyCode`/`SetMode`/`TuneTo` from `lib/core/state/radio_state.dart`; `mode`/`region`/`channel`/`privacyCode` from `KeryxSettings`; the v1 `retune(channel, code)`/`tune(channel, code)` surface on `RadioHost`/`SessionHost` once TASK-093's shell no longer calls it; and `ConnectionCondition.effectiveRoute`/`configuredMode`/`isResolved` once every caller uses `.transport`. This is the removal half of the additive fields TASK-088/080/081 introduced — do it in the same pass as the rest of this task's deletions, verified by the same repo-wide grep.
 
 - [ ] Retired goldens removed; `flutter analyze` clean; full suite green; `flutter build apk --debug` succeeds
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-094-gb
+**Started_At:** 2026-09-12T08:08:02Z
+**Progress_Notes:**
+- [2026-09-12T08:08:02Z] [GB] Claimed TASK-094. Resume check: no GB in_progress/claimed task. Depends_On TASK-093 is done. Branch task/TASK-094-gb. Next: preflight_paths.py TASK-094, then map remaining shell/core imports before deleting.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-12T08:08:02Z
 
 
 ### TASK-095
