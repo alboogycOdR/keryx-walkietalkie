@@ -5489,7 +5489,7 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 
 ### TASK-091
 **Title:** v2 Groups tab — list, detail with members and presence, invites, admin actions, join with a code
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.3, §4 (key rotated / removed states); PRD V2-FR-020..025; Technical §5.2 (invite link); Verification V2-VT-026, V2-VT-030 (groups goldens)
@@ -5497,21 +5497,22 @@ Now reading Technical §1.1/§6.3/§6.4/§7, TASK-086/TASK-087 artifacts (direct
 **Depends_On:** TASK-086, TASK-087
 **Description:** The Groups tab body and the group detail screen. List rows: glyph, name, `n online · m members`; tap → `onSelectTarget(group)`; chevron → detail. Detail: member list with presence and admin marks, invite (QR + link per Technical §5.2 with the expiry presets reused from `event_link.dart`), Leave, and admin-only Rename, Remove member (which triggers rotation through the groups store), Rotate key, Make admin. Floating: New group (name → create → invite screen) and Join with a code (scan or paste). Toasts for 'key changed' and 'you were removed'. Uses the TASK-086 groups store and TASK-087 room derivation; no shell dependencies.
 **Acceptance_Criteria:**
-- [ ] List counts and detail member list track the store's stream; the 26th join shows the cap message (V2-FR-022/025; V2-VT-026)
-- [ ] Invite QR/link matches Technical §5.2 and honours the expiry preset; Join with a code accepts a valid link and refuses an expired one (V2-FR-021)
-- [ ] Admin actions are hidden for non-admins; Remove member rotates the key and the removed member's row disappears; last-admin leave promotes the oldest member in the UI state (V2-FR-023/024)
-- [ ] Rotation and removal toasts appear per Design §4
-- [ ] Goldens: empty, populated, detail, dark and light (V2-VT-030); `flutter analyze` clean; full suite green
+- [x] List counts and detail member list track the store's stream; the 26th join shows the cap message (V2-FR-022/025; V2-VT-026) — UI renders `GroupsCopy.groupFullMessage`; cap enforcement lives server-side/`GroupsController` per TASK-086, this task surfaces it
+- [x] Invite QR/link matches Technical §5.2 and honours the expiry preset; Join with a code accepts a valid link and refuses an expired one (V2-FR-021)
+- [x] Admin actions are hidden for non-admins; Remove member rotates the key and the removed member's row disappears; last-admin leave promotes the oldest member in the UI state (V2-FR-023/024)
+- [x] Rotation and removal toasts appear per Design §4
+- [x] Goldens: empty, populated, detail, dark and light (V2-VT-030); `flutter analyze` clean; full suite green
 **Branch:** task/TASK-091-s5
 **Started_At:** 2026-09-11T20:10:00Z
 **Progress_Notes:**
 - [2026-09-11T20:10:00Z] [S5] Claimed TASK-091. Resume check: no S5 in_progress/claimed task other than blocked TASK-088 (left blocked, untouched further). Depends_On TASK-086, TASK-087 both done; description says 'no shell dependencies' so this is safely independent of TASK-088's blocker. Branch task/TASK-091-s5 to be created from master. Next: preflight_paths.py TASK-091, then read Design §2.3/§4, Technical §5.2, TASK-086 groups store API, TASK-087 room derivation, and event_link.dart's expiry presets before writing.
 - [2026-09-12T04:04:00Z] [ORCH] Session ended after 5 real commits (list/detail/invite/new-group/join-with-code screens, view-model/controller/golden tests, dossier) but before updating status to needs_review. Status corrected to in_progress to reflect real committed work. Resume and finish: run the full suite in the foreground, record Test_Evidence, tick verified criteria, set needs_review.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-12T02:05:00Z] [S5] Resumed. Working tree already clean on task/TASK-091-s5 with all implementation/test commits from prior session present (list/detail/invite/new-group/join-with-code screens + view-model/controller/widget/golden tests per dossier work log). Re-ran verification fresh in the foreground: `flutter analyze --no-pub` → No issues found (95.6s). `flutter test --no-pub` (full suite) → All tests passed (1673 total incl. previously-flagged KRX-044 soak seeds 498/499, which passed this run — not weakened, no changes made to soak_test.dart or SafetyMonitor). Ticked all acceptance criteria as verified against the diff. Status → needs_review.
+**Artifacts:** lib/features/groups/** (group_invite_link.dart, groups_copy.dart, group_view_models.dart, groups_list_controller.dart, groups_list_screen.dart, group_detail_controller.dart, group_detail_screen.dart, group_invite_screen.dart, join_with_code_screen.dart, new_group_screen.dart); test/features/groups/** (unit/controller/widget tests + goldens)
+**Test_Evidence:** `flutter analyze --no-pub` (full project): No issues found! (95.6s). `flutter test --no-pub` (full project, foreground, 2026-09-12T02:05Z): All tests passed — 1673 total run, including KRX-044 soak seeds 498/499 (previously flagged as parked/flaky under FR-025; this run they passed with no code changes to soak logic).
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
+**Updated_By:** S5
 **Updated_At:** 2026-09-11T17:20:00Z
 
 
