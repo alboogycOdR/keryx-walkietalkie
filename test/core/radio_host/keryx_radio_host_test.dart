@@ -9,7 +9,8 @@ import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/services/platform/platform.dart';
-import 'package:keryx/services/session/session.dart' show StationInfo;
+import 'package:keryx/services/session/session.dart'
+    show SessionEstablishmentFailure, StationInfo;
 
 /// TASK-045 — `KeryxRadioHost` unit tests. Riverpod-free by construction
 /// (see `radio_host.dart`'s library dartdoc): this harness supplies plain
@@ -119,6 +120,35 @@ class _HangingSessionHost implements SessionHost {
   }
 }
 
+/// TASK-100: a [SessionHost] whose [start] throws the real controller's own
+/// typed [SessionEstablishmentFailure] naming a specific [transport] —
+/// proves `KeryxRadioHost` attributes `sessionFailureKind` from the typed
+/// exception rather than from the settings-derived guess, e.g. a LOCAL
+/// no-target-boot failure on a relay-configured device must not be
+/// mislabelled "linked".
+class _ThrowingSessionHost implements SessionHost {
+  _ThrowingSessionHost(this.transport);
+
+  final Transport transport;
+  bool disposeCalled = false;
+
+  @override
+  Stream<List<StationInfo>> get stations => const Stream.empty();
+
+  @override
+  FloorEngine get floorEngine =>
+      throw StateError('_ThrowingSessionHost never completes start()');
+
+  @override
+  Future<void> start() => Future<void>.error(
+    SessionEstablishmentFailure(transport, StateError('boom'), StackTrace.current));
+
+  @override
+  Future<void> dispose() async {
+    disposeCalled = true;
+  }
+}
+
 class _FakePermissionGate implements FacePermissionGate {
   FacePermissionOutcome microphoneOutcome = FacePermissionOutcome.granted;
 
@@ -154,6 +184,11 @@ class _Harness {
   /// lets a test flip real recovery back on mid-test (set back to `false`
   /// before a later `applySettings`/rebuild) without rebuilding the harness.
   bool hangSessions = false;
+
+  /// TASK-100: when non-null, [sessionFactory] hands out a
+  /// [_ThrowingSessionHost] that throws a typed [SessionEstablishmentFailure]
+  /// naming this transport, instead of the normal [_FakeSessionHost].
+  Transport? throwTypedFailure;
 
   /// Ordered log of the two lifecycle events whose *relative order* is the
   /// v2 enrolment contract: `'enrolment:start'`/`'enrolment:done'` around
@@ -203,6 +238,10 @@ class _Harness {
       final host = _HangingSessionHost();
       hangingSessions.add(host);
       return host;
+    }
+    final typedFailureTransport = throwTypedFailure;
+    if (typedFailureTransport != null) {
+      return _ThrowingSessionHost(typedFailureTransport);
     }
     final host = _FakeSessionHost(label: '${sessions.length}');
     sessions.add(host);
@@ -534,6 +573,41 @@ void main() {
         await host.dispose();
       },
       timeout: const Timeout(Duration(seconds: 5)));
+
+    test(
+      'TASK-100: a LOCAL typed SessionEstablishmentFailure is attributed '
+      'from the exception itself, not the settings guess — a relay-'
+      'configured device whose (LOCAL, no-target-boot) session throws must '
+      'read local, not linked',
+      () async {
+        final harness = _Harness()
+          ..settings = const KeryxSettings(relayUrl: 'wss://relay.example')
+          ..throwTypedFailure = Transport.direct;
+        final host = harness.build();
+
+        await host.start();
+
+        expect(host.current.sessionFailureKind, SessionFailureKind.local);
+
+        await host.dispose();
+      });
+
+    test(
+      'TASK-100: a LINKED typed SessionEstablishmentFailure is attributed '
+      'from the exception itself even when settings would have guessed '
+      'local',
+      () async {
+        final harness = _Harness()
+          ..settings = const KeryxSettings(relayUrl: '')
+          ..throwTypedFailure = Transport.relay;
+        final host = harness.build();
+
+        await host.start();
+
+        expect(host.current.sessionFailureKind, SessionFailureKind.linked);
+
+        await host.dispose();
+      });
 
     test(
       'PTT stays inert while a session-establishment failure is active — '

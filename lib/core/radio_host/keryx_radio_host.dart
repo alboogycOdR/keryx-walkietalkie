@@ -8,7 +8,8 @@ import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/services/platform/platform.dart';
-import 'package:keryx/services/session/session.dart' show StationInfo;
+import 'package:keryx/services/session/session.dart'
+    show SessionEstablishmentFailure, StationInfo;
 import 'package:keryx/services/sound/sound.dart';
 
 import 'permission_gate.dart';
@@ -472,7 +473,17 @@ class KeryxRadioHost implements RadioHost {
         ),
       );
       if (!_disposed && myGeneration == _sessionGeneration) {
-        _sessionFailureKind = _intendedFailureKind(settings);
+        // TASK-100: prefer the controller's own typed transport when it
+        // threw one — it names the transport actually attempted (e.g. a
+        // no-target boot is always LOCAL now, regardless of settings), so
+        // the settings-derived guess below is a fallback only for a
+        // foreign `SessionHost` implementation or a bare timeout that
+        // never got as far as throwing the typed failure.
+        _sessionFailureKind = error is SessionEstablishmentFailure
+            ? (error.transport == Transport.relay
+                  ? SessionFailureKind.linked
+                  : SessionFailureKind.local)
+            : _intendedFailureKind(settings);
         _emitSnapshot();
       }
       return;

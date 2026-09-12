@@ -18,6 +18,7 @@ import 'package:keryx/services/mesh/rtc_adapter.dart';
 import 'package:keryx/services/session/radio_session_controller.dart';
 import 'package:keryx/services/signaling/in_process_endpoint.dart';
 
+import '../linked/fakes/fake_livekit_adapter.dart';
 import '../mesh/fakes/fake_rtc_adapter.dart';
 
 /// TASK-097: `start()` (LOCAL) `-> discovery.start()` never resolves —
@@ -311,6 +312,67 @@ void main() {
           relayUrl: 'wss://relay.example',
           expectLocalBuilt: true);
       });
+
+      // TASK-100: the no-target boot session is LOCAL-only unconditionally
+      // now — previously this was the one matrix cell that built LINKED
+      // (relay configured, forceLocalOnly=false), and it minted a `/token`
+      // for the idle placeholder room, which the v2 server always refuses
+      // 403 `not_member` since no such room exists. `switchTarget` is the
+      // only remaining path to LINKED (proved separately below).
+      test(
+        'relay configured + forceLocalOnly=false → start() is LOCAL only '
+        '(no-target boot never attempts a relay room join)',
+        () async {
+          await testMode(
+            forceLocalOnly: false,
+            relayUrl: 'wss://relay.example',
+            expectLocalBuilt: true);
+        });
+
+      test(
+        'relay configured + forceLocalOnly=false → start() issues zero '
+        'token requests',
+        () async {
+          var tokenRequests = 0;
+          final settings = KeryxSettings(
+            squelchLevel: 5,
+            totSeconds: 120,
+            busyLockout: false,
+            latchMode: false,
+            forceLocalOnly: false,
+            relayUrl: 'wss://relay.example',
+            tokenServiceUrl: 'https://relay.example/token-svc',
+            characterDspIntensity: CharacterDspIntensity.light,
+            dimMode: DimMode.auto);
+
+          final controller = RadioSessionController(
+            localPeerId: 'ALFA-1',
+            callsign: 'Alice',
+            settings: settings,
+            dispatch: dispatchedEvents.add,
+            tokenClientFactory: (_, {signer}) {
+              tokenRequests++;
+              return _FastTokenClient();
+            });
+
+          await controller.start();
+
+          expect(
+            tokenRequests,
+            0,
+            reason:
+                'start() must never construct a TokenClient/request a '
+                'token for the idle placeholder room');
+          expect(controller.debugLinkedController, isNull);
+          expect(
+            dispatchedEvents.whereType<SetTransport>().last.transport,
+            Transport.direct,
+            reason:
+                'a boot on a relay-configured device must dispatch '
+                'SetTransport(Transport.direct)');
+
+          await controller.dispose();
+        });
     });
 
     group('SetTransport routing', () {
@@ -893,6 +955,54 @@ void main() {
 
         await controller.dispose();
       });
+
+      // TASK-100: switchTarget's own transport resolution is unchanged by
+      // the no-target-boot fix — a relay-configured, non-local-only
+      // controller still goes LINKED once a real target/room id is picked.
+      test(
+        'relay configured + forceLocalOnly=false → switchTarget still '
+        'goes LINKED (existing behaviour preserved)',
+        () async {
+          final settings = KeryxSettings(
+            squelchLevel: 5,
+            totSeconds: 120,
+            busyLockout: false,
+            latchMode: false,
+            forceLocalOnly: false,
+            relayUrl: 'wss://relay.example',
+            tokenServiceUrl: 'https://relay.example/token-svc',
+            characterDspIntensity: CharacterDspIntensity.light,
+            dimMode: DimMode.auto);
+
+          final controller = RadioSessionController(
+            localPeerId: 'ALFA-1',
+            callsign: 'Alice',
+            settings: settings,
+            dispatch: dispatchedEvents.add,
+            discoveryFactory: _NoopDiscoveryService.new,
+            liveKitAdapter: FakeLiveKitAdapter(),
+            tokenClientFactory: (_, {signer}) => _FastTokenClient());
+
+          await controller.start();
+          expect(controller.debugLinkedController, isNull);
+
+          dispatchedEvents.clear();
+          await controller.switchTarget(
+            const TalkTarget(
+              kind: TalkTargetKind.contact,
+              id: 'p4',
+              name: 'Peer',
+              roomId: 'ABCDEFGHIJKLMNOP',
+            ),
+            memberPeerIds: const []);
+
+          expect(controller.debugLinkedController, isNotNull);
+          expect(
+            dispatchedEvents.whereType<SetTransport>().last.transport,
+            Transport.relay);
+
+          await controller.dispose();
+        });
     });
 
     // TASK-097: session establishment must be bounded — see the class's
@@ -952,8 +1062,13 @@ void main() {
 
       test(
         'LINKED: a never-resolving LiveKitAdapter.connect() does not hang '
-        'start() forever — completes with a thrown SessionEstablishmentFailure '
-        'naming the LINKED transport, within the injected bound',
+        'switchTarget() forever — completes with a thrown '
+        'SessionEstablishmentFailure naming the LINKED transport, within '
+        'the injected bound. (TASK-100: the no-target start() is LOCAL-only '
+        'now, so this LINKED-bound proof moves to switchTarget — the only '
+        'call site that can still reach `_startLinked` — using a working '
+        'no-op discovery for the LOCAL boot and the hanging LiveKit adapter '
+        'for the subsequent relay switch.)',
         () async {
           final settings = KeryxSettings(
             squelchLevel: 5,
@@ -971,12 +1086,23 @@ void main() {
             callsign: 'Alice',
             settings: settings,
             dispatch: dispatchedEvents.add,
+            discoveryFactory: _NoopDiscoveryService.new,
             liveKitAdapter: _HangingLiveKitAdapter(),
             tokenClientFactory: (_, {signer}) => _FastTokenClient(),
             sessionStartTimeout: const Duration(milliseconds: 50));
 
+          await controller.start();
+
           await expectLater(
-            controller.start(),
+            controller.switchTarget(
+              const TalkTarget(
+                kind: TalkTargetKind.contact,
+                id: 'p3',
+                name: 'Peer',
+                roomId: 'ABCDEFGHIJKLMNOP',
+              ),
+              memberPeerIds: const [],
+            ),
             throwsA(
               isA<SessionEstablishmentFailure>().having(
                 (e) => e.transport,
