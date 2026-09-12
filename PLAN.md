@@ -5545,7 +5545,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 
 ### TASK-090
 **Title:** v2 Contacts tab — requests, contacts list with presence, add-contact sheet, Alert/Remove/Block
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.2, §2.5, §3 (presence visuals), §4 (request/alert states), §5 copy; PRD V2-FR-010..014, V2-FR-030..033, V2-FR-050; Verification V2-VT-025, V2-VT-030 (contacts goldens)
@@ -5562,12 +5562,22 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 **Started_At:** 2026-09-12T06:10:00Z
 **Progress_Notes:**
 - [2026-09-12T06:10:00Z] [GB] Claimed TASK-090. Resume check: no GB in_progress/claimed task. Depends_On TASK-086 is done. Branch task/TASK-090-gb. Next: preflight_paths.py TASK-090, then implement the embedded Contacts tab against Design §2.2/§2.5/§3.
+- [2026-09-12T06:12:00Z] [GB] Status: in_progress. Branch task/TASK-090-gb created off master. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-090 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 3 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/contacts/**  -> matches nothing yet (new territory)
+  GLOB   test/features/contacts/**  -> matches nothing yet (new territory)
+  FILE   dossiers/TASK-090.md  -> exists, 13 line(s), 1118 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Implementing standalone Contacts tab (no app bar, no shell/session deps): Requests + alphabetical Contacts, presence cues, add-contact sheet (scan/paste/show-my-code), incoming-request modal, Alert 10-min UI cooldown, Block second-tap confirm.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T06:10:00Z
+**Updated_At:** 2026-09-12T06:12:00Z
 
 
 ### TASK-091
