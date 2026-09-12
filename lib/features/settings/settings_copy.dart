@@ -72,7 +72,7 @@ abstract final class SettingsCopy {
   static const String forceLocalLabel = 'This network only';
   static const String forceLocalDescription = 'Nothing leaves this Wi-Fi network.';
   static const String forceLocalBlocksWan =
-      'This-network-only is on. Relay settings are stored but no internet call is made.';
+      'This-network-only is on. Contacts and presence will not work. Relay settings are stored but no internet call is made.';
 
   static const String relayUrlLabel = 'Relay URL';
   static const String relayUrlDescription =

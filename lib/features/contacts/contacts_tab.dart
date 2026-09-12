@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:keryx/core/settings/settings_repository.dart';
 
 import 'add_contact_sheet.dart';
 import 'contact_actions_sheet.dart';
@@ -13,8 +15,10 @@ import 'scan_id_screen.dart';
 
 /// Wired Contacts tab: listens to [ContactsListController], presents
 /// [ContactsScreen], and owns the add/incoming/actions sheets. TASK-093
-/// mounts this; it has no shell or session imports of its own.
-class ContactsTab extends StatefulWidget {
+/// mounts this; it has no shell or session imports of its own. Live
+/// settings are read only to surface the This-network-only honesty
+/// notice — the model itself is not written.
+class ContactsTab extends ConsumerStatefulWidget {
   const ContactsTab({
     super.key,
     required this.controller,
@@ -22,6 +26,7 @@ class ContactsTab extends StatefulWidget {
     this.onShowMyCode,
     this.scannerBuilder = defaultIdScanner,
     this.autoPresentIncoming = true,
+    this.forceLocalOnly,
   });
 
   final ContactsListController controller;
@@ -33,15 +38,25 @@ class ContactsTab extends StatefulWidget {
   /// modal. Widget tests that drive the list itself set this false.
   final bool autoPresentIncoming;
 
+  /// When non-null, overrides live [settingsProvider]. Tests pass this
+  /// so they can drive the notice without a settings store.
+  final bool? forceLocalOnly;
+
   @override
-  State<ContactsTab> createState() => _ContactsTabState();
+  ConsumerState<ContactsTab> createState() => _ContactsTabState();
 }
 
-class _ContactsTabState extends State<ContactsTab> {
+class _ContactsTabState extends ConsumerState<ContactsTab> {
   StreamSubscription<ContactsViewState>? _sub;
   ContactsViewState _state = ContactsViewState.empty;
   String? _confirmingBlockPk;
   final Set<String> _presentedIncoming = {};
+  bool _localOnlyDismissed = false;
+
+  bool _resolveForceLocalOnly() {
+    if (widget.forceLocalOnly != null) return widget.forceLocalOnly!;
+    return ref.read(settingsProvider).valueOrNull?.forceLocalOnly ?? false;
+  }
 
   @override
   void initState() {
@@ -96,7 +111,8 @@ class _ContactsTabState extends State<ContactsTab> {
       MaterialPageRoute<void>(
         builder: (_) => ScanIdScreen(
           scannerBuilder: widget.scannerBuilder,
-          onRaw: (raw) => unawaited(widget.controller.sendRequestFromId(raw)),
+          forceLocalOnly: _resolveForceLocalOnly(),
+          onRaw: _onPaste,
         ),
       ),
     );
@@ -104,8 +120,12 @@ class _ContactsTabState extends State<ContactsTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(settingsProvider);
+    final forceLocalOnly = _resolveForceLocalOnly();
     return ContactsScreen(
       state: _state,
+      forceLocalOnly: forceLocalOnly && !_localOnlyDismissed,
+      onDismissLocalOnlyNotice: () => setState(() => _localOnlyDismissed = true),
       confirmingBlockPk: _confirmingBlockPk,
       onArmBlockRequest: (pk) => setState(() => _confirmingBlockPk = pk),
       onSelectTarget: widget.onSelectTarget,

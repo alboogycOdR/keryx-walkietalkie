@@ -180,4 +180,26 @@ void main() {
     await tester.longPress(find.byKey(ContactsKeys.contactRow('ada')));
     expect(held?.pk, 'ada');
   });
+
+  testWidgets('forceLocalOnly shows a dismissable contacts/presence warning', (
+    tester,
+  ) async {
+    var dismissed = false;
+    await tester.pumpWidget(
+      _wrap(
+        ContactsScreen(
+          state: ContactsViewState.empty,
+          forceLocalOnly: true,
+          onDismissLocalOnlyNotice: () => dismissed = true,
+        ),
+      ),
+    );
+
+    expect(find.byKey(ContactsKeys.localOnlyNotice), findsOneWidget);
+    expect(find.text(ContactsCopy.localOnlyWarning), findsOneWidget);
+
+    await tester.tap(find.byKey(ContactsKeys.localOnlyNoticeDismiss));
+    await tester.pump();
+    expect(dismissed, isTrue);
+  });
 }
