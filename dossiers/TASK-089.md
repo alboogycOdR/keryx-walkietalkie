@@ -11,3 +11,10 @@ Three screens, each a standalone widget with injected callbacks so the shell (TA
 - Depends_On: TASK-083, TASK-086
 
 ## Work Log
+
+- [2026-09-12T04:08:35Z] [GB] Claimed. Preflight: all six globs NEW; dossier exists. Specs read: Design §2.4/§2.6/§2.7/§5/§6, Technical §3.1/§3.2, PRD V2-FR-001..004, V2-VT-003/027/030.
+- [2026-09-12T04:45:00Z] [GB] Implemented three standalone screens (no `lib/app_shell/**`):
+  - `OnboardingScreen`: callsign (`Callsign.parse`) → 3×4 numbered Share Tech Mono phrase grid → `onDone` only from "I've written it down". `PopScope(canPop: confirmed)`; system back on phrase returns to callsign. `SelectionContainer.disabled`, no Copy. TalkBack label `Word N, word`. `ScreenshotGuard` MethodChannel `za.co.basileia.keryx/screenshot_guard` (`setSecure`); `android/**` is outside territory so MissingPluginException is swallowed. Tests inject `RecordingScreenshotGuard`.
+  - `MyCodeScreen`: QR `keryx://id?v=1&c=&k=` via `KeryxIdLink`; share `https://keryx.app/c/<callsign>-<code>?k=`; display `<CALLSIGN>·<CODE>`. Copy affordance (Design §2.4) + injected `onShare`. Brightness via `za.co.basileia.keryx/screen_brightness`.
+  - `RestoreScreen`: 12 BIP-39 fields, inline invalid-word error, prefix chips, checksum error, `onRestored(DeviceIdentity)` with the same peerId/shortCode/publicKey as the original phrase.
+  Goldens live under `test/features/{onboarding,my_code}/goldens/` (regression goldens dir is out of territory). Native FLAG_SECURE/brightness window flags still need an Android plugin owner — Dart clients are ready.
