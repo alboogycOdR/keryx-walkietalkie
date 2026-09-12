@@ -35,5 +35,29 @@ void main() {
 
       expect(condition.routeLabel, isNot('AUTO'));
     });
+
+    // v2 (Technical §6.3/§7, TASK-088 re-scope note §6a): additive
+    // `transport` getter — every test above is unmodified.
+    test('transport maps local/linked/unresolved to direct/relay/none', () {
+      const local = ConnectionCondition(
+        configuredMode: RadioMode.auto,
+        effectiveRoute: RadioMode.local,
+        degraded: false,
+      );
+      const linked = ConnectionCondition(
+        configuredMode: RadioMode.auto,
+        effectiveRoute: RadioMode.linked,
+        degraded: false,
+      );
+      const unresolved = ConnectionCondition(
+        configuredMode: RadioMode.auto,
+        effectiveRoute: RadioMode.auto,
+        degraded: false,
+      );
+
+      expect(local.transport, Transport.direct);
+      expect(linked.transport, Transport.relay);
+      expect(unresolved.transport, Transport.none);
+    });
   });
 }

@@ -1,4 +1,4 @@
-import 'package:keryx/core/state/radio_state.dart' show RadioMode;
+import 'package:keryx/core/state/radio_state.dart' show RadioMode, Transport;
 
 /// Configured preference vs. actually-effective route, kept as **separate**
 /// fields (UX-FR-002: "configured mode and actual/effective connection
@@ -33,6 +33,21 @@ class ConnectionCondition {
   /// AUTO is a configured preference, not a connected route.
   String get routeLabel =>
       isResolved ? effectiveRoute.name.toUpperCase() : 'Connecting';
+
+  /// v2 (Technical §6.3/§7, TASK-088 re-scope note §6a): derived, additive
+  /// projection of [effectiveRoute] onto the v2 `Transport` vocabulary —
+  /// `local` -> `direct`, `linked` -> `relay`, unresolved (`auto`) ->
+  /// `none`. This is a stopgap: it can never report [Transport.both],
+  /// because the v1 [effectiveRoute] this reads from is a single value.
+  /// TASK-093 (Technical §10 item 9) switches callers over to reading
+  /// `RadioState.transport` directly once `RadioSessionController`
+  /// populates it for a real v2 session; until then this getter keeps
+  /// every v2-shaped consumer compiling against a v1 session unmodified.
+  Transport get transport => switch (effectiveRoute) {
+    RadioMode.local => Transport.direct,
+    RadioMode.linked => Transport.relay,
+    RadioMode.auto => Transport.none,
+  };
 
   /// True while the radio is in `RadioPhase.linkDegraded` /
   /// `RadioState.isNoLink` — connectivity is currently unavailable

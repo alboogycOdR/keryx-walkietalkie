@@ -72,6 +72,14 @@ class KeryxSettings {
   static const voxHangTimeMsDefault = 500;
   static const defaultRegion = 'global';
 
+  /// v2 (Technical §7): default for [preferDirectOnWifi].
+  static const preferDirectOnWifiDefault = true;
+
+  /// v2 (Technical §7): default for [messageRetentionDays] — "7 d".
+  static const messageRetentionDaysMin = 1;
+  static const messageRetentionDaysMax = 365;
+  static const messageRetentionDaysDefault = 7;
+
   /// Deployment defaults for field-test builds. A saved, non-empty value wins;
   /// a blank or invalid persisted value falls back to these definitions.
   static const relayUrlDefault = String.fromEnvironment('KERYX_RELAY_URL');
@@ -96,7 +104,13 @@ class KeryxSettings {
     this.voxHangTimeMs = voxHangTimeMsDefault,
     this.relayUrl = relayUrlDefault,
     this.tokenServiceUrl = tokenServiceUrlDefault,
+    this.preferDirectOnWifi = preferDirectOnWifiDefault,
+    this.messageRetentionDays = messageRetentionDaysDefault,
   }) : assert(
+         messageRetentionDays >= messageRetentionDaysMin &&
+             messageRetentionDays <= messageRetentionDaysMax,
+       ),
+       assert(
          squelchLevel >= squelchLevelMin && squelchLevel <= squelchLevelMax,
        ),
        assert(totSeconds >= totSecondsMin && totSeconds <= totSecondsMax),
@@ -141,6 +155,15 @@ class KeryxSettings {
   /// derives it from [relayUrl].
   final String tokenServiceUrl;
 
+  /// v2 (Technical §7, §6.4): prefer the LAN-direct transport over the relay
+  /// when both are available for the current room. Default `true`.
+  final bool preferDirectOnWifi;
+
+  /// v2 (Technical §7): local retention window, in days, before v2 voice
+  /// messages (a later wave) are purged. Default 7. Kept as a plain `int`
+  /// (not `Duration`) so JSON round-trips without a custom codec.
+  final int messageRetentionDays;
+
   /// The token route is `/token` in `relay/Caddyfile`'s `@token path /token
   /// /token/*` matcher. A default derived from a `wss://` relay therefore uses
   /// the equivalent HTTPS origin and that exact path.
@@ -174,6 +197,8 @@ class KeryxSettings {
     int? voxHangTimeMs,
     String? relayUrl,
     String? tokenServiceUrl,
+    bool? preferDirectOnWifi,
+    int? messageRetentionDays,
   }) => KeryxSettings(
     squelchLevel: squelchLevel ?? this.squelchLevel,
     rogerBeep: rogerBeep ?? this.rogerBeep,
@@ -191,6 +216,8 @@ class KeryxSettings {
     voxHangTimeMs: voxHangTimeMs ?? this.voxHangTimeMs,
     relayUrl: relayUrl ?? this.relayUrl,
     tokenServiceUrl: tokenServiceUrl ?? this.tokenServiceUrl,
+    preferDirectOnWifi: preferDirectOnWifi ?? this.preferDirectOnWifi,
+    messageRetentionDays: messageRetentionDays ?? this.messageRetentionDays,
   );
 
   Map<String, Object> toJson() => {
@@ -210,6 +237,8 @@ class KeryxSettings {
     'voxHangTimeMs': voxHangTimeMs,
     'relayUrl': relayUrl,
     'tokenServiceUrl': tokenServiceUrl,
+    'preferDirectOnWifi': preferDirectOnWifi,
+    'messageRetentionDays': messageRetentionDays,
   };
 
   /// Total parser: never throws. Missing / wrong-typed / out-of-range
@@ -268,6 +297,16 @@ class KeryxSettings {
         json['tokenServiceUrl'],
         fallback: tokenServiceUrlDefault,
         allowedSchemes: const {'https'},
+      ),
+      preferDirectOnWifi: _asBool(
+        json['preferDirectOnWifi'],
+        preferDirectOnWifiDefault,
+      ),
+      messageRetentionDays: _clampInt(
+        json['messageRetentionDays'],
+        min: messageRetentionDaysMin,
+        max: messageRetentionDaysMax,
+        fallback: messageRetentionDaysDefault,
       ),
     );
   }

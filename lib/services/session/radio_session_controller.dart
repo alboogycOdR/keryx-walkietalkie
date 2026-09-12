@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:keryx/core/floor/clock.dart';
 import 'package:keryx/core/floor/effects.dart';
 import 'package:keryx/core/floor/floor_engine.dart';
+import 'package:keryx/core/presentation/talk_target.dart';
 import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/settings/settings_model.dart';
 import 'package:keryx/core/state/radio_state.dart';
@@ -11,6 +12,7 @@ import 'package:keryx/features/event_qr/event_link.dart';
 import 'package:keryx/services/discovery/channel_hash_prefix.dart';
 import 'package:keryx/services/discovery/discovery_config.dart';
 import 'package:keryx/services/discovery/discovery_service.dart';
+import 'package:keryx/services/discovery/room_prefix.dart';
 import 'package:keryx/services/linked/linked.dart';
 import 'package:keryx/services/mesh/mesh.dart';
 import 'package:keryx/services/signaling/signaling.dart';
@@ -213,6 +215,55 @@ class RadioSessionController {
     await start();
   }
 
+  /// v2 (Technical §6.4, TASK-088 additive scope): switch the active chain
+  /// to [target]'s room and close the solo join-guard (Technical §1.1) by
+  /// calling `FloorEngine.updateRoster` with the full member list
+  /// *immediately* after the chain is up, before this method returns —
+  /// unlike v1's [retune], which relies on `SignalingService`'s own
+  /// peer-joined stream to discover the roster over time.
+  ///
+  /// Added alongside [retune], not a replacement: [retune]'s numbered-
+  /// channel path is untouched, and `SessionHost.retune` (outside this
+  /// task's `Owned_Paths`) still calls it. Dispatches `SetRoom`/
+  /// `SetTransport` directly (both are accepted in any powered phase,
+  /// unlike `SetMode`), then queues `SetMode` exactly as [start] does.
+  Future<void> switchTarget(
+    TalkTarget target, {
+    required List<String> memberPeerIds,
+  }) async {
+    _checkNotDisposed();
+    await _teardownActive();
+    final mode = _resolveEffectiveMode();
+    if (mode == RadioMode.local) {
+      await _startLocal(roomIdOverride: target.roomId);
+    } else {
+      await _startLinked(roomIdOverride: target.roomId);
+    }
+    final roster = <String>{localPeerId, ...memberPeerIds};
+    _floorEngine?.updateRoster(roster);
+    _bridge?.updateRoster(roster.length);
+    // `_peers`/`PeerSession` are LAN-signaling-specific bookkeeping (host,
+    // port, presence heartbeat) that a v2 directory roster does not have —
+    // populating it with synthetic entries here would misrepresent LAN
+    // discovery state. `_stations` is published directly instead, using
+    // peerId as a placeholder callsign: resolving a real display name is
+    // `lib/core/contacts/**`/`lib/core/groups/**` territory (TASK-086),
+    // outside this task's scope. Whichever host composes a live `TalkTarget`
+    // already has the real names and may pass a richer roster later.
+    if (!_stations.isClosed) {
+      _stations.add(
+        memberPeerIds
+            .map((id) => StationInfo(peerId: id, callsign: id))
+            .toList(growable: false),
+      );
+    }
+    _dispatch(SetRoom(target.roomId));
+    _dispatch(
+      SetTransport(mode == RadioMode.local ? Transport.direct : Transport.relay),
+    );
+    _queueSetMode(mode);
+  }
+
   /// Join a scanned/tapped Event QR payload (FR-043/FR-044). Requires an
   /// already-active LINKED chain — i.e. [start] must already have resolved
   /// to LINKED (`linked` mode, or `auto` with a configured relay and
@@ -273,14 +324,20 @@ class RadioSessionController {
     code: '$_code',
   );
 
-  Future<void> _startLocal() async {
+  /// [roomIdOverride], when supplied (v2 [switchTarget]), replaces the
+  /// legacy numbered `region`/`channel`/`code` hash with `RoomPrefix.compute`
+  /// (TASK-087) as the LAN match key — v1's [start]/[retune] never pass it.
+  Future<void> _startLocal({String? roomIdOverride}) async {
+    final prefix = roomIdOverride != null
+        ? RoomPrefix.compute(roomIdOverride)
+        : _channelHashPrefix();
     final endpoint = _endpointFactory();
     final signaling = SignalingService(endpoint: endpoint, clock: _clock);
     await signaling.start(
       SignalingConfig(
         peerId: localPeerId,
         callsign: callsign,
-        channelHashPrefix: _channelHashPrefix(),
+        channelHashPrefix: prefix,
       ),
     );
 
@@ -289,7 +346,7 @@ class RadioSessionController {
       DiscoveryConfig(
         peerId: localPeerId,
         callsign: callsign,
-        channelHashPrefix: _channelHashPrefix(),
+        channelHashPrefix: prefix,
         signalingPort: signaling.boundPort,
       ),
     );
@@ -322,7 +379,11 @@ class RadioSessionController {
 
   // --- LINKED chain ----------------------------------------------------
 
-  Future<void> _startLinked() async {
+  /// [roomIdOverride], when supplied (v2 [switchTarget]), joins that room ID
+  /// directly (`LinkedController.joinRoomId`, TASK-087) instead of deriving
+  /// one from the legacy numbered `region`/`channel`/`code` tuple — v1's
+  /// [start]/[retune] never pass it.
+  Future<void> _startLinked({String? roomIdOverride}) async {
     final proxyTransport = LinkedProxyFloorTransport();
     final engine = FloorEngine(
       localPeerId: localPeerId,
@@ -344,12 +405,19 @@ class RadioSessionController {
       dispatch: _dispatch,
     );
 
-    await linked.joinNumbered(
-      region: _settings.region,
-      channel: _channel,
-      code: _code,
-      forceLocalOnly: _settings.forceLocalOnly,
-    );
+    if (roomIdOverride != null) {
+      await linked.joinRoomId(
+        roomId: roomIdOverride,
+        forceLocalOnly: _settings.forceLocalOnly,
+      );
+    } else {
+      await linked.joinNumbered(
+        region: _settings.region,
+        channel: _channel,
+        code: _code,
+        forceLocalOnly: _settings.forceLocalOnly,
+      );
+    }
     final transport = linked.floorTransport;
     if (transport != null) proxyTransport.attach(transport);
 

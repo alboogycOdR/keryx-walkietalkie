@@ -7,6 +7,7 @@ import 'package:keryx/services/session/session.dart' show StationInfo;
 import 'connection_condition.dart';
 import 'presentation_cue.dart';
 import 'radio_phase_presentation.dart';
+import 'talk_target.dart';
 import 'telemetry.dart';
 import 'tuning_target.dart';
 
@@ -88,6 +89,8 @@ class RadioViewState {
     required this.signalQuality,
     required this.meterLevel,
     required this.isPro,
+    this.target,
+    this.audience = AudienceState.everyoneReachable,
   });
 
   /// The authoritative floor phase — identical to `RadioState.phase`,
@@ -188,6 +191,18 @@ class RadioViewState {
   /// "entitlement").
   final bool isPro;
 
+  /// v2 (Technical §6.3, TASK-088 re-scope note §6a): the currently selected
+  /// talk destination, or `null` while no v2 target has been chosen (every
+  /// v1 caller). Supplied by the caller (whichever host composes it from
+  /// `lib/core/contacts/**`/`lib/core/groups/**`, a later task) — this
+  /// projection never fabricates one.
+  final TalkTarget? target;
+
+  /// v2 (Technical §6.3): who can currently hear a transmission to [target].
+  /// Defaults to [AudienceState.everyoneReachable] when [target] is `null`,
+  /// so every existing v1 projection test keeps passing unmodified.
+  final AudienceState audience;
+
   /// Design §4's cue for [phase] alone (the 8 phase-mapped rows). A
   /// screen composes this with [emergency]/[latched]/[deniedFlash]/
   /// [totWarning]/[permissionDenied]/[serviceFaultMessage]'s own cues —
@@ -241,6 +256,8 @@ class RadioViewState {
     required KeryxSettings settings,
     bool latched = false,
     TuningTarget? pendingTuningTarget,
+    TalkTarget? target,
+    Map<String, PeerPresence> presenceByPeerId = const {},
   }) {
     final speakerId = radioState.activeSpeaker;
     String? speakerCallsign;
@@ -293,6 +310,11 @@ class RadioViewState {
           ? hostSnapshot.meterLevel
           : MeterLevel.decorative,
       isPro: settings.isPro,
+      target: target,
+      audience: AudienceState.compute(
+        target: target,
+        presenceByPeerId: presenceByPeerId,
+      ),
     );
   }
 
@@ -307,5 +329,6 @@ class RadioViewState {
       'activeSpeakerPeerId: $activeSpeakerPeerId, '
       'activeSpeakerCallsign: $activeSpeakerCallsign, '
       'stations: ${stations.length}, rosterCount: $rosterCount, '
-      'signalQuality: $signalQuality, meterLevel: $meterLevel, isPro: $isPro)';
+      'signalQuality: $signalQuality, meterLevel: $meterLevel, isPro: $isPro, '
+      'target: $target, audience: $audience)';
 }

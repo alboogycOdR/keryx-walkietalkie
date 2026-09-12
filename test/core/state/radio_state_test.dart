@@ -47,6 +47,10 @@ void main() {
         TotWarningRaised(),
         TotWarningCleared(),
         TransmitDeniedIndicated(),
+        // v2 (Technical §6a, TASK-088): additive rows, existing rows/counts
+        // unchanged above this line.
+        SetTransport(Transport.direct),
+        SetRoom('room-42'),
       ];
       var legalTransitions = 0;
       var illegalNoOps = 0;
@@ -71,8 +75,11 @@ void main() {
         }
       }
 
-      expect(legalTransitions, 145);
-      expect(illegalNoOps, 87);
+      // v2 (Technical §6a, TASK-088): 145/87 was the pre-existing baseline
+      // for the 29 original events; SetTransport/SetRoom add 7 legal + 1
+      // illegal (off) each across the 8 phases, extending it to 159/89.
+      expect(legalTransitions, 159);
+      expect(illegalNoOps, 89);
     });
 
     test('moves OFF to BOOT to IDLE and ignores invalid lifecycle events', () {
@@ -489,6 +496,75 @@ void main() {
       expect(state.phase, RadioPhase.rxActive);
     },
   );
+
+  // v2 (Technical §6a, TASK-088): additive coverage for roomId/transport —
+  // every v1 test above this group is unmodified.
+  group('v2 roomId/transport (additive)', () {
+    test('RadioState defaults roomId to null and transport to none', () {
+      const state = RadioState(phase: RadioPhase.idle);
+      expect(state.roomId, isNull);
+      expect(state.transport, Transport.none);
+      expect(const RadioState.off().roomId, isNull);
+      expect(const RadioState.off().transport, Transport.none);
+    });
+
+    test('SetRoom/SetTransport are accepted in any powered phase', () {
+      for (final phase in RadioPhase.values) {
+        final state = RadioState(phase: phase);
+        final withRoom = reducer.reduce(state, const SetRoom('room-1'));
+        final withTransport = reducer.reduce(
+          state,
+          const SetTransport(Transport.relay),
+        );
+        if (phase == RadioPhase.off) {
+          expect(withRoom.roomId, isNull, reason: '$phase');
+          expect(withTransport.transport, Transport.none, reason: '$phase');
+        } else {
+          expect(withRoom.roomId, 'room-1', reason: '$phase');
+          expect(withTransport.transport, Transport.relay, reason: '$phase');
+        }
+      }
+    });
+
+    test('SetRoom(null) clears an existing roomId', () {
+      final withRoom = reducer.reduce(bootToIdle(), const SetRoom('room-9'));
+      expect(withRoom.roomId, 'room-9');
+      final cleared = reducer.reduce(withRoom, const SetRoom(null));
+      expect(cleared.roomId, isNull);
+    });
+
+    test('copyWith/equality/hashCode cover roomId and transport', () {
+      const a = RadioState(phase: RadioPhase.idle);
+      final withRoom = a.copyWith(roomId: 'r1', transport: Transport.both);
+      expect(withRoom.roomId, 'r1');
+      expect(withRoom.transport, Transport.both);
+      expect(withRoom, isNot(a));
+      final cleared = withRoom.copyWith(clearRoomId: true);
+      expect(cleared.roomId, isNull);
+      expect(cleared, isNot(withRoom));
+
+      final same = RadioState(phase: RadioPhase.idle, roomId: 'r1', transport: Transport.both);
+      expect(withRoom, same);
+      expect(withRoom.hashCode, same.hashCode);
+    });
+
+    test('SetTransport/SetRoom never disturb the mode/channel path', () {
+      final tuned = reducer.reduce(
+        bootToIdle(),
+        const TuneTo(channel: 42, privacyCode: 7),
+      );
+      final withMode = reducer.reduce(tuned, const SetMode(RadioMode.local));
+      final withRoomAndTransport = reducer.reduce(
+        reducer.reduce(withMode, const SetRoom('room-x')),
+        const SetTransport(Transport.direct),
+      );
+      expect(withRoomAndTransport.channel, 42);
+      expect(withRoomAndTransport.privacyCode, 7);
+      expect(withRoomAndTransport.mode, RadioMode.local);
+      expect(withRoomAndTransport.roomId, 'room-x');
+      expect(withRoomAndTransport.transport, Transport.direct);
+    });
+  });
 }
 
 RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
@@ -573,6 +649,15 @@ RadioState _expectedMatrixResult(RadioState state, RadioEvent event) {
     TotWarningCleared() => state.copyWith(isTotWarning: false),
     TransmitDeniedIndicated() when state.phase != RadioPhase.off =>
       state.copyWith(isTransmitDenied: true),
+    // v2 (Technical §6a, TASK-088): additive rows, existing rows unchanged
+    // above this line.
+    SetTransport() when state.phase != RadioPhase.off => state.copyWith(
+      transport: event.transport,
+    ),
+    SetRoom() when state.phase != RadioPhase.off => state.copyWith(
+      roomId: event.roomId,
+      clearRoomId: event.roomId == null,
+    ),
     _ => state,
   };
   if (event is TransmitDeniedIndicated || event is TransmitDenied) {

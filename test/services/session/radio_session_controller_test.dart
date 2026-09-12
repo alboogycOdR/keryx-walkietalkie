@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/floor/clock.dart';
 import 'package:keryx/core/floor/floor_engine.dart';
+import 'package:keryx/core/presentation/talk_target.dart';
 import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/protocol/protocol.dart';
 import 'package:keryx/core/settings/settings_model.dart';
@@ -730,6 +731,120 @@ void main() {
 
         // Re-dispose in tearDown must be a safe no-op (both already
         // disposed here) — asserted implicitly by tearDown not throwing.
+      });
+    });
+
+    // v2 (Technical §6.4, TASK-088 additive scope): switchTarget alongside
+    // retune — every group above is unmodified.
+    group('switchTarget (v2, additive)', () {
+      test(
+        'joins the target room, updates the roster before returning, and '
+        'dispatches SetRoom/SetTransport (closes the solo join-guard, '
+        'Technical §1.1)',
+        () async {
+          final controller = RadioSessionController(
+            localPeerId: 'ALFA-1',
+            callsign: 'Alice',
+            settings: settingsLocal,
+            dispatch: dispatchedEvents.add,
+            initialChannel: 1,
+            initialCode: 0,
+            discoveryFactory: _NoopDiscoveryService.new,
+          );
+
+          await controller.start();
+          dispatchedEvents.clear();
+
+          final stationIds = <String>[];
+          final sub = controller.stations.listen(
+            (list) => stationIds.addAll(list.map((s) => s.peerId)),
+          );
+
+          const target = TalkTarget(
+            kind: TalkTargetKind.group,
+            id: 'g1',
+            name: 'Golf Group',
+            roomId: 'v2-room-id-01',
+          );
+          await controller.switchTarget(
+            target,
+            memberPeerIds: const ['BRAVO-7', 'CHARLIE-9'],
+          );
+
+          // Roster (self + members) is live before switchTarget returns —
+          // no need to wait for a peer-joined stream (v1's discovery path).
+          expect(dispatchedEvents.whereType<RosterUpdated>().last.stationCount, 3);
+
+          expect(dispatchedEvents.whereType<SetRoom>().last.roomId, 'v2-room-id-01');
+          expect(
+            dispatchedEvents.whereType<SetTransport>().last.transport,
+            Transport.direct,
+          );
+
+          await _flush();
+          await sub.cancel();
+          expect(stationIds, containsAll(['BRAVO-7', 'CHARLIE-9']));
+
+          await controller.dispose();
+        },
+      );
+
+      test('a solo target (no members) still updates the roster to size 1', () async {
+        final controller = RadioSessionController(
+          localPeerId: 'ALFA-1',
+          callsign: 'Alice',
+          settings: settingsLocal,
+          dispatch: dispatchedEvents.add,
+          initialChannel: 1,
+          initialCode: 0,
+          discoveryFactory: _NoopDiscoveryService.new,
+        );
+        await controller.start();
+
+        const soloTarget = TalkTarget(
+          kind: TalkTargetKind.contact,
+          id: 'p1',
+          name: 'Hotel',
+          roomId: 'v2-room-id-02',
+        );
+        await controller.switchTarget(soloTarget, memberPeerIds: const []);
+
+        expect(dispatchedEvents.whereType<RosterUpdated>().last.stationCount, 1);
+
+        await controller.dispose();
+      });
+
+      test('does not disturb retune\'s v1 numbered-channel path', () async {
+        final controller = RadioSessionController(
+          localPeerId: 'ALFA-1',
+          callsign: 'Alice',
+          settings: settingsLocal,
+          dispatch: dispatchedEvents.add,
+          initialChannel: 1,
+          initialCode: 0,
+          discoveryFactory: _NoopDiscoveryService.new,
+        );
+        await controller.start();
+
+        await controller.retune(channel: 9, code: 3);
+        expect(controller.floorEngine, isNotNull);
+
+        const target = TalkTarget(
+          kind: TalkTargetKind.group,
+          id: 'g2',
+          name: 'India Group',
+          roomId: 'v2-room-id-03',
+        );
+        dispatchedEvents.clear();
+        await controller.switchTarget(target, memberPeerIds: const ['JULIET-2']);
+        expect(dispatchedEvents.whereType<RosterUpdated>().last.stationCount, 2);
+
+        // retune remains callable afterwards — switchTarget did not remove
+        // or rename it.
+        await controller.retune(channel: 11, code: 4);
+        expect(controller.floorEngine, isNotNull);
+
+        await controller.dispose();
       });
     });
   });
