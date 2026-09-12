@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/floor/floor.dart';
+import 'package:keryx/core/presentation/talk_target.dart';
 import 'package:keryx/core/protocol/protocol.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
@@ -44,6 +45,25 @@ FloorEngine _newEngine({String peerId = 'local'}) => FloorEngine(
   tot: const Duration(seconds: 60),
 );
 
+/// v2 (TASK-092): the ring/status/latch harness below exercises the
+/// hold/latch/lifecycle safety logic (VT-010..015), which is target-
+/// agnostic — a solo-reachable target keeps every one of those tests'
+/// existing assertions unchanged (`AudienceState.compute` with one online
+/// member yields `canHear: 1`, the same as the v1
+/// `AudienceState.everyoneReachable` default). Individual tests that
+/// exercise the no-target/nobody-listening states pass `target: null`/a
+/// zero-member target explicitly.
+const _defaultTestTarget = TalkTarget(
+  kind: TalkTargetKind.contact,
+  id: 'peer-1',
+  name: 'Ben',
+  roomId: 'room-1',
+  memberPeerIds: ['peer-1'],
+);
+const _defaultTestPresence = <String, PeerPresence>{
+  'peer-1': PeerPresence.online,
+};
+
 void main() {
   late FakeRadioHost host;
   late ProviderContainer container;
@@ -54,6 +74,15 @@ void main() {
     VoidCallback? onOpenPicker,
     VoidCallback? onOpenStations,
     VoidCallback? onOpenRadioControls,
+    VoidCallback? onOpenTargetDetail,
+    VoidCallback? onAddContact,
+    VoidCallback? onCreateGroup,
+    VoidCallback? onAlertTarget,
+    TalkAlert? pendingAlert,
+    ValueChanged<TalkAlert>? onReplyToAlert,
+    VoidCallback? onDismissAlert,
+    Object? target = _defaultTestTarget,
+    Map<String, PeerPresence> presenceByPeerId = _defaultTestPresence,
     Widget Function(Widget talkScreen)? wrapHome,
   }) {
     host = withHost ?? host;
@@ -68,6 +97,15 @@ void main() {
       onOpenPicker: onOpenPicker,
       onOpenStations: onOpenStations,
       onOpenRadioControls: onOpenRadioControls,
+      onOpenTargetDetail: onOpenTargetDetail,
+      onAddContact: onAddContact,
+      onCreateGroup: onCreateGroup,
+      onAlertTarget: onAlertTarget,
+      pendingAlert: pendingAlert,
+      onReplyToAlert: onReplyToAlert,
+      onDismissAlert: onDismissAlert,
+      target: target as TalkTarget?,
+      presenceByPeerId: presenceByPeerId,
     );
     return UncontrolledProviderScope(
       container: container,
@@ -336,7 +374,11 @@ void main() {
             container: container,
             child: MaterialApp(
               theme: keryxUxThemeData(),
-              home: TalkScreen(host: host),
+              home: TalkScreen(
+                host: host,
+                target: _defaultTestTarget,
+                presenceByPeerId: _defaultTestPresence,
+              ),
             ),
           ),
         );
@@ -580,7 +622,7 @@ void main() {
       // (ADR-002 A3) — `pumpAndSettle` never settles here.
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
-      expect(find.text('Requesting channel…'), findsWidgets);
+      expect(find.text('Requesting…'), findsWidgets);
       expect(find.text('Transmitting'), findsNothing);
     });
 
@@ -656,7 +698,7 @@ void main() {
       await pumpFlashFrame(tester);
       // Both are independently true and both are rendered — the granted
       // TX is not concealed by the transient deny overlay.
-      expect(find.text(TalkCopy.channelBusy), findsOneWidget);
+      expect(find.text(TalkCopy.someoneAlreadyTransmitting), findsOneWidget);
       expect(find.text('Transmitting'), findsWidgets);
     });
 
@@ -762,7 +804,7 @@ void main() {
       // ADR-002 A2 splits status copy into a primary line below the ring
       // and a secondary instruction line, rather than one concatenated
       // sentence (pre-ADR-002 rendered them as a single Text).
-      expect(find.text(TalkCopy.channelClear), findsWidgets);
+      expect(find.text(TalkCopy.readyToTalk), findsWidgets);
       expect(find.text(TalkCopy.holdToTalk), findsWidgets);
     });
 
@@ -774,7 +816,7 @@ void main() {
       final ring = ringWidget(tester);
       expect(ring.treatment, TalkPttRingTreatment.neutral);
       expect(ring.ringColor, tokens.pttNeutralRing);
-      expect(find.text('Changing channel'), findsWidgets);
+      expect(find.text('Connecting'), findsWidgets);
     });
 
     testWidgets('Requesting: accent treatment with sweep', (tester) async {
@@ -982,40 +1024,41 @@ void main() {
     });
   });
 
-  group('effective route label (Technical §7)', () {
-    testWidgets('unresolved route is Connecting, never AUTO; configured '
-        'AUTO still shows', (tester) async {
+  // v2 (TASK-092, V2-VT-028): the v1 route label ("Route LOCAL · Configured
+  // AUTO") and roster-count chip lived on the now-deleted `TalkChannelCard`
+  // — this screen has no channel/route/station-count copy left to assert on
+  // at all, per Design §5's "never channel/tune/station/LOCAL/LINKED/AUTO"
+  // rule. `RadioMode`/`RosterCount` still flow through `RadioViewState`
+  // untouched (TASK-088 kept them; `radio_view_state_test.dart` in that
+  // task's own territory keeps asserting the truthfulness rule at the
+  // projection level) — this screen simply no longer renders them.
+  testWidgets(
+    'no route/roster copy renders — RadioMode/RosterCount still project '
+    'correctly underneath (V2-VT-028)',
+    (tester) async {
       await pumpReady(tester);
-      expect(find.textContaining('Route Connecting'), findsOneWidget);
-      expect(find.textContaining('Configured AUTO'), findsOneWidget);
-      expect(find.textContaining('Route AUTO'), findsNothing);
-    });
-
-    testWidgets('resolved LOCAL renders Route LOCAL', (tester) async {
-      await pumpReady(tester);
-      container
-          .read(radioStateProvider.notifier)
-          .dispatch(const SetMode(RadioMode.local));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Route LOCAL'), findsOneWidget);
-      expect(find.textContaining('Route AUTO'), findsNothing);
-      expect(find.textContaining('Route Connecting'), findsNothing);
-    });
-  });
-
-  group('VT-015 — audio truthfulness', () {
-    testWidgets('no signal-quality or roster count is presented as a '
-        'verified value when unavailable', (tester) async {
-      await pumpReady(tester);
-      // Default reducer mode is AUTO; drive unavailable roster via LINKED.
       container.read(radioStateProvider.notifier)
         ..dispatch(const PowerOn())
         ..dispatch(const BootCompleted())
         ..dispatch(const SetMode(RadioMode.linked));
       await tester.pumpAndSettle();
-      expect(find.text('Member list unavailable'), findsOneWidget);
-    });
-  });
+      for (final forbidden in const [
+        'Route',
+        'Configured',
+        'LOCAL',
+        'LINKED',
+        'AUTO',
+        'channel',
+        'station',
+      ]) {
+        expect(
+          find.textContaining(forbidden, findRichText: true),
+          findsNothing,
+          reason: 'found forbidden v1 route/channel copy: $forbidden',
+        );
+      }
+    },
+  );
 
   group('sizing', () {
     testWidgets('the PTT disc meets the 96 dp minimum primary dimension', (
@@ -1140,102 +1183,105 @@ void main() {
     });
   });
 
-  group('TASK-068 — real header callbacks, not shell-owned geometry', () {
-    // The defect this task closes: the app-shell composition root used to
-    // intercept these header taps with invisible overlays positioned by
-    // hardcoded geometry matching this screen's own layout (TASK-052's
-    // Review_Findings — proven fragile by a +100dp overlay shift leaving
-    // every overlay-based test green while a real-centre-tap probe failed).
-    // The actual regression guard for that fragility is proving the
-    // callback fires via a real tap on the real button *after* this
-    // screen's own internal layout has shifted — not merely that the
-    // button renders.
+  group('TASK-092 (v2 successor to TASK-068) — real header callbacks, not '
+      'shell-owned geometry', () {
+    // The defect TASK-068 closed carries forward: the app-shell composition
+    // root must never intercept these header taps with invisible overlays
+    // positioned by hardcoded geometry matching this screen's own layout
+    // (TASK-052's Review_Findings — proven fragile by a +100dp overlay shift
+    // leaving every overlay-based test green while a real-centre-tap probe
+    // failed). The regression guard is proving the callback fires via a real
+    // tap on the real button *after* this screen's own internal layout has
+    // shifted — not merely that the button renders.
     Widget wrapWithExtraHeaderPadding(Widget talkScreen) =>
         Padding(padding: const EdgeInsets.only(top: 137), child: talkScreen);
 
     testWidgets(
-      'onOpenPicker fires from a real tap even after the header is wrapped '
-      'in extra padding (simulated future layout drift)',
+      'onOpenTargetDetail fires from a real tap even after the header is '
+      'wrapped in extra padding (simulated future layout drift)',
       (tester) async {
-        var pickerTaps = 0;
+        var detailTaps = 0;
         await tester.pumpWidget(
           build(
-            onOpenPicker: () => pickerTaps++,
+            onOpenTargetDetail: () => detailTaps++,
             wrapHome: wrapWithExtraHeaderPadding,
           ),
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byKey(const Key('keryx-talk-picker')));
+        await tester.tap(find.byKey(const Key('keryx-talk-target-detail')));
         await tester.pump();
-        expect(pickerTaps, 1);
+        expect(detailTaps, 1);
       },
     );
 
-    testWidgets('onOpenStations fires from a real tap even after the header is '
-        'wrapped in extra padding (simulated future layout drift)', (
-      tester,
-    ) async {
-      var stationsTaps = 0;
-      await tester.pumpWidget(
-        build(
-          onOpenStations: () => stationsTaps++,
-          wrapHome: wrapWithExtraHeaderPadding,
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('keryx-talk-stations')));
-      await tester.pump();
-      expect(stationsTaps, 1);
-    });
-
     testWidgets(
-      'onOpenRadioControls fires from a real tap even after the header is '
-      'wrapped in extra padding (simulated future layout drift) — TASK-068 '
-      "gives Radio Controls a real header slot, not a bottom-left overlay",
-      (tester) async {
-        var radioControlsTaps = 0;
-        await tester.pumpWidget(
-          build(
-            onOpenRadioControls: () => radioControlsTaps++,
-            wrapHome: wrapWithExtraHeaderPadding,
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.byKey(const Key('keryx-talk-radio-controls')));
-        await tester.pump();
-        expect(radioControlsTaps, 1);
-      },
-    );
-
-    testWidgets('a null onOpenPicker/onOpenStations renders the buttons '
-        'disabled rather than throwing on tap', (tester) async {
-      await tester.pumpWidget(build());
-      await tester.pumpAndSettle();
-
-      final IconButton picker = tester.widget<IconButton>(
-        find.byKey(const Key('keryx-talk-picker')),
-      );
-      final TextButton stations = tester.widget<TextButton>(
-        find.byKey(const Key('keryx-talk-stations')),
-      );
-      expect(picker.onPressed, isNull);
-      expect(stations.onPressed, isNull);
-    });
-
-    testWidgets(
-      'a null onOpenRadioControls omits the radio-controls affordance '
-      'entirely (ADR-002 A2 — rendered only when the callback is non-null)',
+      'a null onOpenTargetDetail renders the chevron disabled rather than '
+      'throwing on tap',
       (tester) async {
         await tester.pumpWidget(build());
         await tester.pumpAndSettle();
 
-        expect(
-          find.byKey(const Key('keryx-talk-radio-controls')),
-          findsNothing,
+        final IconButton detail = tester.widget<IconButton>(
+          find.byKey(const Key('keryx-talk-target-detail')),
         );
+        expect(detail.onPressed, isNull);
+      },
+    );
+
+    testWidgets(
+      'no-target state: onAddContact/onCreateGroup fire from a real tap',
+      (tester) async {
+        var addTaps = 0;
+        var createTaps = 0;
+        await tester.pumpWidget(
+          build(
+            target: null,
+            onAddContact: () => addTaps++,
+            onCreateGroup: () => createTaps++,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // The no-target card shares the `keryx-talk-channel-card` key with
+        // `TalkTargetCard` (see that widget's dartdoc) — it renders as the
+        // add-contact/create-group card, not the target header, which is
+        // what `keryx-talk-no-target-headline`/the add/create buttons below
+        // actually distinguish.
+        expect(find.byKey(const Key('keryx-talk-target-name')), findsNothing);
+        // The ring itself stays mounted even without a target — see
+        // `TalkScreen._TalkScreenState.build`'s dartdoc on `pttGroup` for
+        // why (existing `lib/app_shell/**`/`test/regression/**` callers
+        // that don't pass a target yet still need Talk's PTT surface).
+        expect(
+          find.byKey(const Key('keryx-talk-ptt-cluster')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const Key('keryx-talk-add-contact')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('keryx-talk-create-group')));
+        await tester.pump();
+        expect(addTaps, 1);
+        expect(createTaps, 1);
+      },
+    );
+
+    testWidgets(
+      'a null onAddContact/onCreateGroup renders the no-target buttons '
+      'disabled rather than throwing on tap',
+      (tester) async {
+        await tester.pumpWidget(build(target: null));
+        await tester.pumpAndSettle();
+
+        final FilledButton addContact = tester.widget<FilledButton>(
+          find.byKey(const Key('keryx-talk-add-contact')),
+        );
+        final OutlinedButton createGroup = tester.widget<OutlinedButton>(
+          find.byKey(const Key('keryx-talk-create-group')),
+        );
+        expect(addContact.onPressed, isNull);
+        expect(createGroup.onPressed, isNull);
       },
     );
   });
@@ -1252,15 +1298,15 @@ void main() {
           .dispatch(const TransmitDeniedIndicated());
       await pumpFlashFrame(tester);
       expect(ringWidget(tester).treatment, TalkPttRingTreatment.deniedFlash);
-      expect(find.text(TalkCopy.channelBusy), findsWidgets);
+      expect(find.text(TalkCopy.someoneAlreadyTransmitting), findsWidgets);
       expect(find.byKey(const Key('keryx-talk-overlay-block')), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 1600));
       expect(ringWidget(tester).treatment, TalkPttRingTreatment.ready);
       expect(ringWidget(tester).ringColor, KeryxUxTokens.dark.actionPrimary);
       expect(find.byKey(const Key('keryx-talk-overlay-block')), findsNothing);
-      expect(find.text(TalkCopy.channelBusy), findsNothing);
-      expect(find.text(TalkCopy.channelClear), findsWidgets);
+      expect(find.text(TalkCopy.someoneAlreadyTransmitting), findsNothing);
+      expect(find.text(TalkCopy.readyToTalk), findsWidgets);
       expect(find.text(TalkCopy.holdToTalk), findsWidgets);
     });
 
@@ -1301,36 +1347,31 @@ void main() {
       expect(find.text(TalkCopy.transmitting), findsWidgets);
     });
 
+    // v2 (TASK-092): the v1 roster-based split ("No other stations on this
+    // channel" vs. "Channel busy") is gone along with the roster/channel
+    // concepts it depended on — a host-driven deny (contention on the
+    // current room, independent of the local audience-refusal path below)
+    // now always shows the same room-agnostic copy, regardless of roster
+    // state.
     testWidgets(
-      'KnownRosterCount(0) deny copy is "No other stations on this channel"',
+      'a host-driven deny always shows "Someone is already transmitting", '
+      'independent of roster state',
       (tester) async {
         await pumpReady(tester);
         container.read(radioStateProvider.notifier)
           ..dispatch(const SetMode(RadioMode.local))
           ..dispatch(const TransmitDeniedIndicated());
         await pumpFlashFrame(tester);
-        expect(find.text(TalkCopy.noOtherStationsOnChannel), findsWidgets);
-        expect(find.text(TalkCopy.channelBusy), findsNothing);
+        expect(
+          find.text(TalkCopy.someoneAlreadyTransmitting),
+          findsWidgets,
+        );
         expect(
           tester
               .widget<Text>(find.byKey(const Key('keryx-talk-status-line')))
               .data,
-          TalkCopy.noOtherStationsOnChannel,
+          TalkCopy.someoneAlreadyTransmitting,
         );
-      },
-    );
-
-    testWidgets(
-      'stations present or an unavailable roster keep "Channel busy"',
-      (tester) async {
-        await pumpReady(tester);
-        // Default AUTO route → UnavailableRosterCount.
-        container
-            .read(radioStateProvider.notifier)
-            .dispatch(const TransmitDeniedIndicated());
-        await pumpFlashFrame(tester);
-        expect(find.text(TalkCopy.channelBusy), findsWidgets);
-        expect(find.text(TalkCopy.noOtherStationsOnChannel), findsNothing);
 
         host.emit(
           RadioHostSnapshot(
@@ -1340,12 +1381,12 @@ void main() {
             ],
           ),
         );
+        await tester.pump(const Duration(milliseconds: 1600));
         container.read(radioStateProvider.notifier)
-          ..dispatch(const SetMode(RadioMode.local))
-          ..dispatch(const TransmitDeniedIndicated());
+          ..dispatch(const RequestTransmit())
+          ..dispatch(const TransmitDenied());
         await pumpFlashFrame(tester);
-        expect(find.text(TalkCopy.channelBusy), findsWidgets);
-        expect(find.text(TalkCopy.noOtherStationsOnChannel), findsNothing);
+        expect(find.text(TalkCopy.someoneAlreadyTransmitting), findsWidgets);
       },
     );
 
@@ -1414,5 +1455,164 @@ void main() {
         await check(const Size(640, 360), 1.0);
       },
     );
+  });
+
+  group('V2-FR-041/044 — audience-aware ready ring, honest lone-press '
+      'refusal', () {
+    const soloTarget = TalkTarget(
+      kind: TalkTargetKind.contact,
+      id: 'peer-2',
+      name: 'Ben',
+      roomId: 'room-2',
+      memberPeerIds: ['peer-2'],
+    );
+
+    testWidgets(
+      'canHear == 0: neutral ring with the audience reason as the status '
+      'line, not "Ready"',
+      (tester) async {
+        final engine = _newEngine();
+        host.emit(RadioHostSnapshot(floorEngine: engine));
+        await tester.pumpWidget(
+          build(
+            target: soloTarget,
+            presenceByPeerId: const {'peer-2': PeerPresence.offline},
+          ),
+        );
+        await tester.pumpAndSettle();
+        container.read(radioStateProvider.notifier)
+          ..dispatch(const PowerOn())
+          ..dispatch(const BootCompleted());
+        await tester.pumpAndSettle();
+
+        final TalkPttRing ring = tester.widget<TalkPttRing>(
+          find.byType(TalkPttRing),
+        );
+        expect(ring.treatment, TalkPttRingTreatment.neutral);
+        expect(find.text('Ben is offline'), findsWidgets);
+        engine.dispose();
+      },
+    );
+
+    testWidgets(
+      'a press with nobody listening never calls press(), flashes for '
+      '1.5s, then returns to the neutral reason (not TX)',
+      (tester) async {
+        final engine = _newEngine();
+        await tester.pumpWidget(
+          build(
+            target: soloTarget,
+            presenceByPeerId: const {'peer-2': PeerPresence.offline},
+          ),
+        );
+        host.emit(RadioHostSnapshot(floorEngine: engine));
+        await tester.pumpAndSettle();
+        container.read(radioStateProvider.notifier)
+          ..dispatch(const PowerOn())
+          ..dispatch(const BootCompleted());
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const Key('keryx-talk-ptt-disc')));
+        await tester.pump();
+        expect(host.pressPttCalls, 0);
+        final TalkPttRing flashing = tester.widget<TalkPttRing>(
+          find.byType(TalkPttRing),
+        );
+        expect(flashing.treatment, TalkPttRingTreatment.deniedFlash);
+        expect(find.text('Ben is offline'), findsWidgets);
+
+        await tester.pump(const Duration(milliseconds: 1600));
+        final TalkPttRing settled = tester.widget<TalkPttRing>(
+          find.byType(TalkPttRing),
+        );
+        expect(settled.treatment, TalkPttRingTreatment.neutral);
+        expect(host.pressPttCalls, 0);
+        engine.dispose();
+      },
+    );
+
+    testWidgets('canHear > 0 keeps the ready treatment (v1-equivalent)', (
+      tester,
+    ) async {
+      await pumpReady(tester);
+      final TalkPttRing ring = tester.widget<TalkPttRing>(
+        find.byType(TalkPttRing),
+      );
+      expect(ring.treatment, TalkPttRingTreatment.ready);
+    });
+  });
+
+  group('Design §4 "Target on DND"', () {
+    const dndTarget = TalkTarget(
+      kind: TalkTargetKind.contact,
+      id: 'peer-3',
+      name: 'Ben',
+      roomId: 'room-3',
+      memberPeerIds: ['peer-3'],
+    );
+
+    testWidgets(
+      'shows the exact DND headline and an Alert control that forwards '
+      'the tap',
+      (tester) async {
+        var alertTaps = 0;
+        final engine = _newEngine();
+        host.emit(RadioHostSnapshot(floorEngine: engine));
+        await tester.pumpWidget(
+          build(
+            target: dndTarget,
+            presenceByPeerId: const {'peer-3': PeerPresence.dnd},
+            onAlertTarget: () => alertTaps++,
+          ),
+        );
+        await tester.pumpAndSettle();
+        container.read(radioStateProvider.notifier)
+          ..dispatch(const PowerOn())
+          ..dispatch(const BootCompleted());
+        await tester.pumpAndSettle();
+        expect(find.text('Ben is on Do Not Disturb'), findsWidgets);
+        await tester.tap(find.byKey(const Key('keryx-talk-alert-target')));
+        expect(alertTaps, 1);
+        engine.dispose();
+      },
+    );
+  });
+
+  group('Design §4 "Alert received" banner', () {
+    testWidgets('renders the sender and Reply forwards the alert', (
+      tester,
+    ) async {
+      final alert = TalkAlert(
+        senderLabel: 'BEN·4R2M',
+        receivedAt: DateTime(2026),
+      );
+      TalkAlert? replied;
+      await tester.pumpWidget(
+        build(
+          pendingAlert: alert,
+          onReplyToAlert: (a) => replied = a,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('BEN·4R2M alerted you'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('keryx-talk-alert-reply')));
+      expect(replied, alert);
+    });
+
+    testWidgets('auto-dismisses via onDismissAlert after 10s', (
+      tester,
+    ) async {
+      var dismissed = 0;
+      final alert = TalkAlert(
+        senderLabel: 'BEN·4R2M',
+        receivedAt: DateTime(2026),
+      );
+      await tester.pumpWidget(
+        build(pendingAlert: alert, onDismissAlert: () => dismissed++),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 10));
+      expect(dismissed, 1);
+    });
   });
 }

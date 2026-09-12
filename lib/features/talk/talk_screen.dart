@@ -12,10 +12,10 @@ import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/state/radio_state.dart' show RadioPhase;
 import 'package:keryx/core/theme/ux_tokens.dart';
 
-import 'talk_channel_card.dart';
 import 'talk_copy.dart';
 import 'talk_latch_state.dart';
 import 'talk_ptt_ring.dart';
+import 'talk_target_card.dart';
 
 /// The successor Talk screen (Design §2.2, amended by ADR-002 §3 A2/A3/A4)
 /// — the primary communication surface and, per the intake, the single most
@@ -43,27 +43,100 @@ class TalkScreen extends ConsumerStatefulWidget {
     this.onOpenPicker,
     this.onOpenStations,
     this.onOpenRadioControls,
+    this.target,
+    this.presenceByPeerId = const {},
+    this.ownStatus,
+    this.onSetOwnStatus,
+    this.onOpenTargetDetail,
+    this.onAddContact,
+    this.onCreateGroup,
+    this.onAlertTarget,
+    this.pendingAlert,
+    this.onReplyToAlert,
+    this.onDismissAlert,
   });
 
   final RadioHost host;
 
-  /// Real navigation callback for the channel card's picker affordance
-  /// (TASK-050's selector). `null` in tests/stand-ins that don't exercise
-  /// navigation — the button still renders, per Design §2.2's "offers a
-  /// clear channel picker", but is a no-op rather than throwing.
+  /// v1 leftover, unused by this screen's v2 layout — retained purely so
+  /// `lib/app_shell/talk_screen.dart` (TASK-093's territory, not yet
+  /// rewired) still compiles against this constructor until that task lands.
   final VoidCallback? onOpenPicker;
 
-  /// Real navigation callback for the channel card's Stations affordance
-  /// (TASK-053's roster). See [onOpenPicker]'s dartdoc.
+  /// v1 leftover; see [onOpenPicker]'s dartdoc.
   final VoidCallback? onOpenStations;
 
-  /// Real navigation callback for the channel card's Radio Controls
-  /// affordance (TASK-054). ADR-002 §3 A2: rendered **only when non-null**
-  /// — omitted entirely rather than merely disabled when absent.
+  /// v1 leftover; see [onOpenPicker]'s dartdoc. Radio controls now live in
+  /// the shell's ⋮ overflow (Design §1), not on this screen.
   final VoidCallback? onOpenRadioControls;
+
+  /// v2 (Technical §6.3): the currently selected talk destination, composed
+  /// by the caller from `lib/core/contacts/**`/`lib/core/groups/**` (this
+  /// screen does not import either). `null` renders the Design §2.1
+  /// no-target state.
+  final TalkTarget? target;
+
+  /// v2: presence for [target]'s members, keyed by peerId — feeds both the
+  /// presence line and [RadioViewState.audience] via [RadioViewState.project].
+  final Map<String, PeerPresence> presenceByPeerId;
+
+  /// v2 (Design §2.1): the local user's own status, shown on the header
+  /// card's status control. `null` disables the control.
+  final PeerPresence? ownStatus;
+
+  /// v2: forwards a status change to whatever composes the directory client
+  /// (this screen does not own presence storage).
+  final ValueChanged<PeerPresence>? onSetOwnStatus;
+
+  /// v2 (Design §2.1): opens the target's detail sheet (the header card's
+  /// chevron).
+  final VoidCallback? onOpenTargetDetail;
+
+  /// v2 (Design §2.1 no-target state).
+  final VoidCallback? onAddContact;
+
+  /// v2 (Design §2.1 no-target state).
+  final VoidCallback? onCreateGroup;
+
+  /// v2 (Design §4 "Target on DND" row): sends an alert to a DND target.
+  /// `null` hides the Alert control rather than throwing on tap.
+  final VoidCallback? onAlertTarget;
+
+  /// v2 (Design §4 "Alert received" banner): caller-supplied because alert
+  /// delivery (directory/messaging transport) is outside this screen's
+  /// territory — this screen only renders whatever alert it is handed and
+  /// auto-dismisses it after 10 s (Design §4), it never originates one.
+  final TalkAlert? pendingAlert;
+
+  /// Invoked with [pendingAlert] when its Reply control is tapped.
+  final ValueChanged<TalkAlert>? onReplyToAlert;
+
+  /// Invoked (with no argument) when the banner's 10 s auto-dismiss timer
+  /// expires or a caller wants it cleared early — lets the caller drop its
+  /// own copy of [pendingAlert] so the banner does not reappear on rebuild.
+  final VoidCallback? onDismissAlert;
 
   @override
   ConsumerState<TalkScreen> createState() => _TalkScreenState();
+}
+
+/// v2 (Design §4): a received alert, purely as data — sender identity plus
+/// the moment it arrived (used to drive the banner's 10 s countdown even
+/// across a rebuild that hands in the same [TalkAlert] again).
+class TalkAlert {
+  const TalkAlert({required this.senderLabel, required this.receivedAt});
+
+  final String senderLabel;
+  final DateTime receivedAt;
+
+  @override
+  bool operator ==(Object other) =>
+      other is TalkAlert &&
+      other.senderLabel == senderLabel &&
+      other.receivedAt == receivedAt;
+
+  @override
+  int get hashCode => Object.hash(senderLabel, receivedAt);
 }
 
 class _TalkScreenState extends ConsumerState<TalkScreen>
@@ -107,6 +180,20 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   Timer? _deniedFlashTimer;
   bool _flashExpired = false;
 
+  /// v2 (Design §4 "Nobody listening", V2-FR-044): a lone press with
+  /// `audience.canHear == 0` never reaches `press()` — this is a purely
+  /// local flash, reusing the same 1.5 s presentation window as the
+  /// host-authoritative denied flash above, but keyed off the audience
+  /// matrix instead of `RadioState.isTransmitDenied`.
+  Timer? _audienceRefusalTimer;
+  bool _audienceRefusalShowing = false;
+
+  /// v2 (Design §4 "Alert received"): auto-dismisses [TalkScreen.pendingAlert]
+  /// 10 s after it was received, independent of any rebuild that keeps
+  /// handing the same alert back in.
+  Timer? _alertTimer;
+  TalkAlert? _alertTimerFor;
+
   @override
   void initState() {
     super.initState();
@@ -121,6 +208,8 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _deniedFlashTimer?.cancel();
+    _audienceRefusalTimer?.cancel();
+    _alertTimer?.cancel();
     unawaited(_hostSub?.cancel());
     // VT-012: route unmount during a hold releases an ordinary hold safely
     // and creates no latch. A deliberate latch survives navigation
@@ -165,10 +254,43 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     widget.host.releasePtt();
   }
 
-  void _handleHoldStart(RadioViewIntents intents) {
+  /// V2-FR-044: a target with nobody currently reachable refuses the press
+  /// locally — `_holding` is never set and `intents.press()` is never
+  /// called, so this never reaches the floor engine at all (Technical §5.1:
+  /// only the authoritative command path may request a grant).
+  void _handleHoldStart(RadioViewIntents intents, AudienceState audience) {
     if (_holding) return; // VT-011: duplicate/late start is a no-op.
+    if (widget.target != null && audience.canHear == 0) {
+      _startAudienceRefusalFlash();
+      return;
+    }
     setState(() => _holding = true);
     intents.press();
+  }
+
+  void _startAudienceRefusalFlash() {
+    _audienceRefusalTimer?.cancel();
+    setState(() => _audienceRefusalShowing = true);
+    _audienceRefusalTimer = Timer(_deniedFlashDuration, () {
+      if (!mounted) return;
+      setState(() => _audienceRefusalShowing = false);
+    });
+  }
+
+  /// v2 (Design §4 "Alert received"): starts (or restarts, for a genuinely
+  /// new alert) the 10 s auto-dismiss window. Comparing against
+  /// [_alertTimerFor] rather than a plain "is a timer running" flag means a
+  /// rebuild that hands back the *same* alert (e.g. a provider re-emitting
+  /// its current value) does not restart the countdown.
+  void _syncAlertTimer(TalkAlert? alert) {
+    if (alert == _alertTimerFor) return;
+    _alertTimer?.cancel();
+    _alertTimerFor = alert;
+    if (alert == null) return;
+    _alertTimer = Timer(const Duration(seconds: 10), () {
+      if (!mounted) return;
+      widget.onDismissAlert?.call();
+    });
   }
 
   void _handleHoldEnd(RadioViewIntents intents) {
@@ -228,8 +350,29 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     }
   }
 
+  /// True while either the host-authoritative denied flash (contention on
+  /// the current room) or the purely local audience-refusal flash
+  /// (V2-FR-044) should be showing. Both render with the same
+  /// [TalkPttRingTreatment.deniedFlash] ring treatment (Design §4's "Nobody
+  /// listening" row and the pre-existing "Channel busy" row share the same
+  /// neutral-ring-plus-flash look); only the copy differs.
   bool _flashIsShowing(RadioViewState viewState) =>
-      viewState.deniedFlash && !_flashExpired;
+      _audienceRefusalShowing || (viewState.deniedFlash && !_flashExpired);
+
+  /// v2 (Design §4 "Target on DND"): the dedicated row's exact copy, derived
+  /// directly from presence rather than [AudienceState.reason] (owned by
+  /// TASK-088's `lib/core/presentation/**`, outside this task's territory)
+  /// so this screen can match Design §5's literal wording. Only fires for a
+  /// single-member contact target — a group's mixed presence has no single
+  /// "on DND" subject.
+  String? _targetOnDndLabel() {
+    final target = widget.target;
+    if (target == null || target.kind != TalkTargetKind.contact) return null;
+    if (target.memberPeerIds.length != 1) return null;
+    final presence = widget.presenceByPeerId[target.memberPeerIds.single];
+    if (presence != PeerPresence.dnd) return null;
+    return '${target.name} is on Do Not Disturb';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -245,6 +388,8 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
         nowDenied: next.isTransmitDenied,
       );
     });
+
+    _syncAlertTimer(widget.pendingAlert);
 
     if (settings == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -267,6 +412,8 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
       settings: settings,
       latched:
           TalkLatchState.of(widget.host) && radioState.phase == RadioPhase.tx,
+      target: widget.target,
+      presenceByPeerId: widget.presenceByPeerId,
     );
 
     final tokens = KeryxUxTokens.of(context);
@@ -305,6 +452,8 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
       horizontal: 16,
       vertical: 12,
     );
+    final TalkTarget? target = widget.target;
+    final String? dndLabel = _targetOnDndLabel();
     final Widget topGroup = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -323,20 +472,48 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
               ),
             ),
           ),
-        TalkChannelCard(
-          channel: viewState.channel,
-          privacyCode: viewState.privacyCode,
-          connection: viewState.connection,
-          stationCountLabel: _rosterLabel(viewState.rosterCount),
-          onOpenPicker: widget.onOpenPicker,
-          onOpenStations: widget.onOpenStations,
-          onOpenRadioControls: widget.onOpenRadioControls,
-        ),
+        if (widget.pendingAlert != null)
+          _AlertBanner(
+            alert: widget.pendingAlert!,
+            tokens: tokens,
+            onReply: widget.onReplyToAlert == null
+                ? null
+                : () => widget.onReplyToAlert!(widget.pendingAlert!),
+          ),
+        if (target != null)
+          TalkTargetCard(
+            target: target,
+            presenceLine: _presenceLineFor(target, widget.presenceByPeerId),
+            ownStatus: widget.ownStatus,
+            onSetOwnStatus: widget.onSetOwnStatus,
+            onOpenTargetDetail: widget.onOpenTargetDetail,
+            onOpenPicker: widget.onOpenPicker,
+            onOpenStations: widget.onOpenStations,
+          )
+        else
+          TalkNoTargetCard(
+            onAddContact: widget.onAddContact,
+            onCreateGroup: widget.onCreateGroup,
+            onOpenPicker: widget.onOpenPicker,
+            onOpenStations: widget.onOpenStations,
+          ),
         const SizedBox(height: 8),
         for (final cue in overlayCues)
           _OverlayCueChip(cue: cue, tokens: tokens),
       ],
     );
+    // Design §2.1 literally replaces the ring with the no-target card, but
+    // this screen is still mounted, unmodified, by `lib/app_shell/**`
+    // (TASK-093's territory, not yet rewired to pass a real target) — a
+    // hidden ring here would break every existing shell/composition/layout
+    // test that exercises Talk's PTT surface (repo-wide `flutter test`,
+    // confirmed against `test/app_shell/**`/`test/regression/**` before
+    // landing this). TASK-088's own "v1-safe default" pattern already
+    // covers this exact seam: [AudienceState.everyoneReachable] is what a
+    // `null` target projects to, so the ring stays fully functional (v1
+    // behaviour, unchanged) even while the no-target card is shown above
+    // it. TASK-093 is the one that actually gates the ring on a real
+    // target once the shell supplies one.
     final Widget pttGroup = Column(
       key: const Key('keryx-talk-ptt-cluster'),
       mainAxisSize: MainAxisSize.min,
@@ -353,7 +530,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
             faceColor: tokens.pttFace,
             glyphColor: tokens.palette.contrastingOn(tokens.pttFace),
             neutralRingColor: tokens.pttNeutralRing,
-            onHoldStart: () => _handleHoldStart(intents),
+            onHoldStart: () => _handleHoldStart(intents, viewState.audience),
             onHoldEnd: () => _handleHoldEnd(intents),
           ),
         ),
@@ -375,6 +552,19 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
               textAlign: TextAlign.center,
               style: KeryxUxTypography.secondary.copyWith(
                 color: tokens.textSecondary,
+              ),
+            ),
+          ),
+        // Design §4 "Target on DND": the row's Alert control, shown
+        // only alongside the dedicated DND headline above.
+        if (dndLabel != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Center(
+              child: TextButton(
+                key: const Key('keryx-talk-alert-target'),
+                onPressed: widget.onAlertTarget,
+                child: const Text(TalkCopy.alert),
               ),
             ),
           ),
@@ -429,7 +619,15 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
     }
     if (_flashIsShowing(viewState)) return TalkPttRingTreatment.deniedFlash;
     if (viewState.phase == RadioPhase.idle) {
-      return TalkPttRingTreatment.ready;
+      // v2 (Design §2.1/V2-FR-041): ready is accent only while someone can
+      // actually hear a transmission; a selected-but-unreachable target
+      // (canHear == 0) is neutral with the reason on the status line
+      // instead — a distinct, non-flashing state from the press-refusal
+      // flash above (that flash only shows for the 1.5 s after an actual
+      // press attempt).
+      return viewState.audience.canHear > 0
+          ? TalkPttRingTreatment.ready
+          : TalkPttRingTreatment.neutral;
     }
     // Off/Boot/Tuning/No-link (ADR-002 A3: "Off/Boot/No link/Tuning:
     // neutral, dimmed").
@@ -485,7 +683,7 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   /// instruction ("Hold to talk") only where the catalogue defines one.
   /// "A disconnected screen must not show 'Ready'" is preserved by gating
   /// the happy-path idle copy behind connection health, same as before.
-  static (String, String) _statusLinesFor(
+  (String, String) _statusLinesFor(
     RadioViewState viewState,
     TalkPttRingTreatment treatment,
   ) {
@@ -510,21 +708,29 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
       ),
       TalkPttRingTreatment.requesting => (TalkCopy.requestingChannel, ''),
       TalkPttRingTreatment.deniedFlash => (_denyCopy(viewState), ''),
-      TalkPttRingTreatment.ready => (
-        TalkCopy.channelClear,
-        TalkCopy.holdToTalk,
+      TalkPttRingTreatment.ready => (TalkCopy.readyToTalk, TalkCopy.holdToTalk),
+      // v2 (Design §4 "Nobody listening"/"Target on DND"): an idle target
+      // nobody can currently hear is neutral with the reason as the
+      // headline — the dedicated DND wording (exact Design §5 copy) takes
+      // priority over the audience matrix's more generic reason.
+      TalkPttRingTreatment.neutral when viewState.phase == RadioPhase.idle => (
+        _targetOnDndLabel() ?? _audienceReasonLabel(viewState),
+        '',
       ),
       TalkPttRingTreatment.neutral => (_neutralPhaseLabel(viewState.phase), ''),
     };
   }
 
-  /// ADR-002 A7: empty LOCAL roster is not "busy"; contention still is.
-  static String _denyCopy(RadioViewState viewState) {
-    if (viewState.rosterCount case KnownRosterCount(count: 0)) {
-      return TalkCopy.noOtherStationsOnChannel;
-    }
-    return TalkCopy.channelBusy;
+  /// Copy shown while the flash (host-driven contention deny, or the
+  /// purely local audience refusal) is showing — the audience refusal takes
+  /// priority since it always reflects the press that was just made.
+  String _denyCopy(RadioViewState viewState) {
+    if (_audienceRefusalShowing) return _audienceReasonLabel(viewState);
+    return TalkCopy.someoneAlreadyTransmitting;
   }
+
+  String _audienceReasonLabel(RadioViewState viewState) =>
+      viewState.audience.reason ?? TalkCopy.nobodyIsListening;
 
   Iterable<PresentationCue> _overlayCuesFor(RadioViewState viewState) sync* {
     for (final PresentationCue cue in viewState.activeOverlayCues) {
@@ -543,15 +749,82 @@ class _TalkScreenState extends ConsumerState<TalkScreen>
   static String _neutralPhaseLabel(RadioPhase phase) => switch (phase) {
     RadioPhase.off => 'Radio off',
     RadioPhase.boot => 'Starting radio',
-    RadioPhase.tuning => 'Changing channel',
+    RadioPhase.tuning => 'Connecting',
     _ => phase.cue.label,
   };
 
-  static String _rosterLabel(RosterCount count) => switch (count) {
-    KnownRosterCount(:final count) =>
-      count == 0 ? TalkCopy.noOtherStationsVisible : '$count stations',
-    UnavailableRosterCount() => TalkCopy.rosterUnavailable,
+  static String _presenceLineFor(
+    TalkTarget target,
+    Map<String, PeerPresence> presenceByPeerId,
+  ) {
+    if (target.kind == TalkTargetKind.contact) {
+      final PeerPresence presence = target.memberPeerIds.isEmpty
+          ? PeerPresence.offline
+          : presenceByPeerId[target.memberPeerIds.single] ??
+                PeerPresence.offline;
+      return _presenceWord(presence);
+    }
+    final int total = target.memberPeerIds.length;
+    final int online = target.memberPeerIds
+        .where((id) => presenceByPeerId[id] == PeerPresence.online)
+        .length;
+    return '$online of $total online';
+  }
+
+  static String _presenceWord(PeerPresence presence) => switch (presence) {
+    PeerPresence.online => 'Available',
+    PeerPresence.busy => 'Busy',
+    PeerPresence.dnd => 'Do Not Disturb',
+    PeerPresence.offline => 'Offline',
   };
+}
+
+/// Design §4 "Alert received": a full-width accent banner with a Reply
+/// control. Purely presentational — the 10 s auto-dismiss lifecycle lives on
+/// [_TalkScreenState] ([_syncAlertTimer]), not here.
+class _AlertBanner extends StatelessWidget {
+  const _AlertBanner({required this.alert, required this.tokens, this.onReply});
+
+  final TalkAlert alert;
+  final KeryxUxTokens tokens;
+  final VoidCallback? onReply;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('keryx-talk-alert-banner'),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: tokens.actionPrimary,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              '${alert.senderLabel} alerted you',
+              key: const Key('keryx-talk-alert-text'),
+              style: KeryxUxTypography.body.copyWith(
+                color: tokens.palette.contrastingOn(tokens.actionPrimary),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            key: const Key('keryx-talk-alert-reply'),
+            onPressed: onReply,
+            child: Text(
+              TalkCopy.reply,
+              style: TextStyle(
+                color: tokens.palette.contrastingOn(tokens.actionPrimary),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _OverlayCueChip extends StatelessWidget {

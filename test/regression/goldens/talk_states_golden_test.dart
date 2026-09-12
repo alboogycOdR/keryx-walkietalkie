@@ -10,10 +10,27 @@ import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/presentation/telemetry.dart';
+import 'package:keryx/core/presentation/talk_target.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/talk/talk_screen.dart';
 
 import '../../features/talk/fake_radio_host.dart';
+
+/// v2 (TASK-092): every state golden below exercises a reachable target
+/// (mirrors `talk_screen_test.dart`'s `_defaultTestTarget`) so the existing
+/// v1-equivalent ring states keep rendering the ring, not the no-target
+/// card. Dedicated goldens further down cover the no-target and
+/// nobody-listening states explicitly.
+const _defaultGoldenTarget = TalkTarget(
+  kind: TalkTargetKind.contact,
+  id: 'peer-1',
+  name: 'Ben',
+  roomId: 'room-1',
+  memberPeerIds: ['peer-1'],
+);
+const _defaultGoldenPresence = <String, PeerPresence>{
+  'peer-1': PeerPresence.online,
+};
 
 /// TASK-058 — Verification §6: "Create golden fixtures for every
 /// significant Talk state... Cover dark and light themes."
@@ -58,6 +75,9 @@ void main() {
       FloorEngine engine,
     )
         arrange,
+    TalkTarget? target = _defaultGoldenTarget,
+    Map<String, PeerPresence> presenceByPeerId = _defaultGoldenPresence,
+    TalkAlert? pendingAlert,
   }) async {
     tester.view.physicalSize = const Size(1080, 1920);
     tester.view.devicePixelRatio = 1.0;
@@ -79,7 +99,12 @@ void main() {
         container: container,
         child: MaterialApp(
           theme: keryxUxThemeData(brightness: brightness),
-          home: TalkScreen(host: host),
+          home: TalkScreen(
+            host: host,
+            target: target,
+            presenceByPeerId: presenceByPeerId,
+            pendingAlert: pendingAlert,
+          ),
         ),
       ),
     );
@@ -230,6 +255,40 @@ void main() {
             ),
           );
         },
+      );
+    });
+
+    // v2 (TASK-092, Design §2.1/§4).
+    testWidgets('Talk — no target ($suffix)', (tester) async {
+      await pumpAndGolden(
+        tester,
+        name: 'no_target_$suffix',
+        brightness: brightness,
+        target: null,
+        arrange: (host, container, engine) {},
+      );
+    });
+
+    testWidgets('Talk — nobody listening ($suffix)', (tester) async {
+      await pumpAndGolden(
+        tester,
+        name: 'nobody_listening_$suffix',
+        brightness: brightness,
+        presenceByPeerId: const {'peer-1': PeerPresence.offline},
+        arrange: (host, container, engine) {},
+      );
+    });
+
+    testWidgets('Talk — alert received banner ($suffix)', (tester) async {
+      await pumpAndGolden(
+        tester,
+        name: 'alert_banner_$suffix',
+        brightness: brightness,
+        pendingAlert: TalkAlert(
+          senderLabel: 'BEN·4R2M',
+          receivedAt: DateTime(2026),
+        ),
+        arrange: (host, container, engine) {},
       );
     });
   }
