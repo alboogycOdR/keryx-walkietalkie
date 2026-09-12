@@ -6232,7 +6232,7 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 
 ### TASK-099
 **Title:** Wire DirectoryClient.registerIdentity into the app — no device has ever registered with the directory
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** `lib/services/directory/directory_client.dart:46` (`registerIdentity(callsign)` — implemented, unit-tested in isolation) has zero call sites anywhere in `lib/**` outside its own definition (confirmed by repo-wide grep this session) — no onboarding step, screen or provider ever calls it. `token-svc/app/directory.py:58-77` (`register_identity`): a true idempotent upsert — same pubkey + same callsign returns the existing row with no error; 409 `identity_exists` only fires on the same pubkey with a *different* callsign, 409 `callsign_taken` only on a different pubkey claiming a taken callsign — confirms it is safe to call unconditionally on every app boot, not just once-ever. `token-svc/README.md:108,166` (`unknown_identity` / 401 / "Signed but never registered"). Live field evidence this session: after `bd5222d` fixed `RadioSessionController` to sign every token request (a separate, already-fixed defect), the failure mode changed from a generic 401 to the specific `unknown_identity` code — proving the directory correctly validates a well-formed signed request but has never heard of this device's public key. `lib/core/contacts/contacts_controller.dart:137` (`sendRequest` → `_directory.sendContactRequest`) goes through the same `DirectoryClient`/same identity-registration dependency — very likely also the true cause behind the earlier field-reported "Couldn't send that request." contact-add failure (TASK-098 fixed the UI symptom of that; this task is the actual underlying cause). `lib/app_shell/directory_providers.dart:50-59` (`directoryClientProvider`) is the single composition-root call site that constructs every `DirectoryClient` the app ever uses.
@@ -6246,12 +6246,12 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 - [ ] `patchCallsign`'s existing call sites and tests (`contacts_controller.dart`, `groups_controller.dart` and their tests) are unmodified
 - [ ] Full test suite green; `flutter analyze` clean
 - [ ] Dossier records a live two-device field retest: a contact-add request that previously failed now succeeds end-to-end — evidence, not assumption
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-099-s5
+**Started_At:** 2026-09-12T19:17:49Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-12T20:50:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-12T19:17:49Z
