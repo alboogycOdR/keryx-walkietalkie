@@ -5959,7 +5959,7 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 
 ### TASK-095
 **Title:** v2.0 regression pass, device-matrix runbook and release build
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Verification_v1.0.md §5 (V2-VT-030 full golden set), §6 (device matrix rows A–I, `ops/FIELD_TEST_V2.md`), §7 (safety regression), §8 gates G1–G3; PRD §5, V2-NFR-005/006
@@ -5972,15 +5972,16 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 - [ ] `ops/FIELD_TEST_V2.md` gives the owner rows A–I with exact steps and evidence slots (Verification §6)
 - [ ] `ops/REGRESSION_V2.md` reconciles counts against R2's 1526 with every delta explained; full suite green; analyzer clean (Verification G2)
 - [ ] Release APK built; arm64 < 60 MB; path, size and sha256 recorded (V2-NFR-006)
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-095-gb
+**Started_At:** 2026-09-12T09:40:00Z
+**Progress_Notes:**
+- [2026-09-12T09:40:00Z] [GB] Claimed TASK-095. Resume check: no GB in_progress/claimed task (TASK-094 done/merged). Depends_On TASK-094 and TASK-096 are done. Branch task/TASK-095-gb. Next: preflight_paths.py TASK-095, then V2-VT-030 goldens + layout-matrix/v2 shell + safety sweep + runbooks + release APK.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-12T09:40:00Z
 
 
 ### TASK-096
