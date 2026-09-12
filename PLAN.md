@@ -5689,7 +5689,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 
 ### TASK-096
 **Title:** Android FLAG_SECURE + brightness native handlers for the recovery-phrase and My-code screens
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.6 ("`FLAG_SECURE` on Android via the existing platform channel or a small new one"); PRD V2-FR-002 ("No copy of the private key ever leaves the phone"); TASK-089's own dossier disclosure ("Native FLAG_SECURE/brightness window flags still need an Android plugin owner — Dart clients are ready")
@@ -5706,9 +5706,25 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 **Started_At:** 2026-09-12T04:36:21Z
 **Progress_Notes:**
 - [2026-09-12T04:36:21Z] [GB] Claimed TASK-096. Resume check: no GB in_progress/claimed task (TASK-089 done/merged). Depends_On TASK-089 is done. Branch task/TASK-096-gb. Next: preflight_paths.py TASK-096, then implement native FLAG_SECURE + brightness MethodChannel handlers.
+- [2026-09-12T04:38:00Z] [GB] Status: in_progress. Branch task/TASK-096-gb created off master. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-096 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 2 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   android/app/src/main/kotlin/**  -> 7 file(s):
+           android/app/src/main/kotlin/za/co/basileia/keryx/MainActivity.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/NsdPlugin.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/RadioForegroundService.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/RadioServiceBridge.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/RadioServiceContract.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/RadioServicePlugin.kt
+           android/app/src/main/kotlin/za/co/basileia/keryx/RadioServiceStore.kt
+  FILE   dossiers/TASK-096.md  -> exists, 25 line(s), 956 bytes
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Existing channel names (must not collide or rename): `za.co.basileia.keryx/nsd`, `/nsd_events`, `/radio_service`, `/radio_service_events`. Dart clients already call `screenshot_guard`/`setSecure` and `screen_brightness`/`setMaximum`+`restore`. Implementing ActivityAware plugins next; emulator LekkerSwot_Pixel7 available for manual FLAG_SECURE proof.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T04:36:21Z
+**Updated_At:** 2026-09-12T04:38:00Z
