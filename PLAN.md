@@ -5545,7 +5545,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 
 ### TASK-090
 **Title:** v2 Contacts tab — requests, contacts list with presence, add-contact sheet, Alert/Remove/Block
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.2, §2.5, §3 (presence visuals), §4 (request/alert states), §5 copy; PRD V2-FR-010..014, V2-FR-030..033, V2-FR-050; Verification V2-VT-025, V2-VT-030 (contacts goldens)
@@ -5553,11 +5553,11 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 **Depends_On:** TASK-086
 **Description:** The Contacts tab body, `embedded`-style like TASK-075/076: no app bar of its own. Sections: Requests (Accept / Decline / Block on the row) then Contacts alphabetical with the presence dot + word, callsign, mono short code, derived Nearby/Talking text. Row tap → `onSelectTarget(contact)`; long-press sheet → Alert (calls the directory client), Remove, Block (second-tap confirm). Floating 'Add contact' → sheet with Scan a code (use `mobile_scanner`), Show my code (`onShowMyCode` callback), Paste an ID. Incoming request modal per Design §2.5. Reads `ContactsController` from TASK-086; no session or shell dependencies.
 **Acceptance_Criteria:**
-- [ ] Requests section renders pending-in requests with working Accept/Decline/Block; accepted contacts move to the list (V2-FR-011; V2-VT-025)
-- [ ] Presence dot and word match Design §3 for all four statuses plus Nearby/Talking; colour is never the only cue (V2-FR-030/031)
-- [ ] Scan and paste both produce a request through the client; a tampered QR is refused locally (V2-FR-010; V2-VT-003)
-- [ ] Alert is rate-limited in the UI to match the server (disabled for 10 min after use) and Block requires a second tap (V2-FR-050; Design §2.5)
-- [ ] Goldens: empty, populated, with requests, dark and light (V2-VT-030); `flutter analyze` clean; full suite green
+- [x] Requests section renders pending-in requests with working Accept/Decline/Block; accepted contacts move to the list (V2-FR-011; V2-VT-025)
+- [x] Presence dot and word match Design §3 for all four statuses plus Nearby/Talking; colour is never the only cue (V2-FR-030/031)
+- [x] Scan and paste both produce a request through the client; a tampered QR is refused locally (V2-FR-010; V2-VT-003)
+- [x] Alert is rate-limited in the UI to match the server (disabled for 10 min after use) and Block requires a second tap (V2-FR-050; Design §2.5)
+- [x] Goldens: empty, populated, with requests, dark and light (V2-VT-030); `flutter analyze` clean; full suite green — 2 pre-existing repo-wide failures remain, both `test/regression/goldens/shell_frame_golden_test.dart` (TASK-093 territory, disclosed by TASK-092); this task did not touch them
 **Branch:** task/TASK-090-gb
 **Started_At:** 2026-09-12T06:10:00Z
 **Progress_Notes:**
@@ -5572,12 +5572,20 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Implementing standalone Contacts tab (no app bar, no shell/session deps): Requests + alphabetical Contacts, presence cues, add-contact sheet (scan/paste/show-my-code), incoming-request modal, Alert 10-min UI cooldown, Block second-tap confirm.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-12T06:40:00Z] [GB] Implementation complete on `task/TASK-090-gb` (`6470608`). Embedded Contacts tab (no app bar): Requests Accept/Decline/Block, alphabetical Contacts with Design §3 presence (word always present), add-contact sheet (scan/paste/show-my-code), incoming-request modal, Alert 10-min UI cooldown, Block second-tap. Nearby/Talking injected as pk sets (no session). Mutation: skipping local ID refuse → V2-VT-003 test throws. Status: needs_review.
+**Artifacts:**
+- lib/features/contacts/**
+- test/features/contacts/** (incl. goldens/contacts_{empty,populated,requests}_{dark,light}.png)
+- dossiers/TASK-090.md
+**Test_Evidence:**
+- [2026-09-12T06:38:00Z] [GB] `flutter analyze --no-pub` (full repo): No issues found!
+- [2026-09-12T06:38:00Z] [GB] `flutter test --no-pub test/features/contacts`: **36/36 passed**.
+- [2026-09-12T06:38:00Z] [GB] `flutter test --no-pub` (full repo): **1760 passed, 2 failed, 40 skipped**. Failures are both `test/regression/goldens/shell_frame_golden_test.dart` (TASK-093 `Owned_Paths`, same TASK-092 disclosure). 40 skips are unmodified PARKED FR-025 soak seeds. Baseline after TASK-092 was 1722 passed / 2 failed / 40 skipped; +36 contacts tests.
+- [2026-09-12T06:38:00Z] [GB] Revert-mutation: `parseContactId` FormatException catch → `rethrow` → `refuses a tampered key locally` errors with FormatException; restored, 36/36 green.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T06:12:00Z
+**Updated_At:** 2026-09-12T06:40:00Z
 
 
 ### TASK-091
