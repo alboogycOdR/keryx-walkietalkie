@@ -9,8 +9,6 @@ import 'package:keryx/core/protocol/protocol.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
-import 'package:keryx/features/face/permission_gate.dart';
-import 'package:keryx/features/face/session_host.dart';
 import 'package:keryx/services/discovery/channel_hash_prefix.dart';
 import 'package:keryx/services/discovery/discovered_peer.dart';
 import 'package:keryx/services/discovery/discovery_config.dart';

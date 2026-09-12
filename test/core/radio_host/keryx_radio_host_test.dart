@@ -8,9 +8,6 @@ import 'package:keryx/core/protocol/protocol.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
-import 'package:keryx/features/event_qr/event_link.dart';
-import 'package:keryx/features/face/permission_gate.dart';
-import 'package:keryx/features/face/session_host.dart';
 import 'package:keryx/services/platform/platform.dart';
 import 'package:keryx/services/session/session.dart' show StationInfo;
 
@@ -70,8 +67,6 @@ class _FakeSessionHost implements SessionHost {
   bool startCalled = false;
   bool disposeCalled = false;
   int retuneCallCount = 0;
-  final List<EventLinkPayload> joinEventCalls = <EventLinkPayload>[];
-  Object? joinEventError;
 
   /// Set by [_Harness.sessionFactory] right after construction — lets a
   /// test observe the exact order `retune` calls land in, independent of
@@ -99,12 +94,6 @@ class _FakeSessionHost implements SessionHost {
     onRetune?.call(channel);
   }
 
-  @override
-  Future<void> joinEvent(EventLinkPayload payload) async {
-    joinEventCalls.add(payload);
-    final error = joinEventError;
-    if (error != null) throw error;
-  }
 
   @override
   Future<void> dispose() async {
@@ -520,66 +509,6 @@ void main() {
     });
   });
 
-  group('joinEvent', () {
-    test('no active session: unavailableRoute, never a throw', () async {
-      final harness = _Harness();
-      final host = harness.build();
-      // Deliberately not started — no session exists yet.
-
-      final result = await host.joinEvent(
-        const NumberedEventLink(
-          region: 'global',
-          channel: 5,
-          code: 0,
-          expiresAt: null,
-        ),
-      );
-
-      expect(result.outcome, RadioHostOutcome.unavailableRoute);
-
-      await host.dispose();
-    });
-
-    test('active session: forwards the payload and reports success', () async {
-      final harness = _Harness();
-      final host = harness.build();
-      await host.start();
-      const payload = NumberedEventLink(
-        region: 'global',
-        channel: 5,
-        code: 0,
-        expiresAt: null,
-      );
-
-      final result = await host.joinEvent(payload);
-
-      expect(result.isSuccess, isTrue);
-      expect(harness.sessions.single.joinEventCalls, contains(payload));
-
-      await host.dispose();
-    });
-
-    test('a thrown session join failure is reported as transportFailure, '
-        'never an unhandled exception', () async {
-      final harness = _Harness();
-      final host = harness.build();
-      await host.start();
-      harness.sessions.single.joinEventError = StateError('no LINKED chain');
-
-      final result = await host.joinEvent(
-        const NumberedEventLink(
-          region: 'global',
-          channel: 5,
-          code: 0,
-          expiresAt: null,
-        ),
-      );
-
-      expect(result.outcome, RadioHostOutcome.transportFailure);
-
-      await host.dispose();
-    });
-  });
 
   group('PTT', () {
     test('pressPtt/releasePtt/releaseLatch forward straight to the '

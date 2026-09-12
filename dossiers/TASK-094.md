@@ -204,3 +204,35 @@ Delete what v2 replaced, after the shell no longer references it. Before deletin
 Widen this task's Owned_Paths to the production+test importers above so GB can unwire then delete, **or** split: (1) extract `EventLinkExpiryPreset` into groups and hoist `permission_gate`+`session_host` into `lib/core/radio_host`, plus unwire `shell_routes.dart`/`app.dart`; (2) resume this deletion; (3) a separate core-territory task for the TASK-088 v1-field removal. Do not resume this task on the current Owned_Paths — the first delete that is honest against criterion 1 leaves master uncompilable.
 
 Next: idle until ORCH re-carves. No code deleted.
+
+- [2026-09-12T08:45:00Z] [GB] Reclaimed after ORCH re-carve. Preflight 59 entries, all FILE/DIR/GLOB existing (widened territory). Implemented the deletion pass; v1 field removal (AC 3) left in place — remaining callers/tests are still outside Owned_Paths (see Residual below).
+
+### Deletion pass (this session)
+
+KEEP: `lib/features/radio_controls/**` (shell still pushes it). Talk does not import `tuning/` — deleted with face/settings_panel.
+
+Hoisted (behavioural, not presentation):
+- `FacePermissionGate` / `ensurePermissionOutcome` → `lib/core/radio_host/permission_gate.dart`
+- `SessionHost` / `RadioSessionHostAdapter` (no `joinEvent`) → `lib/core/radio_host/session_host.dart`
+- `EventLinkExpiryPreset` → `lib/features/groups/group_invite_link.dart`
+
+Deleted modules: channels, channel_selector, stations, event_qr, event_qr_ui, face, ptt, display, settings_panel, tuning + matching tests + retired goldens (channels/stations/selector/qr). `joinEvent`/`JoinResult`/`EventLinkPayload` removed from RadioHost/SessionHost/RadioViewIntents/RadioSessionController.
+
+### Behavioural-test reconciliation (Verification §0)
+
+| Deleted test | Kind | Successor |
+|---|---|---|
+| `test/features/face/permission_gate_test.dart` | behavioural (status-before-request) | `test/core/radio_host/permission_gate_test.dart` |
+| `test/core/radio_host` joinEvent group; `radio_view_intents` joinEvent | behavioural of numbered QR join | dropped — feature deleted; v2 join is `switchTarget` (`test/services/session`, `radio_session_host_v2_test`) |
+| `test/features/event_qr/event_link_test.dart` keyed/numbered decode | behavioural | numbered dropped; keyed invite → `test/features/groups` group-invite-link tests |
+| `test/features/channel_selector/tune_coordinator_test.dart` serialisation | behavioural | `keryx_radio_host_test` tune chain + `RadioSessionController.retune` tests |
+| `test/features/channel_selector/channel_validation_test.dart` | numbered-channel presentation | dropped with selector |
+| channels/stations/face/ptt/display/settings_panel/tuning/event_qr_ui widget + golden tests | presentation-only | dropped; successor goldens are Talk/Contacts/Groups/Settings/Radio Controls |
+
+Suite counts: TASK-093 baseline **1754 passed / 0 failed / 40 skipped**. After this pass: **1406 passed / 0 failed / 40 skipped** (Δ −348; 40 skips still the PARKED FR-025 soak seeds, unmodified). Analyzer: No issues found. `flutter build apk --debug` succeeded.
+
+### Residual (not done this pass — would fail unowned tests)
+
+AC 3 v1-field removal still needs: `lib/app_shell/mobile_app_shell.dart`; `lib/core/settings/settings_repository.dart`; `test/core/state/radio_state_test.dart`; `test/core/presentation/{radio_view_state,connection_condition}_test.dart`; `test/core/settings/settings_repository_test.dart`; `test/services/session/radio_session_controller_test.dart`; `test/features/settings/{settings_screen,about_diagnostics}_test.dart`; `test/regression/goldens/settings_golden_test.dart` + `settings_*.png`. Technical §6.2 `deriveNumbered` / `channel_hash_prefix.dart` remain outside Owned_Paths.
+
+AC 2 V2-VT-028: Radio Controls copy cleaned (in-territory goldens regenerated). Remaining user-facing `channel`/`station`/`Local`/`Linked`/`Auto` strings live in `settings_copy.dart` / `about_diagnostics.dart` / `ConnectionCondition.routeLabel`; changing them reds settings goldens + settings tests outside Owned_Paths.

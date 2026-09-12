@@ -15,9 +15,6 @@ import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
-import 'package:keryx/features/event_qr/event_link.dart';
-import 'package:keryx/features/face/permission_gate.dart';
-import 'package:keryx/features/face/session_host.dart';
 import 'package:keryx/features/settings/settings_screen.dart';
 import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 import 'package:keryx/services/directory/directory.dart';
@@ -553,8 +550,6 @@ class _RealSessionHost implements SessionHost {
     retuneCallCount++;
   }
 
-  @override
-  Future<void> joinEvent(EventLinkPayload payload) async {}
 
   @override
   Future<void> dispose() async {

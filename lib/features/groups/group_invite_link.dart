@@ -5,19 +5,40 @@
 /// §5.2's own trust-model note: "Anyone who has the link has the secret —
 /// same trust model as a WhatsApp invite link, rotation is the remedy").
 ///
-/// Deliberately independent of `lib/features/event_qr/event_link.dart`'s
-/// `v=1` numbered/keyed scheme — a different payload shape (`g`/`t`/`s`
-/// vs `r`/`ch`/`pc` or `k`), and `lib/features/event_qr/**` is outside
-/// this task's `Owned_Paths`. [EventLinkExpiryPreset] itself is reused
-/// read-only for the expiry preset choices offered when minting an invite
-/// (Technical §5.2's own "expiry presets reused from `event_link.dart`").
+/// Independent of the retired v1 numbered Event QR scheme. Expiry presets
+/// match Technical §5.2 ("expiry presets reused from `event_link.dart`")
+/// and now live here so `lib/features/event_qr/**` can be deleted.
 library;
 
 import 'dart:convert';
 
-import 'package:keryx/features/event_qr/event_link.dart' show EventLinkExpiryPreset;
+/// FR-044 expiry presets, kept as the group-invite expiry choices
+/// (Technical §5.2). Name preserved so existing group-invite call sites
+/// do not churn.
+enum EventLinkExpiryPreset {
+  fourHours(Duration(hours: 4), 'Session (4 h)'),
+  twentyFourHours(Duration(hours: 24), '24 hours'),
+  sevenDays(Duration(days: 7), '7 days'),
+  noExpiry(null, 'No expiry');
 
-export 'package:keryx/features/event_qr/event_link.dart' show EventLinkExpiryPreset;
+  const EventLinkExpiryPreset(this.duration, this.label);
+
+  /// `null` means "never expires" (the [noExpiry] preset).
+  final Duration? duration;
+
+  final String label;
+
+  bool get requiresExplicitConfirmation =>
+      this == EventLinkExpiryPreset.noExpiry;
+
+  DateTime? expiresAtFrom(DateTime now) {
+    final d = duration;
+    return d == null ? null : now.add(d);
+  }
+}
+
+/// FR-044's stated default: "Default expiry: 24 h".
+const defaultEventLinkExpiryPreset = EventLinkExpiryPreset.twentyFourHours;
 
 const groupInviteLinkScheme = 'keryx';
 const groupInviteLinkHost = 'join';

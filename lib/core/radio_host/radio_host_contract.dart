@@ -1,5 +1,4 @@
 import 'package:keryx/core/settings/settings_repository.dart' show KeryxSettings;
-import 'package:keryx/features/event_qr/event_link.dart';
 
 import 'radio_host_snapshot.dart';
 
@@ -42,34 +41,6 @@ class TuneResult {
 
   @override
   String toString() => 'TuneResult($outcome${message != null ? ', $message' : ''})';
-}
-
-/// Result of [RadioHost.joinEvent]. `unavailableRoute` covers
-/// `SessionHost.joinEvent`'s own documented precondition ("requires an
-/// already-active LINKED chain") and the no-session-yet case.
-class JoinResult {
-  const JoinResult._(this.outcome, [this.message]);
-
-  const JoinResult.success() : this._(RadioHostOutcome.success);
-
-  const JoinResult.validationFailure(String reason)
-    : this._(RadioHostOutcome.validationFailure, reason);
-
-  const JoinResult.cancelled() : this._(RadioHostOutcome.cancelled);
-
-  const JoinResult.unavailableRoute(String reason)
-    : this._(RadioHostOutcome.unavailableRoute, reason);
-
-  const JoinResult.transportFailure(String reason)
-    : this._(RadioHostOutcome.transportFailure, reason);
-
-  final RadioHostOutcome outcome;
-  final String? message;
-
-  bool get isSuccess => outcome == RadioHostOutcome.success;
-
-  @override
-  String toString() => 'JoinResult($outcome${message != null ? ', $message' : ''})';
 }
 
 /// Narrow, testable, app-scoped radio lifecycle contract — Technical §3's
@@ -119,10 +90,6 @@ abstract interface class RadioHost {
   /// session-affecting field actually changed (Technical §7). Presentation
   /// -only fields never rebuild communication.
   Future<void> applySettings(KeryxSettings settings);
-
-  /// Requires an already-active session with a LINKED chain — returns
-  /// [JoinResult.unavailableRoute] otherwise, never an unhandled throw.
-  Future<JoinResult> joinEvent(EventLinkPayload payload);
 
   /// Authoritative command path entry points (Technical §5.1) — forward
   /// straight to `FloorEngine.requestTransmit`/`releaseTransmit` and never

@@ -27,3 +27,5 @@ library;
 export 'radio_host_contract.dart';
 export 'radio_host_snapshot.dart';
 export 'keryx_radio_host.dart';
+export 'session_host.dart';
+export 'permission_gate.dart';

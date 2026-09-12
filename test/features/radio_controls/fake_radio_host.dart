@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
-import 'package:keryx/features/event_qr/event_link.dart';
 
 /// Hand-written [RadioHost] double for `lib/features/radio_controls/**`
 /// widget tests — same shape/reasoning as
@@ -20,7 +19,7 @@ class FakeRadioHost implements RadioHost {
   int releasePttCalls = 0;
   int releaseLatchCalls = 0;
   final List<KeryxSettings> applySettingsCalls = <KeryxSettings>[];
-  final List<EventLinkPayload> joinEventCalls = <EventLinkPayload>[];
+  final List<Object> joinEventCalls = <Object>[];
 
   @override
   RadioHostSnapshot get current => _snapshot;
@@ -52,11 +51,6 @@ class FakeRadioHost implements RadioHost {
     applySettingsCalls.add(settings);
   }
 
-  @override
-  Future<JoinResult> joinEvent(EventLinkPayload payload) async {
-    joinEventCalls.add(payload);
-    return const JoinResult.success();
-  }
 
   @override
   void pressPtt() => pressPttCalls++;

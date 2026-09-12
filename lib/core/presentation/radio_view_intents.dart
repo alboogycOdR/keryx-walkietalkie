@@ -1,7 +1,6 @@
 import 'package:keryx/core/radio_host/radio_host.dart'
-    show JoinResult, RadioHost, TuneResult;
+    show RadioHost, TuneResult;
 import 'package:keryx/core/settings/settings_repository.dart' show KeryxSettings;
-import 'package:keryx/features/event_qr/event_link.dart' show EventLinkPayload;
 
 /// The typed intents every Wave 4 screen dispatches (Technical §5.1/§9's
 /// "define the typed intents the UI dispatches
@@ -41,8 +40,4 @@ class RadioViewIntents {
   /// Applies a settings snapshot — forwards to `RadioHost.applySettings`.
   Future<void> applySettings(KeryxSettings settings) =>
       _host.applySettings(settings);
-
-  /// Event QR / deep-link join — forwards to `RadioHost.joinEvent`.
-  Future<JoinResult> joinEvent(EventLinkPayload payload) =>
-      _host.joinEvent(payload);
 }

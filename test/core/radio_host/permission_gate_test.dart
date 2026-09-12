@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:keryx/features/face/permission_gate.dart';
+import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Unit tests for [ensurePermissionOutcome] — the status-check-before-

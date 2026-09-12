@@ -8,7 +8,6 @@ import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/settings/settings_model.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_bridge.dart';
-import 'package:keryx/features/event_qr/event_link.dart';
 import 'package:keryx/services/discovery/channel_hash_prefix.dart';
 import 'package:keryx/services/discovery/discovery_config.dart';
 import 'package:keryx/services/discovery/discovery_service.dart';
@@ -262,30 +261,6 @@ class RadioSessionController {
       SetTransport(mode == RadioMode.local ? Transport.direct : Transport.relay),
     );
     _queueSetMode(mode);
-  }
-
-  /// Join a scanned/tapped Event QR payload (FR-043/FR-044). Requires an
-  /// already-active LINKED chain — i.e. [start] must already have resolved
-  /// to LINKED (`linked` mode, or `auto` with a configured relay and
-  /// `forceLocalOnly` off). Disclosed simplification: this task does not
-  /// force a mode switch on the caller's behalf; TASK-037's host is
-  /// expected to check availability (or just call this only when the
-  /// active mode is already LINKED) before invoking it.
-  Future<void> joinEvent(EventLinkPayload payload) async {
-    _checkNotDisposed();
-    final linked = _linked;
-    if (linked == null) {
-      throw StateError(
-        'joinEvent requires an active LINKED session; call start() with '
-        'LINKED-capable settings first',
-      );
-    }
-    await linked.joinRoomId(
-      roomId: payload.roomId,
-      forceLocalOnly: _settings.forceLocalOnly,
-    );
-    final transport = linked.floorTransport;
-    if (transport != null) _linkedTransport?.attach(transport);
   }
 
   Future<void> dispose() async {

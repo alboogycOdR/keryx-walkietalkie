@@ -7,15 +7,14 @@ import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
-import 'package:keryx/features/event_qr/event_link.dart';
-import 'package:keryx/features/face/permission_gate.dart';
-import 'package:keryx/features/face/session_host.dart';
 import 'package:keryx/services/platform/platform.dart';
 import 'package:keryx/services/session/session.dart' show StationInfo;
 import 'package:keryx/services/sound/sound.dart';
 
+import 'permission_gate.dart';
 import 'radio_host_contract.dart';
 import 'radio_host_snapshot.dart';
+import 'session_host.dart';
 
 /// Cancels a subscription registered via [ListenRadioState]/[ListenSettings].
 typedef RadioHostUnsubscribe = void Function();
@@ -401,9 +400,8 @@ class KeryxRadioHost implements RadioHost {
       _stations = stations;
       _emitSnapshot();
     });
-    // `SessionHost` (`lib/features/face/session_host.dart`, outside this
-    // task's `Owned_Paths`) deliberately exposes only `start`/`retune`/
-    // `joinEvent`/`dispose`/`floorEngine`/`stations` — widening it for a
+    // `SessionHost` exposes `start`/`retune`/`dispose`/`floorEngine`/
+    // `stations` — widening it for a
     // single telemetry field was rejected in favour of exactly this seam:
     // `RadioSessionHostAdapter.debugController` is already public
     // ("lets a production-path integration test reach into the composed
@@ -540,28 +538,6 @@ class KeryxRadioHost implements RadioHost {
 
   bool _isValidCode(int code) =>
       code >= RadioState.minimumPrivacyCode && code <= RadioState.maximumPrivacyCode;
-
-  // --- join event ----------------------------------------------------
-
-  @override
-  Future<JoinResult> joinEvent(EventLinkPayload payload) async {
-    if (_disposed) return const JoinResult.cancelled();
-    final session = _session;
-    if (session == null) {
-      // Review round-1 (pre-hoist) finding (e): `SessionHost.joinEvent`
-      // "requires an already-active LINKED chain" — no session yet (or a
-      // LOCAL-only chain never surfaces this precondition today either
-      // way) is a safe, typed unavailable-route result rather than a
-      // silent no-op or an unhandled throw.
-      return const JoinResult.unavailableRoute('no active session to join into');
-    }
-    try {
-      await session.joinEvent(payload);
-      return const JoinResult.success();
-    } catch (error) {
-      return JoinResult.transportFailure(error.toString());
-    }
-  }
 
   // --- PTT ---------------------------------------------------------------
 

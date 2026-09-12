@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
-import 'package:keryx/features/event_qr/event_link.dart';
 import 'package:keryx/features/settings/session_settings.dart';
 
 /// Hand-written [RadioHost] double — Verification §2: no sockets or plugins.
@@ -13,7 +12,7 @@ class FakeRadioHost implements RadioHost {
 
   final List<String> methodLog = <String>[];
   final List<KeryxSettings> applySettingsCalls = <KeryxSettings>[];
-  final List<EventLinkPayload> joinEventCalls = <EventLinkPayload>[];
+  final List<Object> joinEventCalls = <Object>[];
 
   @override
   RadioHostSnapshot get current => _snapshot;
@@ -48,12 +47,6 @@ class FakeRadioHost implements RadioHost {
     applySettingsCalls.add(settings);
   }
 
-  @override
-  Future<JoinResult> joinEvent(EventLinkPayload payload) async {
-    methodLog.add('joinEvent');
-    joinEventCalls.add(payload);
-    return const JoinResult.success();
-  }
 
   @override
   void pressPtt() {
