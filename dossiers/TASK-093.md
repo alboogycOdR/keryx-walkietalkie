@@ -41,3 +41,46 @@ Rewire the shell for v2: tabs Talk (mic) / Contacts (person) / Groups (groups); 
   5. `flutter build apk --debug` not yet attempted this session.
 
   **Next session:** (a) build the `FakeDirectoryServer`-backed test harness for Contacts/Groups (mirroring TASK-090/091), (b) rewrite `test/app_shell/mobile_app_shell_test.dart`/`talk_screen_test.dart`/`shell_harness.dart` for Talk/Contacts/Groups, delete `channels_screen_test.dart`, (c) fix `settings_screen_test.dart`'s mode-row references, (d) update `real_composition_test.dart` and regenerate goldens, (e) resolve/escalate gap #1 and #3 to ORCH, (f) full-suite + debug APK evidence before `needs_review`.
+
+- [2026-09-12] [S5] **Test-suite rewrite complete. `flutter analyze` clean in `Owned_Paths`. Full suite: 1743 passed, 40 skipped (pre-existing parked FR-025 soak seeds), 3 failed (pre-existing, outside `Owned_Paths`, disclosed below). `flutter build apk --debug` succeeds.** Status moving to `needs_review`.
+
+  Work done, all within `Owned_Paths`:
+  - `test/app_shell/shell_harness.dart`: tab-key map updated to `tabTalk`/`tabContacts`/`tabGroups`. `pumpShell` now also overrides `identityProvider` with a stub `DeviceIdentity` — **root-cause finding**: `MobileAppShell`'s `IndexedStack` builds *all three* branches on every mount regardless of the active tab, so `ContactsTabScreen`/`GroupsTabScreen` (and so `identityProvider`) build on every single `lib/app_shell/**` widget test, not only the ones that visit those tabs. Without a stub, `identityProvider`'s production default (`IdentityRepository(SecureIdentityStore())`) hits the real `flutter_secure_storage` platform channel, which has no mock handler under `flutter test` and never replies — every `pumpAndSettle` hung indefinitely until this override was added. This one-line fix unblocked the entire directory.
+  - `test/app_shell/directory_shell_harness.dart` (new): a `FakeDirectoryServer`-backed harness (mirrors TASK-090/091's own pattern in `test/services/directory/fakes/fake_directory_server.dart`), exposing both a plain `pumpWithContainer`/`buildContainer` (so a test can `container.read(...)` a real controller directly, e.g. to call `ContactsController.refreshFromServer()` the way a pull-to-refresh would — nothing in this task's own code auto-refreshes Contacts on mount, unlike `GroupsController` which does refresh on construction).
+  - `test/app_shell/mobile_app_shell_test.dart`: full rewrite for the v2 tab set. Kept/extended TASK-077's host-lifecycle (VT-001), back-button (system `handlePopRoute`), branch-preservation and overflow-menu coverage for Contacts/Groups. Added two real-directory-backend integration tests: selecting a contact switches the shell to Talk (drives a real `ContactsController.refreshFromServer()` against a real loopback `FakeDirectoryServer`, then taps the real `ContactsKeys.contactRow` and asserts `ShellKeys.talk`), and Groups renders the real `GroupsListScreen` once a directory backend is available. Both needed `HttpOverrides.global = null` (flutter_test's default `HttpOverrides` returns 400 for any real socket) and `SharedPreferences.setMockInitialValues({})` (both controllers read `SharedPreferences.getInstance()`).
+  - `test/app_shell/talk_screen_test.dart`: rewritten for `onSwitchToContacts`/`onSwitchToGroups`; asserts no v1 channel-picker/Stations affordances survive; adds a real tap-based test for the no-target empty state's "Add contact"/"Create group" buttons (`talk_target_card.dart`'s `keryx-talk-add-contact`/`keryx-talk-create-group` keys).
+  - `test/app_shell/channels_screen_test.dart` deleted (`ChannelsScreen` removed from `app_shell`; `lib/features/channels/**` itself untouched, TASK-094's territory).
+  - `test/features/settings/settings_screen_test.dart`: removed all `SettingsKeys.mode`/Region assertions; session-affecting confirm/cancel/defer/reconstruct tests now drive the `Local only` toggle (still `sessionAffecting: true`) instead of the retired mode picker. Added coverage for Identity's Show recovery phrase (unavailable snack bar when nothing saved; gated confirmation dialog; displays the 12 words when saved) and Restore from phrase (confirmation gate), Messages (retention value + "v2.1" label), and Connectivity's Prefer direct on Wi-Fi (persists, does not reconstruct since it isn't `sessionAffecting`).
+  - `lib/features/settings/settings_screen.dart`: added a `recoveryPhraseStore` test seam (mirrors the existing `identityRepository`/`confirm` seams) — `_showRecoveryPhrase` previously always constructed a real `RecoveryPhraseVault()` (real `SecureIdentityStore`) with no way to inject a fake for tests. Production behaviour unchanged (`null` default -> real store).
+  - `test/regression/real_composition_test.dart`: `ChannelsLanding`/`ShellKeys.tabChannels` references replaced with `ShellKeys.tabContacts` + the real "Contacts need a relay address" empty-state text. Stubbed `identityProvider` and mocked `SharedPreferences` (same root-cause fix as above) so the real `KeryxApp`/`MobileAppShell` composition boots without hanging. Added the acceptance-criterion G3 test: boots the real `KeryxApp` with a real `FakeDirectoryServer` + `DirectoryClient`/`PresenceClient` wired through `directoryClientProvider`/`presenceClientProvider` overrides, and reaches Talk with the Contacts tab showing real content (not the no-relay empty state) — no construction error.
+  - `lib/app.dart`: added an optional `KeryxApp.identityStore` test seam, forwarded to `OnboardingGate(store:, identityRepository:)`, so a real-composition test can supply a keyed-install in-memory store and boot straight through to `MobileAppShell` without the real `flutter_secure_storage` channel. `null` default preserves production behaviour exactly (`OnboardingGate()`'s own real `SecureIdentityStore()`).
+  - `test/regression/goldens/goldens/settings_dark.png`/`settings_light.png` regenerated via `flutter test --update-goldens test/regression/goldens/settings_golden_test.dart`; both now pass without `--update-goldens`.
+
+  **Not done / disclosed gaps:**
+  1. **`shell_frame_dark.png`/`shell_frame_light.png` are NOT regenerated.** `shell_frame_golden_test.dart` (in `Owned_Paths`) imports `test/regression/regression_shell_harness.dart`, which is **outside** `Owned_Paths` and fails to compile (`ShellKeys.tabChannels`/`tabStations` undefined — confirmed via `flutter analyze`). Per the dispatch instructions this file was explicitly left untouched. This is the same pre-existing cross-territory blocker the previous session flagged (dossier gap #3) — routed to ORCH again, unresolved.
+  2. **`test/regression/overflow_system_back_test.dart` still fails to compile** (`ShellKeys.stations` undefined) — same reason, outside `Owned_Paths`, untouched.
+  3. Gap #1 from the previous session (`RadioSessionController.switchTarget` not wired to a live session, `lib/core/radio_host/**` `OWNERSHIP_CONFLICT`) is unchanged — not this session's to fix either.
+  4. `GroupListRow.onlineCount` hardcoded to 0/1 (previous session's disclosed gap) is unchanged.
+
+  **Full-suite evidence** (`flutter test`, run twice for consistency):
+  ```
+  03:01 +1743 ~40 -3: Some tests failed.
+  ```
+  The 3 failures are exactly `regression_shell_harness.dart` (compile error, referenced by `shell_frame_golden_test.dart` and `overflow_system_back_test.dart`) and `overflow_system_back_test.dart`'s own direct `ShellKeys.stations` reference — all three outside `Owned_Paths`, all three pre-existing per gap #3 above. Every test file inside this task's `Owned_Paths` passes.
+
+  **`flutter analyze --no-pub lib/ test/` evidence:**
+  ```
+  error - The getter 'stations' isn't defined for the type 'ShellKeys' - test\regression\overflow_system_back_test.dart:74:30 - undefined_getter
+  error - The getter 'tabChannels' isn't defined for the type 'ShellKeys' - test\regression\regression_shell_harness.dart:65:46 - undefined_getter
+  error - The getter 'tabStations' isn't defined for the type 'ShellKeys' - test\regression\regression_shell_harness.dart:66:46 - undefined_getter
+  3 issues found.
+  ```
+  All three are outside `Owned_Paths`; zero issues inside it.
+
+  **`flutter build apk --debug` evidence:**
+  ```
+  Running Gradle task 'assembleDebug'...                             86,4s
+  ✓ Built build\app\outputs\flutter-apk\app-debug.apk
+  ```
+
+  **Recommendation for ORCH:** fold `test/regression/regression_shell_harness.dart` and `test/regression/overflow_system_back_test.dart` into a small fast-follow task's `Owned_Paths` (both need only the same mechanical `ShellKeys.tabChannels`→`tabContacts`, `tabStations`→`tabGroups`, `.stations`→`.groupsTab`-shaped rename this task already applied everywhere else) — until then `flutter test`/`flutter analyze` on the full tree will always show these 3 pre-existing failures.
