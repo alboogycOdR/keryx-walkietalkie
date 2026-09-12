@@ -5683,7 +5683,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-093
 **Title:** v2 shell and settings — Talk/Contacts/Groups tabs, My code in overflow, onboarding and restore routes, v2 settings sections
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §1, §2.7; Technical §6.4 (host start), §8 (v1 install migration); PRD V2-FR-060/061; Verification V2-VT-027 (shell half), V2-VT-029, V2-VT-030 (shell frame goldens)
@@ -5697,15 +5697,16 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 - [ ] Settings show the v2 sections and no mode/region/channel rows; Show recovery phrase requires device authentication (V2-FR-060/061)
 - [ ] `real_composition_test` boots the shell against a stubbed directory and reaches Talk (Verification G3)
 - [ ] Shell-frame and settings goldens regenerated; `flutter analyze` clean; full suite green; `flutter build apk --debug` succeeds
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-093-s5
+**Started_At:** 2026-09-12T07:00:00Z
+**Progress_Notes:**
+- [2026-09-12T07:00:00Z] [S5] Claimed TASK-093. Resume check: no S5 in_progress/claimed task found (session-start checkpoint referenced TASK-092, which is already reviewed/merged/done at 961b76f — stale checkpoint, deleted). Depends_On TASK-089/090/091/092 all done. Branch task/TASK-093-s5 to be created off master (7b6adff). Next: preflight_paths.py TASK-093, then read TASK-089 (onboarding)/090 (contacts)/091 (groups)/092 (Talk target card) dossiers for the exact integration surfaces (switchTarget, onboarding entry route, My code screen route name) before touching app_shell.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-12T07:00:00Z
 
 
 ### TASK-094
