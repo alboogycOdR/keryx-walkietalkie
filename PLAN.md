@@ -5728,7 +5728,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-094
 **Title:** v2 deletions — channels, selector, stations, numbered Event QR, legacy face/ptt/display/settings_panel
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
@@ -5744,6 +5744,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 **Branch:** task/TASK-094-gb
 **Started_At:** 2026-09-12T08:08:02Z
 **Progress_Notes:**
+- [2026-09-12T08:22:00Z] [GB] Reclaimed TASK-094 after ORCH re-carve (same branch `task/TASK-094-gb`, Started_At unchanged). Merged master `90090e6` into the branch. Next: re-run preflight against the widened Owned_Paths, then deletions + v1-field removal.
 - [2026-09-12T08:20:00Z] [ORCH] Re-carved territory once, per protocol §7 (same class of correctly-detected conflict as TASK-088 earlier in this wave — a v1-field/surface removal inherently forces touching every remaining caller in one atomic pass, which is exactly why TASK-088 deferred this exact work to this task). Widened Owned_Paths to every file GB's Blocked_Reason/dossier listed: lib/app.dart, lib/app_shell/shell_routes.dart + radio_host_provider.dart, lib/core/radio_host/**, lib/core/presentation/{radio_view_intents,connection_condition,radio_view_state}.dart, lib/core/state/{radio_state,radio_state_bridge}.dart, lib/core/settings/settings_model.dart, lib/services/session/radio_session_controller.dart, lib/features/groups/{group_invite_link,group_invite_screen}.dart, lib/features/settings/{settings_screen,about_diagnostics,settings_copy,settings_inventory,settings_keys}.dart, plus the corresponding test files. No other task is currently active, so this conflicts with nothing. GB's branch (`task/TASK-094-gb`, dossier-only commit so far) and preflight stay intact — resuming, not resetting. Status -> pending for GB to reclaim.
 - [2026-09-12T08:08:02Z] [GB] Claimed TASK-094. Resume check: no GB in_progress/claimed task. Depends_On TASK-093 is done. Branch task/TASK-094-gb. Next: preflight_paths.py TASK-094, then map remaining shell/core imports before deleting.
 - [2026-09-12T08:11:23Z] [GB] Status: blocked, Blocked_Reason: OWNERSHIP_CONFLICT. Branch task/TASK-094-gb created off master. Preflight (c8b9872 filesystem check):
@@ -5792,8 +5793,8 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-12T08:20:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-12T08:22:00Z
 
 
 ### TASK-095
