@@ -5689,7 +5689,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 
 ### TASK-096
 **Title:** Android FLAG_SECURE + brightness native handlers for the recovery-phrase and My-code screens
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.6 ("`FLAG_SECURE` on Android via the existing platform channel or a small new one"); PRD V2-FR-002 ("No copy of the private key ever leaves the phone"); TASK-089's own dossier disclosure ("Native FLAG_SECURE/brightness window flags still need an Android plugin owner — Dart clients are ready")
@@ -5702,12 +5702,13 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 - [ ] `flutter test --no-pub test/features/onboarding test/features/my_code` still pass unmodified (the injected fake guards in those tests are untouched by this native-only task)
 - [ ] No other MethodChannel name in `android/app/src/main/kotlin/**` is touched or renamed
 - [ ] Manual verification recorded in the dossier with device model and Android version, since this criterion cannot be proven by a Flutter widget test
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-096-gb
+**Started_At:** 2026-09-12T04:36:21Z
+**Progress_Notes:**
+- [2026-09-12T04:36:21Z] [GB] Claimed TASK-096. Resume check: no GB in_progress/claimed task (TASK-089 done/merged). Depends_On TASK-089 is done. Branch task/TASK-096-gb. Next: preflight_paths.py TASK-096, then implement native FLAG_SECURE + brightness MethodChannel handlers.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-12T05:20:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-12T04:36:21Z
