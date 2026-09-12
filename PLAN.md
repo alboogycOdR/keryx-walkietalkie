@@ -5456,7 +5456,7 @@ Process note: during this claim I caused a coordination incident and reported it
 
 ### TASK-089
 **Title:** v2 onboarding, My code and Restore screens
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.4 (My code), §2.6 (first run), §2.7 Identity section wiring hooks; PRD V2-FR-001..004; Verification V2-VT-003, V2-VT-027, V2-VT-030 (My code, phrase goldens)
@@ -5464,11 +5464,11 @@ Process note: during this claim I caused a coordination incident and reported it
 **Depends_On:** TASK-083, TASK-086
 **Description:** Three screens, each a standalone widget with injected callbacks so the shell (TASK-093) can mount them. Onboarding: callsign entry (reuse `callsign.dart` validation) → recovery-phrase screen (12 words in a 3×4 numbered mono grid, no copy control, `FLAG_SECURE` on Android via the existing platform channel or a small new one under this territory, 'I've written it down' as the only exit) → `onDone`. My code: full-screen QR of `keryx://id?...`, callsign·code beneath, 'Share link' (`https://keryx.app/c/...`), brightness raised while shown. Restore: 12-word entry with per-word validation and suggestions, `onRestored(identity)`. Do not wire navigation; do not touch `lib/app_shell/**`.
 **Acceptance_Criteria:**
-- [ ] Onboarding cannot be left without the confirmation tap; the phrase grid is TalkBack-readable word by word; no copy affordance exists (Design §2.6, §6; V2-FR-002)
-- [ ] My code's QR decodes to a payload carrying the public key, and the share link matches Technical §3.1 (V2-FR-004; V2-VT-003)
-- [ ] Restore rejects an invalid word inline and, with a valid phrase, reproduces the same ID as the original install in a test (V2-FR-003; V2-VT-027)
-- [ ] Goldens for the phrase screen and My code in dark and light (V2-VT-030)
-- [ ] `flutter analyze` clean; full suite green
+- [x] Onboarding cannot be left without the confirmation tap; the phrase grid is TalkBack-readable word by word; no copy affordance exists (Design §2.6, §6; V2-FR-002)
+- [x] My code's QR decodes to a payload carrying the public key, and the share link matches Technical §3.1 (V2-FR-004; V2-VT-003)
+- [x] Restore rejects an invalid word inline and, with a valid phrase, reproduces the same ID as the original install in a test (V2-FR-003; V2-VT-027)
+- [x] Goldens for the phrase screen and My code in dark and light (V2-VT-030)
+- [x] `flutter analyze` clean; full suite green
 **Branch:** task/TASK-089-gb
 **Started_At:** 2026-09-12T04:08:35Z
 **Progress_Notes:**
@@ -5487,12 +5487,23 @@ Process note: during this claim I caused a coordination incident and reported it
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via in-territory MethodChannel), MyCodeScreen (keryx://id QR + https://keryx.app/c share), RestoreScreen (per-word BIP-39 + onRestored). Native Android window-flag/brightness handlers are outside Owned_Paths; Dart clients swallow MissingPluginException.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-12T05:15:00Z] [GB] Implementation complete on `task/TASK-089-gb` (`3aaa413`). Standalone OnboardingScreen / MyCodeScreen / RestoreScreen; no `lib/app_shell/**`. Mutation check: changing share host `keryx.app`→`example.com` fails `share URL matches Technical §3.1`; restored, 5/5 green. Native FLAG_SECURE/brightness still need an Android plugin (out of territory). Status: needs_review.
+**Artifacts:**
+- lib/features/onboarding/**
+- lib/features/my_code/**
+- lib/features/restore/**
+- test/features/onboarding/** (incl. goldens/phrase_{dark,light}.png)
+- test/features/my_code/** (incl. goldens/my_code_{dark,light}.png)
+- test/features/restore/**
+- dossiers/TASK-089.md
+**Test_Evidence:**
+- [2026-09-12T05:10:00Z] [GB] `flutter analyze --no-pub` (full repo): No issues found! (55.3s)
+- [2026-09-12T05:10:00Z] [GB] `flutter test --no-pub` (full repo): **1695 passed, 0 failed, 40 skipped** (same PARKED FR-025 soak seeds). Scoped `test/features/{onboarding,my_code,restore}`: 22/22. Baseline after TASK-091 was 1673; +22 new tests.
+- [2026-09-12T05:12:00Z] [GB] Revert-mutation: `KeryxIdLink.shareUrl` host `keryx.app`→`example.com` → `keryx_id_link_test` 4/5, only the §3.1 share-URL test red; restored, 5/5.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T04:25:00Z
+**Updated_At:** 2026-09-12T05:15:00Z
 
 
 ### TASK-090
