@@ -1,5 +1,5 @@
 ---
-plan_version: 16.8
+plan_version: 16.9
 last_updated: 2026-09-12T05:11:42Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
@@ -5732,7 +5732,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.2, §8 (legacy face folds in); PRD §1 (removed), §5.5; Verification V2-VT-028; ADR-001 §6 retirement list; ADR-003 consequences
-**Owned_Paths:** lib/features/channels/**, lib/features/channel_selector/**, lib/features/stations/**, lib/features/event_qr/**, lib/features/event_qr_ui/**, lib/features/face/**, lib/features/ptt/**, lib/features/display/**, lib/features/settings_panel/**, lib/features/tuning/**, lib/features/radio_controls/**, lib/features/features.dart, lib/app.dart, lib/app_shell/shell_routes.dart, lib/app_shell/radio_host_provider.dart, lib/app_shell/mobile_app_shell.dart, lib/core/radio_host/**, lib/core/settings/settings_repository.dart, lib/core/presentation/radio_view_intents.dart, lib/core/presentation/connection_condition.dart, lib/core/presentation/radio_view_state.dart, lib/core/state/radio_state.dart, lib/core/state/radio_state_bridge.dart, lib/core/settings/settings_model.dart, lib/services/session/radio_session_controller.dart, lib/features/groups/group_invite_link.dart, lib/features/groups/group_invite_screen.dart, lib/features/settings/settings_screen.dart, lib/features/settings/about_diagnostics.dart, lib/features/settings/settings_copy.dart, lib/features/settings/settings_inventory.dart, lib/features/settings/settings_keys.dart, test/features/channels/**, test/features/channel_selector/**, test/features/stations/**, test/features/event_qr/**, test/features/event_qr_ui/**, test/features/face/**, test/features/ptt/**, test/features/display/**, test/features/settings_panel/**, test/features/tuning/**, test/features/radio_controls/**, test/app_shell/fake_radio_host.dart, test/app_shell/mobile_app_shell_test.dart, test/core/radio_host/**, test/core/presentation/radio_view_intents_test.dart, test/core/presentation/connection_condition_test.dart, test/core/presentation/radio_view_state_test.dart, test/core/state/radio_state_test.dart, test/core/settings/settings_repository_test.dart, test/services/session/radio_session_controller_test.dart, test/features/talk/fake_radio_host.dart, test/features/settings/fake_radio_host.dart, test/features/settings/settings_screen_test.dart, test/features/settings/about_diagnostics_test.dart, test/features/groups/group_invite_screen_test.dart, test/regression/real_composition_test.dart, test/regression/goldens/settings_golden_test.dart, test/regression/goldens/goldens/settings_*.png, test/regression/goldens/goldens/channels_*.png, test/regression/goldens/goldens/stations_*.png, test/regression/goldens/goldens/selector_*.png, test/regression/goldens/goldens/qr_*.png, test/regression/goldens/goldens/radio_controls_*.png, test/regression/goldens/channels_golden_test.dart, test/regression/goldens/stations_golden_test.dart, test/regression/goldens/selector_golden_test.dart, test/regression/goldens/event_qr_golden_test.dart, test/regression/goldens/radio_controls_golden_test.dart, dossiers/TASK-094.md
+**Owned_Paths:** lib/features/channels/**, lib/features/channel_selector/**, lib/features/stations/**, lib/features/event_qr/**, lib/features/event_qr_ui/**, lib/features/face/**, lib/features/ptt/**, lib/features/display/**, lib/features/settings_panel/**, lib/features/tuning/**, lib/features/radio_controls/**, lib/features/features.dart, lib/app.dart, lib/app_shell/shell_routes.dart, lib/app_shell/radio_host_provider.dart, lib/app_shell/mobile_app_shell.dart, lib/core/radio_host/**, lib/core/settings/settings_repository.dart, lib/core/presentation/radio_view_intents.dart, lib/core/presentation/connection_condition.dart, lib/core/presentation/radio_view_state.dart, lib/core/state/radio_state.dart, lib/core/state/radio_state_bridge.dart, lib/core/settings/settings_model.dart, lib/services/session/radio_session_controller.dart, lib/features/groups/group_invite_link.dart, lib/features/groups/group_invite_screen.dart, lib/features/settings/settings_screen.dart, lib/features/settings/about_diagnostics.dart, lib/features/settings/settings_copy.dart, lib/features/settings/settings_inventory.dart, lib/features/settings/settings_keys.dart, lib/features/settings/session_settings.dart, lib/core/rooms/derivation.dart, lib/services/discovery/channel_hash_prefix.dart, lib/services/discovery/discovery.dart, lib/services/discovery/discovery_config.dart, lib/services/discovery/room_prefix.dart, lib/services/linked/linked_controller.dart, lib/core/presentation/tuning_target.dart, lib/core/settings/README.md, test/features/channels/**, test/features/channel_selector/**, test/features/stations/**, test/features/event_qr/**, test/features/event_qr_ui/**, test/features/face/**, test/features/ptt/**, test/features/display/**, test/features/settings_panel/**, test/features/tuning/**, test/features/radio_controls/**, test/app_shell/fake_radio_host.dart, test/app_shell/mobile_app_shell_test.dart, test/core/radio_host/**, test/core/presentation/radio_view_intents_test.dart, test/core/presentation/connection_condition_test.dart, test/core/presentation/radio_view_state_test.dart, test/core/state/radio_state_test.dart, test/core/settings/settings_repository_test.dart, test/services/session/radio_session_controller_test.dart, test/features/talk/fake_radio_host.dart, test/features/settings/fake_radio_host.dart, test/features/settings/settings_screen_test.dart, test/features/settings/about_diagnostics_test.dart, test/features/talk/talk_screen_test.dart, test/features/settings/settings_apply_test.dart, test/features/settings/settings_persistence_test.dart, test/core/rooms/derivation_test.dart, test/core/rooms/vectors_test.dart, test/services/discovery/channel_hash_prefix_test.dart, test/features/groups/group_invite_screen_test.dart, test/regression/real_composition_test.dart, test/regression/goldens/settings_golden_test.dart, test/regression/goldens/goldens/settings_*.png, test/regression/goldens/goldens/channels_*.png, test/regression/goldens/goldens/stations_*.png, test/regression/goldens/goldens/selector_*.png, test/regression/goldens/goldens/qr_*.png, test/regression/goldens/goldens/radio_controls_*.png, test/regression/goldens/channels_golden_test.dart, test/regression/goldens/stations_golden_test.dart, test/regression/goldens/selector_golden_test.dart, test/regression/goldens/event_qr_golden_test.dart, test/regression/goldens/radio_controls_golden_test.dart, dossiers/TASK-094.md
 **Depends_On:** TASK-093
 **Description:** (ORCH 2026-09-11: also completes TASK-088's deferred v1-field removal, see below.) Delete what v2 replaced, after the shell no longer references it. Before deleting each module, list in the dossier every behavioural test it carried and where the surviving behaviour is now tested (Verification §0 rule); only presentation-only tests are dropped. `radio_controls` survives only if the shell still pushes it — if TASK-093 kept it, keep the module and drop it from this task's deletion list in the dossier; `tuning/` haptics that Talk still uses must be moved into `lib/features/talk/` by TASK-092 first (coordinate via the dossier, do not edit talk). Event QR: the keyed invite path now lives in TASK-091's groups feature; delete both `event_qr` directories. Then run V2-VT-028 repo-wide.
 **Acceptance_Criteria:**
@@ -5744,6 +5744,71 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 **Branch:** task/TASK-094-gb
 **Started_At:** 2026-09-12T08:08:02Z
 **Progress_Notes:**
+- [2026-09-12T08:50:00Z] [GB] Reclaimed TASK-094 after ORCH's third Owned_Paths widen. Same branch `task/TASK-094-gb`, Started_At unchanged. Next: merge master, preflight, then re-grep RadioMode/SetMode/TuneTo/deriveNumbered across lib/**+test/** before any v1-field removal.
+- [2026-09-12T09:15:00Z] [ORCH] Third and final widen for this task, from GB's own exhaustive dossier grep of `RadioMode`/`SetMode`/`TuneTo`/`deriveNumbered` across all of `lib/**`+`test/**` (not a guess-list this time — GB's own comprehensive search): added `lib/features/settings/session_settings.dart`, `lib/core/rooms/derivation.dart`, `lib/services/discovery/{channel_hash_prefix,discovery,discovery_config,room_prefix}.dart`, `lib/services/linked/linked_controller.dart`, `lib/core/presentation/tuning_target.dart`, `lib/core/settings/README.md`, `test/features/talk/talk_screen_test.dart`, `test/features/settings/{settings_apply,settings_persistence}_test.dart`, `test/core/rooms/{derivation,vectors}_test.dart`, `test/services/discovery/channel_hash_prefix_test.dart`. No other task owns any of this (TASK-087/093 both done). **Before touching anything, re-run GB's own grep for those four symbols once more across the whole repo to confirm this list is now actually exhaustive** — if it isn't, stop and report the residual rather than deleting partially again; three rounds is enough guessing, the fourth should be a real completion. Status -> pending.
+- [2026-09-12T08:46:19Z] [GB] Status: blocked, Blocked_Reason: OWNERSHIP_CONFLICT. Merged master (`c975103`). No v1-field removal written — an honest AC-3 pass still cannot compile. Second widen granted every file named in the last Residual list; grep of live `lib/`+`test/` found a further caller set that list missed. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-094 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 71 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  GLOB   lib/features/channels/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/channel_selector/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/stations/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/event_qr/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/event_qr_ui/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/face/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/ptt/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/display/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/settings_panel/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/tuning/**  -> matches nothing yet (new territory)
+  GLOB   lib/features/radio_controls/**  -> 2 file(s)
+  FILE   lib/features/features.dart  -> exists
+  FILE   lib/app.dart  -> exists
+  FILE   lib/app_shell/shell_routes.dart  -> exists
+  FILE   lib/app_shell/radio_host_provider.dart  -> exists
+  FILE   lib/app_shell/mobile_app_shell.dart  -> exists
+  GLOB   lib/core/radio_host/**  -> 7 file(s)
+  FILE   lib/core/settings/settings_repository.dart  -> exists
+  FILE   lib/core/presentation/radio_view_intents.dart  -> exists
+  FILE   lib/core/presentation/connection_condition.dart  -> exists
+  FILE   lib/core/presentation/radio_view_state.dart  -> exists
+  FILE   lib/core/state/radio_state.dart  -> exists
+  FILE   lib/core/state/radio_state_bridge.dart  -> exists
+  FILE   lib/core/settings/settings_model.dart  -> exists
+  FILE   lib/services/session/radio_session_controller.dart  -> exists
+  FILE   lib/features/groups/group_invite_link.dart  -> exists
+  FILE   lib/features/groups/group_invite_screen.dart  -> exists
+  FILE   lib/features/settings/settings_screen.dart  -> exists
+  FILE   lib/features/settings/about_diagnostics.dart  -> exists
+  FILE   lib/features/settings/settings_copy.dart  -> exists
+  FILE   lib/features/settings/settings_inventory.dart  -> exists
+  FILE   lib/features/settings/settings_keys.dart  -> exists
+  GLOB   test/features/{channels,channel_selector,stations,event_qr,event_qr_ui,face,ptt,display,settings_panel,tuning}/**  -> matches nothing yet
+  GLOB   test/features/radio_controls/**  -> 2 file(s)
+  FILE   test/app_shell/fake_radio_host.dart  -> exists
+  FILE   test/app_shell/mobile_app_shell_test.dart  -> exists
+  GLOB   test/core/radio_host/**  -> 4 file(s)
+  FILE   test/core/presentation/radio_view_intents_test.dart  -> exists
+  FILE   test/core/presentation/connection_condition_test.dart  -> exists
+  FILE   test/core/presentation/radio_view_state_test.dart  -> exists
+  FILE   test/core/state/radio_state_test.dart  -> exists
+  FILE   test/core/settings/settings_repository_test.dart  -> exists
+  FILE   test/services/session/radio_session_controller_test.dart  -> exists
+  FILE   test/features/talk/fake_radio_host.dart  -> exists
+  FILE   test/features/settings/fake_radio_host.dart  -> exists
+  FILE   test/features/settings/settings_screen_test.dart  -> exists
+  FILE   test/features/settings/about_diagnostics_test.dart  -> exists
+  FILE   test/features/groups/group_invite_screen_test.dart  -> exists
+  FILE   test/regression/real_composition_test.dart  -> exists
+  FILE   test/regression/goldens/settings_golden_test.dart  -> exists
+  GLOB   test/regression/goldens/goldens/settings_*.png  -> 2 file(s)
+  GLOB   test/regression/goldens/goldens/{channels,stations,selector,qr}_*.png  -> matches nothing yet
+  GLOB   test/regression/goldens/goldens/radio_controls_*.png  -> 2 file(s)
+  NEW    test/regression/goldens/{channels,stations,selector,event_qr}_golden_test.dart  -> does not exist (deleted)
+  FILE   test/regression/goldens/radio_controls_golden_test.dart  -> exists
+  FILE   dossiers/TASK-094.md  -> exists
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+Removing `RadioState.mode`/`channel`/`privacyCode`, `SetMode`/`TuneTo`, or `KeryxSettings.mode`/`region`/`channelMemory` breaks these still-unowned files (compile, not just tests): `lib/features/settings/session_settings.dart` (`a.mode`, `a.region`, `sessionAffectingFieldNames`); `test/features/talk/talk_screen_test.dart` (`SetMode`, `RadioState(..., mode:)`); `test/features/settings/settings_apply_test.dart` (`copyWith(mode:/region:)`); `test/features/settings/settings_persistence_test.dart` (`TunedChannel`, `channelMemory`, `loaded.mode`). Spec §6.2/§7 also names `lib/core/rooms/derivation.dart::deriveNumbered` and `lib/services/discovery/channel_hash_prefix.dart`, whose live callers are `lib/services/linked/linked_controller.dart` plus `test/core/rooms/{derivation,vectors}_test.dart` and `test/services/discovery/channel_hash_prefix_test.dart` (and comments in `lib/services/discovery/{discovery,discovery_config,room_prefix}.dart`). Ask: widen Owned_Paths by those exact paths (TASK-074 lesson, grep `test/**` for `RadioMode`/`SetMode`/`TunedChannel`/`deriveNumbered`), or split a dedicated v1-field-removal task that owns the union. Idle on `task/TASK-094-gb` until re-carve. Deletion pass (`3eeabc8`) stays intact.
 - [2026-09-12T08:43:30Z] [GB] Reclaimed TASK-094 after ORCH's second Owned_Paths widen (mobile_app_shell + settings_repository + remaining v1 tests/goldens). Same branch `task/TASK-094-gb`, Started_At unchanged. Next: merge master, preflight, then AC-3 v1-field removal + AC-2 copy cleanup in the newly granted files.
 - [2026-09-12T08:39:05Z] [GB] Deletion pass complete on `task/TASK-094-gb` (`3eeabc8`). KEEP radio_controls. Hoisted SessionHost + FacePermissionGate into `lib/core/radio_host/`; EventLinkExpiryPreset into groups; dropped joinEvent. Deleted channels/selector/stations/event_qr/event_qr_ui/face/ptt/display/settings_panel/tuning + tests + retired goldens. AC 2/3 residual: v1 RadioMode/tune fields and settings copy still present — remaining callers/tests outside Owned_Paths (mobile_app_shell, settings_repository, radio_state_test, connection_condition_test, radio_view_state_test, settings_repository_test, radio_session_controller_test, settings_screen_test, about_diagnostics_test, settings goldens). Status: needs_review.
 - [2026-09-12T09:00:00Z] [ORCH] Reviewing needs_review, found GB's disclosed residual list points to a real gap in my own first re-carve — I transcribed GB's original Blocked_Reason but dropped `mobile_app_shell.dart` and several test files (they weren't literally under a glob I'd already added). This is not a second independent OWNERSHIP_CONFLICT, it's ORCH finishing the same widening properly: added `lib/app_shell/mobile_app_shell.dart`, `lib/core/settings/settings_repository.dart`, `test/app_shell/mobile_app_shell_test.dart`, `test/core/presentation/{connection_condition,radio_view_state}_test.dart`, `test/core/state/radio_state_test.dart`, `test/core/settings/settings_repository_test.dart`, `test/services/session/radio_session_controller_test.dart`, `test/features/settings/{settings_screen,about_diagnostics}_test.dart`, `test/regression/goldens/settings_golden_test.dart` + `settings_*.png` — every remaining file GB's own residual list named, exact paths confirmed on disk. TASK-093 is done, nothing else active, no conflict. Not sending back with a rework verdict (GB's needs_review evidence for the deletion pass itself was accurate and disclosed, not wrong) — reopening to pending so GB can finish AC-3 (the actual v1-field removal) in the same session/branch. Status -> pending.
@@ -5805,7 +5870,7 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T08:43:30Z
+**Updated_At:** 2026-09-12T08:50:00Z
 
 
 ### TASK-095
