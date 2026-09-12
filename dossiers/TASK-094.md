@@ -236,3 +236,30 @@ Suite counts: TASK-093 baseline **1754 passed / 0 failed / 40 skipped**. After t
 AC 3 v1-field removal still needs: `lib/app_shell/mobile_app_shell.dart`; `lib/core/settings/settings_repository.dart`; `test/core/state/radio_state_test.dart`; `test/core/presentation/{radio_view_state,connection_condition}_test.dart`; `test/core/settings/settings_repository_test.dart`; `test/services/session/radio_session_controller_test.dart`; `test/features/settings/{settings_screen,about_diagnostics}_test.dart`; `test/regression/goldens/settings_golden_test.dart` + `settings_*.png`. Technical §6.2 `deriveNumbered` / `channel_hash_prefix.dart` remain outside Owned_Paths.
 
 AC 2 V2-VT-028: Radio Controls copy cleaned (in-territory goldens regenerated). Remaining user-facing `channel`/`station`/`Local`/`Linked`/`Auto` strings live in `settings_copy.dart` / `about_diagnostics.dart` / `ConnectionCondition.routeLabel`; changing them reds settings goldens + settings tests outside Owned_Paths.
+
+- [2026-09-12T08:46:19Z] [GB] **OWNERSHIP_CONFLICT again — no v1-field removal written.** Merged master into `task/TASK-094-gb` (`c975103`). ORCH's second widen granted every path named in the Residual list above; a fresh grep of `lib/**/*.dart` + `test/**/*.dart` for `RadioMode`/`SetMode`/`TuneTo`/`TunedChannel`/`deriveNumbered` found callers that Residual missed. Removing the v1 fields from owned `radio_state.dart` / `settings_model.dart` would not compile.
+
+### Compile-break files still outside Owned_Paths (must widen)
+
+| Path | Why it breaks |
+|---|---|
+| `lib/features/settings/session_settings.dart` | `a.mode != b.mode`, `a.region != b.region`, `sessionAffectingFieldNames` contains `'mode'`/`'region'` |
+| `test/features/talk/talk_screen_test.dart` | `SetMode(RadioMode.linked/local)`, `RadioState(..., mode:)` |
+| `test/features/settings/settings_apply_test.dart` | `copyWith(mode: RadioMode.linked, region: 'za-cpt')`, `host.applied.mode` |
+| `test/features/settings/settings_persistence_test.dart` | `TunedChannel`, `loaded.channelMemory`, `loaded.mode` |
+
+### Spec §6.2/§7 also still unowned
+
+| Path | Role |
+|---|---|
+| `lib/core/rooms/derivation.dart` | `deriveNumbered` to delete |
+| `test/core/rooms/derivation_test.dart`, `test/core/rooms/vectors_test.dart` | numbered-room vectors |
+| `lib/services/discovery/channel_hash_prefix.dart` | replace with room-prefix helper (already exists as `room_prefix.dart`) |
+| `lib/services/discovery/discovery.dart` | `export 'channel_hash_prefix.dart'` |
+| `lib/services/discovery/discovery_config.dart`, `lib/services/discovery/room_prefix.dart` | comments/API pointing at `ChannelHashPrefix` |
+| `lib/services/linked/linked_controller.dart` | `deriveNumbered(...)` live join path |
+| `test/services/discovery/channel_hash_prefix_test.dart` | prefix tests |
+| `lib/core/presentation/tuning_target.dart` | leftover channel/privacyCode presentation type |
+| `lib/core/settings/README.md` | documents `mode`/`RadioMode` |
+
+Ask of ORCH: widen Owned_Paths by the compile-break table (minimum) plus the spec-named derivation/discovery/linked set if AC-3 is to include Technical §6.2 deletions; or split a dedicated v1-field-removal task that owns the union. Do not resume on the current Owned_Paths — same class of conflict as the first block, different leftover files (TASK-074: grep `test/**` for retired types before finishing a removal). Idle until re-carve. Deletion pass `3eeabc8` unchanged.
