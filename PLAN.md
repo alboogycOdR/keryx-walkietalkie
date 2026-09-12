@@ -5610,7 +5610,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 
 ### TASK-092
 **Title:** v2 Talk — target card, audience-aware ready ring, honest lone-press refusal, status control, Alert banner
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.1, §4; PRD V2-FR-040..045, V2-FR-033; Verification V2-VT-022 (UI half), V2-VT-024, V2-VT-030 (talk goldens); ADR-002 A3/A7 (ring and flash carried). **(ORCH 2026-09-12: this task also carries the TASK-088 review's disclosed debt — TASK-079(e)/TASK-082(a) remount-while-denied flash-timer seed — since it lives in `talk_screen.dart`; see TASK-082's Design A7 fix for context.)**
@@ -5624,15 +5624,16 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 - [ ] No-target state renders the add-contact card instead of the ring (Design §2.1)
 - [ ] The v1 VT-010..VT-015 talk tests pass unmodified in intent (V2-VT-024)
 - [ ] No user-facing string contains channel, tune, station, LOCAL, LINKED or AUTO (V2-VT-028 for this territory); `talk_*` goldens regenerated; `flutter analyze` clean; full suite green
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-092-s5
+**Started_At:** 2026-09-12T09:00:00Z
+**Progress_Notes:**
+- [2026-09-12T09:00:00Z] [S5] Claimed TASK-092. Resume check: no S5 in_progress/claimed task found (checkpoint referenced TASK-088, already done/merged). Depends_On TASK-088, done. Branch task/TASK-092-s5 to be created off current master tip (55b0856). Next: preflight_paths.py TASK-092, then read Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, current lib/features/talk/**, and TASK-082's flash-timer fix before writing.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-11T17:20:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-12T09:00:00Z
 
 
 ### TASK-093
