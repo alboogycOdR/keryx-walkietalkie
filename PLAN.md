@@ -5959,7 +5959,7 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 
 ### TASK-095
 **Title:** v2.0 regression pass, device-matrix runbook and release build
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Verification_v1.0.md §5 (V2-VT-030 full golden set), §6 (device matrix rows A–I, `ops/FIELD_TEST_V2.md`), §7 (safety regression), §8 gates G1–G3; PRD §5, V2-NFR-005/006
@@ -5967,11 +5967,11 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 **Depends_On:** TASK-094, TASK-096
 **Description:** Evidence gate for v2.0. Complete the golden set of V2-VT-030 for every surface in dark and light, extend the layout matrix and real-back tests to the v2 shell, re-run the R1 safety sweep (§7) including the manifest check for no contacts permission and the network-host allowlist, write `ops/FIELD_TEST_V2.md` as the owner's step-by-step runbook for rows A–I with evidence slots, and produce `ops/REGRESSION_V2.md` with counts reconciled against R2 (1526). Build `flutter build apk --release --split-per-abi`; record the arm64 size (must be < 60 MB) and sha256. Do not install or send anything; ORCH hands it to the owner.
 **Acceptance_Criteria:**
-- [ ] Every V2-VT-030 golden exists in dark and light and the layout matrix passes on the v2 shell at all seven sizes (Verification §5, §6 of R1)
-- [ ] Safety sweep recorded: no contacts permission in the manifest, only relay/directory hosts contacted in a network-audit test, mic muted before publish and after release (Verification §7; V2-NFR-005)
-- [ ] `ops/FIELD_TEST_V2.md` gives the owner rows A–I with exact steps and evidence slots (Verification §6)
-- [ ] `ops/REGRESSION_V2.md` reconciles counts against R2's 1526 with every delta explained; full suite green; analyzer clean (Verification G2)
-- [ ] Release APK built; arm64 < 60 MB; path, size and sha256 recorded (V2-NFR-006)
+- [x] Every V2-VT-030 golden exists in dark and light and the layout matrix passes on the v2 shell at all seven sizes (Verification §5, §6 of R1)
+- [x] Safety sweep recorded: no contacts permission in the manifest, only relay/directory hosts contacted in a network-audit test, mic muted before publish and after release (Verification §7; V2-NFR-005)
+- [x] `ops/FIELD_TEST_V2.md` gives the owner rows A–I with exact steps and evidence slots (Verification §6)
+- [x] `ops/REGRESSION_V2.md` reconciles counts against R2's 1526 with every delta explained; full suite green; analyzer clean (Verification G2)
+- [x] Release APK built; arm64 < 60 MB; path, size and sha256 recorded (V2-NFR-006)
 **Branch:** task/TASK-095-gb
 **Started_At:** 2026-09-12T09:40:00Z
 **Progress_Notes:**
@@ -6000,12 +6000,36 @@ No deletions made. TASK-093 left live imports of the retirement set outside this
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 Existing Talk goldens cover no-target/nobody-listening/alert-banner plus idle (ready-equivalent). Missing V2-VT-030 surfaces: Talk DND + explicit ready, Contacts/Groups/group-detail/My-code/phrase. Layout matrix still uses Channels/Stations aliases. Next: those goldens, v2 layout/back, safety sweep, runbooks, release APK.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-12T10:00:31Z] [GB] Status: needs_review. Branch `task/TASK-095-gb` (`ecc58c9`). V2-VT-030 goldens frozen (Talk ready/DND + Contacts/Groups/detail/My code/phrase, dark+light). Layout matrix on Talk/Contacts/Groups at seven sizes. Overflow system-back includes My code. Safety sweep: no contacts permission, no analytics SDK, HttpClient=token+directory, WebSocket=presence+LAN, only hardcoded https host is keryx.app, mute-before-publish on linked+mesh (allowlist test mutation-checked). `ops/FIELD_TEST_V2.md` rows A–I. `ops/REGRESSION_V2.md` reconciles 1519 (R2 report) / 1526 (PLAN estimate) → 1379 (TASK-094) → 1407 (this task, +28). Arm64 release 45,158,532 bytes (43.1 MB) sha256 `6C8D9518F65280295EAE1B887D46C54E98D5E73F539A3ECD7F121F311F463DFF`. Not installed or sent.
+**Artifacts:**
+- test/regression/goldens/v2_vt030_surfaces_golden_test.dart
+- test/regression/goldens/v2_group_detail_golden_test.dart
+- test/regression/goldens/talk_states_golden_test.dart
+- test/regression/goldens/goldens/talk_ready_{dark,light}.png
+- test/regression/goldens/goldens/talk_dnd_target_{dark,light}.png
+- test/regression/goldens/goldens/contacts_*.png
+- test/regression/goldens/goldens/groups_*.png
+- test/regression/goldens/goldens/my_code_{dark,light}.png
+- test/regression/goldens/goldens/phrase_{dark,light}.png
+- test/regression/layout_matrix_test.dart
+- test/regression/overflow_system_back_test.dart
+- test/regression/regression_shell_harness.dart
+- test/regression/safety_sweep_test.dart
+- ops/FIELD_TEST_V2.md
+- ops/REGRESSION_V2.md
+- dossiers/TASK-095.md
+- build/app/outputs/flutter-apk/app-arm64-v8a-release.apk (local, not committed)
+**Test_Evidence:**
+- [2026-09-12T10:00:31Z] [GB] `python scripts/preflight_paths.py TASK-095` — 4 entries; glob existing, two NEW ops files.
+- [2026-09-12T10:00:31Z] [GB] `flutter analyze --no-pub` — No issues found!
+- [2026-09-12T10:00:31Z] [GB] `flutter test --no-pub test/regression` — **74 passed / 0 failed**.
+- [2026-09-12T10:00:31Z] [GB] `flutter test --no-pub` — **1407 passed / 0 failed / 40 skipped** (PARKED FR-025 soak seeds).
+- [2026-09-12T10:00:31Z] [GB] `flutter build apk --release --split-per-abi` — SUCCESS. arm64 45158532 bytes (43.1 MB) sha256 `6C8D9518F65280295EAE1B887D46C54E98D5E73F539A3ECD7F121F311F463DFF` (< 60 MB). v7a 33.4 MB, x86_64 49.5 MB; those two deleted after hashing.
+- [2026-09-12T10:00:31Z] [GB] Revert-mutation: expected https-host set changed to `mutation-should-fail.example` → allowlist test failed (actual `{keryx.app}`); restored.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-12T09:45:00Z
+**Updated_At:** 2026-09-12T10:00:31Z
 
 
 ### TASK-096
