@@ -2,6 +2,24 @@ import 'package:keryx/core/floor/floor.dart' show FloorEngine;
 import 'package:keryx/core/presentation/telemetry.dart' show MeterLevel;
 import 'package:keryx/services/session/session.dart' show StationInfo;
 
+/// TASK-097: which effective transport [KeryxRadioHost] was attempting to
+/// establish a session over when session establishment (timed out or threw)
+/// failed. `null` on [RadioHostSnapshot.sessionFailureKind] means no such
+/// failure is currently active. A third, independent failure mode from
+/// [RadioHostSnapshot.micPermissionDenied] (permission, not transport) and
+/// [RadioHostSnapshot.serviceFaultMessage] (the Android foreground-service
+/// telltale) — never conflated with either (Design §4's closing paragraph:
+/// "State precedence is not a single skin switch").
+enum SessionFailureKind {
+  /// LOCAL (direct/mesh) session establishment failed or timed out —
+  /// typically no reachable LAN peer.
+  local,
+
+  /// LINKED (relay) session establishment failed or timed out —
+  /// typically an unreachable relay or token service.
+  linked,
+}
+
 /// Host-owned side state a UI layer needs alongside `radioStateProvider`
 /// (Technical §3: "The host exposes current channel/code, configured mode,
 /// effective route, phase, active speaker, station visibility, entitlement,
@@ -21,6 +39,7 @@ class RadioHostSnapshot {
   const RadioHostSnapshot({
     this.micPermissionDenied = false,
     this.serviceFaultMessage,
+    this.sessionFailureKind,
     this.floorEngine,
     this.stations = const <StationInfo>[],
     this.meterLevel = MeterLevel.decorative,
@@ -37,6 +56,16 @@ class RadioHostSnapshot {
   /// [RadioHost.start] — no automatic retry/recovery signal exists to clear
   /// it early, matching the pre-hoist disclosed decision.
   final String? serviceFaultMessage;
+
+  /// TASK-097: non-null exactly when the most recent session-establishment
+  /// attempt (LOCAL or LINKED) timed out or threw. Cleared at the start of
+  /// every fresh [KeryxRadioHost._startSession] attempt (boot, or a
+  /// settings-triggered rebuild) and set again only if that attempt itself
+  /// fails — never sticky across a subsequent success. Independent of
+  /// [micPermissionDenied]/[serviceFaultMessage]: a screen renders whichever
+  /// of the three apply, never collapsing them into one state (Technical
+  /// §5.2).
+  final SessionFailureKind? sessionFailureKind;
 
   /// The engine driving the currently-active session, or `null` before the
   /// first session has started / while one is being rebuilt. Technical §3:

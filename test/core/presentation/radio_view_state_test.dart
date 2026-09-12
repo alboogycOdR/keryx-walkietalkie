@@ -523,4 +523,74 @@ void main() {
         expect(view.audience.reason, 'Nobody is listening');
       });
   });
+
+  group('TASK-097 — session-establishment failure overlay', () {
+    test('local failure projects a distinct cue naming the actual problem, '
+        'never permissionDenied/serviceFault', () {
+      final view = RadioViewState.project(
+        radioState: const RadioState(phase: RadioPhase.idle),
+        hostSnapshot: const RadioHostSnapshot(
+          sessionFailureKind: SessionFailureKind.local,
+        ),
+        settings: const KeryxSettings());
+
+      expect(view.sessionFailureKind, SessionFailureKind.local);
+      expect(view.activeOverlayCues, contains(OverlayCues.localSessionFailed));
+      expect(
+        view.activeOverlayCues,
+        isNot(contains(OverlayCues.linkedSessionFailed)));
+      expect(view.activeOverlayCues, isNot(contains(OverlayCues.permissionDenied)));
+      expect(view.activeOverlayCues, isNot(contains(OverlayCues.serviceFault)));
+      expect(OverlayCues.localSessionFailed.label, "Couldn't find anyone nearby");
+    });
+
+    test('linked failure projects the relay-specific cue, distinct from '
+        'the local one', () {
+      final view = RadioViewState.project(
+        radioState: const RadioState(phase: RadioPhase.idle),
+        hostSnapshot: const RadioHostSnapshot(
+          sessionFailureKind: SessionFailureKind.linked,
+        ),
+        settings: const KeryxSettings());
+
+      expect(view.activeOverlayCues, contains(OverlayCues.linkedSessionFailed));
+      expect(
+        view.activeOverlayCues,
+        isNot(contains(OverlayCues.localSessionFailed)));
+      expect(OverlayCues.linkedSessionFailed.label, "Couldn't reach the relay");
+      expect(
+        OverlayCues.linkedSessionFailed.label,
+        isNot(OverlayCues.localSessionFailed.label),
+        reason: 'the two failure cues must be textually distinct '
+            '(AC3: names the actual problem, not a generic message)');
+    });
+
+    test('no session failure means neither cue appears (normal idle)', () {
+      final view = RadioViewState.project(
+        radioState: const RadioState(phase: RadioPhase.idle),
+        hostSnapshot: const RadioHostSnapshot(),
+        settings: const KeryxSettings());
+
+      expect(view.sessionFailureKind, isNull);
+      expect(view.activeOverlayCues, isNot(contains(OverlayCues.localSessionFailed)));
+      expect(view.activeOverlayCues, isNot(contains(OverlayCues.linkedSessionFailed)));
+    });
+
+    test('a session failure during rxActive is still distinguishable from '
+        'ordinary rxActive (overlay is independent of phase)', () {
+      final normal = RadioViewState.project(
+        radioState: const RadioState(phase: RadioPhase.rxActive),
+        hostSnapshot: const RadioHostSnapshot(),
+        settings: const KeryxSettings());
+      final failed = RadioViewState.project(
+        radioState: const RadioState(phase: RadioPhase.rxActive),
+        hostSnapshot: const RadioHostSnapshot(
+          sessionFailureKind: SessionFailureKind.local,
+        ),
+        settings: const KeryxSettings());
+
+      expect(normal.activeOverlayCues, isEmpty);
+      expect(failed.activeOverlayCues, contains(OverlayCues.localSessionFailed));
+    });
+  });
 }

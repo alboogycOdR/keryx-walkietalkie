@@ -90,6 +90,35 @@ class _FakeSessionHost implements SessionHost {
   }
 }
 
+/// TASK-097: a [SessionHost] whose [start] never resolves — simulates the
+/// field-reported hang (unreachable LAN peer/relay, or a hung platform
+/// call) directly at the `SessionHost` abstraction `KeryxRadioHost` actually
+/// depends on, independent of whatever bound a real
+/// `RadioSessionController` gives itself. Proves `KeryxRadioHost`'s own
+/// outer bound in `_startSession` fires even for a `SessionHost`
+/// implementation that does not self-bound.
+class _HangingSessionHost implements SessionHost {
+  final _stations = StreamController<List<StationInfo>>.broadcast();
+
+  bool disposeCalled = false;
+
+  @override
+  Stream<List<StationInfo>> get stations => _stations.stream;
+
+  @override
+  FloorEngine get floorEngine =>
+      throw StateError('_HangingSessionHost never completes start()');
+
+  @override
+  Future<void> start() => Completer<void>().future;
+
+  @override
+  Future<void> dispose() async {
+    disposeCalled = true;
+    await _stations.close();
+  }
+}
+
 class _FakePermissionGate implements FacePermissionGate {
   FacePermissionOutcome microphoneOutcome = FacePermissionOutcome.granted;
 
@@ -109,6 +138,7 @@ class _FakePermissionGate implements FacePermissionGate {
 /// plain method here, standing in for `ref.read(...)`/`ref.listenManual`.
 class _Harness {
   final List<_FakeSessionHost> sessions = <_FakeSessionHost>[];
+  final List<_HangingSessionHost> hangingSessions = <_HangingSessionHost>[];
   final RecordingAudioSink sink = RecordingAudioSink();
   final List<FakeRadioServicePlatform> servicePlatforms =
       <FakeRadioServicePlatform>[];
@@ -118,6 +148,12 @@ class _Harness {
   bool audioSinkDisposed = false;
   int identityFactoryCalls = 0;
   FacePermissionOutcome micOutcome = FacePermissionOutcome.granted;
+
+  /// TASK-097: when true, [sessionFactory] hands out a [_HangingSessionHost]
+  /// (never resolves `start()`) instead of the normal [_FakeSessionHost] —
+  /// lets a test flip real recovery back on mid-test (set back to `false`
+  /// before a later `applySettings`/rebuild) without rebuilding the harness.
+  bool hangSessions = false;
 
   KeryxSettings settings = const KeryxSettings();
   RadioState state = const RadioState.off();
@@ -144,6 +180,11 @@ class _Harness {
     required KeryxSettings settings,
     required void Function(RadioEvent event) dispatch,
   }) {
+    if (hangSessions) {
+      final host = _HangingSessionHost();
+      hangingSessions.add(host);
+      return host;
+    }
     final host = _FakeSessionHost(label: '${sessions.length}');
     sessions.add(host);
     return host;
@@ -213,7 +254,9 @@ class _Harness {
     _settingsListener?.call(next);
   }
 
-  KeryxRadioHost build() => KeryxRadioHost(
+  KeryxRadioHost build({
+    Duration sessionStartTimeout = const Duration(seconds: 25),
+  }) => KeryxRadioHost(
     sessionFactory: sessionFactory,
     audioSinkFactory: audioSinkFactory,
     audioSinkDisposer: audioSinkDisposer,
@@ -225,6 +268,7 @@ class _Harness {
     readRadioState: readRadioState,
     listenRadioState: listenRadioState,
     listenSettings: listenSettings,
+    sessionStartTimeout: sessionStartTimeout,
   );
 }
 
@@ -423,5 +467,115 @@ void main() {
 
       await host.dispose();
     });
+  });
+
+  // TASK-097: `RadioHost.start()`'s boot sequence previously had no bound
+  // on session establishment — a stalled `session.start()` left
+  // `RadioPhase.boot` forever with nothing surfaced. See
+  // `dossiers/TASK-097.md` for the field report this traces to.
+  group('session-establishment bound (TASK-097)', () {
+    test(
+      'a never-resolving session.start() does not hang boot forever — '
+      'BootCompleted still dispatches, phase leaves boot, and the '
+      'snapshot names which transport failed',
+      () async {
+        final harness = _Harness()..hangSessions = true;
+        final host = harness.build(
+          sessionStartTimeout: const Duration(milliseconds: 50));
+
+        await host.start();
+
+        expect(harness.state.phase, isNot(RadioPhase.boot));
+        expect(harness.state.phase, RadioPhase.idle);
+        expect(host.current.sessionFailureKind, SessionFailureKind.local);
+        expect(host.current.floorEngine, isNull);
+        expect(host.current.micPermissionDenied, isFalse);
+        expect(harness.hangingSessions, hasLength(1));
+        expect(harness.hangingSessions.single.disposeCalled, isTrue);
+
+        await host.dispose();
+      },
+      timeout: const Timeout(Duration(seconds: 5)));
+
+    test(
+      'the failure kind names LINKED when the settings snapshot has a '
+      'relay configured',
+      () async {
+        final harness = _Harness()
+          ..settings = const KeryxSettings(relayUrl: 'wss://relay.example')
+          ..hangSessions = true;
+        final host = harness.build(
+          sessionStartTimeout: const Duration(milliseconds: 50));
+
+        await host.start();
+
+        expect(host.current.sessionFailureKind, SessionFailureKind.linked);
+
+        await host.dispose();
+      },
+      timeout: const Timeout(Duration(seconds: 5)));
+
+    test(
+      'PTT stays inert while a session-establishment failure is active — '
+      'floorEngine remains null so pressPtt/releasePtt/releaseLatch are '
+      'safe no-ops (mirrors talk_screen.dart\'s ptteEnabled gate on '
+      'floorEngine != null; Technical §5.1)',
+      () async {
+        final harness = _Harness()..hangSessions = true;
+        final host = harness.build(
+          sessionStartTimeout: const Duration(milliseconds: 50));
+
+        await host.start();
+        expect(host.current.floorEngine, isNull);
+
+        host.pressPtt();
+        host.releasePtt();
+        host.releaseLatch();
+
+        await host.dispose();
+      },
+      timeout: const Timeout(Duration(seconds: 5)));
+
+    test(
+      'mic-permission-denied stays a distinct, unaffected failure mode — '
+      'sessionFailureKind stays null and the radio still never leaves '
+      'boot for that reason alone (existing TASK-038 behavior unmodified)',
+      () async {
+        final harness = _Harness()
+          ..micOutcome = FacePermissionOutcome.denied;
+        final host = harness.build();
+
+        await host.start();
+
+        expect(harness.state.phase, RadioPhase.boot);
+        expect(host.current.micPermissionDenied, isTrue);
+        expect(host.current.sessionFailureKind, isNull);
+
+        await host.dispose();
+      });
+
+    test(
+      'a subsequent successful session start clears a prior '
+      'sessionFailureKind — never sticky once the underlying problem '
+      'clears',
+      () async {
+        final harness = _Harness()..hangSessions = true;
+        final host = harness.build(
+          sessionStartTimeout: const Duration(milliseconds: 50));
+
+        await host.start();
+        expect(host.current.sessionFailureKind, isNotNull);
+
+        harness.hangSessions = false;
+        await host.applySettings(
+          harness.settings.copyWith(totSeconds: 90));
+
+        expect(host.current.sessionFailureKind, isNull);
+        expect(host.current.floorEngine, isNotNull);
+        expect(harness.sessions, hasLength(1));
+
+        await host.dispose();
+      },
+      timeout: const Timeout(Duration(seconds: 5)));
   });
 }

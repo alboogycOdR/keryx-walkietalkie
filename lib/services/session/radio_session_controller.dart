@@ -50,6 +50,29 @@ import 'station_info.dart';
 /// resolution here is a pure, synchronous function of [KeryxSettings]:
 /// `relayUrl` non-empty and parseable with a non-empty host counts as
 /// "configured", which is treated as "reachable enough to attempt".
+/// TASK-097: thrown by [RadioSessionController._startLocal]/[_startLinked]
+/// (surfaced through [RadioSessionController.start]/[switchTarget]) when
+/// session establishment could not complete within
+/// `RadioSessionController`'s own bound — either a [TimeoutException] from
+/// that bound, or any real transport/signaling/token/LiveKit failure the
+/// chain threw. Carries [transport] (always [Transport.direct] or
+/// [Transport.relay] — a start attempt is always exactly one of the two) so
+/// a caller (`KeryxRadioHost`) can name the actual problem instead of a
+/// generic failure (Design §5), and [cause]/[stackTrace] for logging only —
+/// never surfaced to the UI verbatim (Technical §3: "The UI must not parse
+/// exception text to determine state").
+class SessionEstablishmentFailure implements Exception {
+  const SessionEstablishmentFailure(this.transport, this.cause, this.stackTrace);
+
+  final Transport transport;
+  final Object cause;
+  final StackTrace stackTrace;
+
+  @override
+  String toString() =>
+      'SessionEstablishmentFailure(transport: $transport, cause: $cause)';
+}
+
 class RadioSessionController {
   RadioSessionController({
     required this.localPeerId,
@@ -62,6 +85,7 @@ class RadioSessionController {
     RtcAdapter? rtcAdapter,
     LiveKitAdapter? liveKitAdapter,
     TokenClient Function(Uri baseUrl)? tokenClientFactory,
+    Duration? sessionStartTimeout,
   }) : _settings = settings,
        _dispatch = dispatch,
        _clock = clock ?? const WallClock(),
@@ -71,7 +95,8 @@ class RadioSessionController {
        _liveKitAdapter = liveKitAdapter ?? const LiveKitClientAdapter(),
        _tokenClientFactory =
            tokenClientFactory ??
-           ((Uri baseUrl) => TokenClient(baseUrl: baseUrl));
+           ((Uri baseUrl) => TokenClient(baseUrl: baseUrl)),
+       _sessionStartTimeout = sessionStartTimeout ?? _defaultSessionStartTimeout;
 
   final String localPeerId;
   final String callsign;
@@ -84,6 +109,12 @@ class RadioSessionController {
   final RtcAdapter _rtcAdapter;
   final LiveKitAdapter _liveKitAdapter;
   final TokenClient Function(Uri baseUrl) _tokenClientFactory;
+
+  /// TASK-097: bounds `_startLocal`/`_startLinked` — see this class's own
+  /// `start()`/`switchTarget()` dartdoc-adjacent notes below. Injectable so
+  /// a test can prove the bound fires without a real multi-second wait.
+  final Duration _sessionStartTimeout;
+  static const _defaultSessionStartTimeout = Duration(seconds: 20);
 
   // --- LOCAL chain ---------------------------------------------------
   SignalingService? _signaling;
@@ -235,56 +266,91 @@ class RadioSessionController {
 
   // --- LOCAL chain ---------------------------------------------------
 
+  /// TASK-097: this whole method is bounded by [_sessionStartTimeout] — an
+  /// unreachable LAN peer, a hung NSD/`MethodChannel` call inside
+  /// `discovery.start()`/`onTuned()`, or any other suspension in this chain
+  /// previously left `start()`/`switchTarget()` awaiting forever with no way
+  /// for `RadioHost` to ever leave `RadioPhase.boot`. On timeout or any
+  /// thrown failure, whatever was already constructed in this scope is
+  /// best-effort disposed and a typed [SessionEstablishmentFailure] is
+  /// thrown so callers get an honest, transport-labelled reason instead of
+  /// a hang or a raw transport exception.
+  ///
+  /// **Disclosed limitation:** `.timeout()` stops *awaiting* the underlying
+  /// call, it does not cancel it — a still-hung native platform call (e.g.
+  /// NSD registration) may keep running in the background after this method
+  /// has already thrown. Cancelling it would require a cancellation seam in
+  /// `NsdDiscoveryService`/`SignalingService`, both outside this task's
+  /// `Owned_Paths` (frozen since TASK-094). The bound here is a UI-facing
+  /// guarantee ("never stuck showing boot forever"), not a resource-cleanup
+  /// guarantee for an uncancellable platform call.
   Future<void> _startLocal({String? roomIdOverride}) async {
     final prefix = RoomPrefix.compute(roomIdOverride ?? _idleRoomId);
     final endpoint = _endpointFactory();
     final signaling = SignalingService(endpoint: endpoint, clock: _clock);
-    await signaling.start(
-      SignalingConfig(
-        peerId: localPeerId,
+    DiscoveryService? discovery;
+    try {
+      await signaling
+          .start(
+            SignalingConfig(
+              peerId: localPeerId,
+              callsign: callsign,
+              channelHashPrefix: prefix,
+            ),
+          )
+          .timeout(_sessionStartTimeout);
+
+      discovery = _discoveryFactory();
+      await discovery
+          .start(
+            DiscoveryConfig(
+              peerId: localPeerId,
+              callsign: callsign,
+              channelHashPrefix: prefix,
+              signalingPort: signaling.boundPort,
+            ),
+          )
+          .timeout(_sessionStartTimeout);
+      await discovery.onTuned().timeout(_sessionStartTimeout);
+      signaling.attachDiscovery(discovery);
+
+      final meshTransport = MeshFloorTransport();
+      final engine = FloorEngine(
+        localPeerId: localPeerId,
+        transport: meshTransport,
+        clock: _clock,
+        tot: Duration(seconds: _settings.totSeconds),
+        busyLockout: _settings.busyLockout,
         callsign: callsign,
-        channelHashPrefix: prefix,
-      ),
-    );
+      );
+      final mesh = MeshController(
+        localPeerId: localPeerId,
+        adapter: _rtcAdapter,
+        signaling: signaling,
+        floorEngine: engine,
+        floorTransport: meshTransport,
+      );
 
-    final discovery = _discoveryFactory();
-    await discovery.start(
-      DiscoveryConfig(
-        peerId: localPeerId,
-        callsign: callsign,
-        channelHashPrefix: prefix,
-        signalingPort: signaling.boundPort,
-      ),
-    );
-    await discovery.onTuned();
-    signaling.attachDiscovery(discovery);
-
-    final meshTransport = MeshFloorTransport();
-    final engine = FloorEngine(
-      localPeerId: localPeerId,
-      transport: meshTransport,
-      clock: _clock,
-      tot: Duration(seconds: _settings.totSeconds),
-      busyLockout: _settings.busyLockout,
-      callsign: callsign,
-    );
-    final mesh = MeshController(
-      localPeerId: localPeerId,
-      adapter: _rtcAdapter,
-      signaling: signaling,
-      floorEngine: engine,
-      floorTransport: meshTransport,
-    );
-
-    _signaling = signaling;
-    _discovery = discovery;
-    _meshTransport = meshTransport;
-    _mesh = mesh;
-    _adoptEngine(engine, signaling: signaling);
+      _signaling = signaling;
+      _discovery = discovery;
+      _meshTransport = meshTransport;
+      _mesh = mesh;
+      _adoptEngine(engine, signaling: signaling);
+    } catch (error, stack) {
+      unawaited(discovery?.dispose());
+      unawaited(signaling.dispose());
+      throw SessionEstablishmentFailure(Transport.direct, error, stack);
+    }
   }
 
   // --- LINKED chain ----------------------------------------------------
 
+  /// TASK-097: same bound/disclosed-limitation notes as [_startLocal] —
+  /// `linked.joinRoomId` (token fetch + LiveKit connect + publish) can
+  /// suspend indefinitely on an unreachable relay; [LinkedController] itself
+  /// carries no bound of its own (`token_client.dart`'s own 10 s HTTP
+  /// timeout only covers the token fetch step, not the LiveKit `connect()`/
+  /// publish steps after it).
   Future<void> _startLinked({String? roomIdOverride}) async {
     final proxyTransport = LinkedProxyFloorTransport();
     final engine = FloorEngine(
@@ -307,16 +373,25 @@ class RadioSessionController {
       dispatch: _dispatch,
     );
 
-    await linked.joinRoomId(
-      roomId: roomIdOverride ?? _idleRoomId,
-      forceLocalOnly: _settings.forceLocalOnly,
-    );
-    final transport = linked.floorTransport;
-    if (transport != null) proxyTransport.attach(transport);
+    try {
+      await linked
+          .joinRoomId(
+            roomId: roomIdOverride ?? _idleRoomId,
+            forceLocalOnly: _settings.forceLocalOnly,
+          )
+          .timeout(_sessionStartTimeout);
+      final transport = linked.floorTransport;
+      if (transport != null) proxyTransport.attach(transport);
 
-    _linked = linked;
-    _linkedTransport = proxyTransport;
-    _adoptEngine(engine, signaling: null);
+      _linked = linked;
+      _linkedTransport = proxyTransport;
+      _adoptEngine(engine, signaling: null);
+    } catch (error, stack) {
+      unawaited(linked.dispose());
+      unawaited(proxyTransport.dispose());
+      engine.dispose();
+      throw SessionEstablishmentFailure(Transport.relay, error, stack);
+    }
   }
 
   // --- shared wiring -------------------------------------------------

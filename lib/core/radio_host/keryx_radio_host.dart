@@ -74,7 +74,8 @@ class KeryxRadioHost implements RadioHost {
     required this.readRadioState,
     required this.listenRadioState,
     required this.listenSettings,
-  });
+    Duration sessionStartTimeout = _defaultSessionStartTimeout,
+  }) : _sessionStartTimeout = sessionStartTimeout;
 
   final RadioSessionFactory sessionFactory;
   final RadioAudioSinkFactory audioSinkFactory;
@@ -90,6 +91,18 @@ class KeryxRadioHost implements RadioHost {
 
   static const String _serviceFaultLabel = 'SVC FAULT';
   static const String _logName = 'RadioHost';
+
+  /// TASK-097: outer, transport-agnostic bound around `session.start()` in
+  /// [_startSession] — a defense-in-depth safety net for any [SessionHost]
+  /// implementation that does not bound itself (a real
+  /// `RadioSessionController` already bounds LOCAL/LINKED establishment
+  /// more tightly and more specifically; see its own dartdoc). Slightly
+  /// longer than that controller's own default so, in production, the
+  /// controller's own typed [SessionEstablishmentFailure] — carrying which
+  /// transport failed — normally fires first. Injectable so a test can
+  /// prove this bound fires without a real multi-second wait.
+  final Duration _sessionStartTimeout;
+  static const _defaultSessionStartTimeout = Duration(seconds: 25);
 
   // --- lifecycle bookkeeping ---------------------------------------------
 
@@ -140,6 +153,7 @@ class KeryxRadioHost implements RadioHost {
 
   bool _micPermissionDenied = false;
   String? _serviceFaultMessage;
+  SessionFailureKind? _sessionFailureKind;
   List<StationInfo> _stations = const <StationInfo>[];
   MeterLevel _meterLevel = MeterLevel.decorative;
 
@@ -157,6 +171,7 @@ class KeryxRadioHost implements RadioHost {
     _snapshot = RadioHostSnapshot(
       micPermissionDenied: _micPermissionDenied,
       serviceFaultMessage: _serviceFaultMessage,
+      sessionFailureKind: _sessionFailureKind,
       floorEngine: _floorEngine,
       stations: _stations,
       meterLevel: _meterLevel,
@@ -317,6 +332,22 @@ class KeryxRadioHost implements RadioHost {
     return roomId.length <= 8 ? roomId : roomId.substring(0, 8);
   }
 
+  /// TASK-097: mirrors `RadioSessionController._resolveTransport()`'s pure
+  /// classification (forceLocalOnly -> LOCAL; else a configured relay ->
+  /// LINKED; else LOCAL) so a session-establishment failure names the
+  /// actual transport this host was attempting — computed independently of
+  /// whatever `session.start()` threw, so it works uniformly for a real
+  /// `RadioSessionController`'s typed `SessionEstablishmentFailure` and for
+  /// any other `SessionHost` implementation (including a bare test double)
+  /// that just times out or throws directly.
+  SessionFailureKind _intendedFailureKind(KeryxSettings settings) {
+    if (settings.forceLocalOnly) return SessionFailureKind.local;
+    final uri = Uri.tryParse(settings.relayUrl);
+    final relayConfigured =
+        settings.relayUrl.isNotEmpty && uri != null && uri.host.isNotEmpty;
+    return relayConfigured ? SessionFailureKind.linked : SessionFailureKind.local;
+  }
+
   // --- session (re)construction ----------------------------------------
 
   /// (Re)builds the active [SessionHost]. Called once from [_bootInternal]
@@ -357,6 +388,10 @@ class KeryxRadioHost implements RadioHost {
     _stations = const <StationInfo>[];
     _session = null;
     _floorEngine = null;
+    // TASK-097: clear any stale failure from a previous attempt before this
+    // fresh one — never sticky across a subsequent success, and never left
+    // showing while a brand-new attempt is legitimately in flight.
+    _sessionFailureKind = null;
     _emitSnapshot();
 
     final session = sessionFactory(
@@ -365,7 +400,34 @@ class KeryxRadioHost implements RadioHost {
       settings: settings,
       dispatch: dispatch,
     );
-    await session.start();
+    try {
+      await session.start().timeout(_sessionStartTimeout);
+    } catch (error, stack) {
+      // TASK-097: session establishment (LOCAL or LINKED) previously had no
+      // bound here at all — an unreachable LAN peer/relay, or a hung
+      // platform call inside `session.start()`, left `RadioPhase.boot`
+      // forever with nothing surfaced. A real `RadioSessionController`
+      // already bounds and disposes its own partial resources (see its
+      // `SessionEstablishmentFailure`/dartdoc); this catch is what turns
+      // either that typed failure OR a bare timeout/exception from any
+      // other `SessionHost` implementation into a user-visible condition
+      // instead of a silent hang. Never conflated with mic-permission-
+      // denied (guarded separately below) or a `RadioServiceFailed`
+      // service fault (Design §4's closing paragraph; Technical §5.2).
+      _log('session establishment failed: $error\n$stack');
+      unawaited(
+        session.dispose().catchError(
+          (Object disposeError, StackTrace disposeStack) => _log(
+            'failed session dispose failed: $disposeError\n$disposeStack',
+          ),
+        ),
+      );
+      if (!_disposed && myGeneration == _sessionGeneration) {
+        _sessionFailureKind = _intendedFailureKind(settings);
+        _emitSnapshot();
+      }
+      return;
+    }
     if (_disposed || myGeneration != _sessionGeneration) {
       // Torn down, or superseded by a newer `_startSession` call that
       // arrived while this one was suspended in `session.start()` —
@@ -419,14 +481,28 @@ class KeryxRadioHost implements RadioHost {
   /// change is observed without restart" is satisfied at this boundary by
   /// tearing down and reconstructing the session on the session-affecting
   /// subset of fields ([_sessionAffectingFieldsChanged]).
+  ///
+  /// **TASK-097 addition.** The original guard was `applied == null` alone
+  /// ("no session yet to rebuild, still booting"), which — now that a
+  /// session attempt can conclude in *failure* rather than only in success —
+  /// would never be false again after a failed boot: [_appliedSettings]
+  /// only gets set on the success path, so a session that failed once would
+  /// stay failed forever with no way for a later settings change (relay
+  /// reachable again, `forceLocalOnly` toggled off, …) to retry. Also
+  /// treating [_sessionFailureKind] as "an attempt has concluded" restores
+  /// exactly one retry path — the very next session-affecting settings
+  /// change — without altering the original still-booting race guard at
+  /// all (both fields are `null` during the boot's own first in-flight
+  /// `_startSession` call, so a settings change racing that window is still
+  /// correctly deferred to it, unchanged from before).
   Future<void> _maybeRebuildSession(KeryxSettings settings) async {
     if (_disposed) return;
     final identity = _identity;
     final applied = _appliedSettings;
-    if (identity == null || applied == null) {
-      return; // no session yet to rebuild (still booting)
+    if (identity == null || (applied == null && _sessionFailureKind == null)) {
+      return; // no session attempt has concluded yet (still booting)
     }
-    if (!_sessionAffectingFieldsChanged(applied, settings)) {
+    if (applied != null && !_sessionAffectingFieldsChanged(applied, settings)) {
       _appliedSettings = settings;
       return;
     }
