@@ -1,5 +1,5 @@
 ---
-plan_version: 16.1
+plan_version: 16.2
 last_updated: 2026-09-12T05:11:42Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
@@ -5728,7 +5728,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 
 ### TASK-096
 **Title:** Android FLAG_SECURE + brightness native handlers for the recovery-phrase and My-code screens
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.6 ("`FLAG_SECURE` on Android via the existing platform channel or a small new one"); PRD V2-FR-002 ("No copy of the private key ever leaves the phone"); TASK-089's own dossier disclosure ("Native FLAG_SECURE/brightness window flags still need an Android plugin owner — Dart clients are ready")
@@ -5762,6 +5762,7 @@ Now reading Design §2.1/§4, Verification V2-VT-022/024/030, ADR-002 A3/A7, TAS
 ```
 Existing channel names (must not collide or rename): `za.co.basileia.keryx/nsd`, `/nsd_events`, `/radio_service`, `/radio_service_events`. Dart clients already call `screenshot_guard`/`setSecure` and `screen_brightness`/`setMaximum`+`restore`. Implementing ActivityAware plugins next; emulator LekkerSwot_Pixel7 available for manual FLAG_SECURE proof.
 - [2026-09-12T05:05:17Z] [GB] Implementation complete on `task/TASK-096-gb` (`01eef99`). `ScreenshotGuardPlugin` + `ScreenBrightnessPlugin` registered from `MainActivity`. Device proof on AVD LekkerSwot Pixel7 (sdk_gphone64_x86_64, Android 14): FLAG_SECURE bit 0x2000 applied/cleared; brightness saved -1.0 restored -1.0 after 1.0. Status: needs_review.
+- [2026-09-12T07:41:00Z] [ORCH] Reviewed on claude-sonnet-5 (v2.0 wave). Territory clean (4 files). Full source read of both plugins, including `ScreenBrightnessPlugin.restore()` — confirmed it reapplies the exact saved value (including the -1.0 system-default sentinel) and never a hardcoded level. Independent run: analyze 0; full suite 1694/1/40 — the one failure (`group_invite_screen_test.dart`, TASK-091 territory) is a pre-existing fake-HTTP-server race, reproduced clean in isolation, unrelated to this task. **APPROVED first-pass, merged `1006d52`.** Status: done. Unlocks TASK-095.
 **Artifacts:**
 - android/app/src/main/kotlin/za/co/basileia/keryx/ScreenshotGuardPlugin.kt
 - android/app/src/main/kotlin/za/co/basileia/keryx/ScreenBrightnessPlugin.kt
@@ -5770,7 +5771,7 @@ Existing channel names (must not collide or rename): `za.co.basileia.keryx/nsd`,
 **Test_Evidence:**
 - [2026-09-12T05:05:17Z] [GB] `flutter test --no-pub test/features/onboarding test/features/my_code` — **18/18 passed** (unmodified Dart tests; injected fakes untouched).
 - [2026-09-12T05:05:17Z] [GB] Emulator LekkerSwot Pixel7 / sdk_gphone64_x86_64 / Android 14 (API 34), debug APK. Logcat: `setSecure=true applied=true flags=0x81812100` then `setSecure=false applied=false flags=0x81810100` (delta 0x2000 = FLAG_SECURE). Brightness: `setMaximum saved=-1.0 now=1.0` then `restore requested=-1.0 now=-1.0`. Hardware screenshot on idle captured the harness buttons; on the phrase screen the recents thumbnail is blanked (phrase grid never appeared). Existing channel names unchanged (`git diff` empty on NsdPlugin/RadioServiceContract).
-**Review_Findings:** —
+**Review_Findings:** APPROVED first-pass. See REVIEW.md row and ORCH progress note above.
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-12T05:05:17Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T07:41:00Z
