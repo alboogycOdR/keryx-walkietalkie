@@ -6228,3 +6228,30 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 **Blocked_Reason:** —
 **Updated_By:** ORCH
 **Updated_At:** 2026-09-12T17:20:00Z
+
+
+### TASK-099
+**Title:** Wire DirectoryClient.registerIdentity into the app — no device has ever registered with the directory
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** critical
+**Spec_References:** `lib/services/directory/directory_client.dart:46` (`registerIdentity(callsign)` — implemented, unit-tested in isolation) has zero call sites anywhere in `lib/**` outside its own definition (confirmed by repo-wide grep this session) — no onboarding step, screen or provider ever calls it. `token-svc/app/directory.py:58-77` (`register_identity`): a true idempotent upsert — same pubkey + same callsign returns the existing row with no error; 409 `identity_exists` only fires on the same pubkey with a *different* callsign, 409 `callsign_taken` only on a different pubkey claiming a taken callsign — confirms it is safe to call unconditionally on every app boot, not just once-ever. `token-svc/README.md:108,166` (`unknown_identity` / 401 / "Signed but never registered"). Live field evidence this session: after `bd5222d` fixed `RadioSessionController` to sign every token request (a separate, already-fixed defect), the failure mode changed from a generic 401 to the specific `unknown_identity` code — proving the directory correctly validates a well-formed signed request but has never heard of this device's public key. `lib/core/contacts/contacts_controller.dart:137` (`sendRequest` → `_directory.sendContactRequest`) goes through the same `DirectoryClient`/same identity-registration dependency — very likely also the true cause behind the earlier field-reported "Couldn't send that request." contact-add failure (TASK-098 fixed the UI symptom of that; this task is the actual underlying cause). `lib/app_shell/directory_providers.dart:50-59` (`directoryClientProvider`) is the single composition-root call site that constructs every `DirectoryClient` the app ever uses.
+**Owned_Paths:** lib/app_shell/directory_providers.dart, test/app_shell/directory_providers_test.dart, dossiers/TASK-099.md
+**Depends_On:** —
+**Description:** `DirectoryClient.registerIdentity(callsign)` is fully built and tested but was never wired into any real call path — a v2-rollout integration gap, not a logic bug. Fix: in `directoryClientProvider`, call `client.registerIdentity(identity.callsign.value)` once, immediately after constructing `client`, before it is returned to any dependent provider. Wrap in try/catch — log and proceed rather than rethrow, matching this file's own documented philosophy ("directory bootstrap must not block reaching Talk", `directory_providers.dart:45-49`) and its existing null-propagation convention (every dependent provider — `contactsControllerProvider`/`groupsControllerProvider`/`presenceClientProvider` — already handles a failed/absent directory gracefully). No guard-then-register dance is needed given the confirmed idempotent-upsert server semantics above. Do not touch `patchCallsign`'s existing call sites (`contacts_controller.dart`, `groups_controller.dart`) — that remains the correct, already-wired path for an explicit callsign change; this task only adds the missing initial registration. This is the same class of gap CLAUDE.md already calls out for this project (a test suite that is thorough in isolation but never exercises the real production wiring) — the new test this task adds must close exactly that gap for this call path, not add another all-fakes test.
+**Acceptance_Criteria:**
+- [ ] `directoryClientProvider` calls `client.registerIdentity(identity.callsign.value)` once, after construction, before the client is returned to any dependent provider
+- [ ] A registration failure (network error, non-2xx) is caught and logged, never rethrown — `contactsControllerProvider`/`groupsControllerProvider`/`presenceClientProvider` still resolve (to their existing null-on-no-directory state, same as today when no relay is configured) rather than crashing the provider chain
+- [ ] A new test in `test/app_shell/directory_providers_test.dart` drives the REAL `directoryClientProvider` against a fake HTTP layer underneath the real `DirectoryClient` (not a hand-built controller-level fake) and proves: (a) a POST to `/v2/identity` happens before any contacts/groups/presence call reaches the server, (b) a repeat provider rebuild with the same callsign does not throw, (c) a registration failure still yields dependent providers resolving without throwing
+- [ ] `patchCallsign`'s existing call sites and tests (`contacts_controller.dart`, `groups_controller.dart` and their tests) are unmodified
+- [ ] Full test suite green; `flutter analyze` clean
+- [ ] Dossier records a live two-device field retest: a contact-add request that previously failed now succeeds end-to-end — evidence, not assumption
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T20:50:00Z
