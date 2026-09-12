@@ -1,6 +1,6 @@
 ---
 plan_version: 16.1
-last_updated: 2026-09-12T05:20:00Z
+last_updated: 2026-09-12T05:11:42Z
 overall_status: in_progress
 orchestrator_notes: "Plan v1.0 — 29 tasks from 3 specs. PRUNED 2026-08-20T20:50Z (was 5.7, grown large again since the last prune) — blow-by-blow narrative moved to REVIEW.md + git log, which carry it in full; this field keeps only load-bearing current state. Full history recoverable via `git log -p -- PLAN.md` and REVIEW.md's Review_Findings per task if ever needed.
 
@@ -5385,7 +5385,7 @@ Reading token-svc/openapi-v2.yaml, TASK-083's identity/signing helper (lib/core/
 
 ### TASK-088
 **Title:** v2 session and host — target switching, roster-at-start, automatic direct/relay transport, v2 state and settings model
-**Status:** needs_review
+**Status:** done
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §1.1, §6.3, §6.4, §7 (settings_model, radio_state, radio_session_controller); PRD V2-FR-040..045; Verification V2-VT-021, 022 (projection half), 023, 024; TASK-079 (e), TASK-082 (a) carried debt
@@ -5462,10 +5462,23 @@ Process note: during this claim I caused a coordination incident and reported it
 - `flutter analyze --no-pub` (full repo): No issues found.
 - `flutter test --no-pub` (full repo): 1697 passed, 0 failed, 40 skipped (same PARKED FR-025 soak seeds, unmodified; +24 over the 1673 baseline).
 - `git diff --stat -- . ':!PLAN.md'`: 16 files, all inside Owned_Paths.
-**Review_Findings:** —
+**Review_Findings:** [2026-09-12T05:11:42Z] [ORCH] **APPROVED first-pass**, merged `8f4f283`. Reviewed on claude-sonnet-5 (AUTOPILOT v2.0 wave).
+- **Territory:** clean. 16 files, all inside Owned_Paths, 2 code commits + 1 dossier commit, tagged.
+- **Tests:** independent run: analyze 0; targeted (state/presentation/settings/session/radio_host) 150/150; full suite 1697 passed / 0 failed / 40 skipped (+24 over 1673 baseline).
+- **Additivity check, scripted:** a diff of the four v1 test files this task touches shows exactly one non-purely-additive change: `radio_state_test.dart`'s transition-matrix oracle totals move from 145/87 to 159/89. The arithmetic checks out against the stated rationale (2 new events × 8 phases × {7 legal, 1 illegal} = +14/+2) and is the same pattern TASK-080 already established for `SetMode` — an exhaustive-matrix total is expected to grow when new events are added to the enumerated set; this is not a weakened assertion, it is the same check correctly re-counting a larger event space. No other test file has a non-additive line.
+- **Reviewed in source:**
+  - `RadioState`/`RadioReducer`: `Transport` enum, `roomId`, `transport`, `SetTransport`/`SetRoom` accepted in any powered phase (mirroring TASK-080's `SetMode` fix) — no v1 field/method removed or renamed.
+  - `RadioSessionController.switchTarget`: tears down and rebuilds via the existing `_startLocal`/`_startLinked` (now optionally taking `roomIdOverride`, defaulting to the v1 numbered path when absent), calls `updateRoster` **before** dispatching `SetRoom`/`SetTransport` or returning — this is what actually closes the solo-press join-guard for v2 targets. `_stations` is populated with a documented placeholder (peerId as callsign) rather than reaching into contacts/groups territory it doesn't own.
+  - `RadioViewState.target`/`.audience`: v1-safe defaults confirmed (no target → `audience.canHear == true`, matching existing idle-ready behaviour).
+  - `ConnectionCondition.transport`: an explicitly documented stopgap derived from the existing single-valued `effectiveRoute`; can't yet report `both` even though `RadioState.transport` can — correctly disclosed as deferred to TASK-093, not silently incomplete.
+- **Carried debt, correctly not force-closed:**
+  - (e) meter-snapshot throttle: S5 built a real time-based throttle, found it broke an existing passing ~10 Hz real-time test, and reverted rather than landing a fix that would have violated this task's own "zero removed/weakened tests" criterion. TASK-079's original review already called the dedup-only behaviour acceptable. Correct call.
+  - (a) remount-while-denied flash timer: lives in `lib/features/talk/talk_screen.dart`, genuinely outside this task's Owned_Paths. Flagged for whichever task next opens that file (TASK-092 already owns it).
+- **Criteria:** all six items addressed; the one left unticked is honestly disclosed as carried debt, not silently dropped.
+- **Unlocks:** nothing new directly (TASK-093 already depended on 088).
 **Blocked_Reason:** —
-**Updated_By:** S5
-**Updated_At:** 2026-09-12T08:05:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-12T05:11:42Z
 
 
 ### TASK-089
@@ -5600,7 +5613,7 @@ Implementing standalone OnboardingScreen / RecoveryPhraseScreen (FLAG_SECURE via
 **Status:** pending
 **Assigned_To:** S5
 **Priority:** critical
-**Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.1, §4; PRD V2-FR-040..045, V2-FR-033; Verification V2-VT-022 (UI half), V2-VT-024, V2-VT-030 (talk goldens); ADR-002 A3/A7 (ring and flash carried)
+**Spec_References:** specs/KERYX_v2.0_Design_v1.0.md §2.1, §4; PRD V2-FR-040..045, V2-FR-033; Verification V2-VT-022 (UI half), V2-VT-024, V2-VT-030 (talk goldens); ADR-002 A3/A7 (ring and flash carried). **(ORCH 2026-09-12: this task also carries the TASK-088 review's disclosed debt — TASK-079(e)/TASK-082(a) remount-while-denied flash-timer seed — since it lives in `talk_screen.dart`; see TASK-082's Design A7 fix for context.)**
 **Owned_Paths:** lib/features/talk/**, test/features/talk/**, test/regression/goldens/goldens/talk_*.png, test/regression/goldens/talk_states_golden_test.dart, dossiers/TASK-092.md
 **Depends_On:** TASK-088
 **Description:** Rework the Talk screen for v2 targets. `TalkChannelCard` → `TalkTargetCard`: avatar/glyph, name, presence line (`Ben · Available · Nearby` / `Site crew · 4 of 12 online`), own-status control (Available/Busy/DND/appear offline) on the right, chevron → `onOpenTarget`. No-target state replaces the ring with the 'Add your first contact / Create a group' card. Ring ready rule from `RadioViewState.audience` (V2-FR-041); a press with `canHear == 0` is refused locally, never calls `press()`, and reuses the TASK-082 flash with the audience reason as copy (V2-FR-044). Alert-received banner (10 s, Reply). Remove every channel/route string. All VT-010..015 safety logic stays untouched.
