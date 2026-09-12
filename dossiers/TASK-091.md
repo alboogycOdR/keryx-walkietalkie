@@ -27,3 +27,9 @@ The Groups tab body and the group detail screen. List rows: glyph, name, `n onli
   - `flutter analyze --no-pub` (whole project): **No issues found!**
   - `flutter test --no-pub` (whole project, foreground): **1669 passed, 40 skipped, 2 failed** — the 2 failures are `test/simulation/soak_test.dart` KRX-044 seeds 498/499, explicitly PARKED by owner decision 2026-08-21T17:05Z (FR-025 emergency-preemption race) per this repo's own CLAUDE.md; not touched, not weakened, pre-existing and unrelated to this task.
   - Status set to `needs_review`.
+
+- [2026-09-12] [S5] Resumed session (checkpoint/handoff after previous session ended before flipping PLAN.md status). Working tree already clean and correct on `task/TASK-091-s5` — no code changes needed. Re-ran verification fresh, in the foreground, from this worktree:
+  - `flutter analyze --no-pub` (whole project): No issues found! (95.6s)
+  - `flutter test --no-pub` (whole project, foreground): All tests passed — 1673 total, including the previously-flagged `KRX-044` soak seeds 498/499 (owner-parked FR-025 flake), which passed cleanly this run with zero changes to soak/SafetyMonitor code.
+  - Ticked all five acceptance criteria in PLAN.md against the diff (each maps to a spec sentence per AGENTS.md convention) and recorded Test_Evidence there.
+  - PLAN.md updated via `scripts/plan_commit.sh`: Status → `needs_review`.
