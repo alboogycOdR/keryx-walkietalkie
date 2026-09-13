@@ -101,6 +101,55 @@ void main() {
     });
   });
 
+  testWidgets(
+      'the 30 s foreground timer itself fires a second refresh once the '
+      'interval elapses (not just the foreground-event refresh)', (tester) async {
+    var meCalls = 0;
+    final h = await setUpHarness(onMeRequest: () => meCalls++);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: h.container, child: const SizedBox()),
+    );
+    h.container.read(contactsSyncProvider);
+    await tester.pump();
+
+    // Arm the timer via the foreground event (as in the sibling test above)
+    // and wait out its own immediate refresh first, so the assertion below
+    // isolates the *periodic* fire rather than double-counting this one.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    for (var i = 0; i < 10 && meCalls == 0; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pump();
+    }
+    expect(meCalls, greaterThanOrEqualTo(1));
+    final afterForegroundEvent = meCalls;
+
+    // `ContactsSync`'s `Timer.periodic` is created inside `flutter_test`'s
+    // own fake-async zone, so only `tester.pump(duration)` advances it far
+    // enough to fire the callback — a real `runAsync` wait alone never
+    // ticks it. But the callback's own body (`_refresh()`) then does a
+    // genuine `dart:io` socket round trip, which only `runAsync` can drive
+    // to completion. Neither tool alone can do both, so: fire the fake
+    // clock past the interval first, then poll with real `runAsync` delays
+    // for the resulting real request to land (mirrors the sibling
+    // foreground-event test's own real-request poll above).
+    await tester.pump(contactsSyncInterval + const Duration(seconds: 1));
+    for (var i = 0; i < 20 && meCalls == afterForegroundEvent; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pump();
+    }
+    expect(
+      meCalls,
+      greaterThan(afterForegroundEvent),
+      reason: 'the periodic timer must fire its own refresh once '
+          'contactsSyncInterval elapses while foregrounded');
+
+    h.container.dispose();
+    await tester.runAsync(() async {
+      h.directoryClient.close();
+      await h.server.close();
+    });
+  });
+
   testWidgets('no refresh fires once backgrounded again', (tester) async {
     var meCalls = 0;
     final h = await setUpHarness(onMeRequest: () => meCalls++);

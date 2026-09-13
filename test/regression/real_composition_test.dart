@@ -397,8 +397,22 @@ void main() {
         reason: 'a stubbed directory backend must not throw during boot');
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
 
+      // TASK-105: `ContactsTabScreen` now calls `ContactsListController
+      // .load()` the moment Contacts first becomes the visible tab (just
+      // tapped below), which starts a genuine `dart:io` socket refresh
+      // against `directoryClient`'s real loopback `HttpClient` — a plain
+      // `pumpAndSettle` runs inside `AutomatedTestWidgetsFlutterBinding`'s
+      // fake-async zone and can never service that real socket I/O, so
+      // `DirectoryClient._send`'s 10 s request-timeout `Timer` is still
+      // pending when the test body returns (mirrors the identical fix in
+      // `mobile_app_shell_test.dart`'s "real directory backend" group —
+      // poll with `runAsync` real delays instead).
       await tester.tap(find.byKey(ShellKeys.tabContacts));
-      await tester.pumpAndSettle();
+      for (var i = 0; i < 15; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+        if (find.textContaining('Contacts need a relay address').evaluate().isEmpty) break;
+      }
       expect(
         find.textContaining('Contacts need a relay address'),
         findsNothing,
@@ -408,6 +422,16 @@ void main() {
       await tester.tap(find.byKey(ShellKeys.tabTalk));
       await tester.pumpAndSettle();
       expect(find.byType(talkui.TalkScreen), findsOneWidget);
+
+      // Close both real clients explicitly before the test ends — an
+      // `addTearDown`-registered close runs *after* `flutter_test`'s
+      // pending-timer invariant check, not before, so it cannot rescue a
+      // still-pending reconnect/timeout `Timer` on its own (same reasoning
+      // as `mobile_app_shell_test.dart`'s "real directory backend" group).
+      await tester.runAsync(() async {
+        directoryClient.close();
+        presenceClient.dispose();
+      });
     });
 }
 

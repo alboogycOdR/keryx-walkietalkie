@@ -527,5 +527,121 @@ void main() {
       await presence?.stop();
       (await container.read(directoryClientProvider.future))?.close();
     });
+
+    testWidgets(
+        'TASK-104 review finding, required by TASK-105: a foreground retry '
+        'arms and succeeds on a still-unregistered install that never '
+        'visited Settings or onboarding (registrationStatusProvider is '
+        'watched at mobile_app_shell.dart init, not just from those screens)',
+        (tester) async {
+      givePhoneSurface(tester);
+      // `identityEnrolmentProvider` builds its own `DirectoryClient` from
+      // `settings.relayUrl` via `directoryBaseUriResolverProvider` — it does
+      // NOT read the `directoryClientProvider` override
+      // `_buildClearedRelayContainer` sets up for `ContactsController`/
+      // `GroupsController`, so this test overrides that resolver seam
+      // directly (same pattern as `directory_providers_test.dart`) instead,
+      // pointed at the same real loopback `FakeDirectoryServer`.
+      var registerAttempts = 0;
+      var failRegister = true;
+      directory.server.responder = (RecordedDirectoryRequest req) {
+        if (req.method == 'POST' && req.path == '/v2/identity') {
+          registerAttempts++;
+          if (failRegister) {
+            return const DirectoryFakeResponse(statusCode: 503, body: <String, Object?>{});
+          }
+          return DirectoryFakeResponse(
+            statusCode: 200,
+            body: <String, Object?>{
+              'pk': directory.identity.peerId,
+              'callsign': directory.identity.callsign.value,
+              'status': 'available',
+            });
+        }
+        return const DirectoryFakeResponse(statusCode: 200, body: <String, Object?>{});
+      };
+
+      final host = FakeRadioHost();
+      final container = ProviderContainer(
+        overrides: <Override>[
+          radioHostProvider.overrideWithValue(host),
+          settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
+          identityProvider.overrideWith((ref) async => directory.identity),
+          directoryBaseUriResolverProvider.overrideWithValue(
+            (relayUrl) => directory.server.baseUrl),
+          directoryClientProvider.overrideWith(
+            (ref) async =>
+                DirectoryClient(baseUrl: directory.server.baseUrl, keyPair: directory.keyPair),
+          ),
+          presenceClientProvider.overrideWith(
+            (ref) async =>
+                PresenceClient(baseUrl: directory.server.baseUrl, keyPair: directory.keyPair),
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        directory.pumpWithContainer(container: container, home: const MobileAppShell()));
+
+      // Only ever pump/tap Talk (the default landing tab) — Settings and
+      // onboarding are never opened anywhere in this test.
+      for (var i = 0; i < 10 && registerAttempts == 0; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+      }
+      expect(
+        registerAttempts,
+        greaterThanOrEqualTo(1),
+        reason: 'mobile_app_shell.dart init must arm registration without '
+            'either screen ever being opened');
+      // A 503 carries a real status code, so `DirectoryException.isTransportFailure`
+      // is `false` and this lands as `RegistrationFailed`, not
+      // `RegistrationOffline` — both are retried identically by
+      // `_applyEnrolment`/`_onForeground`, which is what this test proves.
+      expect(
+        container.read(registrationStatusProvider),
+        isA<RegistrationFailed>(),
+      );
+
+      failRegister = false;
+      // Foreground event (`_onForeground`) resets the backoff ladder and
+      // retries immediately, rather than waiting out the scheduled backoff
+      // `Timer` in real time.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+      RegistrationStatus? status;
+      for (var i = 0; i < 15; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+        status = container.read(registrationStatusProvider);
+        if (status is RegistrationRegistered) break;
+      }
+      expect(
+        status,
+        isA<RegistrationRegistered>(),
+        reason: 'a foreground event must retry and succeed once the '
+            'directory recovers, with neither Settings nor onboarding ever '
+            'having been visited');
+      expect(find.byType(SettingsScreen), findsNothing);
+
+      // Registration succeeding also arms `presenceBootstrapProvider` (a
+      // real reconnect-backoff `Timer`, same as the Groups-tab test above)
+      // and the same foreground event just re-armed `contactsSync`'s own
+      // 30 s timer plus kicked off its own real refresh — drain that
+      // in-flight request before force-closing the shared `DirectoryClient`,
+      // or its own pending 10 s timeout `Timer` outlives the test.
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
+      await tester.pump();
+      final presence = await container.read(presenceClientProvider.future);
+      await presence?.stop();
+      (await container.read(directoryClientProvider.future))?.close();
+      // Dispose the container here, in the test body, not via `addTearDown`
+      // — `flutter_test`'s pending-timer invariant check runs *before*
+      // `addTearDown` callbacks, so only disposing here actually cancels
+      // `ContactsSync`'s real periodic timer (armed by this test's own
+      // foreground event) in time.
+      container.dispose();
+    });
   });
 }
