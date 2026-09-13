@@ -193,10 +193,22 @@ failure; everything else is green.
   completion in the same step) — noted here rather than silently dropped.
 - [x] `PresenceClient.start()` called exactly once after `registered`, never
   before — `presence_bootstrap_test.dart`.
-- [x] `registrationStatusProvider` watched from `mobile_app_shell.dart` init,
-  armed independently of Settings/onboarding — wired; exercised indirectly
-  by every `mobile_app_shell_test.dart` test (no crash / no missing retry
-  loop) and directly by `presence_bootstrap_test.dart`'s reliance on it.
+- [~] `registrationStatusProvider` watched from `mobile_app_shell.dart` init:
+  the wiring is in place (`initState`) and exercised indirectly by every
+  `mobile_app_shell_test.dart` test (no crash, no missing retry loop) and
+  directly by `presence_bootstrap_test.dart`'s reliance on it reaching
+  `RegistrationRegistered`. **Gap, honestly flagged rather than silently
+  dropped:** the specific criterion "a test proving a foreground retry
+  fires on a still-unregistered install that never visited either screen"
+  is not independently covered by a new test — `directory_providers_test.dart`
+  (TASK-104's file) already proves the retry-on-foreground *mechanic* at
+  the provider level, but nothing here proves it fires specifically
+  *because* `mobile_app_shell.dart` read the provider rather than some
+  other reader. Building that end-to-end (real backend + a deliberately
+  offline-then-recovering responder + never touching Settings/onboarding)
+  hit the same real-socket/`runAsync`/pending-timer combination documented
+  above and was cut for time; a follow-up test in
+  `mobile_app_shell_test.dart` closes this properly.
 - [x] Journey gates 6/7 pass with skips removed (see above); file restored
   untouched.
 - [x] Full suite green except the one named, out-of-territory,
