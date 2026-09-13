@@ -6397,7 +6397,7 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 
 ### TASK-103
 **Title:** Two-phone journey test — the executable definition of "it works" (enrol → request → accept → select → token)
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Verification_v1.0.md §6 (device matrix rows A–I) and R1 Verification §9 ("A scoped mock test is not sufficient evidence for a production wiring change; include a test that exercises the actual composition when the defect concerns wiring"); specs/KERYX_v2.0_Technical_v1.0.md §4.2 (endpoints), §4.3 (presence), §5.4 (1:1 rooms), §6.4 (host boot). Why this task exists (ORCH root-cause, 2026-09-13): four fixes landed one gate at a time (`6f14f3f` enrolment, TASK-100 boot transport, TASK-101 `peer_pk`, `1369f00` refusal copy) and each next gate stayed invisible behind the last because every existing test is fakes-all-the-way-down. Verified-broken gates no test caught: `ContactsController.refreshFromServer()` has ZERO callers in `lib/**` (the receiving phone can never see an incoming request even though `token-svc` `identity_me` returns `pending_in`, `token-svc/app/directory.py:214-226`); `PresenceClient.start()` has ZERO callers (the presence WS never opens); no receive-side auto-join exists. Build on: `test/regression/real_composition_test.dart` (real `KeryxApp`/`radioHostProvider`, five native seams faked), `test/app_shell/directory_enrolment_test.dart` (real `identityEnrolmentProvider` → real `DirectoryClient` → loopback `FakeDirectoryServer`), `test/services/directory/fakes/fake_directory_server.dart` (stateless recorder with a pluggable `responder`), `test/services/linked/fakes/fake_token_server.dart` (`requirePeerPk`).
@@ -6413,13 +6413,25 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 - [ ] Full test suite green; `flutter analyze` clean
 **Branch:** task/TASK-103-gb
 **Started_At:** 2026-09-13T06:10:00Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-09-13T06:12:00Z] [GB] Claimed TASK-103. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-103 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 5 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  NEW    test/regression/journey_two_phones_test.dart  -> does not exist; parent test/regression/ exists
+  NEW    test/regression/journey_harness.dart  -> does not exist; parent test/regression/ exists
+  NEW    test/services/directory/fakes/stateful_directory_fake.dart  -> does not exist; parent test/services/directory/fakes/ exists
+  FILE   test/services/directory/fakes/fake_directory_server.dart  -> exists, 81 line(s), 2723 bytes
+  NEW    dossiers/TASK-103.md  -> does not exist; parent dossiers/ exists
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+NEW territory except the additive FakeDirectoryServer. Implementing stateful fake + two-phone harness + journey gates.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-13T06:10:00Z
+**Updated_At:** 2026-09-13T06:12:00Z
 
 
 ### TASK-104
