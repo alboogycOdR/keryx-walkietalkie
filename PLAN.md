@@ -6514,7 +6514,7 @@ NEW territory except the additive FakeDirectoryServer. Implementing stateful fak
 
 ### TASK-105
 **Title:** Contacts actually sync with the directory, and presence actually starts — the receiving phone must see and accept a request
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §4.2 (`GET /v2/identity/me` = "Contacts, groups, pending requests"; `…:accept`), §4.3 ("Client opens the WS after boot with a signed hello; sends `{status}` on change and a heartbeat every 60 s"); specs/KERYX_v2.0_Design_v1.0.md §2.2 (Requests section, incoming-request sheet). Verified 2026-09-13 (repo-wide grep): `ContactsController.refreshFromServer()` (`lib/core/contacts/contacts_controller.dart:89`) has **zero callers** — `ContactsListController.load()` (`lib/features/contacts/contacts_list_controller.dart:63`) only calls `loadFromDisk()`, so an incoming request never reaches the phone even though the server returns it (`token-svc/app/directory.py:214-226`, `pending_in`); `PresenceClient.start()` (`lib/services/directory/presence_client.dart:128`) has **zero callers** — `presenceClientProvider` constructs it and `ContactsController` subscribes to `updates`, but the socket is never opened. Groups already refresh from the server (`lib/features/groups/groups_list_controller.dart:66`) — mirror that. The incoming-request sheet and `autoPresentIncoming` already exist in `contacts_tab.dart`.
@@ -6528,9 +6528,9 @@ NEW territory except the additive FakeDirectoryServer. Implementing stateful fak
 - [ ] `registrationStatusProvider` is watched from `mobile_app_shell.dart` init, armed independently of Settings/onboarding ever being opened, with a test proving a foreground retry fires on a still-unregistered install that never visited either screen
 - [ ] TASK-103's journey gates 6/7 pass with their skips removed — builder runs the journey file locally with the skips lifted and records the result in the dossier (do not edit the journey file; it is TASK-103's territory — ORCH un-skips at review)
 - [ ] Full test suite green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-105-s5
+**Started_At:** 2026-09-13T09:20:00Z
+**Progress_Notes:** - [2026-09-13T09:20:00Z] [S5] Claimed. Resuming after TASK-104 merge (8e3b0ca). Branch task/TASK-105-s5 cut from that commit in wt-s5-walkietalkie-keryx.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
