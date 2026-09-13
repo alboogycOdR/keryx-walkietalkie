@@ -193,3 +193,56 @@ even though the change itself is small and mechanical.
 
 Every other in-territory acceptance criterion, test, and evidence item is
 complete and green — this is the sole blocker.
+
+## Update 2026-09-13 — ORCH re-carved `test/regression/regression_shell_harness.dart`
+into this task's `Owned_Paths`; fixed there (commit `2a0ccb9`): pre-seed
+`InMemorySettingsStore` with an explicit `KeryxSettings(relayUrl: '',
+relayUrlUserCleared: true)` blob before building the container, so the
+baked-in migration does not resolve a non-empty relay and drive a real
+`identityEnrolmentProvider` attempt in this harness. Confirmed: all 12
+tests through `regression_shell_harness.dart`
+(`layout_matrix_test.dart` ×7, `overflow_system_back_test.dart` ×3,
+`shell_frame_golden_test.dart` ×2) now pass; `flutter analyze` clean.
+
+## New Blocked_Reason — OWNERSHIP_CONFLICT (round 2, same root cause, different file)
+
+Full-suite re-run after the fix above: **1483 passed / 2 failed / 40
+skipped** (skips unchanged, pre-existing FR-025 soak park). The 2
+remaining failures are `test/regression/goldens/settings_golden_test.dart`
+("Settings (dark)" and "Settings (light)") — a real pixel diff (4.69% /
+97271px), not a hang: `matchesGoldenFile` runs and returns a genuine
+diff.
+
+**Root cause:** identical pattern to `regression_shell_harness.dart`, in a
+file this task does **not** own. `settings_golden_test.dart`'s own
+`pumpAndGolden` (not `pumpRegressionShell`) builds its own
+`InMemorySettingsStore()` and never writes to it before pumping
+`SettingsScreen`. TASK-104's spec-mandated migration means
+`SettingsRepository.load()` now resolves that untouched store's `relayUrl`
+to the baked-in default, and this task's own in-territory addition to
+`settings_screen.dart` (the Identity section's live registration-status
+row + "Register now") now renders on that screen — which is exactly the
+new content the golden fixture was never generated against. The pixel
+diff is the correct, expected consequence of an in-territory UI change;
+the golden image and/or its seeding just needs updating, but the file that
+needs the update is not in `Owned_Paths`.
+
+**Suggested fix for whoever owns/re-carves this file:** mirror the
+`regression_shell_harness.dart` fix — seed `settingsStore` with an
+explicit `KeryxSettings(relayUrl: '', relayUrlUserCleared: true)` blob (or
+override `directoryClientProvider`/`presenceClientProvider` to inert
+stubs) before pumping, so the golden fixture's Settings screen shows the
+same "no relay configured" state it always has and the existing PNGs stay
+valid — OR, if the Identity section's new row is meant to appear in this
+golden's baseline, regenerate `test/regression/goldens/settings_dark.png`
+and `settings_light.png` (`--update-goldens`) after seeding a deterministic
+`registered`/`offline` state, whichever the reviewer prefers.
+
+**Not fixable in territory:** `settings_golden_test.dart` is not listed in
+this task's `Owned_Paths`, so per AGENTS.md commandment 4 this cannot be
+edited here. Requesting the same one-file re-carve ORCH already granted
+for `regression_shell_harness.dart`.
+
+Every other acceptance criterion is met; only this one file (and, if the
+reviewer prefers the "update golden" resolution, its two PNG assets)
+blocks a fully green suite.
