@@ -72,6 +72,11 @@ class RecordedDirectoryRequest {
     final decoded = jsonDecode(rawBody);
     return decoded is Map<String, Object?> ? decoded : null;
   }
+
+  /// Canonical wire header (`X-Keryx-Key`), lower-cased by the server.
+  /// DirectoryClient sends unpadded base64url; TokenClient sends standard
+  /// base64. Callers that need a 32-byte key must accept both encodings.
+  String? get callerKeyHeader => headers['x-keryx-key'];
 }
 
 class DirectoryFakeResponse {
