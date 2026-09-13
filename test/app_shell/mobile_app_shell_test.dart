@@ -1,10 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/app_shell/app_shell.dart';
-import 'package:keryx/core/contacts/contacts.dart' show ContactsController;
 import 'package:keryx/core/identity/identity.dart';
+import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/contacts/contacts_keys.dart' show ContactsKeys;
 import 'package:keryx/features/groups/groups_list_screen.dart';
@@ -13,13 +15,52 @@ import 'package:keryx/features/settings/settings_screen.dart';
 import 'package:keryx/features/talk/talk_ptt_ring.dart';
 import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 import 'package:keryx/services/directory/directory.dart';
-import 'package:keryx/services/directory/directory_signing.dart' show unpaddedBase64Url;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/directory/fakes/fake_directory_server.dart';
 import 'directory_shell_harness.dart';
 import 'fake_radio_host.dart';
 import 'shell_harness.dart';
+
+/// TASK-105: `DirectoryShellHarness.buildContainer` (`directory_shell_harness
+/// .dart`, not this task's `Owned_Paths`) seeds a bare `InMemorySettingsStore
+/// ()`, which is fine for its own original purpose — it overrides
+/// `directoryClientProvider`/`presenceClientProvider` directly, so nothing
+/// there ever reads `settings.relayUrl`. But `mobile_app_shell.dart` now
+/// also reads `registrationStatusProvider` at shell init, which reads the
+/// UN-overridden `identityEnrolmentProvider` — and that derives its own
+/// `DirectoryClient` straight from `settings.relayUrl`, not from the
+/// harness's fake one. An unseeded store there triggers `SettingsRepository
+/// .load()`'s baked-in-relay migration (TASK-104), so `identityEnrolmentProvider`
+/// tries to reach an actual (non-loopback, non-fake) host and hangs on a
+/// real TLS handshake `runAsync` can never complete. Mirrors the same fix
+/// `regression_shell_harness.dart` already applies for the identical reason:
+/// pre-seed an explicit "user cleared" relay before building the container.
+Future<ProviderContainer> _buildClearedRelayContainer(
+  DirectoryShellHarness directory, {
+  required FakeRadioHost host,
+}) async {
+  final settingsStore = InMemorySettingsStore();
+  await settingsStore.write(
+    SettingsRepository.storageKey,
+    jsonEncode(
+      const KeryxSettings().copyWith(relayUrl: '', relayUrlUserCleared: true).toJson(),
+    ),
+  );
+  return ProviderContainer(
+    overrides: <Override>[
+      radioHostProvider.overrideWithValue(host),
+      settingsStoreProvider.overrideWithValue(settingsStore),
+      identityProvider.overrideWith((ref) async => directory.identity),
+      directoryClientProvider.overrideWith(
+        (ref) async => DirectoryClient(baseUrl: directory.server.baseUrl, keyPair: directory.keyPair),
+      ),
+      presenceClientProvider.overrideWith(
+        (ref) async => PresenceClient(baseUrl: directory.server.baseUrl, keyPair: directory.keyPair),
+      ),
+    ],
+  );
+}
 
 /// TASK-093 (Design §1, ADR-002 §2/§3) — the v2 shell: Talk is the default
 /// tab, a top app bar carries the wordmark/connection indicator/overflow
@@ -372,7 +413,7 @@ void main() {
         };
 
         final host = FakeRadioHost();
-        final container = directory.buildContainer(host: host);
+        final container = await _buildClearedRelayContainer(directory, host: host);
         addTearDown(container.dispose);
         await tester.pumpWidget(
           directory.pumpWithContainer(container: container, home: const MobileAppShell()));
@@ -386,31 +427,44 @@ void main() {
         }
         expect(find.byKey(ShellKeys.contactsTab), findsOneWidget);
 
-        // `ContactsController` (unlike `GroupsController`) does not
-        // auto-refresh on construction — nothing in this task's own
-        // `Owned_Paths` wires a pull-to-refresh trigger for it either
-        // (TASK-090/091's own controller-wiring territory) — so this test
-        // drives the real refresh directly, the way a pull-to-refresh
-        // gesture would, to reach the real fake-server-backed contact list
-        // end to end. Real loopback HTTP via `DirectoryClient` is genuine
-        // `dart:io` socket I/O, so it must run inside `runAsync`'s real
-        // zone or the socket event loop never actually drives it (same fix
-        // `new_group_screen_test.dart` applies for the same reason).
-        final ContactsController contacts =
-            (await container.read(contactsControllerProvider.future))!;
-        await tester.runAsync(contacts.refreshFromServer);
-        await tester.pump();
+        // TASK-105: `ContactsTabScreen` now calls `ContactsListController
+        // .load()` the moment Contacts first becomes the visible tab (just
+        // tapped above), which starts a genuine `dart:io` socket refresh
+        // against the loopback fake server — it needs `runAsync`'s real
+        // zone to actually drive the socket event loop, same as
+        // `GroupsController`'s own construction-time refresh does below.
+        // Poll (real delay + pump) until the row appears rather than
+        // guessing one fixed window, and rather than *also* driving a
+        // second, redundant manual refresh — this repo's sandboxed loopback
+        // I/O has proven slow enough under full-file load that stacking a
+        // second real request on top of the first risks its own 10 s
+        // timeout.
+        for (var i = 0; i < 15; i++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+          await tester.pump();
+          if (find.byKey(ContactsKeys.contactRow(theirPk)).evaluate().isNotEmpty) break;
+        }
 
         expect(find.byKey(ContactsKeys.contactRow(theirPk)), findsOneWidget);
 
         await tester.tap(find.byKey(ContactsKeys.contactRow(theirPk)));
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 1000)));
         await tester.pump();
 
         expect(
           find.byKey(ShellKeys.talk),
           findsOneWidget,
           reason: 'selecting a contact must switch the shell to Talk');
+
+        // TASK-105: stop the long-lived `PresenceClient` reconnect loop
+        // explicitly before the test ends — see the Groups-tab test's note.
+        final presence = await container.read(presenceClientProvider.future);
+        await presence?.stop();
+        // This test now drives two real requests (Groups' own construction
+        // refresh, plus Contacts') over the same pooled `dart:io`
+        // `HttpClient` — its keep-alive idle timer (default 15 s) outlives
+        // the test unless the connection is force-closed explicitly.
+        (await container.read(directoryClientProvider.future))?.close();
       });
 
     testWidgets('Groups tab renders the real GroupsListScreen once a '
@@ -434,21 +488,160 @@ void main() {
       };
 
       final host = FakeRadioHost();
-      final container = directory.buildContainer(host: host);
+      final container = await _buildClearedRelayContainer(directory, host: host);
       addTearDown(container.dispose);
       await tester.pumpWidget(
         directory.pumpWithContainer(container: container, home: const MobileAppShell()));
-      // `GroupsController` refreshes from the server on construction — see
-      // the contact-selection test's note on `runAsync` + real HTTP.
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
-      await tester.pump();
+      // TASK-105 now also arms `registrationStatusProvider`/
+      // `presenceBootstrapProvider`/`contactsSyncProvider` at shell init, so
+      // more real `dart:io` socket work is in flight before this test's
+      // first assertion than `GroupsController`'s own construction-time
+      // refresh alone (the pre-existing reason this test needs `runAsync`
+      // at all). Poll with real delays instead of guessing one fixed
+      // window, so this isn't sensitive to how fast the loopback round
+      // trips happen to complete on a given machine.
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+      }
 
       await tester.tap(navDestination('Groups'));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
-      await tester.pump();
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+        if (find.byType(GroupsListScreen).evaluate().isNotEmpty) break;
+      }
 
       expect(find.byKey(ShellKeys.groupsTab), findsOneWidget);
       expect(find.byType(GroupsListScreen), findsOneWidget);
+
+      // TASK-105: once `identityEnrolmentProvider` reaches `registered`
+      // against this real fake-server backend, `presenceBootstrapProvider`
+      // starts a real `PresenceClient` — its reconnect backoff `Timer` is
+      // deliberately long-lived (it keeps retrying by design) and never
+      // "completes" on its own the way a one-shot request does, so no
+      // `runAsync` window would ever make it not-pending; stop it
+      // explicitly before the test ends, the way `container.dispose()`
+      // would in production.
+      final presence = await container.read(presenceClientProvider.future);
+      await presence?.stop();
+      (await container.read(directoryClientProvider.future))?.close();
+    });
+
+    testWidgets(
+        'TASK-104 review finding, required by TASK-105: a foreground retry '
+        'arms and succeeds on a still-unregistered install that never '
+        'visited Settings or onboarding (registrationStatusProvider is '
+        'watched at mobile_app_shell.dart init, not just from those screens)',
+        (tester) async {
+      givePhoneSurface(tester);
+      // `identityEnrolmentProvider` builds its own `DirectoryClient` from
+      // `settings.relayUrl` via `directoryBaseUriResolverProvider` — it does
+      // NOT read the `directoryClientProvider` override
+      // `_buildClearedRelayContainer` sets up for `ContactsController`/
+      // `GroupsController`, so this test overrides that resolver seam
+      // directly (same pattern as `directory_providers_test.dart`) instead,
+      // pointed at the same real loopback `FakeDirectoryServer`.
+      var registerAttempts = 0;
+      var failRegister = true;
+      directory.server.responder = (RecordedDirectoryRequest req) {
+        if (req.method == 'POST' && req.path == '/v2/identity') {
+          registerAttempts++;
+          if (failRegister) {
+            return const DirectoryFakeResponse(statusCode: 503, body: <String, Object?>{});
+          }
+          return DirectoryFakeResponse(
+            statusCode: 200,
+            body: <String, Object?>{
+              'pk': directory.identity.peerId,
+              'callsign': directory.identity.callsign.value,
+              'status': 'available',
+            });
+        }
+        return const DirectoryFakeResponse(statusCode: 200, body: <String, Object?>{});
+      };
+
+      final host = FakeRadioHost();
+      final container = ProviderContainer(
+        overrides: <Override>[
+          radioHostProvider.overrideWithValue(host),
+          settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
+          identityProvider.overrideWith((ref) async => directory.identity),
+          directoryBaseUriResolverProvider.overrideWithValue(
+            (relayUrl) => directory.server.baseUrl),
+          directoryClientProvider.overrideWith(
+            (ref) async =>
+                DirectoryClient(baseUrl: directory.server.baseUrl, keyPair: directory.keyPair),
+          ),
+          presenceClientProvider.overrideWith(
+            (ref) async =>
+                PresenceClient(baseUrl: directory.server.baseUrl, keyPair: directory.keyPair),
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        directory.pumpWithContainer(container: container, home: const MobileAppShell()));
+
+      // Only ever pump/tap Talk (the default landing tab) — Settings and
+      // onboarding are never opened anywhere in this test.
+      for (var i = 0; i < 10 && registerAttempts == 0; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+      }
+      expect(
+        registerAttempts,
+        greaterThanOrEqualTo(1),
+        reason: 'mobile_app_shell.dart init must arm registration without '
+            'either screen ever being opened');
+      // A 503 carries a real status code, so `DirectoryException.isTransportFailure`
+      // is `false` and this lands as `RegistrationFailed`, not
+      // `RegistrationOffline` — both are retried identically by
+      // `_applyEnrolment`/`_onForeground`, which is what this test proves.
+      expect(
+        container.read(registrationStatusProvider),
+        isA<RegistrationFailed>(),
+      );
+
+      failRegister = false;
+      // Foreground event (`_onForeground`) resets the backoff ladder and
+      // retries immediately, rather than waiting out the scheduled backoff
+      // `Timer` in real time.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+
+      RegistrationStatus? status;
+      for (var i = 0; i < 15; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+        status = container.read(registrationStatusProvider);
+        if (status is RegistrationRegistered) break;
+      }
+      expect(
+        status,
+        isA<RegistrationRegistered>(),
+        reason: 'a foreground event must retry and succeed once the '
+            'directory recovers, with neither Settings nor onboarding ever '
+            'having been visited');
+      expect(find.byType(SettingsScreen), findsNothing);
+
+      // Registration succeeding also arms `presenceBootstrapProvider` (a
+      // real reconnect-backoff `Timer`, same as the Groups-tab test above)
+      // and the same foreground event just re-armed `contactsSync`'s own
+      // 30 s timer plus kicked off its own real refresh — drain that
+      // in-flight request before force-closing the shared `DirectoryClient`,
+      // or its own pending 10 s timeout `Timer` outlives the test.
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
+      await tester.pump();
+      final presence = await container.read(presenceClientProvider.future);
+      await presence?.stop();
+      (await container.read(directoryClientProvider.future))?.close();
+      // Dispose the container here, in the test body, not via `addTearDown`
+      // — `flutter_test`'s pending-timer invariant check runs *before*
+      // `addTearDown` callbacks, so only disposing here actually cancels
+      // `ContactsSync`'s real periodic timer (armed by this test's own
+      // foreground event) in time.
+      container.dispose();
     });
   });
 }

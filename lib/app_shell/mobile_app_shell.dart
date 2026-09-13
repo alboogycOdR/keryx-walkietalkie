@@ -8,9 +8,11 @@ import 'package:keryx/core/state/radio_state.dart' show RadioPhase, RadioState;
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
 
+import 'contacts_sync.dart';
 import 'contacts_tab_screen.dart';
 import 'directory_providers.dart';
 import 'groups_tab_screen.dart';
+import 'presence_bootstrap.dart';
 import 'radio_host_provider.dart';
 import 'shell_keys.dart';
 import 'shell_routes.dart';
@@ -42,6 +44,20 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
   /// (ADR-002 §2 O1) — no channel picker is forced; the stored/default
   /// channel is used as-is.
   int _index = 0;
+
+  /// TASK-105: mirrors [_index], but as a stable [ValueListenable] so a
+  /// widget already built inside one of the [_BranchNavigator]s below (a
+  /// `Navigator`'s `onGenerateRoute` only re-runs for a *new* route push,
+  /// not on every ancestor rebuild) can still react live to its own tab
+  /// becoming visible/hidden — `ContactsTabScreen` listens to this rather
+  /// than relying on a `visible` constructor param being replayed through
+  /// an already-built route.
+  final ValueNotifier<int> _tabIndex = ValueNotifier<int>(0);
+
+  void _setIndex(int index) {
+    _index = index;
+    _tabIndex.value = index;
+  }
 
   final List<GlobalKey<NavigatorState>> _branchKeys = <GlobalKey<NavigatorState>>[
     GlobalKey<NavigatorState>(debugLabel: 'talk-branch'),
@@ -77,6 +93,25 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
     // `FaceScreen.initState` this replaces (Technical §9).
     final host = ref.read(radioHostProvider);
     unawaited(Future.microtask(host.start));
+    // TASK-104 review finding: arm the registration retry loop from app
+    // start regardless of which screen the user opens (`read`, not
+    // `watch` — this widget doesn't need to rebuild on every registration
+    // status change; `registration_step.dart`/`settings_screen.dart`
+    // already own displaying it). TASK-105: presence must start once
+    // enrolled, and contacts must stay in sync — both single-owner
+    // providers, read the same way the host is. Deferred one microtask,
+    // same as `host.start` above and for the same Riverpod
+    // mutate-mid-build reason — but also so this widget's own `initState`
+    // is never the very first thing to force `identityEnrolmentProvider`
+    // into existence; `ContactsTabScreen`/`GroupsTabScreen` already read it
+    // (via `directoryClientProvider`) during this frame's build, and
+    // letting that stay the first reader keeps this change from shifting
+    // *when* the app's one real enrolment network call begins.
+    unawaited(Future.microtask(() {
+      ref.read(registrationStatusProvider);
+      ref.read(presenceBootstrapProvider);
+      ref.read(contactsSyncProvider);
+    }));
   }
 
   void _onTabTap(int index) {
@@ -87,12 +122,12 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
       _branchKeys[index].currentState?.popUntil((route) => route.isFirst);
       return;
     }
-    setState(() => _index = index);
+    setState(() => _setIndex(index));
   }
 
   void _switchTo(int index) {
     if (index == _index) return;
-    setState(() => _index = index);
+    setState(() => _setIndex(index));
   }
 
   /// Design §1 "Current target": selecting a contact or group anywhere
@@ -121,7 +156,7 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
         if (_activeBranchCanPop) {
           _branchKeys[_index].currentState?.pop();
         } else {
-          setState(() => _index = 0);
+          setState(() => _setIndex(0));
         }
       },
       child: Scaffold(
@@ -167,7 +202,10 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
             _BranchNavigator(
               navigatorKey: _branchKeys[1],
               observer: _branchObservers[1],
-              builder: (_) => ContactsTabScreen(onSelectTarget: _selectTarget),
+              builder: (_) => ContactsTabScreen(
+                onSelectTarget: _selectTarget,
+                tabIndex: _tabIndex,
+              ),
             ),
             _BranchNavigator(
               navigatorKey: _branchKeys[2],
@@ -178,6 +216,12 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _tabIndex.dispose();
+    super.dispose();
   }
 }
 
