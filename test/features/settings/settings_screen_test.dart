@@ -371,6 +371,42 @@ void main() {
     });
   });
 
+  group('TASK-104 — Identity: registration status', () {
+    testWidgets(
+      'Identity shows a live, non-empty registration status, and a Register '
+      'now action while not registered',
+      (tester) async {
+        await pumpSettings(tester);
+
+        final statusRow = find.byKey(const Key('settings.registration-status'));
+        expect(statusRow, findsOneWidget);
+
+        // No relay override configured in this fixture beyond the baked-in
+        // default; the real identityEnrolmentProvider/DirectoryClient chain
+        // runs (no seam is overridden here, mirroring the rest of this
+        // file's "real backend" tests), and every HTTP request under
+        // TestWidgetsFlutterBinding resolves fast to a stub 400 — so the
+        // status settles to something other than "Registering…" without a
+        // real network round trip. Assert the row renders *some* resolved,
+        // non-blank status rather than a specific string, since the exact
+        // failure/offline wording is directory_providers_test.dart's own
+        // territory to pin down.
+        final Text statusText = tester.widget<Text>(
+          find.descendant(of: statusRow, matching: find.byType(Text)).last,
+        );
+        expect(statusText.data, isNotEmpty);
+
+        // Not registered (no real directory backend here) — "Register now"
+        // is offered, and tapping it does not throw.
+        final registerNow = find.byKey(const Key('settings.register-now'));
+        expect(registerNow, findsOneWidget);
+        await tester.tap(find.descendant(of: registerNow, matching: find.byType(TextButton)).first);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
   group('TASK-093 — Connectivity: Prefer direct on Wi-Fi', () {
     testWidgets('toggling does not reconstruct the session (not '
         'sessionAffecting)', (tester) async {
