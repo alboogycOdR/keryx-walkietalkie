@@ -110,13 +110,86 @@
   is **not** in `Owned_Paths` and could not be fixed the same way.
   → See Blocked_Reason.
 
+- [2026-09-13] [S5] **Second regression round, also fixed, both in-territory.**
+  Discovered the auto-derivation described above (`relayUrl.isEmpty` →
+  `relayUrlUserCleared: true` on every save) was itself too broad: it fired
+  on *any* save carrying an untouched, already-empty `relayUrl` (not just an
+  actual clear action), corrupting `settings_apply_test.dart`'s and
+  `settings_screen_test.dart`'s session-affecting round-trip assertions.
+  Fixed by making `relayUrlUserCleared` caller-declared instead of
+  repository-derived — only `SettingsScreen`'s relay field `onSubmit` (the
+  one real "user cleared it" action) sets the flag; `_saveUnlocked` trusts
+  it verbatim. Also fixed two `test/features/settings/**` fixtures (in
+  territory) whose fake-host `sessionAffectingFieldsChanged` baseline was
+  seeded from a bare `KeryxSettings()`/an unresolved raw settings blob
+  while the real `settingsProvider` now resolves an untouched relay to the
+  baked-in default on every load — reseeded both from the
+  repository-resolved value instead. Commits: `4c99e88`, `32dbd2f`.
+
 ## Current status
 
 Every acceptance criterion for (A)–(D) is implemented and covered by new
-tests, all green (see Test_Evidence in PLAN.md). `directory_enrolment_test.dart`
-(the frozen contract) passes unchanged (one small, in-territory seed fix).
-`flutter analyze` clean on every touched file.
+tests, all green. `directory_enrolment_test.dart` (the frozen contract)
+passes unchanged (one small, in-territory seed fix).
+`flutter analyze` clean on every touched file. Full suite run 3 times
+during this session as each regression was found and fixed; the 3rd run's
+only remaining failures (14, all through one root cause) are detailed
+below.
 
-The one open item is the shared-harness ripple above — a single missing
-`relayUrl: ''` seed in a file outside `Owned_Paths`. Routed to ORCH rather
-than worked around by editing outside territory.
+## Blocked_Reason — OWNERSHIP_CONFLICT
+
+**File:** `test/regression/regression_shell_harness.dart` (NOT in this
+task's `Owned_Paths`; owner unclear from PLAN.md — likely TASK-078/095's
+original territory, both `done`).
+
+**Exact root cause:** `pumpRegressionShell` (line ~36) seeds a **real**
+`IdentityKeyPair` and a bare `InMemorySettingsStore()` (line 40, never
+pre-written), and does **not** override `directoryClientProvider`/
+`presenceClientProvider` the way `test/app_shell/directory_shell_harness.dart`
+does. TASK-104's own acceptance criterion #1 requires
+`SettingsRepository.load()` to migrate a never-configured `relayUrl` to
+the baked-in default (`KeryxSettings.relayUrlBakedIn`) — correct and
+spec-mandated (Owner requirements 2026-09-13; this task's own Description
+(A)). The combination (real key pair + now-non-empty relay + no
+`directoryClientProvider` override) means every widget test through this
+harness now drives a **real** `identityEnrolmentProvider` attempt, which
+under `TestWidgetsFlutterBinding` gets an instant HTTP 400 — and something
+downstream of that (not yet isolated further: candidates are
+`ContactsController`/`GroupsController`'s own reconnect/refresh scheduling,
+pre-existing code outside this task's `Owned_Paths` too) keeps producing
+new frames forever, so every `pumpAndSettle` in this harness times out.
+Confirmed via targeted temporary reversion (reverting just the baked-in
+default made all 14 pass; restoring it reproduced all 14) — this is not
+speculative.
+
+**Affected tests (14, all and only through this one harness):**
+`test/regression/goldens/settings_golden_test.dart` (2),
+`test/regression/goldens/shell_frame_golden_test.dart` (2),
+`test/regression/layout_matrix_test.dart` (7, all cases),
+`test/regression/overflow_system_back_test.dart` (3).
+
+**Not affected (confirmed, so not a blanket regression):**
+`test/app_shell/shell_harness.dart` (its stub identity's `keyPair` is
+`null`, so `identityEnrolmentProvider` short-circuits to `notApplicable`
+regardless of `relayUrl`) and `test/app_shell/directory_shell_harness.dart`
+(overrides `directoryClientProvider`/`presenceClientProvider` wholesale,
+bypassing `identityEnrolmentProvider` entirely) — both patterns already in
+use elsewhere in this same test tree, either of which fixes this harness
+too.
+
+**Suggested one-line fix (for whoever owns this file):** either (a) seed
+the store with an explicit clear —
+`await store.write(SettingsRepository.storageKey, jsonEncode(const KeryxSettings().copyWith(relayUrl: '', relayUrlUserCleared: true).toJson()))`
+before building the container — or (b) override
+`directoryClientProvider`/`presenceClientProvider` to `null`-returning
+stubs the way `shell_harness.dart`'s `keyPair: null` achieves implicitly.
+Either restores "no relay configured" for these layout/golden/back-nav
+tests, which never cared about directory/registration behaviour in the
+first place.
+
+**Why blocked rather than worked around:** the fix is outside `Owned_Paths`.
+Editing it would violate territorial isolation (AGENTS.md commandment 4)
+even though the change itself is small and mechanical.
+
+Every other in-territory acceptance criterion, test, and evidence item is
+complete and green — this is the sole blocker.
