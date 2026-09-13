@@ -6424,7 +6424,7 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 
 ### TASK-104
 **Title:** Relay baked in + registration as an explicit, retried, visible state (onboarding confirmation, Settings status, offline retry)
-**Status:** pending
+**Status:** in_progress
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** Owner requirements 2026-09-13 (verbatim intent): "make the onboarding sequence as explicit as possible, with confirmations that it's been registered after they choose the ID"; "the server relay address baked into the settings — the user is not going to know it"; "after the user chooses the ID, registration takes place; if the phone is offline then as soon as they get connectivity". specs/KERYX_v2.0_Technical_v1.0.md §3.1–3.3, §4.2 (`POST /v2/identity`, `PATCH …/callsign`), §6.4; specs/KERYX_v2.0_Design_v1.0.md §2.6 (onboarding), §2.7 (Settings identity). Code: `lib/core/settings/settings_model.dart:62` (`relayUrlDefault` already exists — FROZEN territory, reopened for this task for that constant and the empty→default migration only); `lib/app_shell/directory_providers.dart` `identityEnrolmentProvider` (`6f14f3f`: single owner, outcomes registered|renamed|failed|notApplicable, no retry, no UI); `lib/app_shell/onboarding_gate.dart:79-98` (`_finishCreate`/`_finishRestore` go straight to `_GateStage.done`, no registration step); `lib/features/settings/settings_screen.dart` Identity section (no registration status); `lib/features/talk/talk_screen.dart` already uses `WidgetsBindingObserver` (pattern to mirror for foreground). Decision (ORCH, owner-approved 2026-09-13): connectivity = exponential backoff (1 s → 60 s cap) + retry on app foreground — **no new dependency**; `pubspec.yaml` stays frozen.
@@ -6439,15 +6439,16 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 - [ ] Settings → Identity renders the live state and "Register now" re-runs enrolment (widget test); a callsign edit results in `PATCH /v2/identity/callsign` observed against the loopback fake without a restart
 - [ ] `KeryxRadioHost` enrolment ordering test (`directory_enrolment_test.dart`, "Talk-only boot registers before the session starts") still passes unchanged
 - [ ] Full test suite green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-104-s5
+**Started_At:** 2026-09-13T00:00:00Z
+**Progress_Notes:**
+- [2026-09-13T00:00:00Z] [S5] Claimed. Resume check: no S5 in_progress/claimed task found in PLAN.md. Depends_On: none. Branch task/TASK-104-s5 created from master (bd045db, plan v19.0). Next: preflight paths, read dossiers/TASK-104.md if present, then implement (A) relay-baked-in default/migration, (B) registration state machine + app_lifecycle foreground provider, (C) onboarding registering step, (D) Settings identity live status.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-13T06:40:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-13T00:00:00Z
 
 
 ### TASK-105
