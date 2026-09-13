@@ -6566,7 +6566,7 @@ NEW territory except the additive FakeDirectoryServer. Implementing stateful fak
 
 ### TASK-106
 **Title:** Incoming call — auto-join a contact's room when they start talking (receive side)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §4.3 (presence message `{pk, status, talking?, since}` fanned out to every online contact), §5.4 (both peers derive the same 1:1 room id), §6.4; specs/KERYX_v2.0_Design_v1.0.md §2.1 (Talk "current target"), §4 "Receiving". Verified 2026-09-13: `currentTargetProvider` is set only by the user's own selection (`lib/app_shell/mobile_app_shell.dart:101`); nothing reacts to a contact's `talking`; whether the client ever *sends* `talking` on TX is unverified (`PresenceClient` sends `{status}`; check `presence_client.dart` and `token-svc/app/v2_api.py`'s presence handler for a `talking` field before designing). Decision (ORCH, owner-approved): the first two-phone test uses "both select each other" (documented in the runbook); this task removes that requirement.
@@ -6579,15 +6579,32 @@ NEW territory except the additive FakeDirectoryServer. Implementing stateful fak
 - [ ] Talk renders the incoming-call state with the contact's callsign, never the raw pk (UX-FR-026)
 - [ ] The journey test's receive-side step currently has an EMPTY body (TASK-103 review finding — it would pass trivially when un-skipped): author its real body in `journey_two_phones_test.dart` — B has no target, A starts talking, B's `currentTargetProvider` becomes A and `switchTarget` joins the same room id — remove the skip, and it must fail without this task's code (state the mutation you ran in the dossier)
 - [ ] Full test suite green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-106-s5
+**Started_At:** 2026-09-13T18:20:00Z
+**Progress_Notes:**
+- [2026-09-13T18:20:00Z] [S5] Claimed TASK-106. Resume check: no S5 in_progress/claimed task found in PLAN.md; this is the highest-priority pending S5 task, Depends_On (TASK-105, TASK-102, TASK-107) all done. Preflight (c8b9872 filesystem check):
+```
+[preflight] TASK-106 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-s5-walkietalkie-keryx
+[preflight] 11 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  NEW    lib/app_shell/talking_presence.dart  -> does not exist; parent lib/app_shell/ exists
+  NEW    lib/app_shell/incoming_call.dart  -> does not exist; parent lib/app_shell/ exists
+  FILE   lib/app_shell/directory_providers.dart  -> exists, 525 line(s), 23402 bytes
+  FILE   lib/app_shell/talk_screen.dart  -> exists, 53 line(s), 2045 bytes
+  FILE   lib/services/directory/presence_client.dart  -> exists, 289 line(s), 8957 bytes
+  NEW    test/app_shell/talking_presence_test.dart  -> does not exist; parent test/app_shell/ exists
+  NEW    test/app_shell/incoming_call_test.dart  -> does not exist; parent test/app_shell/ exists
+  FILE   test/app_shell/talk_screen_test.dart  -> exists, 86 line(s), 2934 bytes
+  FILE   test/services/directory/presence_client_test.dart  -> exists, 146 line(s), 4908 bytes
+  FILE   test/regression/journey_two_phones_test.dart  -> exists, 510 line(s), 18198 bytes
+  NEW    dossiers/TASK-106.md  -> does not exist; parent dossiers/ exists
+```
+Branch task/TASK-106-s5 created from master (up to date, includes merged TASK-102/104/105/107). Next: read `presence_client.dart`, `directory_providers.dart` (`currentTargetProvider`, `presenceByPeerIdProvider`), `talk_screen.dart`, and the journey test's empty receive-side gate before writing code.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-13T06:40:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-13T18:20:00Z
 
 
 ### TASK-107
