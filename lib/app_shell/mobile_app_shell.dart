@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:keryx/core/presentation/connection_condition.dart';
 import 'package:keryx/core/presentation/talk_target.dart' show TalkTarget;
+import 'package:keryx/core/radio_host/radio_host_contract.dart'
+    show RadioTargetSwitcher;
 import 'package:keryx/core/state/radio_state.dart' show RadioPhase, RadioState;
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
@@ -132,8 +134,23 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
 
   /// Design §1 "Current target": selecting a contact or group anywhere
   /// makes it the current target and switches to Talk.
+  ///
+  /// TASK-108: this used to only update presentation state
+  /// ([currentTargetProvider]) — nothing ever drove the real session to
+  /// join [target]'s room. `RadioTargetSwitcher` (additive, mirrors
+  /// TASK-102's `RadioIdentityReloader`) is the composition root's one call
+  /// site for that; `host` is a plain `Provider` read (not watched) exactly
+  /// like every other host call in this file, so this stays a fire-and-
+  /// forget side effect of selection rather than a rebuild dependency.
   void _selectTarget(TalkTarget target) {
     ref.read(currentTargetProvider.notifier).state = TalkTargetSelection(target);
+    final host = ref.read(radioHostProvider);
+    if (host is RadioTargetSwitcher) {
+      // TASK-102 hit the same gotcha with `RadioIdentityReloader`: Dart
+      // does not promote `host` from the unrelated `RadioHost` type via
+      // this `is` check, so an explicit cast is required.
+      unawaited((host as RadioTargetSwitcher).switchTarget(target));
+    }
     _switchTo(0);
   }
 

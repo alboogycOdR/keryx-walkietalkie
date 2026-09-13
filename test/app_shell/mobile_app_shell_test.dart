@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/app_shell/app_shell.dart';
 import 'package:keryx/core/identity/identity.dart';
+import 'package:keryx/core/presentation/talk_target.dart' show TalkTarget;
+import 'package:keryx/core/radio_host/radio_host_contract.dart' show RadioTargetSwitcher;
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
 import 'package:keryx/features/contacts/contacts_keys.dart' show ContactsKeys;
@@ -36,6 +38,19 @@ import 'shell_harness.dart';
 /// real TLS handshake `runAsync` can never complete. Mirrors the same fix
 /// `regression_shell_harness.dart` already applies for the identical reason:
 /// pre-seed an explicit "user cleared" relay before building the container.
+/// TASK-108: `FakeRadioHost` (shared, not this task's `Owned_Paths`) does
+/// not implement `RadioTargetSwitcher` — this test-local subclass adds it
+/// without touching that shared file, mirroring how `KeryxRadioHost` itself
+/// implements the interface additively alongside `RadioHost`.
+class _TargetSwitchingFakeRadioHost extends FakeRadioHost implements RadioTargetSwitcher {
+  final List<TalkTarget> switchTargetCalls = <TalkTarget>[];
+
+  @override
+  Future<void> switchTarget(TalkTarget target) async {
+    switchTargetCalls.add(target);
+  }
+}
+
 Future<ProviderContainer> _buildClearedRelayContainer(
   DirectoryShellHarness directory, {
   required FakeRadioHost host,
@@ -464,6 +479,68 @@ void main() {
         // refresh, plus Contacts') over the same pooled `dart:io`
         // `HttpClient` — its keep-alive idle timer (default 15 s) outlives
         // the test unless the connection is force-closed explicitly.
+        (await container.read(directoryClientProvider.future))?.close();
+      });
+
+    testWidgets(
+      'selecting a contact drives RadioTargetSwitcher.switchTarget on the '
+      'host when the host supports it (TASK-108 — this used to only set '
+      'presentation state and reach no real session)',
+      (tester) async {
+        givePhoneSurface(tester);
+        final theirKeyPair = await IdentityKeyPair.generate();
+        final theirPk = unpaddedBase64Url(theirKeyPair.publicKey);
+        directory.server.responder = (RecordedDirectoryRequest req) {
+          if (req.method == 'GET' && req.path == '/v2/identity/me') {
+            return DirectoryFakeResponse(
+              statusCode: 200,
+              body: <String, Object?>{
+                'pk': directory.identity.peerId,
+                'callsign': directory.identity.callsign.value,
+                'status': 'available',
+                'contacts': <Object?>[
+                  <String, Object?>{'pk': theirPk, 'callsign': 'ZULU-1', 'status': 'available'},
+                ],
+                'pending_in': <Object?>[],
+                'pending_out': <Object?>[],
+                'groups': <Object?>[],
+              });
+          }
+          return const DirectoryFakeResponse(statusCode: 200, body: <String, Object?>{});
+        };
+
+        final host = _TargetSwitchingFakeRadioHost();
+        final container = await _buildClearedRelayContainer(directory, host: host);
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          directory.pumpWithContainer(container: container, home: const MobileAppShell()));
+        for (var i = 0; i < 4; i++) {
+          await tester.pump();
+        }
+
+        await tester.tap(navDestination('Contacts'));
+        for (var i = 0; i < 4; i++) {
+          await tester.pump();
+        }
+
+        for (var i = 0; i < 15; i++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+          await tester.pump();
+          if (find.byKey(ContactsKeys.contactRow(theirPk)).evaluate().isNotEmpty) break;
+        }
+        expect(find.byKey(ContactsKeys.contactRow(theirPk)), findsOneWidget);
+
+        expect(host.switchTargetCalls, isEmpty);
+        await tester.tap(find.byKey(ContactsKeys.contactRow(theirPk)));
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 1000)));
+        await tester.pump();
+
+        expect(host.switchTargetCalls, hasLength(1));
+        expect(host.switchTargetCalls.single.id, theirPk);
+        expect(host.switchTargetCalls.single.name, 'ZULU-1');
+
+        final presence = await container.read(presenceClientProvider.future);
+        await presence?.stop();
         (await container.read(directoryClientProvider.future))?.close();
       });
 

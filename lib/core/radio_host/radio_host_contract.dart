@@ -1,3 +1,4 @@
+import 'package:keryx/core/presentation/talk_target.dart' show TalkTarget;
 import 'package:keryx/core/settings/settings_repository.dart' show KeryxSettings;
 
 import 'radio_host_snapshot.dart';
@@ -114,4 +115,32 @@ abstract interface class RadioIdentityReloader {
   /// the directory-enrolment chain this triggers resolves the same fresh
   /// identity rather than a stale cached one.
   Future<void> reloadIdentity();
+}
+
+/// v2 (TASK-108, Technical §6.4 "pick current target → start
+/// `RadioSessionController` for that room"; §6.3 "current target" as a
+/// presentation-only value until now): optional capability a [RadioHost]
+/// may support — reach the live `RadioSessionController.switchTarget` that
+/// a bare [currentTargetProvider] write could never drive on its own
+/// (TASK-106's `dossiers/TASK-106.md` investigation: no writer of that
+/// provider ever called `switchTarget`, so selecting a contact joined
+/// nothing).
+///
+/// Same additive-interface shape as [RadioIdentityReloader]
+/// (TASK-102) and `SessionHostEngineEvents` (TASK-107) — deliberately **not**
+/// a member of [RadioHost] itself, so the four `RadioHost` test doubles
+/// outside this task's `Owned_Paths` keep compiling unchanged. [KeryxRadioHost]
+/// implements this in addition to [RadioHost]; a caller that only holds a
+/// bare [RadioHost] checks `host is RadioTargetSwitcher` before calling it.
+abstract interface class RadioTargetSwitcher {
+  /// Switches the active session to [target]'s room via the same
+  /// `RadioSessionController.switchTarget` the journey/regression tests
+  /// already exercise directly — engine re-adoption, floor-effect
+  /// resubscription and the generation guard all come from that existing
+  /// path (TASK-107); this seam does not reimplement any of it.
+  ///
+  /// Never throws — degrades honestly (a no-op) if called before the host
+  /// has a live session yet (still booting), mirroring
+  /// [RadioIdentityReloader.reloadIdentity]'s same guard.
+  Future<void> switchTarget(TalkTarget target);
 }

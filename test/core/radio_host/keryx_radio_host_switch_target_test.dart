@@ -196,4 +196,127 @@ void main() {
       },
     );
   });
+
+  group('KeryxRadioHost.switchTarget (RadioTargetSwitcher, TASK-108)', () {
+    late InProcessSignalingHub sigHub;
+    late FakeRtcAdapter adapter;
+    late RadioSessionController controller;
+    late KeryxRadioHost host;
+    late RadioState state;
+
+    const settings = KeryxSettings(
+      squelchLevel: 5,
+      totSeconds: 120,
+      busyLockout: false,
+      latchMode: false,
+      forceLocalOnly: false,
+      relayUrl: '',
+      tokenServiceUrl: '',
+      characterDspIntensity: CharacterDspIntensity.light,
+      dimMode: DimMode.auto,
+    );
+
+    KeryxRadioHost buildHost() => KeryxRadioHost(
+          sessionFactory: ({
+            required String localPeerId,
+            required String callsign,
+            required KeryxSettings settings,
+            required void Function(RadioEvent event) dispatch,
+          }) {
+            controller = RadioSessionController(
+              localPeerId: localPeerId,
+              callsign: callsign,
+              settings: settings,
+              dispatch: dispatch,
+              endpointFactory: sigHub.endpoint,
+              discoveryFactory: _NoopDiscoveryService.new,
+              rtcAdapter: adapter,
+            );
+            return RadioSessionHostAdapter(controller);
+          },
+          audioSinkFactory: () async => RecordingAudioSink(),
+          audioSinkDisposer: (AudioSink sink) async {},
+          identityFactory: () async => DeviceIdentity(
+            installUuid: 'uuid',
+            peerId: 'ALFA-1',
+            callsign: Callsign.parse('ALFA-1'),
+          ),
+          permissionGateFactory: () => _FakePermissionGate(),
+          radioServiceFactory: () => ChannelRadioServiceController(
+            platform: FakeRadioServicePlatform(),
+          ),
+          loadSettings: () async => settings,
+          dispatch: (RadioEvent event) {
+            state = const RadioReducer().reduce(state, event);
+          },
+          readRadioState: () => state,
+          listenRadioState: (onChange, {bool fireImmediately = false}) {
+            if (fireImmediately) onChange(null, state);
+            return () {};
+          },
+          listenSettings: (onChange) => () {},
+        );
+
+    setUp(() async {
+      state = const RadioState.off();
+      sigHub = InProcessSignalingHub();
+      adapter = FakeRtcAdapter();
+      host = buildHost();
+      await host.start();
+    });
+
+    tearDown(() async {
+      await host.dispose();
+    });
+
+    test(
+      'KeryxRadioHost implements RadioTargetSwitcher and switchTarget '
+      'reaches the real RadioSessionController — engine re-adopts and PTT '
+      'works on the new target, with no separate subscription/guard '
+      'machinery duplicated (reuses TASK-107\'s engineChanges path)',
+      () async {
+        expect(host, isA<RadioTargetSwitcher>());
+        final bootEngine = host.current.floorEngine;
+
+        await (host as RadioTargetSwitcher).switchTarget(
+          const TalkTarget(
+            kind: TalkTargetKind.contact,
+            id: 'bravo-pk',
+            name: 'BRAVO-7',
+            roomId: 'v2-room-rts01',
+          ),
+        );
+        await _flush();
+
+        expect(host.current.floorEngine, same(controller.floorEngine));
+        expect(identical(host.current.floorEngine, bootEngine), isFalse);
+
+        expect(() => host.pressPtt(), returnsNormally);
+        await _flush();
+        expect(controller.floorEngine.isTransmitting, isTrue);
+        expect(state.phase, RadioPhase.tx);
+      },
+    );
+
+    test(
+      'switchTarget before start() (no session yet) is a no-op and never '
+      'throws (mirrors RadioIdentityReloader.reloadIdentity\'s same guard)',
+      () async {
+        host = buildHost();
+        // Deliberately not awaiting host.start() — this host has no
+        // `_session` yet.
+        await expectLater(
+          (host as RadioTargetSwitcher).switchTarget(
+            const TalkTarget(
+              kind: TalkTargetKind.contact,
+              id: 'bravo-pk',
+              name: 'BRAVO-7',
+              roomId: 'v2-room-preboot01',
+            ),
+          ),
+          completes,
+        );
+      },
+    );
+  });
 }
