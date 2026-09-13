@@ -97,6 +97,58 @@ void main() {
     expect(transport.lastSocket!.sent, contains(jsonEncode({'status': 'dnd'})));
   });
 
+  test('setStatus with talking sends {"status":..., "talking":...} together '
+      '(TASK-106: server only processes talking inside the status branch)', () async {
+    makeClient();
+    await client.start();
+
+    client.setStatus(LocalPresenceStatus.available, talking: true);
+
+    expect(
+      transport.lastSocket!.sent,
+      contains(jsonEncode({'status': 'available', 'talking': true})),
+    );
+  });
+
+  test('setTalking defaults to LocalPresenceStatus.available when no status '
+      'was ever set explicitly', () async {
+    makeClient();
+    await client.start();
+
+    client.setTalking(true);
+
+    expect(
+      transport.lastSocket!.sent,
+      contains(jsonEncode({'status': 'available', 'talking': true})),
+    );
+  });
+
+  test('setTalking reuses the most recently set status, not always '
+      'available', () async {
+    makeClient();
+    await client.start();
+    client.setStatus(LocalPresenceStatus.busy);
+
+    client.setTalking(true);
+
+    expect(
+      transport.lastSocket!.sent,
+      contains(jsonEncode({'status': 'busy', 'talking': true})),
+    );
+  });
+
+  test('a talking flag set before connect is queued alongside status and '
+      'sent once connected', () async {
+    makeClient();
+    client.setStatus(LocalPresenceStatus.dnd, talking: false); // before start()
+    await client.start();
+
+    expect(
+      transport.lastSocket!.sent,
+      contains(jsonEncode({'status': 'dnd', 'talking': false})),
+    );
+  });
+
   test('sends a heartbeat every heartbeatInterval', () async {
     makeClient(heartbeatInterval: const Duration(milliseconds: 20));
     await client.start();
