@@ -246,3 +246,14 @@ for `regression_shell_harness.dart`.
 Every other acceptance criterion is met; only this one file (and, if the
 reviewer prefers the "update golden" resolution, its two PNG assets)
 blocks a fully green suite.
+
+## Update 2026-09-13 — settings_golden_test.dart regenerated (ORCH's chosen resolution)
+
+Per ORCH's 2026-09-13T10:35Z decision, regenerated (not reseeded) the two
+Settings goldens: `flutter test test/regression/goldens/settings_golden_test.dart
+--update-goldens` → 2/2, then re-ran clean without the flag → 2/2 pass again
+(determinism confirmed). Visually confirmed both `settings_dark.png` and
+`settings_light.png` now render the new Identity registration-status row with
+its amber "Register now" affordance (screenshots inspected directly — same
+discipline as TASK-058's light-golden fix). `flutter analyze` clean. Full-suite
+evidence appended below once the run completes.
