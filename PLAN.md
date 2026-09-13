@@ -6397,7 +6397,7 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 
 ### TASK-103
 **Title:** Two-phone journey test — the executable definition of "it works" (enrol → request → accept → select → token)
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Verification_v1.0.md §6 (device matrix rows A–I) and R1 Verification §9 ("A scoped mock test is not sufficient evidence for a production wiring change; include a test that exercises the actual composition when the defect concerns wiring"); specs/KERYX_v2.0_Technical_v1.0.md §4.2 (endpoints), §4.3 (presence), §5.4 (1:1 rooms), §6.4 (host boot). Why this task exists (ORCH root-cause, 2026-09-13): four fixes landed one gate at a time (`6f14f3f` enrolment, TASK-100 boot transport, TASK-101 `peer_pk`, `1369f00` refusal copy) and each next gate stayed invisible behind the last because every existing test is fakes-all-the-way-down. Verified-broken gates no test caught: `ContactsController.refreshFromServer()` has ZERO callers in `lib/**` (the receiving phone can never see an incoming request even though `token-svc` `identity_me` returns `pending_in`, `token-svc/app/directory.py:214-226`); `PresenceClient.start()` has ZERO callers (the presence WS never opens); no receive-side auto-join exists. Build on: `test/regression/real_composition_test.dart` (real `KeryxApp`/`radioHostProvider`, five native seams faked), `test/app_shell/directory_enrolment_test.dart` (real `identityEnrolmentProvider` → real `DirectoryClient` → loopback `FakeDirectoryServer`), `test/services/directory/fakes/fake_directory_server.dart` (stateless recorder with a pluggable `responder`), `test/services/linked/fakes/fake_token_server.dart` (`requirePeerPk`).
@@ -6405,12 +6405,12 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 **Depends_On:** —
 **Description:** Build the one test that walks the whole two-phone journey through the REAL client composition, so a regression at any gate is a red test, not a field report. (1) `stateful_directory_fake.dart`: a loopback fake modelling `token-svc`'s real state and refusals for the routes the journey needs — identity table (`POST /v2/identity` idempotent upsert, `PATCH …/callsign`), `GET /v2/identity/me` returning `contacts`/`pending_in`/`pending_out` exactly as `identity_me` does, `POST /v2/contacts/requests` (401 `unknown_identity` / 404 `not_found` / 409 `already_pending`|`already_contacts`), `…/{pk}:accept`, and `POST /token` with the real order `unknown_identity` → `assert_room_member` → `ensure_direct_room(peer_pk)` (`token-svc/app/main.py:153-182`, `groups.py:354-395`) — plugged in as `FakeDirectoryServer.responder`; extend the server only additively so every existing test keeps its stateless default. (2) `journey_harness.dart`: two independent "phones" = two `ProviderContainer`s with their own `InMemorySettingsStore`/identity/`KeryxRadioHost` (native seams faked exactly as `real_composition_test.dart` does), both pointed at the one stateful fake. (3) `journey_two_phones_test.dart`: one `test` per gate, in order, each asserting what the owner would see: A and B boot → both registered (two `POST /v2/identity`); A pastes B's ID → `pending_out` on A; **B refreshes and sees the request** — written honestly today as `skip: 'gate 6 — ContactsController.refreshFromServer() has no callers; un-skip when TASK-105 lands'`; B accepts → both list each other; A selects B → `switchTarget` → `/token` carries `peer_pk`, fake provisions the DirectRoom, `SetTransport(relay)` dispatched; B selects A → same room id (§5.4 symmetry); the receive-side step `skip`ped naming TASK-106. Steps that pass today must pass; steps that cannot are `skip`ped naming the blocking task — never faked green. ORCH un-skips at each later review; the whole file green is the wave's exit gate, and the two-phone runbook is derived from its step names.
 **Acceptance_Criteria:**
-- [ ] `stateful_directory_fake.dart` reproduces the server's refusal order and codes for the routes above, with a fixture-level unit test per refusal
-- [ ] `journey_two_phones_test.dart` drives two real `KeryxRadioHost`s + real `identityEnrolmentProvider`/`DirectoryClient`/`ContactsController`/`RadioSessionController`/`TokenClient` against the fake — only the five native seams are faked; no controller or provider is overridden wholesale
-- [ ] Gates 1–5 and 8 (A boot/register, B boot/register, A sends request, A selects B → `/token` with `peer_pk` → relay) pass today on `master`; gates 6/7 (B sees & accepts) are `skip`ped naming TASK-105; the receive-side step is `skip`ped naming TASK-106
-- [ ] Every existing test that uses `FakeDirectoryServer` is unmodified and still green (additive change only)
-- [ ] Dossier lists, per gate, the exact provider/controller/client exercised and which seam is faked — the map ORCH uses to un-skip
-- [ ] Full test suite green; `flutter analyze` clean
+- [x] `stateful_directory_fake.dart` reproduces the server's refusal order and codes for the routes above, with a fixture-level unit test per refusal
+- [x] `journey_two_phones_test.dart` drives two real `KeryxRadioHost`s + real `identityEnrolmentProvider`/`DirectoryClient`/`ContactsController`/`RadioSessionController`/`TokenClient` against the fake — only the five native seams are faked; no controller or provider is overridden wholesale
+- [x] Gates 1–5 and 8 (A boot/register, B boot/register, A sends request, A selects B → `/token` with `peer_pk` → relay) pass today on `master`; gates 6/7 (B sees & accepts) are `skip`ped naming TASK-105; the receive-side step is `skip`ped naming TASK-106
+- [x] Every existing test that uses `FakeDirectoryServer` is unmodified and still green (additive change only)
+- [x] Dossier lists, per gate, the exact provider/controller/client exercised and which seam is faked — the map ORCH uses to un-skip
+- [x] Full test suite green; `flutter analyze` clean
 **Branch:** task/TASK-103-gb
 **Started_At:** 2026-09-13T06:10:00Z
 **Progress_Notes:**
@@ -6426,12 +6426,23 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 NEW territory except the additive FakeDirectoryServer. Implementing stateful fake + two-phone harness + journey gates.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-13T06:28:00Z] [GB] Journey + refusals green (17 pass / 3 skip). Mutation: dropping `/token` `unknown_identity` turned that test 403 `not_member`, then restored. Full suite +1482 ~43 -0; `flutter analyze --no-pub` No issues found. → needs_review. `da41b60` + `359e04e` on `task/TASK-103-gb`.
+**Artifacts:**
+- test/regression/journey_two_phones_test.dart
+- test/regression/journey_harness.dart
+- test/services/directory/fakes/stateful_directory_fake.dart
+- test/services/directory/fakes/fake_directory_server.dart (additive `callerKeyHeader` getter only)
+- dossiers/TASK-103.md
+**Test_Evidence:**
+- [2026-09-13T06:28:00Z] [GB] `flutter test --no-pub test/regression/journey_two_phones_test.dart` → +17 ~3 -0 (skips: gate 6/7 TASK-105, receive-side TASK-106).
+- [2026-09-13T06:28:00Z] [GB] `flutter test --no-pub test/services/directory/` → +18 -0 (existing FakeDirectoryServer consumers unmodified).
+- [2026-09-13T06:28:00Z] [GB] `flutter test --no-pub` (full) → +1482 ~43 -0, All tests passed! (1458/40 baseline + 17/3 this task; extra pass count vs 1458+17 is soak/reporter arithmetic, zero failures).
+- [2026-09-13T06:28:00Z] [GB] `flutter analyze --no-pub` → No issues found (19.6s).
+- [2026-09-13T06:25:00Z] [GB] Revert-mutation: skip `_mintToken` unknown_identity check → `POST /token refuses 401 unknown_identity first` threw 403 `not_member`; restored.
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-13T06:12:00Z
+**Updated_At:** 2026-09-13T06:28:00Z
 
 
 ### TASK-104
