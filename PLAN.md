@@ -1,8 +1,10 @@
 ---
-plan_version: 18.1
-last_updated: 2026-09-12T23:05:00Z
+plan_version: 18.2
+last_updated: 2026-09-13T05:55:00Z
 overall_status: in_progress
-orchestrator_notes: "**MERGED-TREE VERIFICATION 2026-09-12T23:05Z (post-TASK-101 merge `82a757c`).** ORCH re-ran on `master` itself: `flutter test --no-pub` → **1458 passed / 40 skipped / 0 failed**, exit 0, "All tests passed!" — identical to the branch run, so the merge introduced no cross-package regression; `flutter analyze --no-pub` → **No issues found** (13.4s).
+orchestrator_notes: "**2026-09-13T05:55Z — owner's two-phone retest on the TASK-101 build: relay boot telltale gone (correct), but contact-add still 'Couldn't send that request.'** Server `send_request` (`token-svc/app/directory.py:105-133`) can refuse for six reasons and the client collapsed all of them into one sentence; most likely here is 404 `not_found` = the OTHER phone is not registered (its settings were wiped on reinstall, no Relay URL → enrolment `notApplicable`). Direct ORCH commit (contacts copy + tab): every refusal now renders its own actionable line (`ContactsCopy.requestRefused`), unknown codes append the raw code — the same honesty the relay path got. Owner's question 'does registration happen after the KERYX ID is created?' — verified: YES on first run (`onboarding_gate.dart:124` builds the shell, and thus the host boot + enrolment, only at `_GateStage.done`); NO for Settings → Restore / rename — the running app is never re-enrolled or re-keyed (`identityProvider` has zero invalidation sites; host `_identity` is boot-time only) → **TASK-102 created (TBD, high)** with both fix shapes laid out. Relay retest instructions sent with the build: both phones need this build + Relay URL set + app reopened before adding each other.
+
+**MERGED-TREE VERIFICATION 2026-09-12T23:05Z (post-TASK-101 merge `82a757c`).** ORCH re-ran on `master` itself: `flutter test --no-pub` → **1458 passed / 40 skipped / 0 failed**, exit 0, "All tests passed!" — identical to the branch run, so the merge introduced no cross-package regression; `flutter analyze --no-pub` → **No issues found** (13.4s).
 
 **TASK-101 APPROVED + MERGED 2026-09-12T22:45Z as `82a757c`; branch `task/TASK-101-gb` deleted, wt-grok detached at `30b4af6`.** Territory clean (14 files, all in Owned_Paths; `lib/core/rooms/**` untouched); dossier and preflight both present. ORCH-independent branch runs: analyze 0, full suite **1458 passed / 0 failed / 40 skipped** (+12 over the 1446 TASK-100 baseline), matching GB's evidence exactly. `talk_target.dart` changed doc-only — GB proved `TalkTarget.id` already is `ContactRowVm.pk` and added no field, as the task required. ORCH revert-mutation (`peerPublicKey: null`) turned `radio_session_controller_test.dart:1092` red, so the peer_pk test genuinely bites; TASK-100's zero-token-request boot test still passes. **Nothing in the plan depends on TASK-101** — no `Depends_On: TASK-101` anywhere; it was the last client-side server-contract gap for relay voice between two contacts, so the next move is hardware acceptance on the owner's two phones, not more code.
 
@@ -6362,3 +6364,30 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 **Blocked_Reason:** —
 **Updated_By:** GB
 **Updated_At:** 2026-09-12T21:50:00Z
+
+
+### TASK-102
+**Title:** Settings → Restore from phrase / callsign rename never re-enrols or re-keys the running app
+**Status:** pending
+**Assigned_To:** TBD
+**Priority:** high
+**Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §3.2 (recovery phrase restore "Replaces this KERYX ID"), §4.2 (`POST /v2/identity`, `PATCH /v2/identity/callsign`), §6.4 (identity is loaded at host boot). Verified at source 2026-09-13: `lib/features/settings/settings_screen.dart:243-260` — Restore writes `restoreKeyPair` + `setCallsign` to the identity store, then only `setState` + a snackbar; `lib/app_shell/directory_providers.dart` — `identityProvider` is a plain memoised `FutureProvider` with **zero** `invalidate`/`refresh` call sites anywhere in `lib/**` (repo-wide grep), so `identityEnrolmentProvider`, `directoryClientProvider`, `presenceClientProvider`, `contactsControllerProvider`, `groupsControllerProvider` all keep the PRE-restore identity/key; `lib/core/radio_host/keryx_radio_host.dart:203,258` — `_identity` is loaded once in `_bootInternal` and never reloaded (no identity-change path exists on the host); `lib/services/session/radio_session_controller.dart` — its default signer loader re-reads storage per LINKED start, so after a restore `/token` is signed with the NEW key while enrolment/directory/presence still use the OLD one (mixed identity until the app is killed). Contrast: the first-run path is correct — `lib/app_shell/onboarding_gate.dart:124-125` only builds `MobileAppShell` (whose `initState`, `mobile_app_shell.dart:78-79`, boots the host) at `_GateStage.done`, i.e. after the key and callsign are written, so boot-time enrolment registers the right identity. A callsign rename in Settings has the same shape: the directory only learns the new name at the next app start (via `identityEnrolmentProvider`'s `identity_exists` → `patchCallsign` path, `6f14f3f`).
+**Owned_Paths:** lib/features/settings/settings_screen.dart, lib/features/settings/settings_copy.dart, lib/app_shell/directory_providers.dart, lib/app_shell/radio_host_provider.dart, lib/core/radio_host/keryx_radio_host.dart, lib/core/radio_host/radio_host_contract.dart, test/features/settings/**, test/app_shell/directory_enrolment_test.dart, test/app_shell/directory_providers_test.dart, test/core/radio_host/**, dossiers/TASK-102.md
+**Depends_On:** —
+**Description:** Decide and implement one identity-change contract. Two defensible shapes — pick one with the reasoning in the dossier, do not do both: (A) **restart-required**: after a successful Restore (and rename), Settings tells the user the app must be reopened to use the restored ID and offers/forces it — smallest change, honest, matches how the first-run path already works, but leaves a window where the running app is in mixed-identity state; or (B) **live re-key**: `RadioHost` gains an explicit `reloadIdentity()` (contract change in `radio_host_contract.dart`) that reloads identity, invalidates the enrolment/directory chain (`ref.invalidate(identityProvider)` from the composition root, cascading to every dependent provider) and rebuilds the session through the existing `_startSession` path (which already awaits enrolment first), so enrolment/directory/presence/`/token` all move to the new key together with no restart. (B) is the better product but touches the frozen-adjacent host contract and every provider consumer; (A) is acceptable if the dossier records why. Either way the callsign-rename path must also re-enrol (the `identity_exists` → `patchCallsign` route already exists in `identityEnrolmentProvider`; it just needs to be triggered). Never leave the app signing with one key while enrolled under another.
+**Acceptance_Criteria:**
+- [ ] After Settings → Restore, the app's enrolment, directory client, presence client and `/token` signer all use the restored key — proven by a test that restores, then asserts the next `POST /v2/identity` (real `identityEnrolmentProvider` + `FakeDirectoryServer`, same harness as `directory_enrolment_test.dart`) carries the NEW public key and that no directory call is made with the old one afterwards; for shape (A) the test instead proves the restart-required state is entered and the pre-restart app makes no further directory calls
+- [ ] After a callsign rename in Settings, the directory is told (`PATCH /v2/identity/callsign` observed) without requiring an app restart — or, for shape (A), the same restart contract applies and is stated in the UI
+- [ ] No mixed-identity window: a test proves a `/token` request cannot be signed with a key that differs from the one enrolment last registered
+- [ ] First-run ordering unchanged: `onboarding_gate` → shell → boot → enrol (existing `directory_enrolment_test.dart` ordering test still passes)
+- [ ] Dossier records which shape was chosen and why
+- [ ] Full test suite green; `flutter analyze` clean
+**Branch:** —
+**Started_At:** —
+**Progress_Notes:** —
+**Artifacts:** —
+**Test_Evidence:** —
+**Review_Findings:** —
+**Blocked_Reason:** —
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-13T05:55:00Z
