@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/core/floor/clock.dart';
+import 'package:keryx/core/floor/effects.dart';
 import 'package:keryx/core/floor/floor_engine.dart';
 import 'package:keryx/core/presentation/talk_target.dart';
 import 'package:keryx/core/presentation/telemetry.dart';
@@ -1163,6 +1164,96 @@ void main() {
           await expectCode(403, 'not_contacts');
           await expectCode(409, 'room_conflict');
         });
+
+      test('engineChanges emits the new engine on switchTarget', () async {
+        final controller = RadioSessionController(
+          localPeerId: 'ALFA-1',
+          callsign: 'Alice',
+          settings: settingsLocal,
+          dispatch: dispatchedEvents.add,
+          discoveryFactory: _NoopDiscoveryService.new,
+        );
+        await controller.start();
+        final boot = controller.floorEngine;
+        final adopted = <FloorEngine>[];
+        final sub = controller.engineChanges.listen(adopted.add);
+
+        await controller.switchTarget(
+          const TalkTarget(
+            kind: TalkTargetKind.contact,
+            id: 'p-swap',
+            name: 'Swap',
+            roomId: 'v2-room-swap01',
+          ),
+          memberPeerIds: const [],
+        );
+        await _flush();
+
+        expect(adopted, hasLength(1));
+        expect(adopted.single, same(controller.floorEngine));
+        expect(identical(controller.floorEngine, boot), isFalse);
+        expect(() => boot.requestTransmit(), throwsStateError);
+
+        await sub.cancel();
+        await controller.dispose();
+      });
+
+      test(
+        'switchTarget while TX is held releases the old engine first — '
+        'phase leaves tx before the new engine is adopted, no disposed-engine '
+        'call',
+        () async {
+          final controller = RadioSessionController(
+            localPeerId: 'ALFA-1',
+            callsign: 'Alice',
+            settings: settingsLocal,
+            dispatch: dispatchedEvents.add,
+            discoveryFactory: _NoopDiscoveryService.new,
+          );
+          await controller.start();
+          controller.floorEngine.updateRoster({'ALFA-1'});
+          controller.floorEngine.requestTransmit();
+          expect(controller.floorEngine.isTransmitting, isTrue);
+          expect(dispatchedEvents.whereType<TransmitGranted>(), isNotEmpty);
+
+          final boot = controller.floorEngine;
+          final timeline = <String>[];
+          boot.effects.listen((effect) {
+            if (effect is DispatchRadio && effect.event is EndTransmit) {
+              timeline.add('old-end-tx');
+            }
+          });
+          final sub = controller.engineChanges.listen((engine) {
+            timeline.add('adopted');
+            expect(
+              boot.isTransmitting,
+              isFalse,
+              reason: 'old engine must have left tx before the new adopt',
+            );
+            expect(identical(engine, boot), isFalse);
+          });
+
+          dispatchedEvents.clear();
+          await controller.switchTarget(
+            const TalkTarget(
+              kind: TalkTargetKind.contact,
+              id: 'p-tx',
+              name: 'TxHeld',
+              roomId: 'v2-room-txhold1',
+            ),
+            memberPeerIds: const [],
+          );
+          await _flush();
+
+          expect(timeline, ['old-end-tx', 'adopted']);
+          expect(dispatchedEvents.whereType<EndTransmit>(), isNotEmpty);
+          expect(() => boot.requestTransmit(), throwsStateError);
+          expect(controller.floorEngine.isTransmitting, isFalse);
+
+          await sub.cancel();
+          await controller.dispose();
+        },
+      );
     });
 
     // TASK-097: session establishment must be bounded — see the class's

@@ -457,6 +457,54 @@ void main() {
     );
 
     test(
+      'gate PTT-after-select — A presses and releases PTT after selecting B; '
+      'no throw, host engine is the controller engine, TX phase observed',
+      () async {
+        await harness.phoneA.boot();
+        await harness.phoneB.boot();
+        harness.directory.seedContact(harness.phoneA.pk, harness.phoneB.pk);
+
+        final roomId = await deriveDirectRoom(
+          myKeyPair: harness.phoneA.identity.keyPair!,
+          theirEdwardsPublicKey: harness.phoneB.identity.keyPair!.publicKey,
+        );
+        await harness.phoneA.session.switchTarget(
+          TalkTarget(
+            kind: TalkTargetKind.contact,
+            id: harness.phoneB.pk,
+            name: 'BRAVO-7',
+            roomId: roomId,
+            memberPeerIds: const [],
+          ),
+          memberPeerIds: const [],
+        );
+        for (var i = 0; i < 8; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+
+        final host = harness.phoneA.radioHost;
+        expect(
+          host.current.floorEngine,
+          same(harness.phoneA.session.floorEngine),
+        );
+
+        expect(() => host.pressPtt(), returnsNormally);
+        for (var i = 0; i < 8; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        expect(harness.phoneA.session.floorEngine.isTransmitting, isTrue);
+        expect(harness.phoneA.radioState.phase, RadioPhase.tx);
+
+        expect(() => host.releasePtt(), returnsNormally);
+        for (var i = 0; i < 8; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        expect(harness.phoneA.session.floorEngine.isTransmitting, isFalse);
+        expect(harness.phoneA.radioState.phase, isNot(RadioPhase.tx));
+      },
+    );
+
+    test(
       'receive-side — B hears A without selecting A',
       () async {},
       skip:

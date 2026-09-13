@@ -107,6 +107,8 @@ class JourneyPhone {
 
   RadioState get radioState => container.read(radioStateProvider);
 
+  RadioHost get radioHost => container.read(radioHostProvider);
+
   static Future<JourneyPhone> open({
     required String label,
     required String callsign,
@@ -203,16 +205,7 @@ class JourneyPhone {
             },
           );
           ref.onDispose(() {
-            unawaited(() async {
-              try {
-                await host.dispose();
-              } on Object {
-                // `switchTarget` tears down the boot-time LOCAL engine;
-                // the host still holds that reference and
-                // `releaseTransmit` then throws. Out of this task's
-                // territory (`lib/core/radio_host/**`).
-              }
-            }());
+            unawaited(host.dispose());
           });
           return host;
         }),

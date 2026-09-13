@@ -165,6 +165,10 @@ class RadioSessionController {
 
   // --- shared -----------------------------------------------------------
   FloorEngine? _floorEngine;
+  // sync: host must re-adopt on the same turn as `_adoptEngine` so
+  // switchTarget's subsequent stations emit and a same-turn PTT/dispose
+  // hit the new engine, not the torn-down boot engine.
+  final _engineChanges = StreamController<FloorEngine>.broadcast(sync: true);
   RadioStateBridge? _bridge;
   StreamSubscription<PeerSession>? _joinedSub;
   StreamSubscription<PeerSession>? _departedSub;
@@ -215,6 +219,12 @@ class RadioSessionController {
     }
     return engine;
   }
+
+  /// Emits the newly adopted [FloorEngine] from every [_adoptEngine]
+  /// (boot [start] and every [switchTarget]). Does not replay; a listener
+  /// attached after [start] still reads the current engine via
+  /// [floorEngine] and only sees subsequent rebuilds here.
+  Stream<FloorEngine> get engineChanges => _engineChanges.stream;
 
   /// Remote stations currently visible on the tuned channel. Empty until a
   /// LOCAL chain's signaling reports at least one joined peer — see the
@@ -288,6 +298,7 @@ class RadioSessionController {
     await _teardownActive();
     await _stations.close();
     await _meterLevelController.close();
+    await _engineChanges.close();
   }
 
   // --- transport policy ---------------------------------------------------
@@ -469,6 +480,7 @@ class RadioSessionController {
       _joinedSub = signaling.sessionsJoined.listen(_onPeerJoined);
       _departedSub = signaling.sessionsDeparted.listen(_onPeerDeparted);
     }
+    if (!_engineChanges.isClosed) _engineChanges.add(engine);
   }
 
   void _onPeerJoined(PeerSession session) {
@@ -588,6 +600,10 @@ class RadioSessionController {
   // --- teardown ---------------------------------------------------------
 
   Future<void> _teardownActive() async {
+    // Release in-flight local TX/latch while RadioStateBridge is still
+    // subscribed, so EndTransmit reaches RadioState before the engine is
+    // disposed. A disposed engine must never be the one holding the floor.
+    _floorEngine?.releaseTransmit();
     await _meterTrackSub?.cancel();
     _meterTrackSub = null;
     _stopMeterPolling();
