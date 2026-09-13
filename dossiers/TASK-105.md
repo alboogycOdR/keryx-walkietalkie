@@ -213,3 +213,79 @@ failure; everything else is green.
   untouched.
 - [x] Full suite green except the one named, out-of-territory,
   root-caused issue.
+
+## Round 2 (rework) — 2026-09-13
+
+**Preflight:** `ls -la lib/app_shell/{contacts_tab_screen,presence_bootstrap,
+contacts_sync,mobile_app_shell}.dart lib/features/contacts/
+contacts_list_controller.dart lib/core/contacts/contacts_controller.dart
+test/app_shell/{contacts_tab_screen,mobile_app_shell,presence_bootstrap,
+contacts_sync}_test.dart test/regression/real_composition_test.dart
+dossiers/TASK-105.md` — all present, all within `Owned_Paths` (as expanded
+by ORCH's round-1 review to include `test/regression/real_composition_test.dart`).
+
+Three blocking items from round 1, all closed:
+
+1. **`real_composition_test.dart` G3, re-diagnosed correctly this time.**
+   ORCH's traceback was right: `ContactsTabScreen`'s tab-open `load()` (this
+   task's own new trigger) starts a real `DirectoryClient` socket call the
+   moment the Contacts tab is tapped, and a bare `pumpAndSettle()` runs
+   inside `flutter_test`'s fake-async zone, which can never service that
+   real `dart:io` I/O — `DirectoryClient._send`'s 10 s timeout `Timer` was
+   still pending when the test returned. Fixed by polling with
+   `tester.runAsync(() => Future.delayed(...))` + `tester.pump()` after the
+   tab tap (identical shape to `mobile_app_shell_test.dart`'s own "real
+   directory backend" group, which this task's round-1 already fixed for
+   the same underlying reason), and by explicitly closing both
+   `directoryClient` and `presenceClient` in the test body before it
+   returns (an `addTearDown`-registered close runs *after*
+   `flutter_test`'s pending-timer invariant check, so it can't rescue a
+   still-pending `Timer` on its own — learned the hard way in item 2/3
+   below too). The documented one-liner from round 1
+   (pre-seed a cleared relay) was **not** applied — ORCH had already shown
+   it wouldn't fix this file, since G3 overrides `directoryClientProvider`
+   directly.
+2. **The end-to-end foreground-retry test now exists**:
+   `mobile_app_shell_test.dart`'s new "real directory backend" case builds
+   its own `ProviderContainer` overriding `directoryBaseUriResolverProvider`
+   (the seam `identityEnrolmentProvider` actually uses — it does *not* read
+   the `directoryClientProvider` override the other two tests in that group
+   rely on) to point at a real `FakeDirectoryServer`. First `POST
+   /v2/identity` returns 503 (→ `RegistrationFailed`, not
+   `RegistrationOffline`, since the response carries a real status code —
+   both are retried identically by `_applyEnrolment`); then a pause/resume
+   cycle exercises `_onForeground`'s reset-and-retry with the responder now
+   succeeding; the test asserts `RegistrationRegistered` is reached and
+   `SettingsScreen` was never built. Only `MobileAppShell` is ever pumped —
+   Settings/onboarding are never opened, closing the exact gap ORCH named.
+3. **The 30 s periodic-timer-fires-a-refresh test now exists** in
+   `contacts_sync_test.dart`. The fix ORCH suggested (pump past the
+   interval from the state the third test already reaches) needed one
+   addition: `ContactsSync`'s `Timer.periodic` lives in `flutter_test`'s
+   fake-async zone, so only `tester.pump(contactsSyncInterval + slack)`
+   actually fires the callback — but the callback's own body is a real
+   socket round trip, which only `runAsync` can drive to completion.
+   Neither tool alone does both; fire the fake clock first, then poll with
+   real `runAsync` delays for the request to land.
+
+**A new pending-timer wrinkle in item 2's test, not seen before**:
+registration succeeding also arms `presenceBootstrapProvider` (real
+reconnect-backoff `Timer`) and re-triggers `ContactsSync`'s own foreground
+refresh/timer — and disposing the `ProviderContainer` only via
+`addTearDown` runs *after* the pending-timer check, same lesson as item 1.
+Fixed by calling `container.dispose()` directly in the test body (after
+stopping presence and closing the directory client), not through
+`addTearDown`.
+
+**Test evidence, round 2:** `flutter analyze --no-pub` → No issues found.
+`flutter test --no-pub --concurrency=2` → **1514 passed / 43 skipped / 0
+failed**, exit 0. `test/regression/real_composition_test.dart` alone: 6/6
+green (G3 included). `test/app_shell/contacts_sync_test.dart` alone: 4/4
+green (new periodic-timer test included). `test/app_shell/
+mobile_app_shell_test.dart` alone: 18/18 green (new foreground-retry test
+included).
+
+**Territory:** same four `Owned_Paths` test files touched as round 1 plus
+`test/regression/real_composition_test.dart` (added to `Owned_Paths` by
+ORCH at review); no `lib/**` files touched this round — every fix was test
+scaffolding around round 1's own already-correct production code.
