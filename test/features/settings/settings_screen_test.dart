@@ -52,11 +52,20 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    host = ReconstructingFakeHost(settings);
     store = InMemorySettingsStore();
     await store.write(
       SettingsRepository.storageKey,
       jsonEncode(settings.toJson()));
+    // TASK-104: seed the fake host with what `settingsProvider` will
+    // actually load, not the raw `settings` parameter verbatim — an empty,
+    // never-cleared `relayUrl` now migrates to the baked-in default on
+    // every `SettingsRepository.load()`. Without this the host's
+    // `sessionAffectingFieldsChanged` baseline (`relayUrl: ''`) disagreed
+    // with the real loaded settings (`relayUrl: <baked-in>`) on the very
+    // first `applySettings` call, reconstructing on an unrelated
+    // (non-session-affecting) change.
+    final KeryxSettings resolvedSettings = await SettingsRepository(store).load();
+    host = ReconstructingFakeHost(resolvedSettings);
     identityStore = MemoryIdentityStore(<String, String>{
       IdentityRepository.uuidKey: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
       IdentityRepository.callsignKey: 'BRAVO-7',
@@ -360,6 +369,42 @@ void main() {
           matching: find.textContaining('v2.1')),
         findsWidgets);
     });
+  });
+
+  group('TASK-104 — Identity: registration status', () {
+    testWidgets(
+      'Identity shows a live, non-empty registration status, and a Register '
+      'now action while not registered',
+      (tester) async {
+        await pumpSettings(tester);
+
+        final statusRow = find.byKey(const Key('settings.registration-status'));
+        expect(statusRow, findsOneWidget);
+
+        // No relay override configured in this fixture beyond the baked-in
+        // default; the real identityEnrolmentProvider/DirectoryClient chain
+        // runs (no seam is overridden here, mirroring the rest of this
+        // file's "real backend" tests), and every HTTP request under
+        // TestWidgetsFlutterBinding resolves fast to a stub 400 — so the
+        // status settles to something other than "Registering…" without a
+        // real network round trip. Assert the row renders *some* resolved,
+        // non-blank status rather than a specific string, since the exact
+        // failure/offline wording is directory_providers_test.dart's own
+        // territory to pin down.
+        final Text statusText = tester.widget<Text>(
+          find.descendant(of: statusRow, matching: find.byType(Text)).last,
+        );
+        expect(statusText.data, isNotEmpty);
+
+        // Not registered (no real directory backend here) — "Register now"
+        // is offered, and tapping it does not throw.
+        final registerNow = find.byKey(const Key('settings.register-now'));
+        expect(registerNow, findsOneWidget);
+        await tester.tap(find.descendant(of: registerNow, matching: find.byType(TextButton)).first);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 
   group('TASK-093 — Connectivity: Prefer direct on Wi-Fi', () {

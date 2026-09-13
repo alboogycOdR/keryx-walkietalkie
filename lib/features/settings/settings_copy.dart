@@ -92,6 +92,19 @@ abstract final class SettingsCopy {
   static const String callsignInvalid =
       'Callsign must be 2–12 letters, digits or hyphens.';
 
+  static const String registrationStatusLabel = 'Registration';
+  static const String registrationStatusDescription =
+      'Whether this KERYX ID is registered with the relay so contacts and '
+      'presence work.';
+  static const String registrationStatusUnregistered = 'No relay configured';
+  static const String registrationStatusInProgress = 'Registering…';
+  static const String registrationStatusOffline =
+      'Offline — will register automatically when connected';
+  static const String registrationStatusFailedPrefix = 'Failed: ';
+  static String registrationStatusRegistered(String displayId) =>
+      'Registered as $displayId';
+  static const String registerNowAction = 'Register now';
+
   static const String showRecoveryPhraseLabel = 'Show recovery phrase';
   static const String showRecoveryPhraseDescription =
       'The 12 words that are the only way to get your KERYX ID back. Kept '

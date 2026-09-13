@@ -42,7 +42,31 @@ class KeryxSettings {
 
   /// Deployment defaults for field-test builds. A saved, non-empty value wins;
   /// a blank or invalid persisted value falls back to these definitions.
+  ///
+  /// Deliberately still empty by construction default — countless call
+  /// sites across the app (this task's own `Owned_Paths` excluded) build a
+  /// bare `const KeryxSettings()` expecting "no relay configured" (LOCAL
+  /// only); baking a non-empty value in here would silently flip every one
+  /// of those to attempt a LINKED session (confirmed: it broke
+  /// `keryx_radio_host_test.dart` and `radio_session_host_v2_test.dart`,
+  /// both outside this task's territory, the first time this was tried).
+  /// [relayUrlBakedIn] carries the real TASK-104 default instead, applied
+  /// only at the `SettingsRepository.load()` persistence boundary.
   static const relayUrlDefault = String.fromEnvironment('KERYX_RELAY_URL');
+
+  /// TASK-104 (owner requirements 2026-09-13): "the server relay address
+  /// baked into the settings — the user is not going to know it." Applied
+  /// by `SettingsRepository.load()` — never by [KeryxSettings]'s own
+  /// constructor default (see [relayUrlDefault]) — so a fresh install
+  /// (and a pre-existing install with an unconfigured relay) works with
+  /// zero Settings interaction, while every direct `KeryxSettings()`
+  /// construction elsewhere is unaffected. `--dart-define
+  /// KERYX_RELAY_URL=...` still overrides it for a self-hosted/dev build.
+  /// A proper domain replaces this literal once one exists.
+  static const relayUrlBakedIn = String.fromEnvironment(
+    'KERYX_RELAY_URL',
+    defaultValue: 'wss://204-168-249-99.sslip.io',
+  );
   static const tokenServiceUrlDefault = String.fromEnvironment(
     'KERYX_TOKEN_URL',
   );
@@ -60,6 +84,7 @@ class KeryxSettings {
     this.voxSensitivity = voxSensitivityDefault,
     this.voxHangTimeMs = voxHangTimeMsDefault,
     this.relayUrl = relayUrlDefault,
+    this.relayUrlUserCleared = false,
     this.tokenServiceUrl = tokenServiceUrlDefault,
     this.preferDirectOnWifi = preferDirectOnWifiDefault,
     this.messageRetentionDays = messageRetentionDaysDefault,
@@ -102,8 +127,18 @@ class KeryxSettings {
   /// FR-024 VOX hang-time in milliseconds. Persisted now; the feature is later.
   final int voxHangTimeMs;
 
-  /// WebSocket relay endpoint. An empty value means the relay is unconfigured.
+  /// WebSocket relay endpoint. An empty value means the relay is unconfigured
+  /// — unless [relayUrlUserCleared] is also true, empty here is honoured
+  /// literally (see [relayUrlUserCleared]).
   final String relayUrl;
+
+  /// TASK-104: true once the user has explicitly cleared the relay override
+  /// (saved it empty) at least once. While true, [relayUrl]'s empty value is
+  /// never resurrected back to [relayUrlDefault] on load — distinguishing a
+  /// deliberate clear from a pre-existing/legacy blob that simply never had
+  /// a relay configured, which *does* fall back to the baked-in default.
+  /// Flips back to false the moment the user saves a non-empty relay again.
+  final bool relayUrlUserCleared;
 
   /// Optional token-service endpoint. When empty, [resolvedTokenServiceUrl]
   /// derives it from [relayUrl].
@@ -147,6 +182,7 @@ class KeryxSettings {
     int? voxSensitivity,
     int? voxHangTimeMs,
     String? relayUrl,
+    bool? relayUrlUserCleared,
     String? tokenServiceUrl,
     bool? preferDirectOnWifi,
     int? messageRetentionDays,
@@ -163,6 +199,7 @@ class KeryxSettings {
     voxSensitivity: voxSensitivity ?? this.voxSensitivity,
     voxHangTimeMs: voxHangTimeMs ?? this.voxHangTimeMs,
     relayUrl: relayUrl ?? this.relayUrl,
+    relayUrlUserCleared: relayUrlUserCleared ?? this.relayUrlUserCleared,
     tokenServiceUrl: tokenServiceUrl ?? this.tokenServiceUrl,
     preferDirectOnWifi: preferDirectOnWifi ?? this.preferDirectOnWifi,
     messageRetentionDays: messageRetentionDays ?? this.messageRetentionDays,
@@ -181,6 +218,7 @@ class KeryxSettings {
     'voxSensitivity': voxSensitivity,
     'voxHangTimeMs': voxHangTimeMs,
     'relayUrl': relayUrl,
+    'relayUrlUserCleared': relayUrlUserCleared,
     'tokenServiceUrl': tokenServiceUrl,
     'preferDirectOnWifi': preferDirectOnWifi,
     'messageRetentionDays': messageRetentionDays,
@@ -191,6 +229,7 @@ class KeryxSettings {
   /// wipe the rest of the user's configuration. Unknown v1 keys
   /// (`mode`, `region`, `channelMemory`) are ignored.
   factory KeryxSettings.fromJson(Map<String, Object?> json) {
+    final userCleared = _asBool(json['relayUrlUserCleared'], false);
     return KeryxSettings(
       squelchLevel: _clampInt(
         json['squelchLevel'],
@@ -231,11 +270,17 @@ class KeryxSettings {
         max: voxHangTimeMsMax,
         fallback: voxHangTimeMsDefault,
       ),
-      relayUrl: _asEndpoint(
-        json['relayUrl'],
-        fallback: relayUrlDefault,
-        allowedSchemes: const {'wss'},
-      ),
+      relayUrl: userCleared
+          ? _asClearableEndpoint(
+              json['relayUrl'],
+              allowedSchemes: const {'wss'},
+            )
+          : _asEndpoint(
+              json['relayUrl'],
+              fallback: relayUrlBakedIn,
+              allowedSchemes: const {'wss'},
+            ),
+      relayUrlUserCleared: userCleared,
       tokenServiceUrl: _asEndpoint(
         json['tokenServiceUrl'],
         fallback: tokenServiceUrlDefault,
@@ -288,6 +333,23 @@ String _asEndpoint(
   final uri = Uri.tryParse(candidate);
   if (uri == null || uri.host.isEmpty || !allowedSchemes.contains(uri.scheme)) {
     return fallback;
+  }
+  return candidate;
+}
+
+/// TASK-104: like [_asEndpoint], but for a field the user has explicitly
+/// cleared — an empty/missing value is honoured as empty (never resurrected
+/// to a deployment default); only a non-empty value still gets validated,
+/// falling back to empty (not the default) if it is malformed.
+String _asClearableEndpoint(
+  Object? value, {
+  required Set<String> allowedSchemes,
+}) {
+  if (value is! String || value.trim().isEmpty) return '';
+  final candidate = value.trim();
+  final uri = Uri.tryParse(candidate);
+  if (uri == null || uri.host.isEmpty || !allowedSchemes.contains(uri.scheme)) {
+    return '';
   }
   return candidate;
 }

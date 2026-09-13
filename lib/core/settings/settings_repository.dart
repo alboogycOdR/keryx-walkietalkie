@@ -27,12 +27,22 @@ class SettingsRepository {
   /// Emits after every successful [save].
   Stream<KeryxSettings> get changes => _changes.stream;
 
+  /// No usable persisted blob at all (fresh install, corrupt/non-map JSON,
+  /// or a decode exception) — every one of those cases carries the
+  /// TASK-104 baked-in relay default, same as [KeryxSettings.fromJson]
+  /// does for a *present-but-empty/unconfigured* `relayUrl` key. Only an
+  /// explicit user clear (`relayUrlUserCleared`) is ever exempt, and that
+  /// requires a stored blob to exist in the first place.
+  static const _freshInstallDefaults = KeryxSettings(
+    relayUrl: KeryxSettings.relayUrlBakedIn,
+  );
+
   Future<KeryxSettings> load() async {
     final encoded = await _store.read(storageKey);
-    if (encoded == null || encoded.isEmpty) return const KeryxSettings();
+    if (encoded == null || encoded.isEmpty) return _freshInstallDefaults;
     try {
       final decoded = jsonDecode(encoded);
-      if (decoded is! Map) return const KeryxSettings();
+      if (decoded is! Map) return _freshInstallDefaults;
       return KeryxSettings.fromJson(Map<String, Object?>.from(decoded));
     } on Object catch (error, stackTrace) {
       developer.log(
@@ -41,7 +51,7 @@ class SettingsRepository {
         error: error,
         stackTrace: stackTrace,
       );
-      return const KeryxSettings();
+      return _freshInstallDefaults;
     }
   }
 
@@ -54,6 +64,16 @@ class SettingsRepository {
   }
 
   Future<KeryxSettings> _saveUnlocked(KeryxSettings settings) async {
+    // TASK-104: `relayUrlUserCleared` is trusted verbatim from `settings`,
+    // never re-derived from `relayUrl.isEmpty` here. Deriving it from
+    // emptiness alone looked right in isolation but fires on *every* save
+    // that happens to carry an already-empty, untouched `relayUrl` — e.g.
+    // toggling an unrelated field while the relay was never configured —
+    // wrongly marking that as a deliberate clear (confirmed: it broke
+    // `settings_apply_test.dart`'s and `settings_screen_test.dart`'s
+    // session-affecting-field round-trips, neither of which touch
+    // `relayUrl` at all). The one call site that means an actual clear —
+    // `SettingsScreen`'s relay field `onSubmit` — sets the flag itself.
     final normalized = KeryxSettings.fromJson(settings.toJson());
     _validate(normalized);
     await _store.write(storageKey, jsonEncode(normalized.toJson()));

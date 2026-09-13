@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:keryx/app_shell/directory_providers.dart';
 import 'package:keryx/app_shell/onboarding_gate.dart' show RecoveryPhraseVault;
 import 'package:keryx/app_shell/radio_host_provider.dart';
 import 'package:keryx/core/identity/identity.dart';
@@ -196,6 +197,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _callsignError = null;
         });
       }
+      // TASK-104 (D): "a callsign edit results in a re-enrolment ... without
+      // a restart." `_identityRepo` above is this screen's own
+      // `IdentityRepository` instance; the app-wide `identityProvider` is a
+      // separate memoised read of the same on-disk store, so it has to be
+      // explicitly invalidated to pick the new callsign up. That cascades
+      // into `identityEnrolmentProvider` (which `ref.watch`es it) and from
+      // there into `registrationStatusProvider` via its `ref.listen`.
+      ref.invalidate(identityProvider);
     } on FormatException {
       if (mounted) {
         setState(() => _callsignError = SettingsCopy.callsignInvalid);
@@ -307,6 +316,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final AsyncValue<KeryxSettings> settingsAsync = ref.watch(settingsProvider);
     final RadioState radio = ref.watch(radioStateProvider);
     final Brightness brightness = _brightnessFor(context);
+    final RegistrationStatus registrationStatus =
+        ref.watch(registrationStatusProvider);
 
     return Theme(
       data: keryxUxThemeData(brightness: brightness),
@@ -327,6 +338,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             relayError: _relayError,
             tokenError: _tokenError,
             callsignError: _callsignError,
+            registrationStatus: registrationStatus,
             onPropose: (KeryxSettings next) =>
                 unawaited(_propose(settings, next)),
             onTheme: (AppearanceTheme theme) => unawaited(_setTheme(theme)),
@@ -334,6 +346,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onCancelDeferred: _cancelDeferred,
             onShowRecoveryPhrase: _showRecoveryPhrase,
             onRestoreFromPhrase: _restoreFromPhrase,
+            onRegisterNow: () =>
+                ref.read(registrationStatusProvider.notifier).registerNow(),
             onRelayError: (String? error) =>
                 setState(() => _relayError = error),
             onTokenError: (String? error) =>
@@ -370,12 +384,14 @@ class _SettingsScaffold extends StatelessWidget {
     required this.relayError,
     required this.tokenError,
     required this.callsignError,
+    required this.registrationStatus,
     required this.onPropose,
     required this.onTheme,
     required this.onCallsign,
     required this.onCancelDeferred,
     required this.onShowRecoveryPhrase,
     required this.onRestoreFromPhrase,
+    required this.onRegisterNow,
     required this.onRelayError,
     required this.onTokenError,
   });
@@ -389,10 +405,12 @@ class _SettingsScaffold extends StatelessWidget {
   final String? relayError;
   final String? tokenError;
   final String? callsignError;
+  final RegistrationStatus registrationStatus;
   final ValueChanged<KeryxSettings> onPropose;
   final ValueChanged<AppearanceTheme> onTheme;
   final ValueChanged<String> onCallsign;
   final VoidCallback onCancelDeferred;
+  final VoidCallback onRegisterNow;
   final VoidCallback onShowRecoveryPhrase;
   final VoidCallback onRestoreFromPhrase;
   final ValueChanged<String?> onRelayError;
@@ -560,7 +578,16 @@ class _SettingsScaffold extends StatelessWidget {
                       return;
                     }
                     onRelayError(null);
-                    onPropose(settings.copyWith(relayUrl: raw));
+                    // TASK-104: this is the one place an empty `relayUrl`
+                    // means a deliberate user clear rather than "never
+                    // configured" — mark it so `SettingsRepository.load()`
+                    // never resurrects it back to the baked-in default.
+                    onPropose(
+                      settings.copyWith(
+                        relayUrl: raw,
+                        relayUrlUserCleared: raw.trim().isEmpty,
+                      ),
+                    );
                   },
                 ),
                 SettingsTextRow(
@@ -602,6 +629,20 @@ class _SettingsScaffold extends StatelessWidget {
                   error: callsignError,
                   onSubmit: onCallsign,
                 ),
+                SettingsReadOnlyRow(
+                  key: const Key('settings.registration-status'),
+                  label: SettingsCopy.registrationStatusLabel,
+                  description: SettingsCopy.registrationStatusDescription,
+                  value: _registrationStatusLabel(registrationStatus),
+                ),
+                if (registrationStatus is! RegistrationRegistered)
+                  SettingsActionRow(
+                    key: const Key('settings.register-now'),
+                    label: SettingsCopy.registerNowAction,
+                    description: SettingsCopy.registrationStatusDescription,
+                    actionLabel: SettingsCopy.registerNowAction,
+                    onPressed: onRegisterNow,
+                  ),
                 SettingsActionRow(
                   key: SettingsKeys.showRecoveryPhrase,
                   label: SettingsCopy.showRecoveryPhraseLabel,
@@ -691,6 +732,23 @@ class _SettingsScaffold extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static String _registrationStatusLabel(RegistrationStatus status) {
+    if (status is RegistrationRegistered) {
+      final label = (status.shortCode == null || status.shortCode!.isEmpty)
+          ? status.callsign
+          : '${status.callsign}·${status.shortCode}';
+      return SettingsCopy.registrationStatusRegistered(label);
+    }
+    if (status is RegistrationOffline) return SettingsCopy.registrationStatusOffline;
+    if (status is RegistrationFailed) {
+      return '${SettingsCopy.registrationStatusFailedPrefix}${status.code.name}';
+    }
+    if (status is RegistrationInProgress) {
+      return SettingsCopy.registrationStatusInProgress;
+    }
+    return SettingsCopy.registrationStatusUnregistered;
   }
 }
 

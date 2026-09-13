@@ -8,6 +8,7 @@ import 'package:keryx/features/onboarding/onboarding_screen.dart';
 import 'package:keryx/features/restore/restore_screen.dart';
 
 import 'mobile_app_shell.dart';
+import 'registration_step.dart';
 
 /// v2 (Design §2.6, Technical §8 "v1 install migration", V2-FR-001..004):
 /// gates the shell behind first-run identity creation.
@@ -40,7 +41,7 @@ class OnboardingGate extends StatefulWidget {
   State<OnboardingGate> createState() => _OnboardingGateState();
 }
 
-enum _GateStage { loading, chooser, creating, restoring, done }
+enum _GateStage { loading, chooser, creating, restoring, registering, done }
 
 class _OnboardingGateState extends State<OnboardingGate> {
   late final IdentityRepository _identityRepo;
@@ -84,7 +85,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
     await _identityRepo.setCallsign(callsign);
     await _RecoveryPhraseVault(_rawStore).save(phrase.words);
     if (!mounted) return;
-    setState(() => _stage = _GateStage.done);
+    setState(() => _stage = _GateStage.registering);
   }
 
   Future<void> _finishRestore(DeviceIdentity identity) async {
@@ -94,7 +95,7 @@ class _OnboardingGateState extends State<OnboardingGate> {
       await _identityRepo.setCallsign(identity.callsign.value);
     }
     if (!mounted) return;
-    setState(() => _stage = _GateStage.done);
+    setState(() => _stage = _GateStage.registering);
   }
 
   @override
@@ -120,6 +121,11 @@ class _OnboardingGateState extends State<OnboardingGate> {
           key: const ValueKey('shell.restore'),
           onRestored: (DeviceIdentity identity) =>
               unawaited(_finishRestore(identity)),
+        );
+      case _GateStage.registering:
+        return RegistrationStep(
+          onContinue: () => setState(() => _stage = _GateStage.done),
+          onBackToCallsign: () => setState(() => _stage = _GateStage.creating),
         );
       case _GateStage.done:
         return const MobileAppShell();
