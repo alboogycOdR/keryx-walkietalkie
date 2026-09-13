@@ -6560,7 +6560,7 @@ NEW territory except the additive FakeDirectoryServer. Implementing stateful fak
 
 ### TASK-107
 **Title:** Host re-adopts the floor engine after switchTarget — PTT is dead after selecting a contact
-**Status:** claimed
+**Status:** in_progress
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.4 ("`RadioSessionController` gains `switchTarget(roomId, members)`; it calls the existing teardown/rebuild path"), §3 of the R1 Technical spec ("The actual floor engine remains the source of truth for TX ownership" — `RadioHostSnapshot.floorEngine` dartdoc), Verification VT-002 (re-entrancy across session rebuilds). Found by TASK-103's journey test (2026-09-13, `test/regression/journey_harness.dart:209-214` swallows the resulting throw with a comment naming this exact defect). Verified at source: `lib/core/radio_host/keryx_radio_host.dart:526` (`_floorEngine = session.floorEngine`, captured ONCE in `_startSession`), `:585-588` (`pressPtt`/`releasePtt` → `_floorEngine?.requestTransmit/releaseTransmit`), `:207` (snapshot exposes the same stale reference), `_floorEffectsSub`/`_stationsSub`/`_meterLevelSub` subscribed once to that first engine; `lib/services/session/radio_session_controller.dart:250-274` (`switchTarget` → `_teardownActive()` → `:626-627` `_floorEngine?.dispose(); _floorEngine = null;` → `_startLocal/_startLinked` → `_adoptEngine` builds a NEW engine + bridge) — the controller's `floorEngine` getter (`:211`) returns the new engine, but nothing tells the host. `lib/core/radio_host/radio_session_host_v2.dart:55-95` (`RadioSessionHostV2.start` → `sessionController.switchTarget`) is the production caller; `lib/core/radio_host/session_host.dart` is the `SessionHost` contract the host actually depends on.
@@ -6576,10 +6576,31 @@ NEW territory except the additive FakeDirectoryServer. Implementing stateful fak
 - [ ] Full test suite green; `flutter analyze` clean
 **Branch:** task/TASK-107-gb
 **Started_At:** 2026-09-13T07:10:00Z
-**Progress_Notes:** —
+**Progress_Notes:**
+- [2026-09-13T07:12:00Z] [GB] Claimed TASK-107. Preflight (c8b9872 filesystem check) output:
+```
+[preflight] TASK-107 Owned_Paths inspected in C:/CLAUDECODE_TOOLSETS/wt-grok-walkietalkie-keryx
+[preflight] 9 entr(y/ies). FILE/DIR/GLOB = exists, NEW = you are creating it.
+  FILE   lib/core/radio_host/keryx_radio_host.dart  -> exists, 731 line(s), 31154 bytes
+  FILE   lib/core/radio_host/session_host.dart  -> exists, 39 line(s), 1154 bytes
+  FILE   lib/core/radio_host/radio_session_host_v2.dart  -> exists, 82 line(s), 4025 bytes
+  FILE   lib/services/session/radio_session_controller.dart  -> exists, 635 line(s), 26785 bytes
+  GLOB   test/core/radio_host/**  -> 4 file(s):
+           test/core/radio_host/keryx_radio_host_meter_level_test.dart
+           test/core/radio_host/keryx_radio_host_test.dart
+           test/core/radio_host/permission_gate_test.dart
+           test/core/radio_host/radio_session_host_v2_test.dart
+  GLOB   test/services/session/**  -> 1 file(s):
+           test/services/session/radio_session_controller_test.dart
+  FILE   test/regression/journey_harness.dart  -> exists, 291 line(s), 9891 bytes
+  FILE   test/regression/journey_two_phones_test.dart  -> exists, 466 line(s), 16690 bytes
+  NEW    dossiers/TASK-107.md  -> does not exist; parent dossiers/ exists
+[preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
+```
+All expected files exist except the dossier (NEW). `SessionHost` default for `engineChanges` will keep out-of-territory fakes compiling. Implementing contract + host re-adopt + TX release-before-teardown + journey PTT-after-select gate.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
 **Updated_By:** GB
-**Updated_At:** 2026-09-13T07:10:00Z
+**Updated_At:** 2026-09-13T07:12:00Z
