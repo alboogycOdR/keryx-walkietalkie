@@ -39,7 +39,7 @@ class _NullFloorTransport implements FloorTransport {
 }
 
 /// Hand-written [SessionHost] double.
-class _FakeSessionHost implements SessionHost {
+class _FakeSessionHost implements SessionHost, SessionHostEngineEvents {
   _FakeSessionHost({required String label})
     : localPeerId = 'peer-$label',
       callsign = 'TEST $label' {
@@ -53,7 +53,7 @@ class _FakeSessionHost implements SessionHost {
   final String callsign;
 
   final _NullFloorTransport _transport = _NullFloorTransport();
-  late final FloorEngine _engine = FloorEngine(
+  late FloorEngine _engine = FloorEngine(
     localPeerId: localPeerId,
     transport: _transport,
     clock: const WallClock(),
@@ -63,6 +63,9 @@ class _FakeSessionHost implements SessionHost {
 
   final StreamController<List<StationInfo>> _stations =
       StreamController<List<StationInfo>>.broadcast();
+  final StreamController<FloorEngine> _engineChanges =
+      StreamController<FloorEngine>.broadcast();
+  final List<_NullFloorTransport> _extraTransports = <_NullFloorTransport>[];
 
   bool startCalled = false;
   bool disposeCalled = false;
@@ -71,7 +74,29 @@ class _FakeSessionHost implements SessionHost {
   FloorEngine get floorEngine => _engine;
 
   @override
+  Stream<FloorEngine> get engineChanges => _engineChanges.stream;
+
+  @override
   Stream<List<StationInfo>> get stations => _stations.stream;
+
+  /// TASK-107: swap in a new live engine and emit [engineChanges] the way
+  /// `RadioSessionController._adoptEngine` does after `switchTarget`.
+  FloorEngine emitReplacementEngine() {
+    final transport = _NullFloorTransport();
+    _extraTransports.add(transport);
+    final next = FloorEngine(
+      localPeerId: localPeerId,
+      transport: transport,
+      clock: const WallClock(),
+      tot: const Duration(seconds: 60),
+      busyLockout: true,
+      callsign: callsign,
+    );
+    next.updateRoster({localPeerId});
+    _engine = next;
+    if (!_engineChanges.isClosed) _engineChanges.add(next);
+    return next;
+  }
 
   void emitStations(List<StationInfo> next) {
     if (!_stations.isClosed) _stations.add(next);
@@ -87,7 +112,11 @@ class _FakeSessionHost implements SessionHost {
     disposeCalled = true;
     _engine.dispose();
     _transport.dispose();
+    for (final extra in _extraTransports) {
+      extra.dispose();
+    }
     await _stations.close();
+    await _engineChanges.close();
   }
 }
 
@@ -775,6 +804,128 @@ void main() {
       expect(harness.enrolmentCalls, 0);
       expect(harness.events, ['session']);
       expect(harness.state.phase, RadioPhase.idle);
+      await host.dispose();
+    });
+  });
+
+  group('floor-engine re-adoption after switchTarget (TASK-107)', () {
+    Future<void> flush() async {
+      for (var i = 0; i < 6; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    test('engineChanges from the live session rebinds PTT to the new engine',
+        () async {
+      final harness = _Harness();
+      final host = harness.build();
+      await host.start();
+      final session = harness.sessions.single;
+      final bootEngine = session.floorEngine;
+      host.pressPtt();
+      expect(bootEngine.isTransmitting, isTrue);
+      host.releasePtt();
+      expect(bootEngine.isTransmitting, isFalse);
+
+      final next = session.emitReplacementEngine();
+      await flush();
+
+      expect(host.current.floorEngine, same(next));
+      expect(identical(host.current.floorEngine, bootEngine), isFalse);
+
+      host.pressPtt();
+      expect(next.isTransmitting, isTrue);
+      expect(bootEngine.isTransmitting, isFalse);
+      host.releasePtt();
+      expect(next.isTransmitting, isFalse);
+
+      session.emitStations([
+        const StationInfo(peerId: 'BRAVO-7', callsign: 'Bravo'),
+      ]);
+      await flush();
+      expect(
+        host.current.stations.map((s) => s.peerId),
+        contains('BRAVO-7'),
+      );
+
+      await host.dispose();
+    });
+
+    test('effects from the new engine reach the host; the old engine is '
+        'unsubscribed', () async {
+      final harness = _Harness();
+      final host = harness.build();
+      await host.start();
+      final session = harness.sessions.single;
+      final bootEngine = session.floorEngine;
+
+      final next = session.emitReplacementEngine();
+      await flush();
+      harness.sink.events.clear();
+
+      bootEngine.requestTransmit();
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(
+        harness.sink.events.whereType<PlayOneShotEvent>(),
+        isEmpty,
+        reason: 'host must not still be subscribed to the replaced engine',
+      );
+      bootEngine.releaseTransmit();
+
+      host.pressPtt();
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(next.isTransmitting, isTrue);
+      expect(
+        harness.sink.events.whereType<PlayOneShotEvent>(),
+        isNotEmpty,
+        reason: 'GrantTone from the new engine must reach SfxProjection',
+      );
+      host.releasePtt();
+
+      await host.dispose();
+    });
+
+    test('a switch racing a settings rebuild does not adopt a superseded '
+        'engine (VT-002 generation guard)', () async {
+      final gate = Completer<void>();
+      var enrolments = 0;
+      final harness = _Harness()
+        ..enrolment = () async {
+          enrolments++;
+          if (enrolments > 1) await gate.future;
+        };
+      final host = harness.build();
+      await host.start();
+      final session = harness.sessions.single;
+      final bootEngine = session.floorEngine;
+
+      final rebuild = host.applySettings(
+        harness.settings.copyWith(relayUrl: 'wss://relay.example/ws'),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(enrolments, 2);
+
+      final stale = session.emitReplacementEngine();
+      await flush();
+      expect(
+        host.current.floorEngine,
+        same(bootEngine),
+        reason: 'generation already bumped; must not adopt the old session',
+      );
+      expect(identical(host.current.floorEngine, stale), isFalse);
+
+      gate.complete();
+      await rebuild;
+      await flush();
+
+      expect(harness.sessions, hasLength(2));
+      expect(
+        host.current.floorEngine,
+        same(harness.sessions.last.floorEngine),
+      );
+      expect(identical(host.current.floorEngine, stale), isFalse);
+
       await host.dispose();
     });
   });

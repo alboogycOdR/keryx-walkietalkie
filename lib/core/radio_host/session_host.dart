@@ -17,8 +17,19 @@ abstract class SessionHost {
   Future<void> dispose();
 }
 
+/// Opt-in sibling of [SessionHost]: the session rebuilds its [FloorEngine]
+/// in place (boot adopt and every [RadioSessionController.switchTarget]).
+///
+/// Not a [SessionHost] member — `implements SessionHost` fakes outside this
+/// territory would otherwise fail to compile (Dart does not inherit default
+/// method bodies via `implements`). Production [RadioSessionHostAdapter]
+/// implements this; handwritten fakes that never rebuild the engine omit it.
+abstract class SessionHostEngineEvents {
+  Stream<FloorEngine> get engineChanges;
+}
+
 /// Thin pass-through [SessionHost] over a real [RadioSessionController].
-class RadioSessionHostAdapter implements SessionHost {
+class RadioSessionHostAdapter implements SessionHost, SessionHostEngineEvents {
   RadioSessionHostAdapter(this._controller);
 
   final RadioSessionController _controller;
@@ -27,6 +38,9 @@ class RadioSessionHostAdapter implements SessionHost {
 
   @override
   FloorEngine get floorEngine => _controller.floorEngine;
+
+  @override
+  Stream<FloorEngine> get engineChanges => _controller.engineChanges;
 
   @override
   Stream<List<StationInfo>> get stations => _controller.stations;

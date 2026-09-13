@@ -166,6 +166,7 @@ class KeryxRadioHost implements RadioHost {
   StreamSubscription<FloorEffect>? _floorEffectsSub;
   StreamSubscription<RadioServiceEvent>? _radioServiceSub;
   StreamSubscription<MeterLevel>? _meterLevelSub;
+  StreamSubscription<FloorEngine>? _engineChangesSub;
 
   /// Last [RadioTransportPhase] actually pushed to [_radioService] — de-
   /// dupes [_syncServicePhase] so an unrelated [RadioState] emission
@@ -420,12 +421,9 @@ class KeryxRadioHost implements RadioHost {
     if (_disposed || myGeneration != _sessionGeneration) return;
 
     final previousSession = _session;
-    await _stationsSub?.cancel();
-    _stationsSub = null;
-    await _floorEffectsSub?.cancel();
-    _floorEffectsSub = null;
-    await _meterLevelSub?.cancel();
-    _meterLevelSub = null;
+    await _engineChangesSub?.cancel();
+    _engineChangesSub = null;
+    await _cancelEngineSubscriptions();
     _meterLevel = MeterLevel.decorative;
     if (previousSession != null) {
       unawaited(
@@ -498,7 +496,40 @@ class KeryxRadioHost implements RadioHost {
     }
 
     _appliedSettings = settings;
-    _floorEffectsSub = session.floorEngine.effects.listen((effect) {
+    _session = session;
+    _bindFloorEngine(session, session.floorEngine);
+    // `session` is captured by the listen closure below, so Dart will not
+    // promote it after `is SessionHostEngineEvents`. Cast explicitly.
+    final SessionHostEngineEvents? engineEvents =
+        session is SessionHostEngineEvents
+        ? session as SessionHostEngineEvents
+        : null;
+    if (engineEvents != null) {
+      _engineChangesSub = engineEvents.engineChanges.listen((engine) {
+        _readoptFloorEngine(
+          session: session,
+          generation: myGeneration,
+          engine: engine,
+        );
+      });
+    }
+    _emitSnapshot();
+  }
+
+  Future<void> _cancelEngineSubscriptions() async {
+    await _stationsSub?.cancel();
+    _stationsSub = null;
+    await _floorEffectsSub?.cancel();
+    _floorEffectsSub = null;
+    await _meterLevelSub?.cancel();
+    _meterLevelSub = null;
+  }
+
+  /// Re-bind effects/stations/meter and snapshot [engine] as the host's
+  /// TX-ownership truth. Used on the initial `_startSession` adopt and on
+  /// every later [SessionHost.engineChanges] emission (switchTarget).
+  void _bindFloorEngine(SessionHost session, FloorEngine engine) {
+    _floorEffectsSub = engine.effects.listen((effect) {
       if (!_floorEffectsProxy.isClosed) _floorEffectsProxy.add(effect);
     });
     _stationsSub = session.stations.listen((stations) {
@@ -521,9 +552,36 @@ class KeryxRadioHost implements RadioHost {
         _emitSnapshot();
       });
     }
+    _floorEngine = engine;
+  }
 
-    _session = session;
-    _floorEngine = session.floorEngine;
+  /// VT-002: a `switchTarget` racing a settings rebuild must not adopt a
+  /// superseded engine. Generation is the same counter `_startSession`
+  /// bumps; session identity catches a late emission from a session that
+  /// is no longer `_session`.
+  ///
+  /// Synchronous on purpose: [RadioSessionController.switchTarget] emits
+  /// [SessionHostEngineEvents.engineChanges] and then immediately publishes
+  /// stations on the same turn. An async re-bind would miss that event and
+  /// leave `_floorEngine` stale until the next microtask (PTT/dispose would
+  /// still hit the torn-down boot engine).
+  void _readoptFloorEngine({
+    required SessionHost session,
+    required int generation,
+    required FloorEngine engine,
+  }) {
+    if (_disposed ||
+        generation != _sessionGeneration ||
+        !identical(_session, session)) {
+      return;
+    }
+    unawaited(_stationsSub?.cancel());
+    _stationsSub = null;
+    unawaited(_floorEffectsSub?.cancel());
+    _floorEffectsSub = null;
+    unawaited(_meterLevelSub?.cancel());
+    _meterLevelSub = null;
+    _bindFloorEngine(session, engine);
     _emitSnapshot();
   }
 
@@ -698,6 +756,7 @@ class KeryxRadioHost implements RadioHost {
     _sfxTick?.cancel();
     _radioStateUnsub?.call();
     _settingsUnsub?.call();
+    unawaited(_engineChangesSub?.cancel());
     unawaited(_stationsSub?.cancel());
     unawaited(_floorEffectsSub?.cancel());
     unawaited(_radioServiceSub?.cancel());
