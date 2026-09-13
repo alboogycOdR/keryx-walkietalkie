@@ -59,7 +59,10 @@ void main() {
       expect(actual.dimMode, DimMode.manual);
       expect(actual.voxSensitivity, 2);
       expect(actual.voxHangTimeMs, 1200);
-      expect(actual.relayUrl, KeryxSettings.relayUrlDefault);
+      // TASK-104: `expected` never touches relayUrl/relayUrlUserCleared, so
+      // it round-trips through save()/load() as "never configured" — which
+      // migrates to the baked-in default, not the bare-constructor default.
+      expect(actual.relayUrl, KeryxSettings.relayUrlBakedIn);
       expect(actual.tokenServiceUrl, KeryxSettings.tokenServiceUrlDefault);
     });
 
