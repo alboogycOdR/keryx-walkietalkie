@@ -6673,7 +6673,7 @@ All expected files exist except the dossier (NEW). `SessionHost` default for `en
 
 ### TASK-108
 **Title:** Wire target selection to RadioSessionController.switchTarget — selecting a contact currently joins nothing
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.4 ("load identity → open directory session → fetch me → open presence WS → pick current target → start `RadioSessionController` for that room"; "`RadioSessionController` gains `switchTarget(roomId, members)`"), §6.3 (presentation "current target" is Talk's header/audience/ready-ring input, not itself a join trigger — the split this bug fell into). Found by TASK-106 (S5) refusing to write code around a fake seam, evidence in `dossiers/TASK-106.md`, independently reproduced by ORCH 2026-09-13. Verified at source: `grep -rn "RadioSessionHostV2(" lib/` → **zero constructions anywhere** — `lib/core/radio_host/radio_session_host_v2.dart` is a fully-written, already-correct five-step sequence (load identity → presence → resolve target → `sessionController.switchTarget(target, memberPeerIds: ...)`, TASK-101's `peer_pk` handling included) that nothing in the app ever instantiates or calls; `grep -rn "currentTargetProvider" lib/` → exactly 3 hits, and the only writer (`lib/app_shell/mobile_app_shell.dart:136`, `ref.read(currentTargetProvider.notifier).state = TalkTargetSelection(target)`) only updates presentation state. `lib/app_shell/directory_providers.dart:268-283`'s own dartdoc already discloses this exact gap, filed by TASK-093 and routed to ORCH as follow-up debt — still open. `journey_harness.dart` (TASK-107) independently confirms the same: its "phones" call `phone.session.switchTarget(...)` **directly** on a raw `RadioSessionController`, bypassing `lib/app_shell/**` entirely, which is why the journey test's passing gates never caught this — they prove the controller/token/relay layer works, not that the real app ever reaches it. Practical effect: every fix landed today (TASK-100/101/102/104/105/107) is correct but **unreachable from the real UI** — tapping a contact and going to Talk does not join their room, send `peer_pk`, or provision the DirectRoom. This is the actual reason the owner's two-phone runbook would still fail at "select a contact, then talk."
@@ -6687,12 +6687,12 @@ All expected files exist except the dossier (NEW). `SessionHost` default for `en
 - [ ] `radio_session_host_v2.dart`'s fate (reused / repurposed / removed) is decided and documented in the dossier, with a stated reason — no dead, unreferenced production file left behind if removed, no two parallel switch-paths left if kept
 - [ ] `currentTargetProvider`'s dartdoc no longer claims this gap is open once closed
 - [ ] Full test suite green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
-**Progress_Notes:** —
+**Branch:** task/TASK-108-s5
+**Started_At:** 2026-09-13T19:20:00Z
+**Progress_Notes:** - [2026-09-13T19:20:00Z] [S5] Claimed TASK-108. Resume check: TASK-106 was pending (not claimed/in_progress), so no in-flight S5 task exists; TASK-108 is the highest-priority pending S5 task with no unmet Depends_On. Switching worktree branch from task/TASK-106-s5 (parked, blocked behind this) to a new task/TASK-108-s5 off current master. Next: preflight Owned_Paths, then read radio_session_host_v2.dart, radio_host_contract.dart, keryx_radio_host.dart (TASK-102's RadioIdentityReloader precedent), radio_host_provider.dart, mobile_app_shell.dart before writing RadioTargetSwitcher.
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-13T19:15:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-13T19:20:00Z
