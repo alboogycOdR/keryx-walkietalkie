@@ -6397,7 +6397,7 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 
 ### TASK-103
 **Title:** Two-phone journey test — the executable definition of "it works" (enrol → request → accept → select → token)
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Verification_v1.0.md §6 (device matrix rows A–I) and R1 Verification §9 ("A scoped mock test is not sufficient evidence for a production wiring change; include a test that exercises the actual composition when the defect concerns wiring"); specs/KERYX_v2.0_Technical_v1.0.md §4.2 (endpoints), §4.3 (presence), §5.4 (1:1 rooms), §6.4 (host boot). Why this task exists (ORCH root-cause, 2026-09-13): four fixes landed one gate at a time (`6f14f3f` enrolment, TASK-100 boot transport, TASK-101 `peer_pk`, `1369f00` refusal copy) and each next gate stayed invisible behind the last because every existing test is fakes-all-the-way-down. Verified-broken gates no test caught: `ContactsController.refreshFromServer()` has ZERO callers in `lib/**` (the receiving phone can never see an incoming request even though `token-svc` `identity_me` returns `pending_in`, `token-svc/app/directory.py:214-226`); `PresenceClient.start()` has ZERO callers (the presence WS never opens); no receive-side auto-join exists. Build on: `test/regression/real_composition_test.dart` (real `KeryxApp`/`radioHostProvider`, five native seams faked), `test/app_shell/directory_enrolment_test.dart` (real `identityEnrolmentProvider` → real `DirectoryClient` → loopback `FakeDirectoryServer`), `test/services/directory/fakes/fake_directory_server.dart` (stateless recorder with a pluggable `responder`), `test/services/linked/fakes/fake_token_server.dart` (`requirePeerPk`).
@@ -6411,15 +6411,15 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 - [ ] Every existing test that uses `FakeDirectoryServer` is unmodified and still green (additive change only)
 - [ ] Dossier lists, per gate, the exact provider/controller/client exercised and which seam is faked — the map ORCH uses to un-skip
 - [ ] Full test suite green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-103-gb
+**Started_At:** 2026-09-13T06:10:00Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-13T06:40:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-13T06:10:00Z
 
 
 ### TASK-104
