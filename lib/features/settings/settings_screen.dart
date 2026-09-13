@@ -578,7 +578,16 @@ class _SettingsScaffold extends StatelessWidget {
                       return;
                     }
                     onRelayError(null);
-                    onPropose(settings.copyWith(relayUrl: raw));
+                    // TASK-104: this is the one place an empty `relayUrl`
+                    // means a deliberate user clear rather than "never
+                    // configured" — mark it so `SettingsRepository.load()`
+                    // never resurrects it back to the baked-in default.
+                    onPropose(
+                      settings.copyWith(
+                        relayUrl: raw,
+                        relayUrlUserCleared: raw.trim().isEmpty,
+                      ),
+                    );
                   },
                 ),
                 SettingsTextRow(

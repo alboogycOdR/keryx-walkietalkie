@@ -286,8 +286,14 @@ void main() {
         await repository.save(
           const KeryxSettings().copyWith(relayUrl: 'wss://custom.example'),
         );
+        // `relayUrlUserCleared: true` is what `SettingsScreen`'s relay field
+        // sets on an actual clear (settings_screen.dart) — a save with an
+        // untouched, already-empty `relayUrl` must NOT be treated the same
+        // way (confirmed regression: it broke settings_apply_test.dart's
+        // and settings_screen_test.dart's session-affecting-field
+        // round-trips, neither of which touch relayUrl at all).
         final cleared = await repository.save(
-          const KeryxSettings().copyWith(relayUrl: ''),
+          const KeryxSettings().copyWith(relayUrl: '', relayUrlUserCleared: true),
         );
         expect(cleared.relayUrl, isEmpty);
 
@@ -301,7 +307,9 @@ void main() {
       'saving a non-empty relay again after a clear drops the cleared '
       'marker, so a later empty-key blob would default again',
       () async {
-        await repository.save(const KeryxSettings().copyWith(relayUrl: ''));
+        await repository.save(
+          const KeryxSettings().copyWith(relayUrl: '', relayUrlUserCleared: true),
+        );
         final restored = await repository.save(
           const KeryxSettings().copyWith(relayUrl: 'wss://back-again.example'),
         );

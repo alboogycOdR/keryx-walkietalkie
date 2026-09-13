@@ -64,15 +64,17 @@ class SettingsRepository {
   }
 
   Future<KeryxSettings> _saveUnlocked(KeryxSettings settings) async {
-    // TASK-104: a save with an empty relayUrl is, by construction, the user
-    // explicitly clearing the field (nothing else in this codepath produces
-    // one — the default is never empty). Mark it so `load()` never
-    // resurrects that deliberate clear; a save with a non-empty relayUrl
-    // clears the marker again, so a fresh override starts clean.
-    final withClearMarker = settings.copyWith(
-      relayUrlUserCleared: settings.relayUrl.trim().isEmpty,
-    );
-    final normalized = KeryxSettings.fromJson(withClearMarker.toJson());
+    // TASK-104: `relayUrlUserCleared` is trusted verbatim from `settings`,
+    // never re-derived from `relayUrl.isEmpty` here. Deriving it from
+    // emptiness alone looked right in isolation but fires on *every* save
+    // that happens to carry an already-empty, untouched `relayUrl` — e.g.
+    // toggling an unrelated field while the relay was never configured —
+    // wrongly marking that as a deliberate clear (confirmed: it broke
+    // `settings_apply_test.dart`'s and `settings_screen_test.dart`'s
+    // session-affecting-field round-trips, neither of which touch
+    // `relayUrl` at all). The one call site that means an actual clear —
+    // `SettingsScreen`'s relay field `onSubmit` — sets the flag itself.
+    final normalized = KeryxSettings.fromJson(settings.toJson());
     _validate(normalized);
     await _store.write(storageKey, jsonEncode(normalized.toJson()));
     if (!_changes.isClosed) {

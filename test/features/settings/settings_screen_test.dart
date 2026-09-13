@@ -52,11 +52,20 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    host = ReconstructingFakeHost(settings);
     store = InMemorySettingsStore();
     await store.write(
       SettingsRepository.storageKey,
       jsonEncode(settings.toJson()));
+    // TASK-104: seed the fake host with what `settingsProvider` will
+    // actually load, not the raw `settings` parameter verbatim — an empty,
+    // never-cleared `relayUrl` now migrates to the baked-in default on
+    // every `SettingsRepository.load()`. Without this the host's
+    // `sessionAffectingFieldsChanged` baseline (`relayUrl: ''`) disagreed
+    // with the real loaded settings (`relayUrl: <baked-in>`) on the very
+    // first `applySettings` call, reconstructing on an unrelated
+    // (non-session-affecting) change.
+    final KeryxSettings resolvedSettings = await SettingsRepository(store).load();
+    host = ReconstructingFakeHost(resolvedSettings);
     identityStore = MemoryIdentityStore(<String, String>{
       IdentityRepository.uuidKey: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
       IdentityRepository.callsignKey: 'BRAVO-7',

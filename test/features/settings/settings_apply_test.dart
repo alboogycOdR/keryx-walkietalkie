@@ -14,7 +14,13 @@ void main() {
   late SettingsRepository repo;
   late ReconstructingFakeHost host;
   late SettingsApplyCoordinator coordinator;
-  const KeryxSettings initial = KeryxSettings();
+  // TASK-104: `repo.save()` normalizes through `KeryxSettings.fromJson`,
+  // which migrates an empty, never-cleared `relayUrl` to the baked-in
+  // default — so `initial` (the host's `sessionAffectingFieldsChanged`
+  // baseline) must already carry that same value, or every `save()` of an
+  // unrelated field would appear to also change `relayUrl` and force a
+  // spurious reconstruction.
+  const KeryxSettings initial = KeryxSettings(relayUrl: KeryxSettings.relayUrlBakedIn);
 
   setUp(() {
     store = InMemorySettingsStore();
