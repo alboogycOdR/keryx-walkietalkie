@@ -269,18 +269,18 @@ final groupsControllerProvider = FutureProvider<GroupsController?>((
 /// target, set whenever a contact or group is selected anywhere in the
 /// shell. `null` on a fresh install with no history.
 ///
-/// **Disclosed scope decision:** this only drives the Talk screen's header
-/// card, audience computation and ready-ring rule (all presentation,
-/// Technical §6.3) — it does not itself call
-/// `RadioSessionController.switchTarget`/join a different LiveKit room.
-/// `RadioSessionHostV2` (`lib/core/radio_host/radio_session_host_v2.dart`)
-/// is the seam Technical §6.4 names for that, but it needs a live
-/// `RadioSessionController` instance and `KeryxRadioHost`
-/// (`lib/core/radio_host/keryx_radio_host.dart`, frozen territory) has no
-/// public accessor for the one it constructs per-session — wiring that
-/// through is an `OWNERSHIP_CONFLICT`-shaped gap in `lib/core/radio_host/**`
-/// this task cannot close from `lib/app_shell/**` alone. Routed to ORCH as
-/// follow-up debt rather than worked around by editing frozen code.
+/// **Resolved (TASK-108; the gap TASK-093 disclosed here is now closed).**
+/// This provider still only drives the Talk screen's header card, audience
+/// computation and ready-ring rule (all presentation, Technical §6.3) — it
+/// does not itself call `RadioSessionController.switchTarget`. That call is
+/// now made separately, from the same selection write-site
+/// (`lib/app_shell/mobile_app_shell.dart`'s `_selectTarget`), via the
+/// additive `RadioTargetSwitcher` capability on `KeryxRadioHost`
+/// (`lib/core/radio_host/radio_host_contract.dart`), mirroring
+/// `RadioIdentityReloader`'s (TASK-102) precedent — so selecting a contact
+/// or group does join that target's room (Technical §6.4). The previously
+/// named `RadioSessionHostV2` seam was removed as redundant once that
+/// simpler passthrough landed.
 final currentTargetProvider = StateProvider<TalkTargetSelection?>((ref) => null);
 
 /// Presence for every peerId this device currently knows about, merged from
