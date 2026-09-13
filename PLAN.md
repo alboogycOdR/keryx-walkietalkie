@@ -6376,7 +6376,7 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 
 ### TASK-102
 **Title:** Settings → Restore from phrase / callsign rename never re-enrols or re-keys the running app
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §3.2 (recovery phrase restore "Replaces this KERYX ID"), §4.2 (`POST /v2/identity`, `PATCH /v2/identity/callsign`), §6.4 (identity is loaded at host boot). Verified at source 2026-09-13: `lib/features/settings/settings_screen.dart:243-260` — Restore writes `restoreKeyPair` + `setCallsign` to the identity store, then only `setState` + a snackbar; `lib/app_shell/directory_providers.dart` — `identityProvider` is a plain memoised `FutureProvider` with **zero** `invalidate`/`refresh` call sites anywhere in `lib/**` (repo-wide grep), so `identityEnrolmentProvider`, `directoryClientProvider`, `presenceClientProvider`, `contactsControllerProvider`, `groupsControllerProvider` all keep the PRE-restore identity/key; `lib/core/radio_host/keryx_radio_host.dart:203,258` — `_identity` is loaded once in `_bootInternal` and never reloaded (no identity-change path exists on the host); `lib/services/session/radio_session_controller.dart` — its default signer loader re-reads storage per LINKED start, so after a restore `/token` is signed with the NEW key while enrolment/directory/presence still use the OLD one (mixed identity until the app is killed). Contrast: the first-run path is correct — `lib/app_shell/onboarding_gate.dart:124-125` only builds `MobileAppShell` (whose `initState`, `mobile_app_shell.dart:78-79`, boots the host) at `_GateStage.done`, i.e. after the key and callsign are written, so boot-time enrolment registers the right identity. A callsign rename in Settings has the same shape: the directory only learns the new name at the next app start (via `identityEnrolmentProvider`'s `identity_exists` → `patchCallsign` path, `6f14f3f`).
@@ -6390,15 +6390,15 @@ Territory matches expectation: task's own controller/host/state/presentation fil
 - [ ] First-run ordering unchanged: `onboarding_gate` → shell → boot → enrol (existing `directory_enrolment_test.dart` ordering test still passes)
 - [ ] Dossier records which shape was chosen and why
 - [ ] Full test suite green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-102-s5
+**Started_At:** 2026-09-13T16:00:00Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-13T05:55:00Z
+**Updated_By:** S5
+**Updated_At:** 2026-09-13T16:00:00Z
 
 
 ### TASK-103
