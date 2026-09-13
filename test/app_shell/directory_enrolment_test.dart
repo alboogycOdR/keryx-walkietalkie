@@ -142,7 +142,15 @@ void main() {
     final store = InMemorySettingsStore();
     await store.write(
       SettingsRepository.storageKey,
-      jsonEncode(const KeryxSettings().copyWith(relayUrl: relayUrl).toJson()),
+      // TASK-104: relayUrl now has a non-empty baked-in default, so an
+      // empty value is only honoured as "no relay configured" when marked
+      // as an explicit user clear (mirrors `SettingsRepository.save`'s own
+      // derivation) — otherwise `fromJson` would substitute the default.
+      jsonEncode(
+        const KeryxSettings()
+            .copyWith(relayUrl: relayUrl, relayUrlUserCleared: relayUrl.isEmpty)
+            .toJson(),
+      ),
     );
     final container = ProviderContainer(
       overrides: <Override>[

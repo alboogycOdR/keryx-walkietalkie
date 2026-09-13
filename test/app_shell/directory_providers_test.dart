@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:keryx/app_shell/app_lifecycle.dart';
 import 'package:keryx/app_shell/directory_providers.dart';
 import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
+import 'package:keryx/services/directory/directory.dart' show DirectoryErrorCode;
 
 import '../services/directory/fakes/fake_directory_server.dart';
 
@@ -168,4 +171,215 @@ void main() {
       expect(groups, isNotNull);
     },
   );
+
+  group('registrationStatusProvider', () {
+    // TASK-104 (B): the retried, visible state layered on top of
+    // `identityEnrolmentProvider` — that provider's own contract (this
+    // file's tests above, and `directory_enrolment_test.dart`) is untouched;
+    // these tests exercise the retry/backoff/foreground wrapper only.
+    //
+    // `_ServerBox` lets a test swap in a fresh `FakeDirectoryServer` (e.g.
+    // "the directory comes back") mid-test: `directoryBaseUriResolverProvider`
+    // is fixed at container construction, but the closure below reads
+    // `box.server` afresh on every call, so mutating the box after
+    // construction is enough.
+    Future<ProviderContainer> buildStatusContainer(
+      _ServerBox box, {
+      String relayUrl = 'wss://relay.invalid/ws',
+      StreamController<void>? foreground,
+    }) async {
+      final store = InMemorySettingsStore();
+      await store.write(
+        SettingsRepository.storageKey,
+        jsonEncode(const KeryxSettings().copyWith(relayUrl: relayUrl).toJson()),
+      );
+      // Real `AppForegroundObserver` needs a live `WidgetsBinding`
+      // (`TestWidgetsFlutterBinding`), which in turn makes every real
+      // `dart:io` HTTP request in this suite return a stub 400 — fatal for
+      // these tests' real `FakeDirectoryServer` traffic. A plain controlled
+      // stream exercises exactly the same `_onForeground` code path without
+      // ever touching `WidgetsBinding`.
+      final foregroundController = foreground ?? StreamController<void>.broadcast();
+      final container = ProviderContainer(
+        overrides: <Override>[
+          settingsStoreProvider.overrideWithValue(store),
+          identityProvider.overrideWith((ref) async => identity),
+          directoryBaseUriResolverProvider.overrideWithValue(
+            (relayUrl) => relayUrl.isEmpty ? null : box.uri,
+          ),
+          appForegroundProvider.overrideWithValue(foregroundController.stream),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test(
+      'a transport failure lands offline with a scheduled backoff retry; '
+      'the backoff ladder doubles until the cap; a subsequent success lands '
+      'registered and cancels the retry',
+      () async {
+        // A transport failure (never reached the server) is what the real
+        // HTTP client raises against a closed port — close the server
+        // entirely for this rather than have it answer with an error code
+        // (that is `RegistrationFailed`, covered separately below). Keep
+        // the (now-dead) port in the box so `directoryBaseUriResolverProvider`
+        // still resolves to *something* — an unreachable port, not `null`
+        // (which would mean "no relay configured", i.e. `notApplicable`).
+        final deadPort = server.baseUrl;
+        await server.close();
+        final box = _ServerBox(deadPort);
+
+        final container = await buildStatusContainer(box);
+        final notifier = container.read(registrationStatusProvider.notifier);
+
+        container.read(registrationStatusProvider);
+        await container.read(identityEnrolmentProvider.future);
+        await Future<void>.delayed(Duration.zero);
+        expect(container.read(registrationStatusProvider), isA<RegistrationOffline>());
+        expect(notifier.debugPendingRetryDelay, const Duration(seconds: 1));
+
+        notifier.debugFirePendingRetry();
+        await container.read(identityEnrolmentProvider.future);
+        await Future<void>.delayed(Duration.zero);
+        expect(container.read(registrationStatusProvider), isA<RegistrationOffline>());
+        expect(notifier.debugPendingRetryDelay, const Duration(seconds: 2));
+
+        notifier.debugFirePendingRetry();
+        await container.read(identityEnrolmentProvider.future);
+        await Future<void>.delayed(Duration.zero);
+        expect(notifier.debugPendingRetryDelay, const Duration(seconds: 4));
+
+        // Bring the directory back and let the next retry succeed.
+        final revived = await FakeDirectoryServer.start();
+        addTearDown(revived.close);
+        revived.responder = (request) => DirectoryFakeResponse(
+          statusCode: 200,
+          body: {'pk': 'server-echo', 'callsign': request.bodyJson?['callsign']},
+        );
+        box.uri = revived.baseUrl;
+
+        notifier.debugFirePendingRetry();
+        await container.read(identityEnrolmentProvider.future);
+        await Future<void>.delayed(Duration.zero);
+
+        final status = container.read(registrationStatusProvider);
+        expect(status, isA<RegistrationRegistered>());
+        expect((status as RegistrationRegistered).callsign, 'BRAVO-7');
+        expect(notifier.debugPendingRetryDelay, isNull,
+            reason: 'a successful registration must cancel any pending retry');
+      },
+    );
+
+    test(
+      'a directory error response (callsign_taken) is exposed as '
+      'RegistrationFailed with the server code, and still schedules a retry',
+      () async {
+        server.responder = (_) => const DirectoryFakeResponse(
+          statusCode: 409,
+          body: {'error': 'callsign_taken'},
+        );
+        final container = await buildStatusContainer(_ServerBox.forServer(server));
+        final notifier = container.read(registrationStatusProvider.notifier);
+
+        container.read(registrationStatusProvider);
+        await container.read(identityEnrolmentProvider.future);
+        await Future<void>.delayed(Duration.zero);
+
+        final status = container.read(registrationStatusProvider);
+        expect(status, isA<RegistrationFailed>());
+        expect((status as RegistrationFailed).code, DirectoryErrorCode.callsignTaken);
+        expect(notifier.debugPendingRetryDelay, const Duration(seconds: 1));
+      },
+    );
+
+    test(
+      'an app-foreground event triggers an immediate retry while offline, '
+      'and nothing while registered',
+      () async {
+        final deadPort = server.baseUrl;
+        await server.close();
+        final box = _ServerBox(deadPort);
+        final foreground = StreamController<void>.broadcast();
+        addTearDown(foreground.close);
+        final container = await buildStatusContainer(box, foreground: foreground);
+        final notifier = container.read(registrationStatusProvider.notifier);
+
+        container.read(registrationStatusProvider);
+        await container.read(identityEnrolmentProvider.future);
+        await Future<void>.delayed(Duration.zero);
+        expect(container.read(registrationStatusProvider), isA<RegistrationOffline>());
+        expect(notifier.debugPendingRetryDelay, isNotNull,
+            reason: 'the automatic backoff retry is still pending');
+
+        final revived = await FakeDirectoryServer.start();
+        addTearDown(revived.close);
+        revived.responder = (request) => DirectoryFakeResponse(
+          statusCode: 200,
+          body: {'pk': 'server-echo', 'callsign': request.bodyJson?['callsign']},
+        );
+        box.uri = revived.baseUrl;
+
+        // A real resume event, through the exact `Stream<void>` the real
+        // `AppForegroundObserver` exposes — no need to wait for the
+        // scheduled backoff timer at all.
+        foreground.add(null);
+        // The stream event (and so `_onForeground`'s `invalidate`) is
+        // delivered asynchronously — give it a turn before reading
+        // `.future`, or this reads the *old*, already-resolved future.
+        await Future<void>.delayed(Duration.zero);
+        await container.read(identityEnrolmentProvider.future);
+        await Future<void>.delayed(Duration.zero);
+        expect(container.read(registrationStatusProvider), isA<RegistrationRegistered>());
+        expect(notifier.debugPendingRetryDelay, isNull,
+            reason: 'a successful registration must cancel any pending retry');
+
+        // Once registered, a further resume must not schedule or fire a
+        // retry — there is nothing to retry.
+        final requestsBefore = revived.requests.length;
+        foreground.add(null);
+        await Future<void>.delayed(Duration.zero);
+        expect(revived.requests.length, requestsBefore,
+            reason: 'a resume while already registered must not re-register');
+      },
+    );
+
+    test('registerNow() resets the backoff and re-attempts immediately', () async {
+      server.responder = (_) => const DirectoryFakeResponse(
+        statusCode: 500,
+        body: {'error': 'server_error'},
+      );
+      final container = await buildStatusContainer(_ServerBox.forServer(server));
+      final notifier = container.read(registrationStatusProvider.notifier);
+
+      container.read(registrationStatusProvider);
+      await container.read(identityEnrolmentProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      expect(notifier.debugPendingRetryDelay, const Duration(seconds: 1));
+      notifier.debugFirePendingRetry();
+      await container.read(identityEnrolmentProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      expect(notifier.debugPendingRetryDelay, const Duration(seconds: 2));
+
+      server.responder = (request) => DirectoryFakeResponse(
+        statusCode: 200,
+        body: {'pk': 'server-echo', 'callsign': request.bodyJson?['callsign']},
+      );
+      notifier.registerNow();
+      await container.read(identityEnrolmentProvider.future);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(registrationStatusProvider), isA<RegistrationRegistered>());
+    });
+  });
+}
+
+/// A mutable indirection for `directoryBaseUriResolverProvider`'s override
+/// closure, which is fixed at [ProviderContainer] construction: a test that
+/// needs to move the resolved base URL mid-test (e.g. "the directory comes
+/// back") mutates [uri] instead of rebuilding the container.
+class _ServerBox {
+  _ServerBox(this.uri);
+  factory _ServerBox.forServer(FakeDirectoryServer server) => _ServerBox(server.baseUrl);
+  Uri? uri;
 }

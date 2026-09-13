@@ -71,7 +71,7 @@ void main() {
             relayUrl: ' https://not-a-websocket.example ',
             tokenServiceUrl: 'http://not-secure.example/token'));
 
-        expect(saved.relayUrl, KeryxSettings.relayUrlDefault);
+        expect(saved.relayUrl, KeryxSettings.relayUrlBakedIn);
         expect(saved.tokenServiceUrl, KeryxSettings.tokenServiceUrlDefault);
 
         final linked = await repository.save(
@@ -237,7 +237,7 @@ void main() {
               ..['tokenServiceUrl'] = 'wss://wrong-scheme.example/token'));
 
         final settings = await repository.load();
-        expect(settings.relayUrl, KeryxSettings.relayUrlDefault);
+        expect(settings.relayUrl, KeryxSettings.relayUrlBakedIn);
         expect(settings.tokenServiceUrl, KeryxSettings.tokenServiceUrlDefault);
       });
 
@@ -254,6 +254,59 @@ void main() {
         final settings = await repository.load();
         expect(settings.relayUrl, 'wss://saved.example');
         expect(settings.tokenServiceUrl, 'https://saved.example/token');
+      });
+
+    // TASK-104 (A): "the server relay address baked into the settings"; "an
+    // explicitly user-cleared value must not be resurrected every launch".
+    test(
+      'a fresh install with no Settings interaction boots with the baked-in '
+      'relay default',
+      () async {
+        final settings = await repository.load();
+        expect(settings.relayUrl, KeryxSettings.relayUrlBakedIn);
+        expect(settings.relayUrl, isNotEmpty);
+      });
+
+    test(
+      'a pre-existing blob with an empty relayUrl (never explicitly '
+      'cleared) migrates to the baked-in default',
+      () async {
+        await store.write(
+          SettingsRepository.storageKey,
+          jsonEncode(_phaseOneBlob()..['relayUrl'] = ''));
+
+        final settings = await repository.load();
+        expect(settings.relayUrl, KeryxSettings.relayUrlBakedIn);
+      });
+
+    test(
+      'a relay the user explicitly clears is not resurrected on the next '
+      'load, even though a fresh install defaults to it',
+      () async {
+        await repository.save(
+          const KeryxSettings().copyWith(relayUrl: 'wss://custom.example'),
+        );
+        final cleared = await repository.save(
+          const KeryxSettings().copyWith(relayUrl: ''),
+        );
+        expect(cleared.relayUrl, isEmpty);
+
+        final reloaded = await repository.load();
+        expect(reloaded.relayUrl, isEmpty,
+            reason: 'an explicit clear must survive a reload, not silently '
+                'come back as the default');
+      });
+
+    test(
+      'saving a non-empty relay again after a clear drops the cleared '
+      'marker, so a later empty-key blob would default again',
+      () async {
+        await repository.save(const KeryxSettings().copyWith(relayUrl: ''));
+        final restored = await repository.save(
+          const KeryxSettings().copyWith(relayUrl: 'wss://back-again.example'),
+        );
+        expect(restored.relayUrl, 'wss://back-again.example');
+        expect(restored.relayUrlUserCleared, isFalse);
       });
   });
 

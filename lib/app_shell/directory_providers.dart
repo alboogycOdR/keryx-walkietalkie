@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,6 +11,8 @@ import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/presentation/talk_target.dart' show PeerPresence, TalkTarget;
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/services/directory/directory.dart';
+
+import 'app_lifecycle.dart';
 
 const _logName = 'keryx.app_shell.directory';
 
@@ -312,3 +316,210 @@ class TalkTargetSelection {
   const TalkTargetSelection(this.target);
   final TalkTarget target;
 }
+
+/// v2 (Owner requirements 2026-09-13): the retried, *visible* registration
+/// state consumed by onboarding and Settings → Identity.
+///
+/// Deliberately layered on top of [identityEnrolmentProvider] rather than
+/// replacing its shape: that provider's `IdentityEnrolment`/
+/// `IdentityEnrolmentOutcome` contract is the seam `radioHostProvider`
+/// (`lib/core/radio_host/**`, frozen territory) and
+/// `test/app_shell/directory_enrolment_test.dart` depend on — one attempt,
+/// awaited once, never retried by itself. [registrationStatusProvider] adds
+/// the exponential-backoff retry, the app-foreground trigger and the
+/// richer, UI-facing state without touching any of that.
+sealed class RegistrationStatus {
+  const RegistrationStatus();
+}
+
+/// No relay configured (or no v2 key pair yet) — mirrors
+/// [IdentityEnrolmentOutcome.notApplicable].
+class RegistrationUnregistered extends RegistrationStatus {
+  const RegistrationUnregistered();
+}
+
+/// An enrolment attempt is in flight (first attempt, `registerNow()`, a
+/// backoff retry, or a foreground-triggered retry).
+class RegistrationInProgress extends RegistrationStatus {
+  const RegistrationInProgress();
+}
+
+/// Enrolled — mirrors [IdentityEnrolmentOutcome.registered] and
+/// [IdentityEnrolmentOutcome.renamed], which are the same success state from
+/// the UI's point of view.
+class RegistrationRegistered extends RegistrationStatus {
+  const RegistrationRegistered({required this.callsign, this.shortCode});
+  final String callsign;
+  final String? shortCode;
+}
+
+/// The last attempt failed with a transport failure (never reached the
+/// server) — treated as "offline", not a hard error, and retried
+/// automatically. [retryAt] is when the next automatic retry is scheduled.
+class RegistrationOffline extends RegistrationStatus {
+  const RegistrationOffline({required this.retryAt});
+  final DateTime retryAt;
+}
+
+/// The directory itself answered with an error code (e.g. `callsign_taken`).
+/// Still retried on the same backoff — the directory may recover, and a
+/// `callsign_taken` in particular clears the moment the user renames — but
+/// surfaced distinctly so the UI can show a named reason.
+class RegistrationFailed extends RegistrationStatus {
+  const RegistrationFailed({required this.code});
+  final DirectoryErrorCode code;
+}
+
+/// Backoff ladder: 1, 2, 4, 8, 16, 32, 60(capped) seconds (Decision, ORCH
+/// owner-approved 2026-09-13).
+const _registrationBackoffFloor = Duration(seconds: 1);
+const _registrationBackoffCap = Duration(seconds: 60);
+
+/// The state machine behind [registrationStatusProvider].
+class RegistrationStatusController extends Notifier<RegistrationStatus> {
+  Timer? _retryTimer;
+  Duration _nextBackoff = _registrationBackoffFloor;
+  StreamSubscription<void>? _foregroundSubscription;
+
+  /// Test-only: the delay the currently-pending retry [Timer] was scheduled
+  /// with, or `null` when no retry is pending. Lets a test assert the
+  /// backoff ladder (1, 2, 4 … 60 s cap) without needing a real or virtual
+  /// clock for `Timer` itself.
+  @visibleForTesting
+  Duration? get debugPendingRetryDelay => _retryTimer == null ? null : _pendingDelay;
+  Duration? _pendingDelay;
+
+  /// Test-only: fires the pending retry immediately, exactly as the real
+  /// `Timer` callback would once its delay elapsed — without waiting for
+  /// real time to pass.
+  @visibleForTesting
+  void debugFirePendingRetry() {
+    if (_retryTimer == null) return;
+    _retryTimer!.cancel();
+    _retryTimer = null;
+    _pendingDelay = null;
+    state = const RegistrationInProgress();
+    ref.invalidate(identityEnrolmentProvider);
+  }
+
+  @override
+  RegistrationStatus build() {
+    ref.onDispose(() {
+      _retryTimer?.cancel();
+      unawaited(_foregroundSubscription?.cancel());
+    });
+
+    // `ref.read`, not `ref.watch`: this Notifier manages its own mutable
+    // backoff/timer state across enrolment updates via `ref.listen` below —
+    // watching either provider here would rebuild (and reset) that state
+    // every time either one changes.
+    _foregroundSubscription = ref
+        .read(appForegroundProvider)
+        .listen((_) => _onForeground());
+
+    ref.listen<AsyncValue<IdentityEnrolment>>(
+      identityEnrolmentProvider,
+      (previous, next) => _applyEnrolment(next),
+    );
+
+    return _statusFor(ref.read(identityEnrolmentProvider)) ??
+        const RegistrationInProgress();
+  }
+
+  /// Re-runs enrolment right now (Settings → Identity's "Register now"),
+  /// resetting the backoff ladder since this is a fresh, user-initiated
+  /// attempt rather than a scheduled retry.
+  void registerNow() {
+    _cancelRetry();
+    _nextBackoff = _registrationBackoffFloor;
+    state = const RegistrationInProgress();
+    ref.invalidate(identityEnrolmentProvider);
+  }
+
+  void _onForeground() {
+    if (state is RegistrationOffline || state is RegistrationFailed) {
+      _cancelRetry();
+      _nextBackoff = _registrationBackoffFloor;
+      state = const RegistrationInProgress();
+      ref.invalidate(identityEnrolmentProvider);
+    }
+  }
+
+  void _applyEnrolment(AsyncValue<IdentityEnrolment> value) {
+    final status = _statusFor(value);
+    if (status == null) return; // still loading; keep showing in-progress
+    state = status;
+    if (status is RegistrationRegistered || status is RegistrationUnregistered) {
+      _cancelRetry();
+      _nextBackoff = _registrationBackoffFloor;
+    } else if (status is RegistrationOffline || status is RegistrationFailed) {
+      _scheduleRetry();
+    }
+  }
+
+  RegistrationStatus? _statusFor(AsyncValue<IdentityEnrolment> value) {
+    // A refresh-in-progress (e.g. right after `ref.invalidate`) is often an
+    // `AsyncData`/`AsyncError` with `isLoading: true` that still carries the
+    // *previous* value/error, not a fresh `AsyncLoading` — `.when()` alone
+    // routes purely by runtime type, so it would otherwise re-process the
+    // stale previous outcome as if it were new (double-scheduling a retry
+    // for a failure that already happened). Checking `isLoading` first
+    // means a refresh always reports in-progress until the new value lands.
+    if (value.isLoading) return const RegistrationInProgress();
+    return value.when(
+      loading: () => const RegistrationInProgress(),
+      error: (error, _) => _failureStatusFor(error),
+      data: (enrolment) {
+        switch (enrolment.outcome) {
+          case IdentityEnrolmentOutcome.notApplicable:
+            return const RegistrationUnregistered();
+          case IdentityEnrolmentOutcome.registered:
+          case IdentityEnrolmentOutcome.renamed:
+            final identity = ref.read(identityProvider).valueOrNull;
+            return RegistrationRegistered(
+              callsign: identity?.callsign.value ?? '',
+              shortCode: identity?.shortCode,
+            );
+          case IdentityEnrolmentOutcome.failed:
+            return _failureStatusFor(enrolment.error);
+        }
+      },
+    );
+  }
+
+  RegistrationStatus _failureStatusFor(Object? error) {
+    if (error is DirectoryException) {
+      if (error.isTransportFailure) {
+        return RegistrationOffline(retryAt: DateTime.now().add(_nextBackoff));
+      }
+      return RegistrationFailed(code: error.code);
+    }
+    // Anything else (a bug, an unexpected throw) is treated as offline —
+    // retried the same way rather than sticking the user in a dead end.
+    return RegistrationOffline(retryAt: DateTime.now().add(_nextBackoff));
+  }
+
+  void _scheduleRetry() {
+    _retryTimer?.cancel();
+    final delay = _nextBackoff;
+    _pendingDelay = delay;
+    _retryTimer = Timer(delay, () {
+      _pendingDelay = null;
+      state = const RegistrationInProgress();
+      ref.invalidate(identityEnrolmentProvider);
+    });
+    final doubled = delay * 2;
+    _nextBackoff = doubled > _registrationBackoffCap ? _registrationBackoffCap : doubled;
+  }
+
+  void _cancelRetry() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _pendingDelay = null;
+  }
+}
+
+final registrationStatusProvider =
+    NotifierProvider<RegistrationStatusController, RegistrationStatus>(
+  RegistrationStatusController.new,
+);

@@ -27,12 +27,22 @@ class SettingsRepository {
   /// Emits after every successful [save].
   Stream<KeryxSettings> get changes => _changes.stream;
 
+  /// No usable persisted blob at all (fresh install, corrupt/non-map JSON,
+  /// or a decode exception) — every one of those cases carries the
+  /// TASK-104 baked-in relay default, same as [KeryxSettings.fromJson]
+  /// does for a *present-but-empty/unconfigured* `relayUrl` key. Only an
+  /// explicit user clear (`relayUrlUserCleared`) is ever exempt, and that
+  /// requires a stored blob to exist in the first place.
+  static const _freshInstallDefaults = KeryxSettings(
+    relayUrl: KeryxSettings.relayUrlBakedIn,
+  );
+
   Future<KeryxSettings> load() async {
     final encoded = await _store.read(storageKey);
-    if (encoded == null || encoded.isEmpty) return const KeryxSettings();
+    if (encoded == null || encoded.isEmpty) return _freshInstallDefaults;
     try {
       final decoded = jsonDecode(encoded);
-      if (decoded is! Map) return const KeryxSettings();
+      if (decoded is! Map) return _freshInstallDefaults;
       return KeryxSettings.fromJson(Map<String, Object?>.from(decoded));
     } on Object catch (error, stackTrace) {
       developer.log(
@@ -41,7 +51,7 @@ class SettingsRepository {
         error: error,
         stackTrace: stackTrace,
       );
-      return const KeryxSettings();
+      return _freshInstallDefaults;
     }
   }
 
@@ -54,7 +64,15 @@ class SettingsRepository {
   }
 
   Future<KeryxSettings> _saveUnlocked(KeryxSettings settings) async {
-    final normalized = KeryxSettings.fromJson(settings.toJson());
+    // TASK-104: a save with an empty relayUrl is, by construction, the user
+    // explicitly clearing the field (nothing else in this codepath produces
+    // one — the default is never empty). Mark it so `load()` never
+    // resurrects that deliberate clear; a save with a non-empty relayUrl
+    // clears the marker again, so a fresh override starts clean.
+    final withClearMarker = settings.copyWith(
+      relayUrlUserCleared: settings.relayUrl.trim().isEmpty,
+    );
+    final normalized = KeryxSettings.fromJson(withClearMarker.toJson());
     _validate(normalized);
     await _store.write(storageKey, jsonEncode(normalized.toJson()));
     if (!_changes.isClosed) {
