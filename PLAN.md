@@ -6555,7 +6555,7 @@ NEW territory except the additive FakeDirectoryServer. Implementing stateful fak
 
 ### TASK-107
 **Title:** Host re-adopts the floor engine after switchTarget — PTT is dead after selecting a contact
-**Status:** pending
+**Status:** claimed
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.4 ("`RadioSessionController` gains `switchTarget(roomId, members)`; it calls the existing teardown/rebuild path"), §3 of the R1 Technical spec ("The actual floor engine remains the source of truth for TX ownership" — `RadioHostSnapshot.floorEngine` dartdoc), Verification VT-002 (re-entrancy across session rebuilds). Found by TASK-103's journey test (2026-09-13, `test/regression/journey_harness.dart:209-214` swallows the resulting throw with a comment naming this exact defect). Verified at source: `lib/core/radio_host/keryx_radio_host.dart:526` (`_floorEngine = session.floorEngine`, captured ONCE in `_startSession`), `:585-588` (`pressPtt`/`releasePtt` → `_floorEngine?.requestTransmit/releaseTransmit`), `:207` (snapshot exposes the same stale reference), `_floorEffectsSub`/`_stationsSub`/`_meterLevelSub` subscribed once to that first engine; `lib/services/session/radio_session_controller.dart:250-274` (`switchTarget` → `_teardownActive()` → `:626-627` `_floorEngine?.dispose(); _floorEngine = null;` → `_startLocal/_startLinked` → `_adoptEngine` builds a NEW engine + bridge) — the controller's `floorEngine` getter (`:211`) returns the new engine, but nothing tells the host. `lib/core/radio_host/radio_session_host_v2.dart:55-95` (`RadioSessionHostV2.start` → `sessionController.switchTarget`) is the production caller; `lib/core/radio_host/session_host.dart` is the `SessionHost` contract the host actually depends on.
@@ -6569,12 +6569,12 @@ NEW territory except the additive FakeDirectoryServer. Implementing stateful fak
 - [ ] The re-adoption is guarded by the same `_disposed`/generation discipline as `_startSession` (a switch racing a settings rebuild cannot adopt a superseded engine — test)
 - [ ] `journey_harness.dart` no longer swallows the dispose throw; the new PTT-after-select journey gate passes on this branch
 - [ ] Full test suite green; `flutter analyze` clean
-**Branch:** —
-**Started_At:** —
+**Branch:** task/TASK-107-gb
+**Started_At:** 2026-09-13T07:10:00Z
 **Progress_Notes:** —
 **Artifacts:** —
 **Test_Evidence:** —
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** ORCH
-**Updated_At:** 2026-09-13T08:55:00Z
+**Updated_By:** GB
+**Updated_At:** 2026-09-13T07:10:00Z
