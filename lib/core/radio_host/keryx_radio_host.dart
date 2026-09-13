@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:keryx/core/audio/audio.dart';
 import 'package:keryx/core/floor/floor.dart';
 import 'package:keryx/core/identity/identity.dart';
+import 'package:keryx/core/presentation/talk_target.dart';
 import 'package:keryx/core/presentation/telemetry.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
@@ -86,7 +87,8 @@ typedef ListenSettings =
 /// Production [RadioHost]: the block hoisted out of `_FaceScreenState`
 /// (Technical §1.1 / ADR-001 §6), unchanged in substance. See
 /// `radio_host.dart`'s library dartdoc for the module-level design notes.
-class KeryxRadioHost implements RadioHost, RadioIdentityReloader {
+class KeryxRadioHost
+    implements RadioHost, RadioIdentityReloader, RadioTargetSwitcher {
   KeryxRadioHost({
     required this.sessionFactory,
     required this.audioSinkFactory,
@@ -624,6 +626,28 @@ class KeryxRadioHost implements RadioHost, RadioIdentityReloader {
     if (_disposed) return;
     _identity = identity;
     await _startSession(identity: identity, settings: settings);
+  }
+
+  // --- target switch (TASK-108) -----------------------------------------
+
+  /// See [RadioTargetSwitcher.switchTarget]. A no-op before [_session] has
+  /// been built by boot (or if [_session] is some hand-written [SessionHost]
+  /// test fake that is not a [RadioSessionHostAdapter] — same "falls through
+  /// to the decorative default with no cast needed" precedent
+  /// [_bindFloorEngine] already uses for `debugController`). Otherwise
+  /// delegates straight to the live `RadioSessionController.switchTarget`,
+  /// which already drives engine re-adoption through
+  /// [SessionHostEngineEvents.engineChanges] (TASK-107) — this method does
+  /// not touch `_floorEngine`/`_session` itself.
+  @override
+  Future<void> switchTarget(TalkTarget target) async {
+    if (_disposed) return;
+    final session = _session;
+    if (session is! RadioSessionHostAdapter) return;
+    await session.debugController.switchTarget(
+      target,
+      memberPeerIds: target.memberPeerIds,
+    );
   }
 
   /// **Disclosed decision (pre-hoist), preserved.** `RadioSessionController`

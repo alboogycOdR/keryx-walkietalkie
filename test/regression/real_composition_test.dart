@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:convert' show base64Encode;
+import 'dart:convert' show base64Encode, jsonEncode;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,18 +12,26 @@ import 'package:keryx/core/floor/floor.dart';
 import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/protocol/protocol.dart';
 import 'package:keryx/core/radio_host/radio_host.dart';
+import 'package:keryx/core/rooms/derivation.dart' show deriveDirectRoom;
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
+import 'package:keryx/features/contacts/contacts_keys.dart' show ContactsKeys;
 import 'package:keryx/features/settings/settings_screen.dart';
 import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 import 'package:keryx/services/directory/directory.dart';
+import 'package:keryx/services/discovery/discovered_peer.dart';
+import 'package:keryx/services/discovery/discovery_config.dart';
+import 'package:keryx/services/discovery/discovery_service.dart';
+import 'package:keryx/services/discovery/discovery_state.dart';
 import 'package:keryx/services/platform/platform.dart';
-import 'package:keryx/services/session/session.dart' show StationInfo;
+import 'package:keryx/services/session/session.dart' show RadioSessionController, StationInfo;
+import 'package:keryx/services/signaling/in_process_endpoint.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/identity/memory_identity_store.dart';
 import '../services/directory/fakes/fake_directory_server.dart';
+import '../services/mesh/fakes/fake_rtc_adapter.dart';
 
 /// TASK-058 — Verification §9: "A scoped mock test is not sufficient
 /// evidence for a production wiring change; include a test that exercises
@@ -433,6 +441,233 @@ void main() {
         presenceClient.dispose();
       });
     });
+
+  testWidgets(
+    'selecting a real contact through the real KeryxApp drives the real '
+    'RadioSessionController.switchTarget and joins that room — not just '
+    'presentation state (TASK-108, Verification §9: a wiring defect needs '
+    'a real-composition test, not a scoped mock)',
+    (tester) async {
+      HttpOverrides.global = null;
+      late FakeDirectoryServer server;
+      late IdentityKeyPair keyPair;
+      late DirectoryClient directoryClient;
+      late PresenceClient presenceClient;
+      await tester.runAsync(() async {
+        server = await FakeDirectoryServer.start();
+        keyPair = await IdentityKeyPair.generate();
+        directoryClient = DirectoryClient(baseUrl: server.baseUrl, keyPair: keyPair);
+        presenceClient = PresenceClient(baseUrl: server.baseUrl, keyPair: keyPair);
+      });
+      addTearDown(() => tester.runAsync(() async {
+            directoryClient.close();
+            presenceClient.dispose();
+            await server.close();
+          }));
+
+      final myPeerId = derivePeerId(keyPair.publicKey);
+      final theirKeyPair = await IdentityKeyPair.generate();
+      final theirPk = unpaddedBase64Url(theirKeyPair.publicKey);
+      server.responder = (RecordedDirectoryRequest req) {
+        if (req.method == 'GET' && req.path == '/v2/identity/me') {
+          return DirectoryFakeResponse(
+            statusCode: 200,
+            body: <String, Object?>{
+              'pk': myPeerId,
+              'callsign': 'STUB-1',
+              'status': 'available',
+              'contacts': <Object?>[
+                <String, Object?>{
+                  'pk': theirPk,
+                  'callsign': 'ZULU-1',
+                  'status': 'available',
+                },
+              ],
+              'pending_in': <Object?>[],
+              'pending_out': <Object?>[],
+              'groups': <Object?>[],
+            });
+        }
+        return const DirectoryFakeResponse(statusCode: 200, body: <String, Object?>{});
+      };
+
+      // TASK-107's chain (real `RadioSessionController` +
+      // `RadioSessionHostAdapter`), not `_RealCompositionHarness`'s
+      // `_RealSessionHost` fake — `KeryxRadioHost.switchTarget` (TASK-108)
+      // only delegates when `_session is RadioSessionHostAdapter`, so
+      // proving the real call reaches a live session needs this exact
+      // chain, the same one `keryx_radio_host_switch_target_test.dart`
+      // (this task's own unit test) already exercises in isolation.
+      final sigHub = InProcessSignalingHub();
+      final adapter = FakeRtcAdapter();
+      late RadioSessionController controller;
+
+      // Pre-seed an explicit "user cleared" relay — same fix
+      // `mobile_app_shell_test.dart`'s own TASK-108 test and
+      // `regression_shell_harness.dart` already apply for the identical
+      // reason: an unseeded store triggers `SettingsRepository.load()`'s
+      // TASK-104 baked-in-relay migration mid-test, which fires a second,
+      // unrelated `listenSettings` emission that races (and can clobber)
+      // the `switchTarget`-driven room this test asserts on.
+      final settingsStore = InMemorySettingsStore();
+      await settingsStore.write(
+        SettingsRepository.storageKey,
+        jsonEncode(
+          const KeryxSettings().copyWith(relayUrl: '', relayUrlUserCleared: true).toJson(),
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            settingsStoreProvider.overrideWithValue(settingsStore),
+            identityProvider.overrideWith(
+              (ref) async => DeviceIdentity(
+                installUuid: '00000000-0000-4000-8000-000000000000',
+                peerId: myPeerId,
+                callsign: Callsign.parse('STUB-1'),
+                keyPair: keyPair)),
+            directoryClientProvider.overrideWith((ref) async => directoryClient),
+            presenceClientProvider.overrideWith((ref) async => presenceClient),
+            radioHostProvider.overrideWith((ref) {
+              final host = KeryxRadioHost(
+                sessionFactory: ({
+                  required String localPeerId,
+                  required String callsign,
+                  required KeryxSettings settings,
+                  required void Function(RadioEvent event) dispatch,
+                }) {
+                  controller = RadioSessionController(
+                    localPeerId: localPeerId,
+                    callsign: callsign,
+                    settings: settings,
+                    dispatch: dispatch,
+                    endpointFactory: sigHub.endpoint,
+                    discoveryFactory: _NoopDiscoveryService.new,
+                    rtcAdapter: adapter,
+                  );
+                  return RadioSessionHostAdapter(controller);
+                },
+                audioSinkFactory: () async => _RealAudioSink(),
+                audioSinkDisposer: (AudioSink sink) async {
+                  if (sink is _RealAudioSink) sink.stopAll();
+                },
+                identityFactory: () async => DeviceIdentity(
+                  installUuid: 'test-install-uuid',
+                  peerId: myPeerId,
+                  callsign: Callsign.parse('STUB-1')),
+                permissionGateFactory: () => const _RealPermissionGate(),
+                radioServiceFactory: () => _RealServiceController(),
+                loadSettings: () => ref.read(settingsProvider.future),
+                dispatch: (event) =>
+                    ref.read(radioStateProvider.notifier).dispatch(event),
+                readRadioState: () => ref.read(radioStateProvider),
+                listenRadioState: (onChange, {bool fireImmediately = false}) {
+                  final subscription = ref.listen<RadioState>(
+                    radioStateProvider,
+                    (previous, next) => onChange(previous, next),
+                    fireImmediately: fireImmediately);
+                  return subscription.close;
+                },
+                listenSettings: (onChange) {
+                  final subscription = ref.listen<AsyncValue<KeryxSettings>>(
+                    settingsProvider,
+                    (previous, next) {
+                      final settings = next.valueOrNull;
+                      if (settings != null) onChange(settings);
+                    });
+                  return subscription.close;
+                });
+              ref.onDispose(() => unawaited(host.dispose()));
+              return host;
+            }),
+          ],
+          child: KeryxApp(identityStore: _keyedInstallIdentityStore())));
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(talkui.TalkScreen), findsOneWidget);
+
+      await tester.tap(find.byKey(ShellKeys.tabContacts));
+      for (var i = 0; i < 15; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+        if (find.textContaining('Contacts need a relay address').evaluate().isEmpty) break;
+      }
+      expect(find.textContaining('Contacts need a relay address'), findsNothing);
+
+      Finder contactRow = find.byKey(ContactsKeys.contactRow(theirPk));
+      for (var i = 0; i < 15; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+        contactRow = find.byKey(ContactsKeys.contactRow(theirPk));
+        if (contactRow.evaluate().isNotEmpty) break;
+      }
+      expect(
+        contactRow,
+        findsOneWidget,
+        reason: 'the real directory response must reach the real Contacts '
+            'list before the target-switch assertion below means anything');
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(KeryxApp)));
+      expect(
+        container.read(radioStateProvider).roomId,
+        isNot(equals(theirPk)),
+        reason: 'sanity: no room switch has happened yet');
+
+      final expectedRoomId = await deriveDirectRoom(
+        myKeyPair: keyPair,
+        theirEdwardsPublicKey: theirKeyPair.publicKey);
+
+      await tester.tap(contactRow);
+      // `_selectTarget`'s `unawaited(host.switchTarget(...))` is a
+      // fire-and-forget call whose chain (`RadioSessionController
+      // .switchTarget` -> `_startLocal`/signaling/discovery) needs real
+      // event-loop turns, not `flutter_test`'s fake-async `pump` clock —
+      // poll with `runAsync` real delays, same fix this file's own
+      // "real directory backend" test already applies for real socket I/O.
+      for (var i = 0; i < 15; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+        if (container.read(radioStateProvider).roomId == expectedRoomId) break;
+      }
+
+      // The proof this task exists for: a real `RadioState.roomId` change,
+      // not just `currentTargetProvider`'s presentation-layer write — this
+      // can only happen if `KeryxRadioHost.switchTarget` (TASK-108) reached
+      // the real `RadioSessionController.switchTarget`, which is the only
+      // code path that ever dispatches `SetRoom`.
+      expect(
+        container.read(radioStateProvider).roomId,
+        expectedRoomId,
+        reason: 'selecting the contact must join the real DirectRoom via '
+            'RadioSessionController.switchTarget, proving RadioTargetSwitcher '
+            'reaches a live session end to end');
+
+      // Unmount before the test ends — VT-004's own fix for the identical
+      // problem: the real `FloorEngine`'s presence-heartbeat `Timer` is
+      // still pending unless `ProviderScope` disposal (`host.dispose()`)
+      // actually runs before `flutter_test`'s end-of-test invariant check.
+      // `host.dispose()` itself is only reached via `ref.onDispose`'s
+      // `unawaited` call, so give its real-async chain (real `dart:io`
+      // sockets on `directoryClient`/`presenceClient`, the switched
+      // session's presence-heartbeat `Timer`) actual event-loop turns —
+      // same reasoning as this file's own "real directory backend" test's
+      // teardown, a few tests above.
+      await tester.pumpWidget(const SizedBox.shrink());
+      for (var i = 0; i < 10; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pump();
+      }
+      await tester.runAsync(() async {
+        directoryClient.close();
+        presenceClient.dispose();
+      });
+      await tester.pump();
+    });
 }
 
 /// Counts real construction calls and exposes the last-built real
@@ -482,6 +717,45 @@ class _RealCompositionHarness {
     final controller = _RealServiceController();
     serviceController = controller;
     return controller;
+  }
+}
+
+/// TASK-108: no-op `DiscoveryService`, matching
+/// `keryx_radio_host_switch_target_test.dart`'s own private fake of the
+/// same name — copied here (not shared) because that file's classes are
+/// private to it, same reasoning `_RealCompositionHarness`'s own dartdoc
+/// already gives for not cross-importing test-private fakes.
+class _NoopDiscoveryService implements DiscoveryService {
+  final _found = StreamController<DiscoveredPeer>.broadcast();
+  final _lost = StreamController<DiscoveredPeer>.broadcast();
+  final _states = StreamController<DiscoveryState>.broadcast();
+
+  @override
+  Stream<DiscoveredPeer> get peersFound => _found.stream;
+
+  @override
+  Stream<DiscoveredPeer> get peersLost => _lost.stream;
+
+  @override
+  Stream<DiscoveryState> get states => _states.stream;
+
+  @override
+  DiscoveryState get state => DiscoveryState.idle;
+
+  @override
+  Future<void> start(DiscoveryConfig config) async {}
+
+  @override
+  Future<void> onTuned() async {}
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Future<void> dispose() async {
+    await _found.close();
+    await _lost.close();
+    await _states.close();
   }
 }
 
