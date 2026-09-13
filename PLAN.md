@@ -6567,7 +6567,7 @@ NEW territory except the additive FakeDirectoryServer. Implementing stateful fak
 
 ### TASK-107
 **Title:** Host re-adopts the floor engine after switchTarget — PTT is dead after selecting a contact
-**Status:** in_progress
+**Status:** needs_review
 **Assigned_To:** GB
 **Priority:** critical
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §6.4 ("`RadioSessionController` gains `switchTarget(roomId, members)`; it calls the existing teardown/rebuild path"), §3 of the R1 Technical spec ("The actual floor engine remains the source of truth for TX ownership" — `RadioHostSnapshot.floorEngine` dartdoc), Verification VT-002 (re-entrancy across session rebuilds). Found by TASK-103's journey test (2026-09-13, `test/regression/journey_harness.dart:209-214` swallows the resulting throw with a comment naming this exact defect). Verified at source: `lib/core/radio_host/keryx_radio_host.dart:526` (`_floorEngine = session.floorEngine`, captured ONCE in `_startSession`), `:585-588` (`pressPtt`/`releasePtt` → `_floorEngine?.requestTransmit/releaseTransmit`), `:207` (snapshot exposes the same stale reference), `_floorEffectsSub`/`_stationsSub`/`_meterLevelSub` subscribed once to that first engine; `lib/services/session/radio_session_controller.dart:250-274` (`switchTarget` → `_teardownActive()` → `:626-627` `_floorEngine?.dispose(); _floorEngine = null;` → `_startLocal/_startLinked` → `_adoptEngine` builds a NEW engine + bridge) — the controller's `floorEngine` getter (`:211`) returns the new engine, but nothing tells the host. `lib/core/radio_host/radio_session_host_v2.dart:55-95` (`RadioSessionHostV2.start` → `sessionController.switchTarget`) is the production caller; `lib/core/radio_host/session_host.dart` is the `SessionHost` contract the host actually depends on.
@@ -6605,9 +6605,21 @@ NEW territory except the additive FakeDirectoryServer. Implementing stateful fak
 [preflight] Paste this output into your first Progress_Note as the c8b9872 filesystem check.
 ```
 All expected files exist except the dossier (NEW). `SessionHost` default for `engineChanges` will keep out-of-territory fakes compiling. Implementing contract + host re-adopt + TX release-before-teardown + journey PTT-after-select gate.
-**Artifacts:** —
-**Test_Evidence:** —
+- [2026-09-13T09:29:52+02:00 git author-date, GB] Implementation committed (`0e52b7c feat(radio-host): re-adopt floor engine after switchTarget [TASK-107]`) — per its own launch-log narration: `implements` doesn't inherit default methods so `engineChanges` was put on an opt-in mixin/interface addition with synchronous re-adoption (no missed stations); scoped tests passed; was about to mutation-check the re-adopt path and run the full suite + analyzer next.
+- [2026-09-13T09:35:00Z] [ORCH] **GB's session crashed here** — its own launch log (`GB-20260913-070734.log`) ends mid-task with `API error 402 Payment Required: Grok Build usage balance exhausted`; the process is confirmed not running (no matching process found). GB never ran its own final verification and never wrote Test_Evidence or flipped this task's status itself — everything below this note is ORCH's own doing, not a builder claim. Verified before proceeding: worktree `wt-grok-walkietalkie-keryx` is clean (`git status --short` empty) — nothing uncommitted was lost. `git diff master...HEAD --stat` = exactly the 9 files already listed in Owned_Paths above, 626 insertions / 22 deletions — no drift. Moving straight to `needs_review` rather than waiting on GB's balance, since review independently re-verifies everything from scratch regardless of what a builder claims. GB is unusable until its balance is topped up — a roster/config matter, not touched here.
+**Artifacts:**
+- lib/core/radio_host/keryx_radio_host.dart
+- lib/core/radio_host/session_host.dart
+- lib/core/radio_host/radio_session_host_v2.dart
+- lib/services/session/radio_session_controller.dart
+- test/core/radio_host/keryx_radio_host_switch_target_test.dart
+- test/core/radio_host/keryx_radio_host_test.dart
+- test/services/session/radio_session_controller_test.dart
+- test/regression/journey_harness.dart
+- test/regression/journey_two_phones_test.dart
+- dossiers/TASK-107.md
+**Test_Evidence:** — (none from GB; the reviewer establishes all counts independently, per the crash note above)
 **Review_Findings:** —
 **Blocked_Reason:** —
-**Updated_By:** GB
-**Updated_At:** 2026-09-13T07:12:00Z
+**Updated_By:** ORCH
+**Updated_At:** 2026-09-13T09:35:00Z
