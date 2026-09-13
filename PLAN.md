@@ -6567,7 +6567,7 @@ NEW territory except the additive FakeDirectoryServer. Implementing stateful fak
 ### TASK-106
 **Title:** Incoming call — auto-join a contact's room when they start talking (receive side)
 **Status:** pending
-**Assigned_To:** TBD
+**Assigned_To:** S5
 **Priority:** high
 **Spec_References:** specs/KERYX_v2.0_Technical_v1.0.md §4.3 (presence message `{pk, status, talking?, since}` fanned out to every online contact), §5.4 (both peers derive the same 1:1 room id), §6.4; specs/KERYX_v2.0_Design_v1.0.md §2.1 (Talk "current target"), §4 "Receiving". Verified 2026-09-13: `currentTargetProvider` is set only by the user's own selection (`lib/app_shell/mobile_app_shell.dart:101`); nothing reacts to a contact's `talking`; whether the client ever *sends* `talking` on TX is unverified (`PresenceClient` sends `{status}`; check `presence_client.dart` and `token-svc/app/v2_api.py`'s presence handler for a `talking` field before designing). Decision (ORCH, owner-approved): the first two-phone test uses "both select each other" (documented in the runbook); this task removes that requirement.
 **Owned_Paths:** lib/app_shell/talking_presence.dart, lib/app_shell/incoming_call.dart, lib/app_shell/directory_providers.dart, lib/app_shell/talk_screen.dart, lib/services/directory/presence_client.dart, test/app_shell/talking_presence_test.dart, test/app_shell/incoming_call_test.dart, test/app_shell/talk_screen_test.dart, test/services/directory/presence_client_test.dart, test/regression/journey_two_phones_test.dart, dossiers/TASK-106.md
