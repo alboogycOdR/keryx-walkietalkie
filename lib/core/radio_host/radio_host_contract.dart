@@ -79,3 +79,39 @@ abstract interface class RadioHost {
   /// locally transmitting track survives it (Technical §4; PTS §8.5).
   Future<void> dispose();
 }
+
+/// v2 (TASK-102, Technical §3.2 "Replaces this KERYX ID" / §4.2 `POST
+/// /v2/identity`, `PATCH /v2/identity/callsign`): optional capability a
+/// [RadioHost] may support — reload the device identity from storage and
+/// rebuild the active session so directory enrolment, presence and the
+/// LINKED `/token` mint all move to the new key **together**, with no
+/// restart.
+///
+/// Deliberately **not** a member of [RadioHost] itself. [RadioHost] is
+/// implemented by several test doubles outside this task's `Owned_Paths`
+/// (`test/app_shell/fake_radio_host.dart`,
+/// `test/features/radio_controls/fake_radio_host.dart`,
+/// `test/features/talk/fake_radio_host.dart`,
+/// `test/core/presentation/radio_view_intents_test.dart`) — adding a
+/// required member to that interface would break every one of them to
+/// implement a capability only Settings' restore/rename flow needs. Same
+/// "additive interface, `is`-checked by the caller" shape TASK-107 used
+/// for `SessionHostEngineEvents` so unrelated fakes keep compiling
+/// unchanged. [KeryxRadioHost] implements this in addition to [RadioHost];
+/// a caller that only holds a bare [RadioHost] checks `host is
+/// RadioIdentityReloader` before calling it.
+abstract interface class RadioIdentityReloader {
+  /// Reloads identity via the host's own identity source (storage — the
+  /// same one `IdentityRepository.restoreKeyPair`/`setCallsign` just wrote
+  /// to) and reconstructs the active session with it, exactly like a
+  /// session-affecting settings change (Technical §7) but keyed off a
+  /// changed identity instead. Never throws — directory enrolment inside
+  /// the rebuilt session is already best-effort and logs its own failures
+  /// (mirrors [RadioHost.applySettings]).
+  ///
+  /// The caller is responsible for invalidating any Riverpod-side cached
+  /// read of identity (e.g. `identityProvider`) *before* calling this, so
+  /// the directory-enrolment chain this triggers resolves the same fresh
+  /// identity rather than a stale cached one.
+  Future<void> reloadIdentity();
+}

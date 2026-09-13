@@ -5,7 +5,13 @@ import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/features/settings/session_settings.dart';
 
 /// Hand-written [RadioHost] double — Verification §2: no sockets or plugins.
-class FakeRadioHost implements RadioHost {
+///
+/// TASK-102: also implements [RadioIdentityReloader] (an additive, optional
+/// interface — see its dartdoc) so `settings_screen_test.dart` can assert
+/// `_reEnrolAfterIdentityChange` reaches the host after Restore/callsign
+/// rename, the same way `applySettingsCalls` already asserts settings
+/// reach it.
+class FakeRadioHost implements RadioHost, RadioIdentityReloader {
   RadioHostSnapshot _snapshot = const RadioHostSnapshot();
   final StreamController<RadioHostSnapshot> _changes =
       StreamController<RadioHostSnapshot>.broadcast();
@@ -13,6 +19,13 @@ class FakeRadioHost implements RadioHost {
   final List<String> methodLog = <String>[];
   final List<KeryxSettings> applySettingsCalls = <KeryxSettings>[];
   final List<Object> joinEventCalls = <Object>[];
+  int reloadIdentityCalls = 0;
+
+  @override
+  Future<void> reloadIdentity() async {
+    methodLog.add('reloadIdentity');
+    reloadIdentityCalls++;
+  }
 
   @override
   RadioHostSnapshot get current => _snapshot;

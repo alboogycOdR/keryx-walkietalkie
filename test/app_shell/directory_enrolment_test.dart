@@ -171,9 +171,16 @@ void main() {
   /// Builds a real [KeryxRadioHost] exactly as `radioHostProvider` does —
   /// its `ensureDirectoryEnrolment` is the real `identityEnrolmentProvider`
   /// read off [container] — with only the native seams faked.
-  ({KeryxRadioHost host, _SessionHostFake session, RadioState Function() state, List<int> requestsWhenSessionBuilt})
+  ({KeryxRadioHost host, _SessionHostFake Function() session, RadioState Function() state, List<int> requestsWhenSessionBuilt})
       buildHost(ProviderContainer container) {
-    final session = _SessionHostFake();
+    // TASK-102: a mutable "current session" rather than one fixed instance
+    // — `reloadIdentity()`/a settings-affecting change both tear down and
+    // rebuild the session for real (`_startSession`), exactly like
+    // `RadioSessionController` constructing a brand-new controller each
+    // time. Returning the SAME `_SessionHostFake` on a second build would
+    // hand the host an already-disposed engine on rebuild — not what
+    // production ever does.
+    _SessionHostFake session = _SessionHostFake();
     final requestsWhenSessionBuilt = <int>[];
     var state = const RadioState.off();
     void Function(RadioState? previous, RadioState next)? radioListener;
@@ -188,6 +195,7 @@ void main() {
         // The ordering witness: how many directory requests the server had
         // already SERVED at the instant the host asked for a session.
         requestsWhenSessionBuilt.add(server.requests.length);
+        session = _SessionHostFake();
         return session;
       },
       audioSinkFactory: () async => RecordingAudioSink(),
@@ -213,7 +221,7 @@ void main() {
     );
     return (
       host: host,
-      session: session,
+      session: () => session,
       state: () => state,
       requestsWhenSessionBuilt: requestsWhenSessionBuilt,
     );
@@ -230,7 +238,7 @@ void main() {
       addTearDown(h.host.dispose);
 
       expect(h.state().phase, RadioPhase.idle);
-      expect(h.session.startCalled, isTrue);
+      expect(h.session().startCalled, isTrue);
 
       // Exactly one directory request, and it is the registration.
       expect(
@@ -273,7 +281,7 @@ void main() {
       addTearDown(h.host.dispose);
 
       expect(h.state().phase, RadioPhase.idle);
-      expect(h.session.startCalled, isTrue);
+      expect(h.session().startCalled, isTrue);
       expect(h.host.current.sessionFailureKind, isNull,
           reason: 'an enrolment failure is not a session failure');
 
@@ -354,4 +362,83 @@ void main() {
       expect(await container.read(directoryClientProvider.future), isNull);
     },
   );
+
+  group('TASK-102 — reloadIdentity (Settings → Restore live re-key)', () {
+    test(
+      'after a restore, the NEXT POST /v2/identity carries the new public '
+      'key, and nothing further is ever sent under the old one',
+      () async {
+        final container = await buildContainer();
+        final h = buildHost(container);
+
+        await h.host.start();
+        addTearDown(h.host.dispose);
+        expect(
+          server.requests.map((r) => '${r.method} ${r.path}').toList(),
+          ['POST /v2/identity'],
+        );
+        final oldKeyHeader = server.requests.single.callerKeyHeader;
+        expect(oldKeyHeader, isNotNull);
+
+        // Simulate `IdentityRepository.restoreKeyPair` + `.setCallsign`
+        // having already written a brand-new identity to disk — `identity`
+        // is the same mutable variable `buildContainer`'s
+        // `identityProvider` override and `buildHost`'s `identityFactory`
+        // both close over, exactly like production's direct-disk-read
+        // `_defaultIdentityFactory` observing a fresh write.
+        final newKeyPair = await IdentityKeyPair.generate();
+        identity = DeviceIdentity(
+          installUuid: identity.installUuid,
+          peerId: derivePeerId(newKeyPair.publicKey),
+          callsign: Callsign.parse('CHARLIE-1'),
+          keyPair: newKeyPair,
+        );
+        // Composition-root order `_reEnrolAfterIdentityChange` follows:
+        // invalidate the cached identity read FIRST, then reload.
+        container.invalidate(identityProvider);
+        await h.host.reloadIdentity();
+
+        expect(
+          server.requests.map((r) => '${r.method} ${r.path}').toList(),
+          ['POST /v2/identity', 'POST /v2/identity'],
+        );
+        final secondRequest = server.requests.last;
+        expect(secondRequest.bodyJson, {'callsign': 'CHARLIE-1'});
+        expect(secondRequest.callerKeyHeader, isNotNull);
+        expect(
+          secondRequest.callerKeyHeader,
+          isNot(oldKeyHeader),
+          reason: 'the re-enrolment must sign with the NEW key, not the '
+              'pre-restore one',
+        );
+
+        // No mixed-identity window: the app's single enrolment record now
+        // reflects the new key, and re-reading it does not re-register
+        // (still exactly 2 requests total).
+        final enrolment = await container.read(identityEnrolmentProvider.future);
+        expect(enrolment.outcome, IdentityEnrolmentOutcome.registered);
+        expect(server.requests, hasLength(2));
+
+        // The rebuilt session was constructed with the NEW identity's
+        // peerId/callsign, not the stale boot-time one.
+        expect(h.session().startCalled, isTrue);
+      },
+    );
+
+    test(
+      'a host that never finished booting ignores reloadIdentity (nothing '
+      'to re-key yet)',
+      () async {
+        final container = await buildContainer();
+        final h = buildHost(container);
+        // Deliberately never call h.host.start().
+        addTearDown(h.host.dispose);
+
+        await h.host.reloadIdentity();
+
+        expect(server.requests, isEmpty);
+        expect(h.session().startCalled, isFalse);
+      },
+    );
+  });
 }
