@@ -37,3 +37,6 @@ stores, not wholesale controller overrides.
 
 - [2026-09-13T06:12:00Z] [GB] Claimed. Preflight: 4 NEW files + existing
   `fake_directory_server.dart`. Implementing.
+- [2026-09-13T06:25:00Z] [GB] Journey file 17 pass / 3 skip. Mutation:
+  omitting `/token` `unknown_identity` turned that test 403 `not_member`.
+  Full suite +1482 ~43 -0. Analyze clean. → needs_review.
