@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,10 +36,27 @@ Future<({FakeRadioHost host, ProviderContainer container})> pumpRegressionShell(
   // Deterministic seed so overflow → My code can render a real QR without
   // hitting flutter_secure_storage (V2-VT-029).
   final keyPair = await IdentityKeyPair.fromSeed(List<int>.filled(32, 1));
+  // TASK-104 (re-carved by ORCH into this task's Owned_Paths): this harness
+  // uses a real (non-null) identity keyPair without overriding
+  // directoryClientProvider/presenceClientProvider, so it is not exempt from
+  // identityEnrolmentProvider the way shell_harness.dart's stub identity is.
+  // Since SettingsRepository.load() now migrates a never-configured relayUrl
+  // to the baked-in default, an unseeded store here would drive a real
+  // enrolment attempt against nothing under TestWidgetsFlutterBinding, which
+  // never settles. Pre-seed an explicit "user cleared" relay so load() does
+  // not apply the migration — these layout/golden/back-nav tests never cared
+  // about directory/registration behaviour in the first place.
+  final settingsStore = InMemorySettingsStore();
+  await settingsStore.write(
+    SettingsRepository.storageKey,
+    jsonEncode(
+      const KeryxSettings().copyWith(relayUrl: '', relayUrlUserCleared: true).toJson(),
+    ),
+  );
   final container = ProviderContainer(
     overrides: <Override>[
       radioHostProvider.overrideWithValue(host),
-      settingsStoreProvider.overrideWithValue(InMemorySettingsStore()),
+      settingsStoreProvider.overrideWithValue(settingsStore),
       // v2 (TASK-093): identityProvider's production default hits the real
       // flutter_secure_storage platform channel, which never replies under
       // `flutter test` — every pumpAndSettle here hangs without this stub.
