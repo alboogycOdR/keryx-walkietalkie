@@ -335,8 +335,6 @@ void main() {
           reason: 'B must see A incoming after load() refreshes from the server',
         );
       },
-      skip:
-          'gate 6 — ContactsController.refreshFromServer() has no callers; un-skip when TASK-105 lands',
     );
 
     test(
@@ -373,8 +371,6 @@ void main() {
           contains(harness.phoneA.pk),
         );
       },
-      skip:
-          'gate 7 — B accepts; ContactsController.refreshFromServer() has no callers; un-skip when TASK-105 lands',
     );
 
     test(
