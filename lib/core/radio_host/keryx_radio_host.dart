@@ -86,7 +86,7 @@ typedef ListenSettings =
 /// Production [RadioHost]: the block hoisted out of `_FaceScreenState`
 /// (Technical §1.1 / ADR-001 §6), unchanged in substance. See
 /// `radio_host.dart`'s library dartdoc for the module-level design notes.
-class KeryxRadioHost implements RadioHost {
+class KeryxRadioHost implements RadioHost, RadioIdentityReloader {
   KeryxRadioHost({
     required this.sessionFactory,
     required this.audioSinkFactory,
@@ -592,6 +592,38 @@ class KeryxRadioHost implements RadioHost {
     if (_disposed) return;
     if (!_settingsStream.isClosed) _settingsStream.add(settings);
     await _maybeRebuildSession(settings);
+  }
+
+  // --- identity reload (TASK-102) ---------------------------------------
+
+  /// See [RadioIdentityReloader.reloadIdentity]. A no-op before boot has
+  /// produced its first identity (`_identity == null`) — there is nothing
+  /// to re-key yet, and [_bootInternal] will pick up whatever
+  /// [identityFactory] returns on its own first read. Otherwise re-reads
+  /// [identityFactory] (storage, same source `IdentityRepository
+  /// .restoreKeyPair`/`setCallsign` just wrote to — production's
+  /// `_defaultIdentityFactory` in `radio_host_provider.dart` is a *direct*
+  /// disk read, not a memoised Riverpod one, so this always observes the
+  /// just-written identity) and forces a full session rebuild through
+  /// [_startSession] —
+  /// the exact same teardown/reconstruct path a session-affecting settings
+  /// change takes, keyed off the new identity's peerId/callsign instead.
+  /// That also re-runs [_ensureDirectoryEnrolment] before the new session
+  /// starts, same as every other [_startSession] call.
+  @override
+  Future<void> reloadIdentity() async {
+    if (_disposed) return;
+    final identity = await identityFactory();
+    if (_disposed) return;
+    final current = _identity;
+    if (current == null) {
+      // Still booting (or never booted) — nothing running to re-key.
+      return;
+    }
+    final settings = _appliedSettings ?? await loadSettings();
+    if (_disposed) return;
+    _identity = identity;
+    await _startSession(identity: identity, settings: settings);
   }
 
   /// **Disclosed decision (pre-hoist), preserved.** `RadioSessionController`

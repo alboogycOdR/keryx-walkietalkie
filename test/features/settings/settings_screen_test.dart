@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/core/state/radio_state.dart';
 import 'package:keryx/core/state/radio_state_controller.dart';
 import 'package:keryx/core/theme/ux_tokens.dart';
+import 'package:keryx/features/restore/restore.dart' show RestoreKeys;
 import 'package:keryx/features/settings/settings.dart';
 
 import '../../core/identity/memory_identity_store.dart';
@@ -46,6 +48,8 @@ void main() {
     bool useProductionConfirm = false,
     Size surface = const Size(800, 3600),
     Brightness brightness = Brightness.dark,
+    Future<DeviceIdentity> Function(RecoveryPhrase phrase)?
+    restoreKeyDerivation,
   }) async {
     tester.view.physicalSize = surface;
     tester.view.devicePixelRatio = 1.0;
@@ -84,6 +88,7 @@ void main() {
           home: SettingsScreen(
             identityRepository: IdentityRepository(identityStore),
             recoveryPhraseStore: identityStore,
+            restoreKeyDerivation: restoreKeyDerivation,
             confirm: useProductionConfirm
                 ? null
                 : confirm ??
@@ -283,6 +288,26 @@ void main() {
     expect(find.textContaining('livekit'), findsNothing);
   });
 
+  testWidgets(
+    'TASK-102: a valid callsign rename persists, and re-keys the running '
+    'host the same way a restore does',
+    (tester) async {
+      await pumpSettings(tester);
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(SettingsKeys.callsign),
+          matching: find.byType(TextField)),
+        'ECHO-3');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(find.text(SettingsCopy.callsignInvalid), findsNothing);
+      final DeviceIdentity persisted = await IdentityRepository(
+        identityStore).loadOrCreate();
+      expect(persisted.callsign.value, 'ECHO-3');
+      expect(host.reloadIdentityCalls, 1);
+    });
+
   testWidgets('invalid callsign is refused and not persisted', (tester) async {
     await pumpSettings(tester);
     await tester.enterText(
@@ -351,6 +376,57 @@ void main() {
         await tester.tap(find.text(SettingsCopy.confirmCancel));
         await tester.pumpAndSettle();
         expect(find.byType(SettingsScreen), findsOneWidget);
+      });
+
+    testWidgets(
+      'TASK-102: completing a restore writes the new identity to disk and '
+      're-keys the running host — no restart needed',
+      (tester) async {
+        final phrase = RecoveryPhrase.generate(random: Random(11));
+        await pumpSettings(
+          tester,
+          restoreKeyDerivation: (RecoveryPhrase p) async {
+            final keyPair = await p.deriveKeyPair();
+            return DeviceIdentity(
+              installUuid: '00000000-0000-4000-8000-000000000002',
+              peerId: derivePeerId(keyPair.publicKey),
+              callsign: Callsign.parse('DELTA-9'),
+              keyPair: keyPair,
+            );
+          },
+        );
+
+        await tester.tap(
+          rowChild(SettingsKeys.restoreFromPhrase, find.text('Restore')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(SettingsKeys.restoreConfirm), findsOneWidget);
+        await tester.tap(find.text(SettingsCopy.restoreConfirmContinue));
+        await tester.pumpAndSettle();
+
+        for (var i = 0; i < phrase.words.length; i++) {
+          final finder = find.byKey(RestoreKeys.word(i));
+          await tester.ensureVisible(finder);
+          await tester.pump();
+          await tester.enterText(finder, phrase.words[i]);
+        }
+        await tester.pump();
+        await tester.tap(find.byKey(RestoreKeys.submit));
+        await tester.pumpAndSettle();
+
+        // Back on Settings, with the snackbar and the new callsign shown.
+        expect(find.byType(SettingsScreen), findsOneWidget);
+        expect(find.text(SettingsCopy.restoreDone), findsOneWidget);
+        expect(find.text('DELTA-9'), findsOneWidget);
+
+        // Disk actually carries the restored identity (not just the
+        // in-memory `_identity` field).
+        final DeviceIdentity persisted = await IdentityRepository(
+          identityStore).loadOrCreate();
+        expect(persisted.callsign.value, 'DELTA-9');
+
+        // The running host was told to re-key — no restart required.
+        expect(host.reloadIdentityCalls, 1);
+        expect(host.methodLog, contains('reloadIdentity'));
       });
   });
 

@@ -35,6 +35,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
     this.confirm,
     this.appVersion = SettingsCopy.appVersion,
     this.recoveryPhraseStore,
+    this.restoreKeyDerivation,
   });
 
   /// Test seam. Production constructs `IdentityRepository(SecureIdentityStore())`.
@@ -48,6 +49,15 @@ class SettingsScreen extends ConsumerStatefulWidget {
   /// `null` and reads the real `SecureIdentityStore` [RecoveryPhraseVault]
   /// uses by default — same seam shape as [identityRepository].
   final IdentityStore? recoveryPhraseStore;
+
+  /// TASK-102 test seam: forwarded verbatim as `RestoreScreen.restore`.
+  /// Production leaves this `null`, so `RestoreScreen` derives the key from
+  /// the phrase for real (its own default). A test supplies a spy here to
+  /// drive a full Restore round trip (through `_reEnrolAfterIdentityChange`)
+  /// without entering 12 real BIP-39 words — same shape as
+  /// [identityRepository]/[confirm].
+  final Future<DeviceIdentity> Function(RecoveryPhrase phrase)?
+  restoreKeyDerivation;
 
   final String appVersion;
 
@@ -188,7 +198,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  /// TASK-102: `SettingsTextRow` (`settings_rows.dart`, outside this task's
+  /// `Owned_Paths`) commits on BOTH `TextField.onSubmitted` and its own
+  /// focus-loss listener — under `TextInputAction.done` those fire in the
+  /// same frame for the same value, before the first `await` below has had
+  /// a chance to update `_identity`/rebuild the row with the new `value`
+  /// (the row's own de-dupe guard, `next != widget.value`, therefore can't
+  /// see the first call in flight and lets the second one through too).
+  /// Harmless before this task (a second `ref.invalidate(identityProvider)`
+  /// is a no-op), but `reloadIdentity()` below now does a real, non-free
+  /// session teardown/rebuild + directory POST — de-duping here keeps one
+  /// edit to one re-key.
+  String? _callsignSubmitInFlight;
+
   Future<void> _setCallsign(String raw) async {
+    if (_callsignSubmitInFlight == raw) return;
+    _callsignSubmitInFlight = raw;
     try {
       final DeviceIdentity identity = await _identityRepo.setCallsign(raw);
       if (mounted) {
@@ -204,11 +229,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       // explicitly invalidated to pick the new callsign up. That cascades
       // into `identityEnrolmentProvider` (which `ref.watch`es it) and from
       // there into `registrationStatusProvider` via its `ref.listen`.
-      ref.invalidate(identityProvider);
+      // TASK-102: also re-key the running session (peerId/callsign passed
+      // into `sessionFactory`), not just the directory enrolment chain —
+      // see `_reEnrolAfterIdentityChange`.
+      _reEnrolAfterIdentityChange();
     } on FormatException {
       if (mounted) {
         setState(() => _callsignError = SettingsCopy.callsignInvalid);
       }
+    } finally {
+      _callsignSubmitInFlight = null;
     }
   }
 
@@ -254,6 +284,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       MaterialPageRoute<DeviceIdentity>(
         builder: (routeContext) => RestoreScreen(
           onRestored: (identity) => Navigator.of(routeContext).pop(identity),
+          restore: widget.restoreKeyDerivation,
         ),
       ),
     );
@@ -262,12 +293,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (keyPair != null) {
       await _identityRepo.restoreKeyPair(keyPair);
       await _identityRepo.setCallsign(restored.callsign.value);
+      // TASK-102 (shape B, live re-key — see dossier): the restore write
+      // above replaces this device's KERYX ID (Technical §3.2 "Replaces
+      // this KERYX ID"). Before this call, nothing told the running app —
+      // `identityProvider`/`identityEnrolmentProvider`/the host's cached
+      // identity all kept the PRE-restore key, so directory/presence/the
+      // LINKED `/token` signer went mixed-identity until the app was
+      // killed and relaunched. Same re-enrolment path the callsign-rename
+      // flow above already uses.
+      _reEnrolAfterIdentityChange();
     }
     if (!mounted) return;
-    setState(() {});
+    // TASK-102: the restore write above only touched `_identityRepo`'s
+    // on-disk store — this screen's own `_identity` field (what the
+    // Identity section actually renders) was never reassigned, so the row
+    // kept showing the pre-restore callsign until the next full screen
+    // rebuild. Re-read it, the same way `initState` first loaded it.
+    await _loadIdentity();
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text(SettingsCopy.restoreDone)));
+  }
+
+  /// TASK-102: the one seam both the Restore-from-phrase and callsign-
+  /// rename flows share once they have written a new identity to disk.
+  /// `identityProvider` is invalidated FIRST — `RadioIdentityReloader
+  /// .reloadIdentity`'s directory re-enrolment reads `identityEnrolmentProvider
+  /// .future`, which `ref.watch`es `identityProvider`, so it must already
+  /// be resolving the new identity before the host's session rebuild
+  /// starts, or the rebuilt session would enrol under the stale one.
+  /// `radioHostProvider`'s `RadioHost` is only conditionally a
+  /// [RadioIdentityReloader] (see that interface's dartdoc for why it is
+  /// not a required `RadioHost` member) — checked with `is` rather than
+  /// assumed, so a non-conforming test double degrades to "directory
+  /// re-enrols, session keeps its old peerId/callsign until the next
+  /// settings-affecting change" instead of throwing.
+  void _reEnrolAfterIdentityChange() {
+    ref.invalidate(identityProvider);
+    final RadioHost host = ref.read(radioHostProvider);
+    // `RadioHost` and `RadioIdentityReloader` are deliberately unrelated
+    // interfaces (see the latter's dartdoc), so Dart's flow analysis will
+    // not promote `host` after a bare `is` check — cast explicitly.
+    final RadioIdentityReloader? reloader =
+        host is RadioIdentityReloader ? host as RadioIdentityReloader : null;
+    if (reloader != null) {
+      unawaited(reloader.reloadIdentity());
+    }
   }
 
   Future<bool> _confirmDialog({
