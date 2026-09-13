@@ -60,14 +60,44 @@ class ContactsListController {
     _emit();
   }
 
+  /// Disk first (so the UI is instant — the [contacts]/[pending] streams
+  /// emit the disk-backed snapshot immediately), then a server refresh
+  /// (§1). Unlike the other refresh triggers (tab open, foreground, the
+  /// timer), `load()`'s own refresh is *awaited*, not fire-and-forget:
+  /// this is the "open Contacts and see a pending request with no other
+  /// action" path (journey gate 6), which has to be a deterministic
+  /// outcome of `await load()`, not a race against whenever the network
+  /// call happens to land.
   Future<void> load() async {
     await _contacts.loadFromDisk();
     _emit();
+    await refresh();
   }
 
-  Future<void> accept(String pk) => _contacts.accept(pk);
+  /// Pulls the directory's current view (TASK-105 §1) and reconciles the
+  /// local store to match. A failing refresh (offline, not yet registered)
+  /// is swallowed here — [ContactsController.refreshFromServer] never
+  /// mutates local state before it succeeds, so the disk-backed snapshot is
+  /// simply left as it was; this is the one place callers that don't care
+  /// about the outcome (tab open, foreground, the timer) can call without
+  /// a try/catch of their own.
+  Future<void> refresh() async {
+    try {
+      await _contacts.refreshFromServer();
+    } catch (_) {
+      // Offline or `unknown_identity` before registration — not fatal.
+    }
+  }
 
-  Future<void> decline(String pk) => _contacts.decline(pk);
+  Future<void> accept(String pk) async {
+    await _contacts.accept(pk);
+    unawaited(refresh());
+  }
+
+  Future<void> decline(String pk) async {
+    await _contacts.decline(pk);
+    unawaited(refresh());
+  }
 
   /// Block a pending requester **or** an existing contact. The directory's
   /// `:block` endpoint records the block and drops a contact pair if one
@@ -78,9 +108,13 @@ class ContactsListController {
       await _contacts.removeContact(pk);
     }
     await _contacts.block(pk);
+    unawaited(refresh());
   }
 
-  Future<void> removeContact(String pk) => _contacts.removeContact(pk);
+  Future<void> removeContact(String pk) async {
+    await _contacts.removeContact(pk);
+    unawaited(refresh());
+  }
 
   /// Parse locally, then send. A tampered QR never hits the network
   /// (V2-VT-003).
@@ -89,6 +123,7 @@ class ContactsListController {
     if (parsed is ContactIdInvalid) return parsed;
     final link = (parsed as ContactIdParsed).link;
     await _contacts.sendRequest(link.encodedKey, callsign: link.callsign);
+    unawaited(refresh());
     return parsed;
   }
 

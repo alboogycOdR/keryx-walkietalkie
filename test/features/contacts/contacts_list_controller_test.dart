@@ -130,4 +130,89 @@ void main() {
     expect(controller.isAlertDisabled('ada'), isTrue);
     await cleanup();
   });
+
+  // TASK-105 §1: "phone B's ContactsListController.load() yields A's
+  // pending request in snapshot.requests without any user action beyond
+  // opening Contacts" — the acceptance criterion this group pins.
+  test('load() refreshes from the server after loading disk, with no '
+      'other user action', () async {
+    server.responder = (req) {
+      if (req.method == 'GET' && req.path == '/v2/identity/me') {
+        return const DirectoryFakeResponse(
+          statusCode: 200,
+          body: {
+            'pk': 'me',
+            'callsign': 'ME',
+            'status': 'available',
+            'contacts': [],
+            'pending_in': [
+              {'from_pk': 'in1', 'callsign': 'Zed', 'created_at': 1, 'expires_at': 999999999999},
+            ],
+            'pending_out': [],
+            'groups': [],
+          },
+        );
+      }
+      return const DirectoryFakeResponse(statusCode: 200, body: {});
+    };
+
+    await controller.load();
+    // refresh() is fire-and-forget from load() so the UI is instant with
+    // disk state; give the real loopback round trip a moment to land.
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(controller.snapshot.requests.single.pk, 'in1');
+    await cleanup();
+  });
+
+  test('refresh() swallows a failing directory call and leaves the disk '
+      'state untouched (offline / not yet registered)', () async {
+    server.responder = (req) => const DirectoryFakeResponse(statusCode: 502, body: {});
+
+    await controller.load();
+    expect(controller.snapshot.requests, isEmpty);
+    expect(controller.snapshot.contacts, isEmpty);
+
+    // Must not throw out of the fire-and-forget refresh, and must not
+    // throw if awaited directly either.
+    await controller.refresh();
+
+    expect(controller.snapshot.requests, isEmpty);
+    expect(controller.snapshot.contacts, isEmpty);
+    await cleanup();
+  });
+
+  test('accept triggers a refresh afterward (Description §1)', () async {
+    var meCalls = 0;
+    server.responder = (req) {
+      if (req.method == 'GET' && req.path == '/v2/identity/me') {
+        meCalls++;
+        return const DirectoryFakeResponse(
+          statusCode: 200,
+          body: {
+            'pk': 'me',
+            'callsign': 'ME',
+            'status': 'available',
+            'contacts': [],
+            'pending_in': [
+              {'from_pk': 'in1', 'callsign': 'Zed', 'created_at': 1, 'expires_at': 999999999999},
+            ],
+            'pending_out': [],
+            'groups': [],
+          },
+        );
+      }
+      return const DirectoryFakeResponse(statusCode: 200, body: {});
+    };
+
+    await controller.load();
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    final afterLoad = meCalls;
+    expect(afterLoad, greaterThan(0), reason: 'load() itself must refresh');
+
+    await controller.accept('in1');
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(meCalls, greaterThan(afterLoad), reason: 'accept() must refresh afterward');
+    await cleanup();
+  });
 }
