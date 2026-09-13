@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:keryx/core/settings/settings_repository.dart';
+import 'package:keryx/services/directory/directory.dart' show DirectoryException;
 
 import 'add_contact_sheet.dart';
 import 'contact_actions_sheet.dart';
@@ -100,6 +101,11 @@ class _ContactsTabState extends ConsumerState<ContactsTab> {
       final result = await widget.controller.sendRequestFromId(raw);
       if (result is ContactIdInvalid) return result.reason;
       return null;
+    } on DirectoryException catch (error) {
+      // The directory said no for a specific reason — say which
+      // (`ContactsCopy.requestRefused`), never the same generic sentence
+      // for "they aren't registered" and "you're already contacts".
+      return ContactsCopy.requestRefused(error);
     } catch (_) {
       return ContactsCopy.requestFailed;
     }

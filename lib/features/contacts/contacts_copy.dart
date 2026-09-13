@@ -3,6 +3,9 @@
 /// LINKED/AUTO").
 library;
 
+import 'package:keryx/services/directory/directory.dart'
+    show DirectoryErrorCode, DirectoryException;
+
 abstract final class ContactsCopy {
   static const emptyStateTitle = 'No contacts yet';
   static const emptyStateBody = 'Scan a code, show yours, or paste an ID.';
@@ -31,6 +34,33 @@ abstract final class ContactsCopy {
   static const invalidId = "That isn't a valid KERYX ID.";
   static const tamperedId = 'That code is damaged or has been tampered with.';
   static const requestFailed = "Couldn't send that request.";
+
+  /// The directory's own reason for refusing a contact request, in the
+  /// user's terms (Design §5: persistent, actionable, never colour-only).
+  /// One line per `token-svc` code (`directory.py:send_request`); a
+  /// transport failure or an unrecognised code falls back to
+  /// [requestFailed], with the raw code appended for the latter so a field
+  /// report can name it — the relay path already surfaces its codes this
+  /// way, and a generic sentence here cost a day of misdiagnosis.
+  static String requestRefused(DirectoryException error) {
+    if (error.isTransportFailure) return requestFailed;
+    return switch (error.code) {
+      DirectoryErrorCode.notFound =>
+        "They haven't registered with the relay yet — they need the app "
+            'open with the Relay URL set, then try again.',
+      DirectoryErrorCode.unknownIdentity =>
+        "This phone isn't registered with the relay yet — check the Relay "
+            'URL in Settings, then reopen the app.',
+      DirectoryErrorCode.selfRequest => "That's your own KERYX ID.",
+      DirectoryErrorCode.alreadyContacts => "You're already contacts.",
+      DirectoryErrorCode.alreadyPending =>
+        'Request already sent — waiting for them to accept.',
+      DirectoryErrorCode.tooManyOutstanding =>
+        'Too many requests waiting — wait for some to be answered first.',
+      DirectoryErrorCode.blocked => requestFailed,
+      _ => '$requestFailed (${error.rawCode ?? error.code.name})',
+    };
+  }
 
   /// Shown on Contacts and Scan while Settings → This network only is on.
   static const localOnlyWarning =
