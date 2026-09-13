@@ -109,6 +109,15 @@ class PresenceClient {
   bool _disposed = false;
   bool _stopped = false;
   LocalPresenceStatus? _pendingStatus;
+  bool? _pendingTalking;
+
+  /// The most recently intended status, whether or not it has been sent
+  /// yet — [setTalking]'s default `status` companion when nothing has
+  /// called [setStatus] explicitly (TASK-106: nothing in the app does,
+  /// today; the server requires `status` to accompany every `talking`,
+  /// `v2_api.py`'s presence handler only processes `talking` inside the
+  /// `if "status" in message` branch).
+  LocalPresenceStatus? _lastStatus;
 
   Stream<PresenceUpdate> get updates => _updates.stream;
   Stream<GroupRotationNotice> get rotationNotices => _rotations.stream;
@@ -133,16 +142,29 @@ class PresenceClient {
     await _connect();
   }
 
-  /// Sends `{"status": status}` if connected; otherwise remembered and
-  /// sent as soon as the next connection succeeds (a status change made
-  /// while offline must not be silently dropped).
-  void setStatus(LocalPresenceStatus status) {
+  /// Sends `{"status": status}` (plus `"talking": talking` when given) if
+  /// connected; otherwise remembered and sent as soon as the next
+  /// connection succeeds (a status/talking change made while offline must
+  /// not be silently dropped).
+  void setStatus(LocalPresenceStatus status, {bool? talking}) {
+    _lastStatus = status;
     final socket = _socket;
     if (socket == null) {
       _pendingStatus = status;
+      if (talking != null) _pendingTalking = talking;
       return;
     }
-    socket.send(jsonEncode({'status': status.wireValue}));
+    final body = <String, Object?>{'status': status.wireValue};
+    if (talking != null) body['talking'] = talking;
+    socket.send(jsonEncode(body));
+  }
+
+  /// TASK-106 send side (Technical §4.3, Design §4): pushes `talking`
+  /// true/false alongside the most recently known/intended status,
+  /// defaulting to [LocalPresenceStatus.available] the first time this is
+  /// called before anything has ever set an explicit status.
+  void setTalking(bool talking) {
+    setStatus(_lastStatus ?? LocalPresenceStatus.available, talking: talking);
   }
 
   Future<void> stop() async {
@@ -188,8 +210,12 @@ class PresenceClient {
       _startHeartbeat();
       final pending = _pendingStatus;
       if (pending != null) {
-        socket.send(jsonEncode({'status': pending.wireValue}));
+        final body = <String, Object?>{'status': pending.wireValue};
+        final pendingTalking = _pendingTalking;
+        if (pendingTalking != null) body['talking'] = pendingTalking;
+        socket.send(jsonEncode(body));
         _pendingStatus = null;
+        _pendingTalking = null;
       }
     } on Object catch (error, stack) {
       developer.log('presence connect failed: $error', name: _logName, error: error, stackTrace: stack);

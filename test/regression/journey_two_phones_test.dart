@@ -1,7 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/app_shell/directory_providers.dart';
+import 'package:keryx/app_shell/incoming_call.dart';
+import 'package:keryx/app_shell/radio_host_provider.dart';
 import 'package:keryx/core/contacts/contacts.dart';
 import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/presentation/talk_target.dart';
@@ -14,8 +18,30 @@ import 'package:keryx/services/directory/directory.dart';
 import 'package:keryx/services/linked/token_client.dart';
 
 import '../services/directory/fakes/fake_directory_server.dart';
+import '../services/directory/fakes/fake_presence_transport.dart';
 import '../services/directory/fakes/stateful_directory_fake.dart';
 import 'journey_harness.dart';
+
+/// TASK-106 gate: an in-memory [ContactsRepository] so the receive-side
+/// gate can seed exactly one known contact (A) for B without
+/// `shared_preferences` plumbing.
+class _SingleContactRepository implements ContactsRepository {
+  _SingleContactRepository(this.contact);
+  final Contact contact;
+
+  @override
+  Future<List<Contact>> loadContacts() async => [contact];
+  @override
+  Future<void> saveContacts(List<Contact> contacts) async {}
+  @override
+  Future<List<PendingContactRequest>> loadPending() async => const [];
+  @override
+  Future<void> savePending(List<PendingContactRequest> pending) async {}
+  @override
+  Future<List<BlockedContact>> loadBlocked() async => const [];
+  @override
+  Future<void> saveBlocked(List<BlockedContact> blocked) async {}
+}
 
 void main() {
   // `TestWidgetsFlutterBinding` (pulled in by flutter_test) stubs every
@@ -502,9 +528,75 @@ void main() {
 
     test(
       'receive-side — B hears A without selecting A',
-      () async {},
-      skip:
-          'receive-side — no auto-join; un-skip when TASK-106 lands',
+      () async {
+        await harness.phoneA.boot();
+        await harness.phoneB.boot();
+        harness.directory.seedContact(harness.phoneA.pk, harness.phoneB.pk);
+
+        final roomId = await deriveDirectRoom(
+          myKeyPair: harness.phoneB.identity.keyPair!,
+          theirEdwardsPublicKey: harness.phoneA.identity.keyPair!.publicKey,
+        );
+
+        // `journey_harness.dart` (TASK-107's `Owned_Paths`, not this
+        // task's) wires each phone's session-level providers, but never
+        // app_shell's presence/contacts composition — nothing in it needs
+        // to, until now. Rather than touch that file, this gate builds a
+        // second, narrow `ProviderContainer` for B's app_shell layer that
+        // reuses the *exact same* `KeryxRadioHost` instance
+        // (`harness.phoneB.radioHost`) the real session lives on, so a
+        // `switchTarget` call from this container dispatches into B's real
+        // `RadioSessionController`/`radioStateProvider`, exactly as
+        // `mobile_app_shell.dart`'s own composition root would.
+        final transport = FakePresenceTransport();
+        final contactsController = ContactsController(
+          directoryClient: DirectoryClient(
+            baseUrl: harness.server.baseUrl,
+            keyPair: harness.phoneB.identity.keyPair!,
+          ),
+          repository: _SingleContactRepository(
+            Contact(pk: harness.phoneA.pk, callsign: 'ALFA-1'),
+          ),
+        );
+        await contactsController.loadFromDisk();
+        final bAppShell = ProviderContainer(
+          overrides: <Override>[
+            radioHostProvider.overrideWithValue(harness.phoneB.radioHost),
+            identityProvider.overrideWith((ref) async => harness.phoneB.identity),
+            contactsControllerProvider.overrideWith((ref) async => contactsController),
+            presenceClientProvider.overrideWith(
+              (ref) async => PresenceClient(
+                baseUrl: harness.server.baseUrl,
+                keyPair: harness.phoneB.identity.keyPair!,
+                transport: transport,
+              ),
+            ),
+          ],
+        );
+        addTearDown(bAppShell.dispose);
+
+        bAppShell.read(incomingCallProvider); // arms the listener
+        final presence = await bAppShell.read(presenceClientProvider.future);
+        await presence!.start();
+        expect(bAppShell.read(currentTargetProvider), isNull);
+
+        // A starts talking — the same wire shape `talking_presence.dart`
+        // sends on local TX start.
+        transport.lastSocket!.deliver(
+          jsonEncode({'pk': harness.phoneA.pk, 'status': 'available', 'talking': true, 'since': 1}),
+        );
+        for (var i = 0; i < 8; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+
+        expect(bAppShell.read(currentTargetProvider)?.target.id, harness.phoneA.pk);
+        expect(bAppShell.read(currentTargetProvider)?.target.roomId, roomId);
+        expect(
+          harness.directory.directRoomFor(harness.phoneA.pk, harness.phoneB.pk),
+          roomId,
+        );
+        expect(harness.phoneB.radioState.transport, Transport.relay);
+      },
     );
   });
 }

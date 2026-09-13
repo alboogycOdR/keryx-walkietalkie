@@ -302,6 +302,19 @@ final presenceByPeerIdProvider =
   }
 });
 
+/// Raw presence updates, unmerged — kept separate from
+/// [presenceByPeerIdProvider] because that projection collapses each
+/// update into a [PeerPresence] enum value and drops `talking` entirely.
+/// TASK-106's receive-side incoming-call needs the per-event `talking`
+/// flag (and the exact `pk` it arrived for), not the merged map.
+final presenceUpdatesProvider = StreamProvider<PresenceUpdate>((ref) async* {
+  final presence = await ref.watch(presenceClientProvider.future);
+  if (presence == null) return;
+  await for (final update in presence.updates) {
+    yield update;
+  }
+});
+
 PeerPresence _presenceFromStatus(String status) => switch (status) {
       'available' => PeerPresence.online,
       'busy' => PeerPresence.busy,

@@ -5,8 +5,10 @@ import 'package:keryx/core/radio_host/radio_host.dart';
 import 'package:keryx/features/talk/talk_screen.dart' as talkui;
 
 import 'directory_providers.dart';
+import 'incoming_call.dart';
 import 'radio_host_provider.dart';
 import 'shell_keys.dart';
+import 'talking_presence.dart';
 
 /// Shell-composed Talk destination — mounts TASK-051/092's real
 /// [talkui.TalkScreen] and supplies the v2 target/presence data and
@@ -36,6 +38,15 @@ class TalkScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // TASK-106: armed here (read once, never watched — same "single owner,
+    // no rebuild dependency" shape as `presence_bootstrap.dart`) rather
+    // than in `mobile_app_shell.dart`, which is not this task's
+    // `Owned_Paths`. Talk is index 0 and mounted by default on every
+    // launch (ADR-002 §2 O1), so this is still effectively an app-start
+    // arm in practice, mirroring `presenceByPeerIdProvider`'s own existing
+    // unconditional read two lines below.
+    ref.read(talkingPresenceProvider);
+    ref.read(incomingCallProvider);
     final RadioHost resolved = host ?? ref.watch(radioHostProvider);
     final target = ref.watch(currentTargetProvider)?.target;
     final presenceByPeerId = ref.watch(presenceByPeerIdProvider).valueOrNull ??
