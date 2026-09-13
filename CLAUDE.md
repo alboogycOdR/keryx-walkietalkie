@@ -5,17 +5,19 @@ via WebRTC (`flutter_webrtc` LOCAL mode / `livekit_client` LINKED mode) over a
 self-hosted LiveKit relay (Docker compose: LiveKit + Redis + Caddy + coturn) with a
 FastAPI token service minting LiveKit JWTs (no user accounts).
 
-- **Current focus:** OWNER REVIEW of the UX R2 build, then HARDWARE ACCEPTANCE.
-  - **UX R2 wave COMPLETE 2026-09-11** (TASK-072..081, 10/10, plan v15.1, `docs/adr/ADR-002-zello-aligned-talk-first-ui.md`): Talk-first launch, top icon tabs Talk·Channels·Stations, ⋮ menu (Settings, Radio controls), amber accent, dark-face PTT ring with measured-only RX glow, "Route AUTO" root-cause fix. The review APK went to the owner via Telegram.
+- **Current focus (updated 2026-09-14):** REAL-DEVICE ACCEPTANCE of the v2 KERYX-ID/directory pivot against the live relay — the code-side work is done and mutation-tested, but the actual two-phone field test still fails.
+  - **v2 directory/contacts wave COMPLETE 2026-09-13** (TASK-097..108, 12/12, plan v20.6, see `[[v2-product-decisions]]`): identity enrolment, presence, contacts (request/accept/refuse), 1:1 relay room provisioning (`peer_pk`), and — the critical fix — wiring contact/group selection to an actual `RadioSessionController.switchTarget` call (`RadioTargetSwitcher`, TASK-108; before this, selecting a contact joined nothing, all day, despite every other fix landing). `test/regression/journey_two_phones_test.dart` (TASK-103/106/107/108) is the wave's exit gate: two real `KeryxRadioHost`s against a stateful fake server, 21/21 gates green, 0 skipped. Real launcher icon shipped (`e142651`, was still Flutter's default scaffold icon).
   - **Voice works:** bidirectional LOCAL voice was confirmed on two real phones (TASK-059 run 1, Honor CRT-NX1 + Samsung A05s), so the old "PTT audio blocked" finding is closed.
+  - **Open problem — not yet root-caused:** with the icon-build installed, adding a contact against the **real** relay (`wss://204-168-249-99.sslip.io`, `lib/core/settings/settings_model.dart:68`) still fails with a generic "Couldn't send that request." Every test above proves the app logic against a *fake* server — this is the first real end-to-end run since the wave finished, so it exercises paths nothing else has: real transport, a full day of accumulated manual-test state on the one live Postgres directory, and a bare `catch (_)` in `lib/features/contacts/contacts_tab.dart`'s `_onPaste` that swallows any non-`DirectoryException` with zero detail. Fastest diagnosis path: reconnect the device via `adb`, add a temporary raw-exception-text field through the host/view-state/UI chain (the method that worked repeatedly earlier this wave — always revert after), rebuild, reproduce, read the real error.
   - **Next:**
-    1. Owner feedback on the R2 UI. One open visual question: the empty band above the bottom-pinned PTT.
+    1. Root-cause and fix the live contact-add failure above.
     2. TASK-059's remaining rows (contention, channel change, background, no-internet LAN, network drop) and TASK-060 (LINKED), both needing the owner's two phones.
     3. TASK-061 (retire the legacy face), then TASK-062 (release acceptance).
   - **Environment notes:**
     - On this machine CX9 is unusable (its CODEX_HOME exists only on the owner's other machine); S5 + GB are the working builders.
     - C: disk is nearly full, so check free space before Gradle builds.
     - Headless S5 sessions must run verification in the foreground, not as background jobs.
+    - `adb logcat` / `flutter run` / `flutter attach` are all unreliable on the owner's test device (no output, or hang) — live diagnosis means temporary on-screen instrumentation, not log tailing.
 - FR-025 emergency-preemption double-grant (~40/500 soak seeds) is PARKED by
   explicit owner decision 2026-08-21T17:05Z — no successor task; do not chase.
 - Scaffolded and 31/31 pre-integration tasks merged. Source root is `lib/**` +
