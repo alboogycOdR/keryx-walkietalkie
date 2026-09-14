@@ -61,11 +61,12 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
     _tabIndex.value = index;
   }
 
-  final List<GlobalKey<NavigatorState>> _branchKeys = <GlobalKey<NavigatorState>>[
-    GlobalKey<NavigatorState>(debugLabel: 'talk-branch'),
-    GlobalKey<NavigatorState>(debugLabel: 'contacts-branch'),
-    GlobalKey<NavigatorState>(debugLabel: 'groups-branch'),
-  ];
+  final List<GlobalKey<NavigatorState>> _branchKeys =
+      <GlobalKey<NavigatorState>>[
+        GlobalKey<NavigatorState>(debugLabel: 'talk-branch'),
+        GlobalKey<NavigatorState>(debugLabel: 'contacts-branch'),
+        GlobalKey<NavigatorState>(debugLabel: 'groups-branch'),
+      ];
 
   /// One observer per branch so a push/pop *inside* any nested [Navigator]
   /// triggers a rebuild here — otherwise the outer [PopScope]'s `canPop`
@@ -74,9 +75,9 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
   /// back on a screen pushed inside a tab never reached the branch).
   late final List<_BranchPopObserver> _branchObservers =
       List<_BranchPopObserver>.generate(
-    3,
-    (_) => _BranchPopObserver(onChanged: () => setState(() {})),
-  );
+        3,
+        (_) => _BranchPopObserver(onChanged: () => setState(() {})),
+      );
 
   /// Whether the *active* branch's own back stack has something to pop.
   /// Queried directly from its [NavigatorState] rather than cached, so it
@@ -109,11 +110,13 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
     // (via `directoryClientProvider`) during this frame's build, and
     // letting that stay the first reader keeps this change from shifting
     // *when* the app's one real enrolment network call begins.
-    unawaited(Future.microtask(() {
-      ref.read(registrationStatusProvider);
-      ref.read(presenceBootstrapProvider);
-      ref.read(contactsSyncProvider);
-    }));
+    unawaited(
+      Future.microtask(() {
+        ref.read(registrationStatusProvider);
+        ref.read(presenceBootstrapProvider);
+        ref.read(contactsSyncProvider);
+      }),
+    );
   }
 
   void _onTabTap(int index) {
@@ -143,7 +146,13 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
   /// like every other host call in this file, so this stays a fire-and-
   /// forget side effect of selection rather than a rebuild dependency.
   void _selectTarget(TalkTarget target) {
-    ref.read(currentTargetProvider.notifier).state = TalkTargetSelection(target);
+    // Contacts has the relay's latest persisted status, while the presence
+    // socket intentionally sends only changes. Rebuild the Talk projection at
+    // selection time so the PTT screen starts from that contact snapshot.
+    ref.invalidate(presenceByPeerIdProvider);
+    ref.read(currentTargetProvider.notifier).state = TalkTargetSelection(
+      target,
+    );
     final host = ref.read(radioHostProvider);
     if (host is RadioTargetSwitcher) {
       // TASK-102 hit the same gotcha with `RadioIdentityReloader`: Dart
@@ -199,9 +208,7 @@ class _MobileAppShellState extends ConsumerState<MobileAppShell> {
             ),
           ],
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(
-              KeryxUxSpacing.minTarget + 1,
-            ),
+            preferredSize: const Size.fromHeight(KeryxUxSpacing.minTarget + 1),
             child: _TabStrip(index: _index, onTap: _onTabTap, tokens: tokens),
           ),
         ),
@@ -293,8 +300,7 @@ class _BranchPopObserver extends NavigatorObserver {
       _notify();
 
   @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _notify();
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => _notify();
 
   @override
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
@@ -310,7 +316,11 @@ class _BranchPopObserver extends NavigatorObserver {
 /// an accent underline on the active tab. No swipe — see
 /// [_BranchNavigator]'s dartdoc.
 class _TabStrip extends StatelessWidget {
-  const _TabStrip({required this.index, required this.onTap, required this.tokens});
+  const _TabStrip({
+    required this.index,
+    required this.onTap,
+    required this.tokens,
+  });
 
   final int index;
   final ValueChanged<int> onTap;
@@ -333,8 +343,9 @@ class _TabStrip extends StatelessWidget {
             children: List<Widget>.generate(_tabs.length, (int i) {
               final (IconData icon, String label, Key key) = _tabs[i];
               final bool selected = i == index;
-              final Color color =
-                  selected ? tokens.actionPrimary : tokens.textSecondary;
+              final Color color = selected
+                  ? tokens.actionPrimary
+                  : tokens.textSecondary;
               return Expanded(
                 child: Semantics(
                   label: label,
@@ -354,7 +365,9 @@ class _TabStrip extends StatelessWidget {
                             duration: KeryxUxMotion.stateMax,
                             height: 2,
                             width: 24,
-                            color: selected ? tokens.actionPrimary : Colors.transparent,
+                            color: selected
+                                ? tokens.actionPrimary
+                                : Colors.transparent,
                           ),
                         ],
                       ),
@@ -401,13 +414,13 @@ class _ConnectionIndicator extends ConsumerWidget {
     final Color color = !connection.isResolved
         ? tokens.pttNeutralRing
         : healthy
-            ? tokens.stateRx
-            : tokens.stateWarning;
+        ? tokens.stateRx
+        : tokens.stateWarning;
     final String status = !connection.isResolved
         ? 'connecting'
         : healthy
-            ? 'healthy'
-            : 'degraded';
+        ? 'healthy'
+        : 'degraded';
 
     return Semantics(
       label: 'Connection $status, ${connection.routeLabel}',
