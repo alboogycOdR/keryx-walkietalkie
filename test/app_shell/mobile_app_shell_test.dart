@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:keryx/app_shell/app_shell.dart';
+import 'package:keryx/app_shell/presence_bootstrap.dart';
 import 'package:keryx/core/identity/identity.dart';
 import 'package:keryx/core/presentation/talk_target.dart' show TalkTarget;
 import 'package:keryx/core/radio_host/radio_host_contract.dart' show RadioTargetSwitcher;
@@ -20,6 +21,7 @@ import 'package:keryx/services/directory/directory.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/directory/fakes/fake_directory_server.dart';
+import '../services/directory/fakes/fake_presence_transport.dart';
 import 'directory_shell_harness.dart';
 import 'fake_radio_host.dart';
 import 'shell_harness.dart';
@@ -651,9 +653,27 @@ void main() {
                 DirectoryClient(baseUrl: directory.server.baseUrl, keyPair: directory.keyPair),
           ),
           presenceClientProvider.overrideWith(
-            (ref) async =>
-                PresenceClient(baseUrl: directory.server.baseUrl, keyPair: directory.keyPair),
+            (ref) async => PresenceClient(
+              baseUrl: directory.server.baseUrl,
+              keyPair: directory.keyPair,
+              transport: FakePresenceTransport(),
+            ),
           ),
+          // This test proves registration retry, not presence lifecycle.
+          // Since TASK-110 fixed `PresenceClient` to actually attempt a
+          // real connect (previously an `https://` scheme bug threw
+          // before ever reaching a transport, so nothing here ever
+          // exercised a real socket connect/teardown before), letting
+          // `presenceBootstrapProvider` call `start()` mid-test — even
+          // against `FakePresenceTransport` — drives `PresenceClient`
+          // through a full connect+`stop()`+`StreamController.close()`
+          // cycle inside `flutter_test`'s FakeAsync zone, which hangs
+          // indefinitely (confirmed by direct reproduction; a
+          // `tester.runAsync` wrap around the `stop()` call alone was not
+          // sufficient to unstick it). Not this test's concern to prove —
+          // no-op it here, the same seam `presence_client_test.dart` and
+          // the two-phone journey suite already exercise this for real.
+          presenceBootstrapProvider.overrideWith((ref) {}),
         ],
       );
       await tester.pumpWidget(
@@ -702,16 +722,14 @@ void main() {
             'having been visited');
       expect(find.byType(SettingsScreen), findsNothing);
 
-      // Registration succeeding also arms `presenceBootstrapProvider` (a
-      // real reconnect-backoff `Timer`, same as the Groups-tab test above)
-      // and the same foreground event just re-armed `contactsSync`'s own
-      // 30 s timer plus kicked off its own real refresh — drain that
-      // in-flight request before force-closing the shared `DirectoryClient`,
-      // or its own pending 10 s timeout `Timer` outlives the test.
+      // `presenceBootstrapProvider` is no-op'd above (see its override),
+      // so no real presence connect happens here — only `contactsSync`'s
+      // own 30 s timer plus the real refresh the foreground event just
+      // kicked off. Drain that in-flight request before force-closing the
+      // shared `DirectoryClient`, or its own pending 10 s timeout `Timer`
+      // outlives the test.
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
       await tester.pump();
-      final presence = await container.read(presenceClientProvider.future);
-      await presence?.stop();
       (await container.read(directoryClientProvider.future))?.close();
       // Dispose the container here, in the test body, not via `addTearDown`
       // — `flutter_test`'s pending-timer invariant check runs *before*

@@ -7,11 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:keryx/app_shell/app_lifecycle.dart';
 import 'package:keryx/app_shell/directory_providers.dart';
+import 'package:keryx/core/contacts/contacts.dart';
 import 'package:keryx/core/identity/identity.dart';
+import 'package:keryx/core/presentation/talk_target.dart' show PeerPresence;
 import 'package:keryx/core/settings/settings_repository.dart';
-import 'package:keryx/services/directory/directory.dart' show DirectoryErrorCode;
+import 'package:keryx/services/directory/directory.dart';
 
 import '../services/directory/fakes/fake_directory_server.dart';
+import '../services/directory/fakes/fake_presence_transport.dart';
 
 /// TASK-099 — Technical §6.4: `directoryClientProvider` is fully built and
 /// unit-tested in isolation (`test/services/directory/directory_client_test.dart`)
@@ -372,6 +375,161 @@ void main() {
       expect(container.read(registrationStatusProvider), isA<RegistrationRegistered>());
     });
   });
+
+  group('presenceByPeerIdProvider (TASK-111)', () {
+    // TASK-111: the relay sends no presence roster snapshot on WebSocket
+    // connect, so Contacts (which already has each contact's persisted
+    // status from `GET /v2/identity/me`) can show a contact Available while
+    // Talk/PTT — driven only by live WS events until now — showed the same
+    // contact Offline. The fix seeds this projection from
+    // `contactsControllerProvider`'s already-loaded snapshot, then keeps
+    // applying live updates on top. These two tests are exactly the two
+    // acceptance criteria the TASK-111 review found unproven: seeded value
+    // shown before any live update arrives (AC1), and a live update still
+    // overriding that seed afterward (AC2) — a real regression risk, since
+    // `ContactsController` merging live presence into `contactsSnapshot`
+    // is a non-local invariant nothing else pins.
+    late FakePresenceTransport transport;
+
+    Future<ProviderContainer> buildPresenceContainer({required List<Contact> contacts}) async {
+      transport = FakePresenceTransport();
+      final myKeyPair = await IdentityKeyPair.generate();
+      final directoryClient = DirectoryClient(
+        baseUrl: Uri.parse('http://localhost'),
+        keyPair: myKeyPair,
+      );
+      final contactsController = ContactsController(
+        directoryClient: directoryClient,
+        repository: _SeededContactsRepository(contacts),
+      );
+      // presenceByPeerIdProvider does a synchronous `ref.read` of
+      // contactsControllerProvider, not a `watch` — the snapshot must
+      // already be loaded before the presence provider first builds, or
+      // the seed is skipped entirely (a disclosed, non-blocking finding
+      // from the TASK-111 review; not what these tests are proving).
+      await contactsController.loadFromDisk();
+
+      final container = ProviderContainer(
+        overrides: <Override>[
+          identityProvider.overrideWith(
+            (ref) async => DeviceIdentity(
+              installUuid: '00000000-0000-4000-8000-000000000000',
+              peerId: derivePeerId(myKeyPair.publicKey),
+              callsign: Callsign.parse('ME-1'),
+              keyPair: myKeyPair,
+            ),
+          ),
+          contactsControllerProvider.overrideWith((ref) async => contactsController),
+          presenceClientProvider.overrideWith(
+            (ref) async => PresenceClient(
+              baseUrl: Uri.parse('http://localhost'),
+              keyPair: myKeyPair,
+              transport: transport,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      // `presenceByPeerIdProvider` does a synchronous `ref.read` of
+      // `contactsControllerProvider` (not `watch`) the moment it first
+      // builds — resolve it first, or the seed silently comes back empty
+      // (a disclosed, non-blocking finding from the TASK-111 review; not
+      // what these two tests exist to prove).
+      await container.read(contactsControllerProvider.future);
+      final presence = await container.read(presenceClientProvider.future);
+      await presence!.start();
+      return container;
+    }
+
+    test(
+      'AC1: a contact whose only known status is the loaded ContactsController '
+      "snapshot is shown with that status, not a hardcoded Offline default",
+      () async {
+        final container = await buildPresenceContainer(
+          contacts: [const Contact(pk: 'peer-1', callsign: 'ZULU-1', status: 'available')],
+        );
+
+        final map = await container.read(presenceByPeerIdProvider.future);
+        expect(
+          map['peer-1'],
+          PeerPresence.online,
+          reason: 'the persisted snapshot status must seed this projection; '
+              'nothing has been received over the live WS yet',
+        );
+      },
+    );
+
+    test(
+      'AC2: a live WebSocket presence update received after the seed still '
+      'overrides it (the seed must not permanently shadow live updates)',
+      () async {
+        final container = await buildPresenceContainer(
+          contacts: [const Contact(pk: 'peer-1', callsign: 'ZULU-1', status: 'available')],
+        );
+
+        // A single listener kept alive for the whole test, set up before
+        // any delivery: reading `.future` first and only THEN attaching a
+        // separate `.listen()` (as an earlier version of this test did)
+        // lets this provider's listener count drop to zero in between,
+        // which tears down/restarts its internal `await for` subscription
+        // to `presence.updates` — a broadcast stream, so an event
+        // delivered into that gap is silently dropped rather than
+        // buffered. Keeping one subscription open from the start avoids
+        // the gap entirely.
+        final updates = <Map<String, PeerPresence>>[];
+        final sub = container.listen(
+          presenceByPeerIdProvider,
+          (_, next) => next.whenData(updates.add),
+          fireImmediately: true,
+        );
+        addTearDown(sub.close);
+
+        // Confirm the seed is in effect first, so this test actually
+        // proves an override rather than a value that happened to already
+        // be busy.
+        for (var i = 0; i < 20 && updates.isEmpty; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+        expect(updates.single['peer-1'], PeerPresence.online);
+
+        transport.lastSocket!.deliver(
+          jsonEncode({'pk': 'peer-1', 'status': 'busy', 'since': 1}),
+        );
+        for (var i = 0; i < 20 && updates.last['peer-1'] != PeerPresence.busy; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+
+        expect(
+          updates.last['peer-1'],
+          PeerPresence.busy,
+          reason: 'a live update for a contact must override its seeded '
+              'snapshot value, not be shadowed by it',
+        );
+      },
+    );
+  });
+}
+
+/// In-memory [ContactsRepository] pre-loaded with a fixed contact list —
+/// mirrors `test/app_shell/incoming_call_test.dart`'s own
+/// `_FakeContactsRepository`, kept file-local rather than shared per this
+/// project's existing test-double convention.
+class _SeededContactsRepository implements ContactsRepository {
+  _SeededContactsRepository(this.seed);
+  final List<Contact> seed;
+
+  @override
+  Future<List<Contact>> loadContacts() async => seed;
+  @override
+  Future<void> saveContacts(List<Contact> contacts) async {}
+  @override
+  Future<List<PendingContactRequest>> loadPending() async => const [];
+  @override
+  Future<void> savePending(List<PendingContactRequest> pending) async {}
+  @override
+  Future<List<BlockedContact>> loadBlocked() async => const [];
+  @override
+  Future<void> saveBlocked(List<BlockedContact> blocked) async {}
 }
 
 /// A mutable indirection for `directoryBaseUriResolverProvider`'s override
