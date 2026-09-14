@@ -88,13 +88,15 @@ class PresenceClient {
     Duration initialBackoff = const Duration(seconds: 1),
     Duration maxBackoff = const Duration(seconds: 30),
     int maxAttempts = 5,
+    Duration connectTimeout = const Duration(seconds: 10),
   }) : _baseUrl = baseUrl,
        _keyPair = keyPair,
        _transport = transport,
        _heartbeatInterval = heartbeatInterval,
        _initialBackoff = initialBackoff,
        _maxBackoff = maxBackoff,
-       _maxAttempts = maxAttempts;
+       _maxAttempts = maxAttempts,
+       _connectTimeout = connectTimeout;
 
   final Uri _baseUrl;
   final IdentityKeyPair _keyPair;
@@ -103,6 +105,15 @@ class PresenceClient {
   final Duration _initialBackoff;
   final Duration _maxBackoff;
   final int _maxAttempts;
+
+  /// Bounds a single `_transport.connect()` attempt (TASK-110 follow-up):
+  /// without this, a relay that accepts the TCP connection but never
+  /// completes the WebSocket upgrade handshake (an unresponsive host, or —
+  /// as found reviewing TASK-110/111 — a test double that only understands
+  /// REST) leaves the attempt pending indefinitely, which in turn means
+  /// [stop] can never return (see [stop]'s own doc) and, in production,
+  /// the client can never fall back to a fresh reconnect attempt either.
+  final Duration _connectTimeout;
 
   final _updates = StreamController<PresenceUpdate>.broadcast();
   final _rotations = StreamController<GroupRotationNotice>.broadcast();
@@ -118,6 +129,12 @@ class PresenceClient {
   bool _stopped = false;
   LocalPresenceStatus? _pendingStatus;
   bool? _pendingTalking;
+
+  /// Non-null exactly while a `_transport.connect()` call raised by
+  /// [_connect] is in flight; awaited by [stop] so a real, still-connecting
+  /// socket attempt is never left running (and its underlying native
+  /// timers never left pending) after this client is told to stop.
+  Future<void>? _pendingConnect;
 
   /// The most recently intended status, whether or not it has been sent
   /// yet — [setTalking]'s default `status` companion when nothing has
@@ -179,6 +196,15 @@ class PresenceClient {
     _stopped = true;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    // A `_connect()` attempt may still be in flight (e.g. a real socket
+    // connect racing IPv4/IPv6, TASK-110): flipping `_stopped` alone does
+    // not cancel it, and dart:io's own connect-retry timers keep running
+    // in the background until that Future settles. Wait for it here so a
+    // caller that awaits `stop()` — including `flutter_test`'s pending
+    // timer check right after this returns — never observes a dangling
+    // native timer from a connect this client itself started.
+    final pending = _pendingConnect;
+    if (pending != null) await pending;
     await _teardownSocket();
   }
 
@@ -201,10 +227,20 @@ class PresenceClient {
         path: _presencePath,
         body: '',
       );
-      final socket = await _transport.connect(
-        url: _baseUrl.resolve(_presencePath.substring(1)),
-        headers: headers,
-      );
+      final connecting = _transport
+          .connect(url: _presenceUri(), headers: headers)
+          .timeout(_connectTimeout);
+      _pendingConnect = connecting.then<void>((_) {}, onError: (Object _) {});
+      final socket = await connecting;
+      _pendingConnect = null;
+      if (_disposed || _stopped) {
+        // stop()/dispose() ran while this connect was in flight. Discard
+        // the socket we just opened rather than wiring it up — proceeding
+        // here would leave a live connection (and its heartbeat timer)
+        // running past the point this client was told to stop.
+        unawaited(socket.close());
+        return;
+      }
       _socket = socket;
       _attempt = 0;
       _gaveUp = false;
@@ -230,6 +266,7 @@ class PresenceClient {
       _pendingStatus = null;
       _pendingTalking = null;
     } on Object catch (error, stack) {
+      _pendingConnect = null;
       developer.log(
         'presence connect failed: $error',
         name: _logName,
@@ -303,6 +340,16 @@ class PresenceClient {
 
   void _emitConnected(bool value) {
     if (!_connectionState.isClosed) _connectionState.add(value);
+  }
+
+  Uri _presenceUri() {
+    final resolved = _baseUrl.resolve(_presencePath.substring(1));
+    final scheme = switch (resolved.scheme) {
+      'https' => 'wss',
+      'http' => 'ws',
+      _ => resolved.scheme,
+    };
+    return resolved.replace(scheme: scheme);
   }
 
   Future<void> _teardownSocket() async {

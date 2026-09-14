@@ -43,10 +43,24 @@ void main() {
     await client.start();
 
     final call = transport.connectCalls.single;
+    expect(call.url.scheme, 'wss');
     expect(call.url.path, '/v2/presence');
     expect(call.headers['X-Keryx-Sig'], isNotEmpty);
     expect(call.headers['X-Keryx-Key'], isNotEmpty);
     expect(call.headers['X-Keryx-Ts'], isNotEmpty);
+  });
+
+  test('upgrades an HTTPS directory base URL to WSS for the socket', () async {
+    client = PresenceClient(
+      baseUrl: Uri.parse('https://directory.example/v2'),
+      keyPair: keyPair,
+      transport: transport,
+    );
+
+    await client.start();
+
+    final call = transport.connectCalls.single;
+    expect(call.url, Uri.parse('wss://directory.example/v2/presence'));
   });
 
   test('announces available immediately after the first connection', () async {

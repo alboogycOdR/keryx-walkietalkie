@@ -8,7 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:keryx/core/contacts/contacts.dart';
 import 'package:keryx/core/groups/groups.dart';
 import 'package:keryx/core/identity/identity.dart';
-import 'package:keryx/core/presentation/talk_target.dart' show PeerPresence, TalkTarget;
+import 'package:keryx/core/presentation/talk_target.dart'
+    show PeerPresence, TalkTarget;
 import 'package:keryx/core/settings/settings_repository.dart';
 import 'package:keryx/services/directory/directory.dart';
 
@@ -146,7 +147,9 @@ class IdentityEnrolment {
 /// lazy — nothing on the Talk tab reads that provider, so a fresh install
 /// that went straight to Talk never registered at all, and the boot-time
 /// LINKED join was rejected regardless (field-confirmed 2026-09-12).
-final identityEnrolmentProvider = FutureProvider<IdentityEnrolment>((ref) async {
+final identityEnrolmentProvider = FutureProvider<IdentityEnrolment>((
+  ref,
+) async {
   final settings = await ref.watch(settingsProvider.future);
   final identity = await ref.watch(identityProvider.future);
   final keyPair = identity.keyPair;
@@ -162,7 +165,11 @@ final identityEnrolmentProvider = FutureProvider<IdentityEnrolment>((ref) async 
   Object? registerError;
   try {
     await client.registerIdentity(callsign);
-    return IdentityEnrolment._(client, IdentityEnrolmentOutcome.registered, null);
+    return IdentityEnrolment._(
+      client,
+      IdentityEnrolmentOutcome.registered,
+      null,
+    );
   } on Object catch (error) {
     // Deliberately no `rethrow` anywhere in here: a `rethrow` inside an
     // `on` clause leaves the whole `try`, it does not fall through to a
@@ -177,7 +184,11 @@ final identityEnrolmentProvider = FutureProvider<IdentityEnrolment>((ref) async 
     // `PATCH /v2/identity/callsign`); registering again would 409 forever.
     try {
       await client.patchCallsign(callsign);
-      return IdentityEnrolment._(client, IdentityEnrolmentOutcome.renamed, null);
+      return IdentityEnrolment._(
+        client,
+        IdentityEnrolmentOutcome.renamed,
+        null,
+      );
     } on Object catch (renameError, stack) {
       developer.log(
         'identity enrolment: directory knows this key under another callsign '
@@ -186,7 +197,11 @@ final identityEnrolmentProvider = FutureProvider<IdentityEnrolment>((ref) async 
         error: renameError,
         stackTrace: stack,
       );
-      return IdentityEnrolment._(client, IdentityEnrolmentOutcome.failed, renameError);
+      return IdentityEnrolment._(
+        client,
+        IdentityEnrolmentOutcome.failed,
+        renameError,
+      );
     }
   }
 
@@ -195,7 +210,11 @@ final identityEnrolmentProvider = FutureProvider<IdentityEnrolment>((ref) async 
     name: _logName,
     error: registerError,
   );
-  return IdentityEnrolment._(client, IdentityEnrolmentOutcome.failed, registerError);
+  return IdentityEnrolment._(
+    client,
+    IdentityEnrolmentOutcome.failed,
+    registerError,
+  );
 });
 
 /// `null` whenever no relay is configured yet (fresh install before
@@ -245,9 +264,7 @@ final contactsControllerProvider = FutureProvider<ContactsController?>((
   return controller;
 });
 
-final groupsControllerProvider = FutureProvider<GroupsController?>((
-  ref,
-) async {
+final groupsControllerProvider = FutureProvider<GroupsController?>((ref) async {
   final directory = await ref.watch(directoryClientProvider.future);
   if (directory == null) return null;
   final presence = await ref.watch(presenceClientProvider.future);
@@ -281,20 +298,33 @@ final groupsControllerProvider = FutureProvider<GroupsController?>((
 /// or group does join that target's room (Technical §6.4). The previously
 /// named `RadioSessionHostV2` seam was removed as redundant once that
 /// simpler passthrough landed.
-final currentTargetProvider = StateProvider<TalkTargetSelection?>((ref) => null);
+final currentTargetProvider = StateProvider<TalkTargetSelection?>(
+  (ref) => null,
+);
 
 /// Presence for every peerId this device currently knows about, merged from
 /// both [PresenceClient] streams — kept as one flat map because
 /// `TalkScreen.presenceByPeerId` (TASK-092) doesn't care whether a peer is a
 /// contact or a group member.
-final presenceByPeerIdProvider =
-    StreamProvider<Map<String, PeerPresence>>((ref) async* {
+final presenceByPeerIdProvider = StreamProvider<Map<String, PeerPresence>>((
+  ref,
+) async* {
   final presence = await ref.watch(presenceClientProvider.future);
   if (presence == null) {
     yield const {};
     return;
   }
+
   final Map<String, PeerPresence> state = {};
+  // The relay does not send a roster snapshot on WebSocket upgrade. Contacts
+  // already carry the latest persisted status, so use that as the PTT
+  // baseline; live changes continue to arrive on the presence stream.
+  final contacts = ref.read(contactsControllerProvider).valueOrNull;
+  if (contacts != null) {
+    for (final contact in contacts.contactsSnapshot) {
+      state[contact.pk] = _presenceFromStatus(contact.status);
+    }
+  }
   yield Map.unmodifiable(state);
   await for (final update in presence.updates) {
     state[update.pk] = _presenceFromStatus(update.status);
@@ -316,11 +346,11 @@ final presenceUpdatesProvider = StreamProvider<PresenceUpdate>((ref) async* {
 });
 
 PeerPresence _presenceFromStatus(String status) => switch (status) {
-      'available' => PeerPresence.online,
-      'busy' => PeerPresence.busy,
-      'dnd' => PeerPresence.dnd,
-      _ => PeerPresence.offline,
-    };
+  'available' => PeerPresence.online,
+  'busy' => PeerPresence.busy,
+  'dnd' => PeerPresence.dnd,
+  _ => PeerPresence.offline,
+};
 
 /// A [TalkTarget] plus whatever this shell needs to re-derive it (kept
 /// alongside rather than folded into `TalkTarget` itself, since that type
@@ -399,7 +429,8 @@ class RegistrationStatusController extends Notifier<RegistrationStatus> {
   /// backoff ladder (1, 2, 4 … 60 s cap) without needing a real or virtual
   /// clock for `Timer` itself.
   @visibleForTesting
-  Duration? get debugPendingRetryDelay => _retryTimer == null ? null : _pendingDelay;
+  Duration? get debugPendingRetryDelay =>
+      _retryTimer == null ? null : _pendingDelay;
   Duration? _pendingDelay;
 
   /// Test-only: fires the pending retry immediately, exactly as the real
@@ -462,7 +493,8 @@ class RegistrationStatusController extends Notifier<RegistrationStatus> {
     final status = _statusFor(value);
     if (status == null) return; // still loading; keep showing in-progress
     state = status;
-    if (status is RegistrationRegistered || status is RegistrationUnregistered) {
+    if (status is RegistrationRegistered ||
+        status is RegistrationUnregistered) {
       _cancelRetry();
       _nextBackoff = _registrationBackoffFloor;
     } else if (status is RegistrationOffline || status is RegistrationFailed) {
@@ -522,7 +554,9 @@ class RegistrationStatusController extends Notifier<RegistrationStatus> {
       ref.invalidate(identityEnrolmentProvider);
     });
     final doubled = delay * 2;
-    _nextBackoff = doubled > _registrationBackoffCap ? _registrationBackoffCap : doubled;
+    _nextBackoff = doubled > _registrationBackoffCap
+        ? _registrationBackoffCap
+        : doubled;
   }
 
   void _cancelRetry() {
@@ -534,5 +568,5 @@ class RegistrationStatusController extends Notifier<RegistrationStatus> {
 
 final registrationStatusProvider =
     NotifierProvider<RegistrationStatusController, RegistrationStatus>(
-  RegistrationStatusController.new,
-);
+      RegistrationStatusController.new,
+    );
