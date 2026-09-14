@@ -22,7 +22,12 @@ const _presencePath = '/v2/presence';
 /// `{pk, status, talking?, since}` — a contact's or co-member's presence
 /// changing, fanned out over Redis pub/sub (Technical §4.3).
 class PresenceUpdate {
-  const PresenceUpdate({required this.pk, required this.status, this.talking, required this.since});
+  const PresenceUpdate({
+    required this.pk,
+    required this.status,
+    this.talking,
+    required this.since,
+  });
 
   final String pk;
   final String status;
@@ -44,10 +49,11 @@ class GroupRotationNotice {
   final String groupId;
   final int keyVersion;
 
-  factory GroupRotationNotice.fromJson(Map<String, Object?> json) => GroupRotationNotice(
-    groupId: json['group_id'] as String,
-    keyVersion: json['key_version'] as int,
-  );
+  factory GroupRotationNotice.fromJson(Map<String, Object?> json) =>
+      GroupRotationNotice(
+        groupId: json['group_id'] as String,
+        keyVersion: json['key_version'] as int,
+      );
 }
 
 /// `{type: alert, from_pk, since}`.
@@ -56,8 +62,10 @@ class AlertNotice {
   final String fromPk;
   final int since;
 
-  factory AlertNotice.fromJson(Map<String, Object?> json) =>
-      AlertNotice(fromPk: json['from_pk'] as String, since: json['since'] as int? ?? 0);
+  factory AlertNotice.fromJson(Map<String, Object?> json) => AlertNotice(
+    fromPk: json['from_pk'] as String,
+    since: json['since'] as int? ?? 0,
+  );
 }
 
 /// Local presence status a caller may push. Wire values match the
@@ -209,16 +217,25 @@ class PresenceClient {
       );
       _startHeartbeat();
       final pending = _pendingStatus;
-      if (pending != null) {
-        final body = <String, Object?>{'status': pending.wireValue};
-        final pendingTalking = _pendingTalking;
-        if (pendingTalking != null) body['talking'] = pendingTalking;
-        socket.send(jsonEncode(body));
-        _pendingStatus = null;
-        _pendingTalking = null;
-      }
+      // The directory persists each identity's status and defaults it to
+      // offline. Announce availability on every successful connection so a
+      // freshly enrolled device is visible immediately, and reconnects do
+      // not leave a previously-live contact stale until the next PTT.
+      final status = pending ?? _lastStatus ?? LocalPresenceStatus.available;
+      final body = <String, Object?>{'status': status.wireValue};
+      final pendingTalking = _pendingTalking;
+      if (pendingTalking != null) body['talking'] = pendingTalking;
+      socket.send(jsonEncode(body));
+      _lastStatus = status;
+      _pendingStatus = null;
+      _pendingTalking = null;
     } on Object catch (error, stack) {
-      developer.log('presence connect failed: $error', name: _logName, error: error, stackTrace: stack);
+      developer.log(
+        'presence connect failed: $error',
+        name: _logName,
+        error: error,
+        stackTrace: stack,
+      );
       _onSocketClosed();
     }
   }
@@ -236,13 +253,14 @@ class PresenceClient {
     _attempt++;
     if (_attempt > _maxAttempts) {
       _gaveUp = true;
-      developer.log('presence: giving up after $_maxAttempts attempts', name: _logName);
+      developer.log(
+        'presence: giving up after $_maxAttempts attempts',
+        name: _logName,
+      );
       return;
     }
-    final backoffMs = (_initialBackoff.inMilliseconds * (1 << (_attempt - 1))).clamp(
-      _initialBackoff.inMilliseconds,
-      _maxBackoff.inMilliseconds,
-    );
+    final backoffMs = (_initialBackoff.inMilliseconds * (1 << (_attempt - 1)))
+        .clamp(_initialBackoff.inMilliseconds, _maxBackoff.inMilliseconds);
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(Duration(milliseconds: backoffMs), () {
       if (!_disposed && !_stopped) unawaited(_connect());
@@ -269,7 +287,9 @@ class PresenceClient {
     final type = json['type'] as String?;
     switch (type) {
       case 'rotation':
-        if (!_rotations.isClosed) _rotations.add(GroupRotationNotice.fromJson(json));
+        if (!_rotations.isClosed) {
+          _rotations.add(GroupRotationNotice.fromJson(json));
+        }
       case 'alert':
         if (!_alerts.isClosed) _alerts.add(AlertNotice.fromJson(json));
       case 'heartbeat':
@@ -296,7 +316,12 @@ class PresenceClient {
       try {
         await socket.close();
       } on Object catch (error, stack) {
-        developer.log('presence: close failed: $error', name: _logName, error: error, stackTrace: stack);
+        developer.log(
+          'presence: close failed: $error',
+          name: _logName,
+          error: error,
+          stackTrace: stack,
+        );
       }
     }
   }

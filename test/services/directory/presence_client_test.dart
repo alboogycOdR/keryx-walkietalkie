@@ -49,36 +49,58 @@ void main() {
     expect(call.headers['X-Keryx-Ts'], isNotEmpty);
   });
 
-  test('surfaces a PresenceUpdate from a plain {pk,status,since} frame', () async {
+  test('announces available immediately after the first connection', () async {
     makeClient();
     await client.start();
-    final updates = <PresenceUpdate>[];
-    client.updates.listen(updates.add);
 
-    transport.lastSocket!.deliver(jsonEncode({'pk': 'abc', 'status': 'available', 'since': 100}));
-    await Future<void>.delayed(Duration.zero);
-
-    expect(updates.single.pk, 'abc');
-    expect(updates.single.status, 'available');
-    expect(updates.single.since, 100);
+    expect(
+      transport.lastSocket!.sent,
+      contains(jsonEncode({'status': 'available'})),
+    );
   });
 
-  test('surfaces a rotation notice and an alert distinctly from status updates', () async {
-    makeClient();
-    await client.start();
-    final rotations = <GroupRotationNotice>[];
-    final alerts = <AlertNotice>[];
-    client.rotationNotices.listen(rotations.add);
-    client.alerts.listen(alerts.add);
+  test(
+    'surfaces a PresenceUpdate from a plain {pk,status,since} frame',
+    () async {
+      makeClient();
+      await client.start();
+      final updates = <PresenceUpdate>[];
+      client.updates.listen(updates.add);
 
-    transport.lastSocket!.deliver(jsonEncode({'type': 'rotation', 'group_id': 'g1', 'key_version': 2}));
-    transport.lastSocket!.deliver(jsonEncode({'type': 'alert', 'from_pk': 'x', 'since': 5}));
-    await Future<void>.delayed(Duration.zero);
+      transport.lastSocket!.deliver(
+        jsonEncode({'pk': 'abc', 'status': 'available', 'since': 100}),
+      );
+      await Future<void>.delayed(Duration.zero);
 
-    expect(rotations.single.groupId, 'g1');
-    expect(rotations.single.keyVersion, 2);
-    expect(alerts.single.fromPk, 'x');
-  });
+      expect(updates.single.pk, 'abc');
+      expect(updates.single.status, 'available');
+      expect(updates.single.since, 100);
+    },
+  );
+
+  test(
+    'surfaces a rotation notice and an alert distinctly from status updates',
+    () async {
+      makeClient();
+      await client.start();
+      final rotations = <GroupRotationNotice>[];
+      final alerts = <AlertNotice>[];
+      client.rotationNotices.listen(rotations.add);
+      client.alerts.listen(alerts.add);
+
+      transport.lastSocket!.deliver(
+        jsonEncode({'type': 'rotation', 'group_id': 'g1', 'key_version': 2}),
+      );
+      transport.lastSocket!.deliver(
+        jsonEncode({'type': 'alert', 'from_pk': 'x', 'since': 5}),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(rotations.single.groupId, 'g1');
+      expect(rotations.single.keyVersion, 2);
+      expect(alerts.single.fromPk, 'x');
+    },
+  );
 
   test('setStatus sends {"status":...} on the live socket', () async {
     makeClient();
@@ -86,29 +108,41 @@ void main() {
 
     client.setStatus(LocalPresenceStatus.busy);
 
-    expect(transport.lastSocket!.sent, contains(jsonEncode({'status': 'busy'})));
-  });
-
-  test('a status set before connect is queued and sent once connected', () async {
-    makeClient();
-    client.setStatus(LocalPresenceStatus.dnd); // before start()
-    await client.start();
-
-    expect(transport.lastSocket!.sent, contains(jsonEncode({'status': 'dnd'})));
-  });
-
-  test('setStatus with talking sends {"status":..., "talking":...} together '
-      '(TASK-106: server only processes talking inside the status branch)', () async {
-    makeClient();
-    await client.start();
-
-    client.setStatus(LocalPresenceStatus.available, talking: true);
-
     expect(
       transport.lastSocket!.sent,
-      contains(jsonEncode({'status': 'available', 'talking': true})),
+      contains(jsonEncode({'status': 'busy'})),
     );
   });
+
+  test(
+    'a status set before connect is queued and sent once connected',
+    () async {
+      makeClient();
+      client.setStatus(LocalPresenceStatus.dnd); // before start()
+      await client.start();
+
+      expect(
+        transport.lastSocket!.sent,
+        contains(jsonEncode({'status': 'dnd'})),
+      );
+    },
+  );
+
+  test(
+    'setStatus with talking sends {"status":..., "talking":...} together '
+    '(TASK-106: server only processes talking inside the status branch)',
+    () async {
+      makeClient();
+      await client.start();
+
+      client.setStatus(LocalPresenceStatus.available, talking: true);
+
+      expect(
+        transport.lastSocket!.sent,
+        contains(jsonEncode({'status': 'available', 'talking': true})),
+      );
+    },
+  );
 
   test('setTalking defaults to LocalPresenceStatus.available when no status '
       'was ever set explicitly', () async {
@@ -155,12 +189,17 @@ void main() {
 
     await Future<void>.delayed(const Duration(milliseconds: 55));
 
-    final heartbeats = transport.lastSocket!.sent.where((s) => s == jsonEncode({'type': 'heartbeat'}));
+    final heartbeats = transport.lastSocket!.sent.where(
+      (s) => s == jsonEncode({'type': 'heartbeat'}),
+    );
     expect(heartbeats.length, greaterThanOrEqualTo(2));
   });
 
   test('reconnects with backoff after the server closes the socket', () async {
-    makeClient(initialBackoff: const Duration(milliseconds: 5), maxBackoff: const Duration(milliseconds: 10));
+    makeClient(
+      initialBackoff: const Duration(milliseconds: 5),
+      maxBackoff: const Duration(milliseconds: 10),
+    );
     await client.start();
     final connectedStates = <bool>[];
     client.connectionState.listen(connectedStates.add);
@@ -176,6 +215,23 @@ void main() {
     expect(client.isConnected, isTrue);
   });
 
+  test('re-announces the current status after reconnecting', () async {
+    makeClient(initialBackoff: const Duration(milliseconds: 1));
+    await client.start();
+    client.setStatus(LocalPresenceStatus.busy);
+
+    transport.lastSocket!.simulateServerClose();
+    for (var i = 0; i < 50 && transport.connectCalls.length < 2; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
+
+    expect(transport.connectCalls.length, greaterThanOrEqualTo(2));
+    expect(
+      transport.lastSocket!.sent,
+      contains(jsonEncode({'status': 'busy'})),
+    );
+  });
+
   test('gives up after maxAttempts consecutive failures', () async {
     transport = FakePresenceTransport(
       onConnect: (url, headers) => throw StateError('unreachable'),
@@ -186,7 +242,8 @@ void main() {
       maxAttempts: 3,
     );
 
-    await client.start(); // first attempt fails synchronously inside _connect's try/catch
+    await client
+        .start(); // first attempt fails synchronously inside _connect's try/catch
 
     for (var i = 0; i < 100 && !client.gaveUp; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 5));
