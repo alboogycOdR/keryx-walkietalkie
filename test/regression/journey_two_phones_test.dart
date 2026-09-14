@@ -585,7 +585,24 @@ void main() {
         transport.lastSocket!.deliver(
           jsonEncode({'pk': harness.phoneA.pk, 'status': 'available', 'talking': true, 'since': 1}),
         );
-        for (var i = 0; i < 8; i++) {
+        // TASK-112: a fixed 8-iteration `Duration.zero` microtask drain is
+        // not a deadline, it's a guess at how many microtask hops the real
+        // chain needs — usually enough in isolation, but under
+        // `--concurrency=2` (other test files sharing the isolate) extra
+        // hops can land between `currentTargetProvider` being set (the
+        // synchronous half of the receive-side handler) and `switchTarget`
+        // actually completing session adoption (the awaited half), and 8
+        // is occasionally not enough: the assertions below then read
+        // `radioState.transport` before the relay session has adopted,
+        // landing on the LOCAL-boot default (`Transport.direct`) instead.
+        // Poll for the real terminal condition instead of guessing a hop
+        // count — the same fix applied to the analogous flake found and
+        // fixed in `test/app_shell/directory_providers_test.dart` (TASK-111).
+        for (
+          var i = 0;
+          i < 50 && harness.phoneB.radioState.transport != Transport.relay;
+          i++
+        ) {
           await Future<void>.delayed(Duration.zero);
         }
 
