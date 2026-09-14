@@ -1,8 +1,15 @@
 # Keryx relay edge — TLS 1.3 to the LiveKit signaling port (TS §8.7).
 # Caddy interpolates {$DOMAIN} / {$ACME_EMAIL} from the container env.
 #
-# /token is reserved for the FastAPI token service (TASK-003 / KRX-051).
-# This compose does not run token-svc; the handle returns 503 until wired.
+# /token and /v2 are reserved for the FastAPI token service (TASK-003 /
+# KRX-051; /v2 added TASK-084/TASK-110-era — the v2 directory/contacts/
+# presence REST+WS surface). This compose does not run token-svc; the
+# handle returns 503 until wired. Verified live against the deployed
+# edge 2026-09-14 (clawsrv) after TASK-110 found production's `/v2/*`
+# traffic falling through to the `handle {}` LiveKit catch-all when this
+# matcher was narrower than `/token` alone — confirmed via a real
+# WebSocket handshake against `/v2/presence` correctly reaching
+# token-svc (a 403 from the app itself, not a routing 404).
 
 {
 	email {$ACME_EMAIL}
@@ -31,12 +38,16 @@ https://{$DOMAIN} {
 		-Server
 	}
 
-	@token path /token /token/*
+	@token path /token /token/* /v2 /v2/*
 	handle @token {
 		# TASK-040: token-svc (KRX-051) listens on loopback :8080 and is NOT a
 		# compose service (no re-architecture of this stack). Caddy is the only
 		# public mint path. Matches TASK-036's client convention:
 		# wss://HOST → POST https://HOST/token (FastAPI route is also POST /token).
+		# /v2/* carries the v2 identity/contacts/presence REST surface plus the
+		# /v2/presence WebSocket upgrade — all of it must stay on this matcher,
+		# not the LiveKit catch-all below, or every v2 client request 404s
+		# against LiveKit instead of reaching token-svc.
 		reverse_proxy {$TOKEN_SVC_UPSTREAM}
 	}
 

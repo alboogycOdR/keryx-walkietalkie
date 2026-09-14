@@ -217,9 +217,13 @@ Nightly backups: `token-svc/scripts/pg_dump_nightly.sh` — `pg_dump` to
 `/var/backups/keryx`, keep 7 copies. Install as a cron job on the VPS
 (`15 3 * * *`). The database is small by design (V2-NFR-007).
 
-Caddy's `/token` matcher does not yet include `/v2/` (Caddyfile is outside
-this task). Until a successor widens the matcher, bind token-svc on
-loopback and front `/v2/` the same way as `/token` (`path /token /token/* /v2 /v2/*`).
+Caddy's `@token` matcher now includes `/v2 /v2/*` alongside `/token /token/*`
+(closed by TASK-110's field-testing follow-up, 2026-09-14 — confirmed live
+against the deployed edge, including a real WebSocket handshake reaching
+token-svc on `/v2/presence`). Before this, anything under `/v2/*` fell
+through to the LiveKit `handle {}` catch-all instead of reaching token-svc
+at all — the actual root cause behind a run of "identity/contacts/presence
+just don't work against the real relay" symptoms that day.
 
 token-svc is **not** a compose service. Run it next to this stack, sharing
 `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` with `.env`:
