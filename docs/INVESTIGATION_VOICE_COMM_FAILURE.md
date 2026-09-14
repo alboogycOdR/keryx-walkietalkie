@@ -2,7 +2,55 @@
 
 **Filed:** 2026-09-14
 **For:** Fable, deep investigation and fix
-**Status:** Root cause identified from live server logs; fix not yet implemented or verified.
+**Status:** ROOT CAUSE CONFIRMED AND FIXED IN CONFIG 2026-09-14 (deployed to
+clawsrv + committed to `relay/livekit.yaml.tmpl`). Awaiting a real two-phone
+call to confirm audio now flows — see "Resolution" at the bottom.
+
+---
+
+## Resolution (2026-09-14)
+
+The root-cause hypothesis below was confirmed exactly. The fix is a LiveKit
+config change in `relay/livekit.yaml.tmpl`, deployed live to clawsrv and
+committed to the repo.
+
+**What was wrong:** LiveKit runs `network_mode: host` on a box with ~45
+interfaces (eth0 public, ~20 Docker bridges/veths from co-tenant projects, and
+Tailscale `100.78.70.2` / `fd7a:115c:a1e0::/48`). It advertised host ICE
+candidates on *all* of them; `use_external_ip: true` made it worse by STUN-mapping
+every interface. The ICE agent renominated the media pair onto a Docker/Tailscale
+address unreachable from a remote phone → DTLS timeout → `CLIENT_REQUEST_LEAVE`
+within ~2s, every time.
+
+**The fix (three levers, applied together in `rtc:`):**
+- `node_ip: ${EXTERNAL_IP}` — pin the single advertised address. This VPS binds
+  the public IP directly to eth0 as `/32` (no NAT), so it is knowable and stable.
+- `use_external_ip: false` — stop the STUN pass that enumerated and mapped every
+  interface. It exists to discover a NAT mapping this host does not have.
+- `ips.includes: [${EXTERNAL_IP}/32]` — hard-restrict candidate gathering to the
+  public /32. Self-maintaining as co-tenant containers add/remove interfaces.
+  (Note: LiveKit requires **CIDR** here — a bare IP fails config load with
+  "invalid CIDR address".)
+
+**Verified so far:** LiveKit 1.9.11 restarts clean, logs `nodeIP: 204.168.249.99`,
+and the interface-enumeration log line (previously listing all the 172.x /
+Tailscale IPs) is gone entirely. By construction the SFU can now only offer the
+public host candidate + the coturn relay.
+
+**Deployment note:** applied to the live rendered config on clawsrv
+(`/home/clawusr/keryx-relay/relay/generated/livekit.yaml`, re-rendered from the
+updated template + restart of only `keryx-relay-livekit-1`). A pre-fix backup is
+at `generated/livekit.yaml.bak-20260914` on the box. No other service on the
+shared host was touched.
+
+**Still to confirm:** a real two-phone call showing (a) the SFU offering only
+`204.168.249.99` local candidates, (b) no pair-switch to a 172.x/Tailscale
+address, (c) the session surviving past the first few seconds, and (d) actual
+audio. Also still open: the client-side `CLIENT_REQUEST_LEAVE` behaviour (item 6
+below) and the presence flicker (bottom) — both may resolve on their own once the
+media path is stable, but should be re-checked.
+
+---
 
 ---
 

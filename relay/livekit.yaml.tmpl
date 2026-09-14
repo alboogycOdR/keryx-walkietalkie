@@ -10,7 +10,31 @@ rtc:
   port_range_start: ${LIVEKIT_RTC_PORT_START}
   port_range_end: ${LIVEKIT_RTC_PORT_END}
   tcp_port: 7881
-  use_external_ip: true
+  # CRITICAL — multi-homed host fix (see docs/INVESTIGATION_VOICE_COMM_FAILURE.md).
+  # LiveKit runs `network_mode: host`, so Pion sees EVERY interface on the box:
+  # eth0 (the public ${EXTERNAL_IP}), ~20 Docker bridges/veths from co-tenant
+  # projects (172.16/12), and a Tailscale mesh iface (100.64/10 + fd7a::/48).
+  # Left unpinned it advertised host ICE candidates on all of them; the ICE
+  # agent then renominated the media pair onto a Docker/Tailscale address a
+  # remote phone can never route to, and every session died within ~2s
+  # (DTLS timeout → CLIENT_REQUEST_LEAVE). Three levers, together, make this
+  # deterministic:
+  #   - node_ip pins the single advertised address (this VPS binds the public
+  #     IP directly to eth0 as /32 — there is NO NAT, so it is knowable);
+  #   - use_external_ip: false stops the STUN pass that otherwise enumerates
+  #     and maps EVERY interface (it exists to discover a NAT mapping we don't
+  #     have — here it only re-introduced the bogus candidates);
+  #   - ips.includes hard-restricts candidate gathering to the public /32,
+  #     self-maintaining as co-tenant containers add/remove interfaces.
+  # Reachability is unchanged: the public host candidate is directly routable,
+  # and the bundled coturn (relay) remains the hostile-NAT path (NFR-05).
+  node_ip: ${EXTERNAL_IP}
+  use_external_ip: false
+  ips:
+    # CIDR is required (parsed as networks, not bare IPs — a bare address fails
+    # config load with "invalid CIDR address"). /32 = exactly the one host IP.
+    includes:
+      - ${EXTERNAL_IP}/32
   allow_tcp_fallback: true
   # Packet buffer sized for audio PTT, not video conferencing.
   packet_buffer_size_audio: 200
