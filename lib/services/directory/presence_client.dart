@@ -202,7 +202,7 @@ class PresenceClient {
         body: '',
       );
       final socket = await _transport.connect(
-        url: _baseUrl.resolve(_presencePath.substring(1)),
+        url: _presenceUri(),
         headers: headers,
       );
       _socket = socket;
@@ -303,6 +303,16 @@ class PresenceClient {
 
   void _emitConnected(bool value) {
     if (!_connectionState.isClosed) _connectionState.add(value);
+  }
+
+  Uri _presenceUri() {
+    final resolved = _baseUrl.resolve(_presencePath.substring(1));
+    final scheme = switch (resolved.scheme) {
+      'https' => 'wss',
+      'http' => 'ws',
+      _ => resolved.scheme,
+    };
+    return resolved.replace(scheme: scheme);
   }
 
   Future<void> _teardownSocket() async {
